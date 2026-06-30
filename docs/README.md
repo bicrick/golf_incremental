@@ -1,0 +1,54 @@
+# Golf Incremental — Documentation
+
+**Design source of truth for this project.** Implementation checklists live in Cursor plans; all game design, economy rules, and agent boundaries live here.
+
+## One-liner
+
+A cozy, Miyazaki-adjacent **parallax 2.5D** pixel art golf incremental on a driving range: one-hand rhythm swings, multiplicative upgrades, calm atmosphere with jackpot spikes — Fortune Mill mechanics, Ghibli soul. Built with **Godot 4 + GDScript**.
+
+## Doc map
+
+| Doc | Read if you are working on… |
+|-----|----------------------------|
+| [design/00-vision.md](design/00-vision.md) | Project pillars, tone, inspiration, north star |
+| [design/01-core-loop.md](design/01-core-loop.md) | Rhythm swing, timing tiers, combo, swing cadence |
+| [design/02-world-and-range.md](design/02-world-and-range.md) | Parallax 2.5D layers, camera, targets, time-of-day |
+| [design/03-economy.md](design/03-economy.md) | Payout formula, cost curves, currency, milestones |
+| [design/04-upgrade-tree.md](design/04-upgrade-tree.md) | All 8 upgrade branches, outfit stat pieces |
+| [design/05-progression.md](design/05-progression.md) | v1 / v1.5 / v2 scope, session arcs |
+| [design/06-characters.md](design/06-characters.md) | Golfer, golf friend (v2), sprite layers |
+| [design/07-art-and-atmosphere.md](design/07-art-and-atmosphere.md) | Palette, parallax art, calm default, jackpot spikes |
+| [technical/00-stack.md](technical/00-stack.md) | Godot 4, GDScript, export, Steam path |
+| [technical/01-architecture.md](technical/01-architecture.md) | Scenes, autoloads, Parallax2D tree |
+| [technical/02-data-model.md](technical/02-data-model.md) | GDScript types, signals, save format |
+| [technical/03-agent-workstreams.md](technical/03-agent-workstreams.md) | Parallel development splits |
+| [specs/v1-acceptance.md](specs/v1-acceptance.md) | Testable v1 done criteria |
+
+## Agent rules (non-negotiable)
+
+1. **Data-driven upgrades** — definitions in `scripts/game/upgrades/`, not hardcoded in scenes.
+2. **Multiplicative economy** — payout stacks across branches; see [03-economy.md](design/03-economy.md).
+3. **One-hand rhythm** — single click per swing; no drag, no multi-bar golf.
+4. **Parallax 2.5D** — depth via layered `Parallax2D`; ball tweens up-screen + scale down.
+5. **Calm default, jackpot spikes** — see [07-art-and-atmosphere.md](design/07-art-and-atmosphere.md).
+6. **Contract-first parallel work** — freeze autoloads + `PlayerStats` + `EventBus` before splitting agents; see [03-agent-workstreams.md](technical/03-agent-workstreams.md).
+7. **Do not edit Cursor plan files** — this `docs/` folder is authoritative for design.
+
+## Reading order for new contributors
+
+1. [00-vision.md](design/00-vision.md)
+2. [02-world-and-range.md](design/02-world-and-range.md) — parallax model
+3. [01-core-loop.md](design/01-core-loop.md)
+4. [03-economy.md](design/03-economy.md)
+5. [technical/02-data-model.md](technical/02-data-model.md)
+6. Your workstream in [technical/03-agent-workstreams.md](technical/03-agent-workstreams.md)
+7. [specs/v1-acceptance.md](specs/v1-acceptance.md) before marking v1 done
+
+## Implementation status
+
+| Phase | Scope | Doc |
+|-------|-------|-----|
+| v1 | Rhythm + 3 upgrade branches + parallax + save | [v1-acceptance.md](specs/v1-acceptance.md) |
+| v1.5 | Bullseyes on range, outfit sprite layers | [05-progression.md](design/05-progression.md) |
+| v2 | Golf friend passive income | [06-characters.md](design/06-characters.md) |
+| Later | GodotSteam, Steam release | [00-stack.md](technical/00-stack.md) |
