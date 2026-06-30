@@ -2,7 +2,7 @@ class_name DayNightPalette
 extends RefCounted
 ## Multi-phase day/night palettes for the driving range — smooth keyframe interpolation.
 
-const CYCLE_SEC := 90.0
+const CYCLE_SEC := 120.0
 
 const SUN_COLOR := Color(1.0, 0.92, 0.55, 1.0)
 const MOON_COLOR := Color(0.85, 0.88, 0.95, 1.0)
@@ -15,6 +15,12 @@ const CANVAS_MODULATE_NIGHT := Color(0.58, 0.62, 0.78, 1.0)
 const MAT_BORDER_DAY := Color(0.08, 0.18, 0.08, 1.0)
 const MAT_FILL_DAY := Color(0.15, 0.38, 0.15, 1.0)
 const MAT_HIGHLIGHT_DAY := Color(0.28, 0.55, 0.28, 1.0)
+
+const DECOR_FADE_SEC := 8.0
+const CLOUD_WINDOW_START := 24.0
+const CLOUD_WINDOW_END := 91.0
+const NIGHT_WINDOW_START := 104.0
+const NIGHT_WINDOW_END := 13.0
 
 
 class AtmosphereSnapshot:
@@ -30,9 +36,9 @@ class AtmosphereSnapshot:
 	var moon_sky_cutout: Color
 
 
-const CELESTIAL_ARC_CENTER := Vector2(240.0, 108.0)
+const CELESTIAL_ARC_CENTER := Vector2(240.0, 98.0)
 const CELESTIAL_ARC_RADIUS_X := 210.0
-const CELESTIAL_ARC_RADIUS_Y := 62.0
+const CELESTIAL_ARC_RADIUS_Y := 74.0
 const CELESTIAL_HORIZON_FADE := 0.08
 const MOON_ORBIT_OFFSET := 0.25
 
@@ -136,11 +142,11 @@ static func _night() -> AtmosphereSnapshot:
 static func _keyframes() -> Array[Dictionary]:
 	return [
 		{"time": 0.0, "snap": _midnight()},
-		{"time": 10.0, "snap": _dawn()},
-		{"time": 18.0, "snap": _day()},
-		{"time": 58.0, "snap": _day()},
-		{"time": 68.0, "snap": _dusk()},
-		{"time": 78.0, "snap": _night()},
+		{"time": 13.0, "snap": _dawn()},
+		{"time": 24.0, "snap": _day()},
+		{"time": 77.0, "snap": _day()},
+		{"time": 91.0, "snap": _dusk()},
+		{"time": 104.0, "snap": _night()},
 		{"time": CYCLE_SEC, "snap": _midnight()},
 	]
 
@@ -210,17 +216,63 @@ static func celestial_alpha(cycle_time: float, is_moon: bool) -> float:
 
 static func phase_name_at(cycle_time: float) -> String:
 	var t := fposmod(cycle_time, CYCLE_SEC)
-	if t < 10.0:
+	if t < 13.0:
 		return "midnight_dawn"
-	if t < 18.0:
+	if t < 24.0:
 		return "dawn"
-	if t < 58.0:
+	if t < 77.0:
 		return "day"
-	if t < 68.0:
+	if t < 91.0:
 		return "dusk"
-	if t < 78.0:
+	if t < 104.0:
 		return "night"
 	return "midnight"
+
+
+static func cloud_visibility(cycle_time: float) -> float:
+	var t := fposmod(cycle_time, CYCLE_SEC)
+	return _window_visibility(
+		t,
+		CLOUD_WINDOW_START - DECOR_FADE_SEC,
+		CLOUD_WINDOW_END + DECOR_FADE_SEC,
+		CLOUD_WINDOW_START,
+		CLOUD_WINDOW_END
+	)
+
+
+static func star_visibility(cycle_time: float) -> float:
+	var t := fposmod(cycle_time, CYCLE_SEC)
+	var evening := _window_visibility(
+		t,
+		NIGHT_WINDOW_START - DECOR_FADE_SEC,
+		CYCLE_SEC,
+		NIGHT_WINDOW_START,
+		CYCLE_SEC
+	)
+	var morning := _window_visibility(
+		t,
+		0.0,
+		NIGHT_WINDOW_END + DECOR_FADE_SEC,
+		0.0,
+		NIGHT_WINDOW_END
+	)
+	return maxf(evening, morning)
+
+
+static func _window_visibility(
+	time: float,
+	fade_in_start: float,
+	fade_out_end: float,
+	full_start: float,
+	full_end: float
+) -> float:
+	if time < fade_in_start or time > fade_out_end:
+		return 0.0
+	if time >= full_start and time <= full_end:
+		return 1.0
+	if time < full_start:
+		return _smoothstep((time - fade_in_start) / maxf(full_start - fade_in_start, 0.001))
+	return 1.0 - _smoothstep((time - full_end) / maxf(fade_out_end - full_end, 0.001))
 
 
 static func _smoothstep(t: float) -> float:

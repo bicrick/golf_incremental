@@ -35,14 +35,14 @@ const MAT_Y_BACK := 195.0
 const MAT_X_LEFT := 158.0
 const MAT_X_RIGHT := 292.0
 const MAT_BORDER_OUTSET := 3.0
-# Absolute canvas z_index (z_as_relative = false) — background < fairway < mat < litter < golfer < ball < float text
+# Absolute canvas z_index (z_as_relative = false) — background < fairway < mat < litter < ball < golfer < float text
 const Z_PARALLAX_SKY := -30
 const Z_PARALLAX_HILLS := -20
 const Z_PARALLAX_FAIRWAY := -10
 const Z_MAT := 0
 const Z_LITTER := 1
-const Z_GOLFER := 2
 const Z_BALL := 3
+const Z_GOLFER := 4
 const Z_FLOAT_TEXT := 4
 const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles/TEXT"
 
@@ -56,6 +56,8 @@ const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/S
 @onready var range_mat: Node2D = $RangeMat
 @onready var parallax_sky: Parallax2D = $ParallaxSky
 @onready var sky_polygon: Polygon2D = $ParallaxSky/Sky
+@onready var sky_stars: Node2D = $ParallaxSky/Stars
+@onready var sky_clouds: Node2D = $ParallaxSky/Clouds
 @onready var sun: Node2D = $ParallaxSky/Sun
 @onready var moon: Node2D = $ParallaxSky/Moon
 @onready var parallax_hills: Parallax2D = $ParallaxHills
@@ -81,6 +83,7 @@ var _ring_base_scale: float = 1.0
 var _flash_tween: Tween
 var _result_flash_active: bool = false
 var _golfer_joy_active: bool = false
+var _golfer_holding_finish: bool = false
 var _ball_in_flight: bool = false
 var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
@@ -108,7 +111,7 @@ func _ready() -> void:
 	if camera:
 		camera.make_current()
 	_set_idle_ring()
-	apply_atmosphere(18.0)
+	apply_atmosphere(24.0)
 
 
 func _setup_dinky_sprites() -> void:
@@ -197,6 +200,10 @@ func apply_atmosphere(cycle_time: float) -> void:
 			DayNightPalette.celestial_alpha(cycle_time, true),
 			snap.moon_sky_cutout
 		)
+	if sky_stars and sky_stars.has_method(&"apply_visibility"):
+		sky_stars.apply_visibility(DayNightPalette.star_visibility(cycle_time))
+	if sky_clouds and sky_clouds.has_method(&"apply_visibility"):
+		sky_clouds.apply_visibility(DayNightPalette.cloud_visibility(cycle_time))
 
 
 func _configure_draw_layers() -> void:
@@ -263,6 +270,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_swing_charging_changed(charging: bool) -> void:
 	if charging:
 		_golfer_joy_active = false
+		_golfer_holding_finish = false
 		golfer.stop()
 		golfer.animation = &"swing"
 		golfer.frame = 0
@@ -295,8 +303,7 @@ func _on_golfer_animation_finished() -> void:
 		if not _swing.is_charging():
 			golfer.play(&"idle")
 	elif golfer.animation == &"follow":
-		if not _swing.is_charging() and not _golfer_joy_active:
-			golfer.play(&"idle")
+		_hold_swing_finish()
 
 
 func _set_idle_ring() -> void:
@@ -366,6 +373,7 @@ func _update_charge_visuals() -> void:
 			golfer.position = _golfer_home
 			if (
 				not _golfer_joy_active
+				and not _golfer_holding_finish
 				and golfer.animation != &"joy"
 				and golfer.animation != &"follow"
 				and golfer.animation != &"swing"
@@ -482,8 +490,24 @@ func _on_swing_resolved(
 
 
 func _play_golfer_joy() -> void:
+	_golfer_holding_finish = false
 	_golfer_joy_active = true
 	golfer.play(&"joy")
+
+
+func _hold_swing_finish() -> void:
+	_golfer_holding_finish = true
+	golfer.stop()
+	golfer.animation = &"follow"
+	golfer.frame = golfer.sprite_frames.get_frame_count(&"follow") - 1
+
+
+func _release_swing_finish() -> void:
+	if not _golfer_holding_finish:
+		return
+	_golfer_holding_finish = false
+	if not _swing.is_charging() and not _golfer_joy_active:
+		golfer.play(&"idle")
 
 
 func _play_swing_followthrough() -> void:
@@ -542,6 +566,7 @@ func _respawn_ball_at_tee() -> void:
 	ball.scale = _base_ball_scale
 	ball.play(&"idle")
 	_ball_at_tee = true
+	_release_swing_finish()
 
 
 func _build_flight_config() -> BallFlightRenderer.FlightConfig:
