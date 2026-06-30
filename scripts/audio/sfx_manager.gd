@@ -6,7 +6,6 @@ const MIX_RATE := 22050
 const MUSIC_DIR := "res://assets/audio/music/"
 const BGM_VOLUME_DB := -9.0
 const MUSIC_EXTENSIONS := ["mp3", "ogg", "wav", "flac"]
-const TITLE_TRACK_QUERY := "8 bit memory"
 
 var _pool: Array[AudioStreamPlayer] = []
 var _pool_index := 0
@@ -37,11 +36,11 @@ func play_title_bgm() -> void:
 	if _music_player != null or _ambient_player != null:
 		return
 	_refresh_music_tracks()
-	var track_path := _find_track_by_name(TITLE_TRACK_QUERY)
-	if track_path.is_empty():
+	if _music_tracks.is_empty():
 		return
 	_is_title_mode = true
-	_play_track_at_path(track_path, true)
+	_rotation_index = _random_track_index()
+	_play_track_at_path(_music_tracks[_rotation_index], true)
 
 
 func start_bgm() -> void:
@@ -60,8 +59,8 @@ func start_bgm() -> void:
 	_is_title_mode = false
 	if _music_player != null and _music_player.finished.is_connected(_on_music_finished):
 		_music_player.finished.disconnect(_on_music_finished)
-	var start_index := _rotation_start_index()
-	_start_rotation_at(start_index)
+	_rotation_index = _random_track_index()
+	_start_rotation_at(_rotation_index)
 
 
 func play_start() -> void:
@@ -85,42 +84,8 @@ func _discover_music_tracks() -> Array[String]:
 	return candidates
 
 
-func _find_track_by_name(query: String) -> String:
-	for path in _music_tracks:
-		if _track_names_match(query, path.get_file().get_basename()):
-			return path
-	return ""
-
-
-func _track_names_match(query: String, candidate: String) -> bool:
-	var normalized_query := _normalize_track_name(query)
-	var normalized_candidate := _normalize_track_name(candidate)
-	if normalized_candidate.contains(normalized_query) or normalized_query.contains(normalized_candidate):
-		return true
-	var min_len := mini(normalized_query.length(), normalized_candidate.length())
-	for prefix_len in range(min_len, 2, -1):
-		var prefix := normalized_query.substr(0, prefix_len)
-		if normalized_candidate.contains(prefix):
-			return true
-	return false
-
-
-func _normalize_track_name(name: String) -> String:
-	var normalized := name.to_lower()
-	normalized = normalized.replace(" ", "")
-	normalized = normalized.replace("-", "")
-	normalized = normalized.replace("_", "")
-	return normalized
-
-
-func _rotation_start_index() -> int:
-	var title_path := _find_track_by_name(TITLE_TRACK_QUERY)
-	if title_path.is_empty():
-		return 0
-	var title_index := _music_tracks.find(title_path)
-	if title_index < 0:
-		return 0
-	return (title_index + 1) % _music_tracks.size()
+func _random_track_index() -> int:
+	return randi() % _music_tracks.size()
 
 
 func _start_rotation_at(index: int) -> void:

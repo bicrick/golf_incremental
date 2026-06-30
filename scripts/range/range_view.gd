@@ -10,10 +10,11 @@ const FLIGHT_ARC_MIN_PX := 12.0
 const FLIGHT_ARC_MAX_PX := 40.0
 const FLIGHT_TIME_MIN_SEC := 0.65
 const FLIGHT_TIME_RANGE_SEC := 0.95
-const FLIGHT_FAR_SCALE := 0.30
 const FLIGHT_DEPTH_EXPONENT := 0.34
-const FLIGHT_DEPTH_STRETCH := 1.20
+const FLIGHT_DEPTH_STRETCH := 1.02
+const FLIGHT_YARD_DEPTH_SCALE := 180.0
 const FLIGHT_MIN_LANDING_Y := 176.0
+const FLIGHT_BALL_TEXTURE_PX := 8.0
 const LANDING_SCATTER_X := 28.0
 const LANDING_Y_MARGIN := 8.0
 const RANGE_X_MIN := 24.0
@@ -34,7 +35,7 @@ const MAT_Y_BACK := 195.0
 const MAT_X_LEFT := 158.0
 const MAT_X_RIGHT := 292.0
 const MAT_BORDER_OUTSET := 3.0
-# Absolute canvas z_index (z_as_relative = false) — background < fairway < mat < litter < golfer < ball
+# Absolute canvas z_index (z_as_relative = false) — background < fairway < mat < litter < golfer < ball < float text
 const Z_PARALLAX_SKY := -30
 const Z_PARALLAX_HILLS := -20
 const Z_PARALLAX_FAIRWAY := -10
@@ -42,12 +43,13 @@ const Z_MAT := 0
 const Z_LITTER := 1
 const Z_GOLFER := 2
 const Z_BALL := 3
+const Z_FLOAT_TEXT := 4
 const SWING_FRAME_COUNT := 5
 const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles/TEXT"
 
 # Swing wind-up maps charge_progress (0→1) to Swing01–05 frames over charge_duration_sec().
 # Normal charge: Balance.CHARGE_DURATION_SEC (0.5s).
-# Release holds Swing05 (frame 4) at impact; ball uses idle sprite while airborne.
+# Release holds Swing05 (frame 4) at impact; ball roll uses 11 frames at speed 11 / flight_time.
 
 @onready var ball: AnimatedSprite2D = $Foreground/Ball
 @onready var golfer: AnimatedSprite2D = $Foreground/Golfer
@@ -458,6 +460,8 @@ func _spawn_float_text(tier: int, yards: float, payout: float) -> void:
 	PixelFont.apply_label(label, 8)
 	label.modulate = Balance.TIER_COLORS[tier]
 	label.position = ball.global_position + Vector2(-36, -52)
+	label.z_as_relative = false
+	label.z_index = Z_FLOAT_TEXT
 	add_child(label)
 
 	var tween := create_tween().set_parallel(true)
@@ -486,13 +490,15 @@ func _build_flight_config() -> BallFlightRenderer.FlightConfig:
 	var config := BallFlightRenderer.FlightConfig.new()
 	config.tee_x = _ball_home.x
 	config.tee_y = _ball_home.y
-	config.horizon_ground_y = FAIRWAY_TOP_Y + LANDING_Y_MARGIN
+	config.far_ground_y = FAIRWAY_TOP_Y
+	config.ground_bottom_y = FAIRWAY_BOTTOM_Y
 	config.mat_back_y = MAT_Y_BACK
 	config.vanishing_point = FAIRWAY_VANISHING_POINT
-	config.far_scale = FLIGHT_FAR_SCALE
 	config.flight_depth_exponent = FLIGHT_DEPTH_EXPONENT
 	config.flight_depth_stretch = FLIGHT_DEPTH_STRETCH
+	config.yard_depth_scale = FLIGHT_YARD_DEPTH_SCALE
 	config.min_landing_y = FLIGHT_MIN_LANDING_Y
+	config.ball_texture_px = FLIGHT_BALL_TEXTURE_PX
 	config.arc_min_px = FLIGHT_ARC_MIN_PX
 	config.arc_max_px = FLIGHT_ARC_MAX_PX
 	config.landing_scatter_x = LANDING_SCATTER_X
@@ -517,6 +523,7 @@ func _apply_flight_sample(progress: float, path: BallFlightRenderer.FlightPath) 
 	ball.position = sample["visual_pos"]
 	ball.scale = sample["scale"]
 	ball.modulate.a = sample["ball_alpha"]
+	ball.visible = sample["visible"]
 
 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
@@ -531,7 +538,11 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 	ball.position = _ball_home
 	ball.scale = _base_ball_scale
 	ball.modulate = Color.WHITE
-	ball.play(&"idle")
+	ball.play(&"roll")
+	ball.sprite_frames.set_animation_speed(
+		&"roll",
+		float(DinkySpriteFrames.BALL_ROLL_FRAME_COUNT) / path.flight_time
+	)
 
 	var tween := create_tween()
 	tween.tween_method(_apply_flight_sample.bind(path), 0.0, 1.0, path.flight_time)\
@@ -539,10 +550,10 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 	tween.chain().tween_callback(func():
 		var landing := BallFlightRenderer.sample(1.0, path, _flight_config)
 		_ball_in_flight = false
-		if path.vanishes_into_distance:
-			DistanceTwinkle.spawn(self, landing["visual_pos"])
-		else:
+		if landing["visible"]:
 			_leave_litter_ball(landing["visual_pos"], landing["scale"])
+		else:
+			DistanceTwinkle.spawn(self, landing["visual_pos"])
 		ball.visible = false
 		ball.modulate = Color.WHITE
 		_ball_at_tee = false

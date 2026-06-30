@@ -49,13 +49,14 @@ func _run() -> void:
 		print("FAIL: front cloud layer missing texture")
 		ok = false
 
+	var music_tracks: Array = _sfx().get_music_tracks()
 	var music := _sfx().get_node_or_null("BackgroundMusic") as AudioStreamPlayer
 	var ambient := _sfx().get_node_or_null("AmbientWind") as AudioStreamPlayer
 	if music == null or not music.playing:
 		print("FAIL: title BGM should play on title screen")
 		ok = false
-	elif music.stream != null and not _is_title_track(music.stream.resource_path):
-		print("FAIL: title screen should play 8 bit memory track, got ", music.stream.resource_path)
+	elif music.stream != null and not music.stream.resource_path in music_tracks:
+		print("FAIL: title screen should play a discovered music track, got ", music.stream.resource_path)
 		ok = false
 	if ambient != null and ambient.playing:
 		print("FAIL: ambient should not play on title screen")
@@ -108,7 +109,7 @@ func _run() -> void:
 	if music == null or not music.playing:
 		print("FAIL: title BGM should keep playing after Play")
 		ok = false
-	elif music.stream != null and not _is_title_track(music.stream.resource_path):
+	elif music.stream != null and not music.stream.resource_path in music_tracks:
 		print("FAIL: gameplay should keep title track, got ", music.stream.resource_path)
 		ok = false
 	if ambient != null and ambient.playing:
@@ -141,9 +142,3 @@ func _parse_mouse_button(position: Vector2, pressed: bool) -> void:
 
 func _sfx() -> Node:
 	return get_root().get_node("SfxManager")
-
-
-func _is_title_track(path: String) -> bool:
-	var base := path.get_file().get_basename().to_lower()
-	base = base.replace(" ", "").replace("-", "").replace("_", "")
-	return base.contains("8bitmemor")

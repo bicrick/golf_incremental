@@ -39,8 +39,8 @@ func _run() -> void:
 		return
 
 	var title_path := music.stream.resource_path
-	if not _is_title_track(title_path):
-		print("FAIL: expected title track matching '8 bit memory', got ", title_path)
+	if not title_path in tracks:
+		print("FAIL: title BGM should be one of discovered tracks, got ", title_path)
 		quit(1)
 		return
 
@@ -83,9 +83,3 @@ func _run() -> void:
 	print("OK: volume_db=", music.volume_db)
 	print("OK: gameplay_mode=title_track_loop")
 	quit(0)
-
-
-func _is_title_track(path: String) -> bool:
-	var base := path.get_file().get_basename().to_lower()
-	base = base.replace(" ", "").replace("-", "").replace("_", "")
-	return base.contains("8bitmemor")

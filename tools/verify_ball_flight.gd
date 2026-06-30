@@ -4,10 +4,10 @@ extends SceneTree
 
 const TEE_X := 248.0
 const TEE_Y := 206.0
-const HORIZON_GROUND_Y := 113.0
+const FAR_GROUND_Y := 105.0
+const GROUND_BOTTOM_Y := 270.0
 const MAT_BACK_Y := 195.0
 const VANISHING_POINT := Vector2(240.0, 100.0)
-const FAR_SCALE := 0.30
 
 
 func _initialize() -> void:
@@ -21,7 +21,7 @@ func _run() -> void:
 	ok = _check_arc_from_hit() and ok
 	ok = _check_scale_bounds() and ok
 	ok = _check_fairway_travel() and ok
-	ok = _check_vanish_into_distance() and ok
+	ok = _check_subpixel_vanish() and ok
 	print("ball_flight_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -30,13 +30,15 @@ func _make_config() -> BallFlightRenderer.FlightConfig:
 	var config := BallFlightRenderer.FlightConfig.new()
 	config.tee_x = TEE_X
 	config.tee_y = TEE_Y
-	config.horizon_ground_y = HORIZON_GROUND_Y
+	config.far_ground_y = FAR_GROUND_Y
+	config.ground_bottom_y = GROUND_BOTTOM_Y
 	config.mat_back_y = MAT_BACK_Y
 	config.vanishing_point = VANISHING_POINT
-	config.far_scale = FAR_SCALE
 	config.flight_depth_exponent = 0.34
-	config.flight_depth_stretch = 1.20
+	config.flight_depth_stretch = 1.02
+	config.yard_depth_scale = 180.0
 	config.min_landing_y = 176.0
+	config.ball_texture_px = 8.0
 	config.arc_min_px = 12.0
 	config.arc_max_px = 40.0
 	config.landing_scatter_x = 28.0
@@ -61,7 +63,7 @@ func _check_scale_monotonic() -> bool:
 	var ok := true
 	var config := _make_config()
 	var stats := _maxed_stats()
-	for yards in [30.0, 100.0, 150.0, 300.0]:
+	for yards in [30.0, 100.0, 150.0, 300.0, 500.0]:
 		var path := BallFlightRenderer.build_path(
 			yards, Balance.TimingTier.PERFECT, stats, config
 		)
@@ -92,16 +94,18 @@ func _check_landing_scale_alignment() -> bool:
 			yards, Balance.TimingTier.GOOD, stats, config
 		)
 		var landing := BallFlightRenderer.sample(1.0, path, config)
-		var expected := PerspectiveGround.scale_at_depth(path.depth_t, 1.0, FAR_SCALE)
+		var expected := PerspectiveGround.scale_at_y(
+			path.landing_ground.y, VANISHING_POINT, TEE_Y
+		)
 		var actual: float = landing["scale_factor"]
 		if absf(actual - expected) > 0.001:
 			print(
-				"FAIL: landing scale %.4f != depth scale %.4f at %.0fyd (depth_t=%.3f)"
-				% [actual, expected, yards, path.depth_t]
+				"FAIL: landing scale %.4f != VP scale %.4f at %.0fyd (p=%.3f)"
+				% [actual, expected, yards, path.persp_p]
 			)
 			ok = false
 	if ok:
-		print("OK: landing scale matches perspective depth")
+		print("OK: landing scale matches VP perspective")
 	return ok
 
 
@@ -152,8 +156,8 @@ func _check_scale_bounds() -> bool:
 	)
 	var short_landing := BallFlightRenderer.sample(1.0, short_path, config)
 	var short_scale: float = short_landing["scale_factor"]
-	if short_scale <= 0.58:
-		print("FAIL: 30yd landing scale %.3f expected > 0.58" % short_scale)
+	if short_scale <= 0.35:
+		print("FAIL: 30yd landing scale %.3f expected > 0.35" % short_scale)
 		ok = false
 	else:
 		print("OK: short shot landing scale=%.3f" % short_scale)
@@ -163,13 +167,13 @@ func _check_scale_bounds() -> bool:
 	)
 	var long_landing := BallFlightRenderer.sample(1.0, long_path, config)
 	var long_scale: float = long_landing["scale_factor"]
-	if absf(long_scale - FAR_SCALE) > 0.05:
-		print("FAIL: max shot landing scale %.3f expected ~%.2f" % [long_scale, FAR_SCALE])
+	if long_scale >= 0.12 or long_scale <= 0.02:
+		print("FAIL: 300yd landing scale %.3f expected ~0.03-0.10" % long_scale)
 		ok = false
 	else:
-		print("OK: max shot landing scale=%.3f" % long_scale)
+		print("OK: 300yd landing scale=%.3f (VP-native, not floored)" % long_scale)
 
-	for yards in [30.0, 80.0, 150.0, 220.0, 300.0]:
+	for yards in [30.0, 80.0, 150.0]:
 		var path := BallFlightRenderer.build_path(
 			yards, Balance.TimingTier.OK, stats, config
 		)
@@ -177,14 +181,14 @@ func _check_scale_bounds() -> bool:
 			var progress := float(step) / 10.0
 			var sample := BallFlightRenderer.sample(progress, path, config)
 			var scale_factor: float = sample["scale_factor"]
-			if scale_factor < 0.25 or scale_factor > 1.0:
+			if scale_factor < 0.0 or scale_factor > 1.0:
 				print(
-					"FAIL: scale %.3f out of bounds [0.25, 1.0] at %.0fyd progress %.1f"
+					"FAIL: scale %.3f out of bounds [0, 1] at %.0fyd progress %.1f"
 					% [scale_factor, yards, progress]
 				)
 				ok = false
 	if ok:
-		print("OK: scale stays within [0.25, 1.0] across sampled flights")
+		print("OK: near/mid scale stays within [0, 1]")
 	return ok
 
 
@@ -212,15 +216,31 @@ func _check_fairway_travel() -> bool:
 	else:
 		print("OK: 30yd clears mat and lands on fairway (y=%.1f)" % short_y)
 
+	var mid_path := BallFlightRenderer.build_path(
+		150.0, Balance.TimingTier.PERFECT, stats, config
+	)
+	var mid_y := mid_path.landing_ground.y
+	if mid_y >= short_y or mid_y <= FAR_GROUND_Y + 5.0:
+		print(
+			"FAIL: 150yd landing_y=%.1f expected between 30yd (%.1f) and far edge"
+			% [mid_y, short_y]
+		)
+		ok = false
+	else:
+		print("OK: 150yd lands mid-fairway (y=%.1f)" % mid_y)
+
 	var long_path := BallFlightRenderer.build_path(
 		300.0, Balance.TimingTier.PERFECT, stats, config
 	)
 	var long_y := long_path.landing_ground.y
-	if absf(long_y - HORIZON_GROUND_Y) > 2.0:
-		print("FAIL: 300yd landing_y=%.1f expected horizon (%.0f)" % [long_y, HORIZON_GROUND_Y])
+	if long_y >= mid_y or long_y <= FAR_GROUND_Y:
+		print(
+			"FAIL: 300yd landing_y=%.1f expected past 150yd (%.1f) toward far edge (%.0f)"
+			% [long_y, mid_y, FAR_GROUND_Y]
+		)
 		ok = false
 	else:
-		print("OK: 300yd reaches horizon (y=%.1f)" % long_y)
+		print("OK: 300yd reaches near far edge (y=%.1f)" % long_y)
 
 	var travel := TEE_Y - short_y
 	if travel < 34.0:
@@ -231,7 +251,7 @@ func _check_fairway_travel() -> bool:
 	return ok
 
 
-func _check_vanish_into_distance() -> bool:
+func _check_subpixel_vanish() -> bool:
 	var ok := true
 	var config := _make_config()
 	var stats := _maxed_stats()
@@ -239,32 +259,32 @@ func _check_vanish_into_distance() -> bool:
 	var path := BallFlightRenderer.build_path(
 		520.0, Balance.TimingTier.PERFECT, stats, config
 	)
-	if not path.vanishes_into_distance:
-		print("FAIL: 520yd shot should vanish into distance")
-		ok = false
-
-	var mid := BallFlightRenderer.sample(0.7, path, config)
 	var end := BallFlightRenderer.sample(1.0, path, config)
-	if mid["ball_alpha"] <= 0.99:
-		print("FAIL: ball should stay visible until late flight (alpha=%.2f at 70%%)" % mid["ball_alpha"])
+	if end["visible"]:
+		print("FAIL: 520yd landing should be sub-pixel invisible")
 		ok = false
-	if end["ball_alpha"] > 0.05:
-		print("FAIL: ball should fade out at horizon (alpha=%.2f)" % end["ball_alpha"])
+	if end["scale_factor"] >= 0.05:
+		print("FAIL: 520yd scale %.4f expected < 0.05" % end["scale_factor"])
 		ok = false
-	if absf(end["visual_pos"].y - HORIZON_GROUND_Y) > 4.0:
+	if end["visual_pos"].y >= FAR_GROUND_Y:
 		print(
-			"FAIL: vanishing shot should finish at horizon y=%.1f got %.1f"
-			% [HORIZON_GROUND_Y, end["visual_pos"].y]
+			"FAIL: 520yd should land past far edge y=%.1f (far=%.0f)"
+			% [end["visual_pos"].y, FAR_GROUND_Y]
 		)
 		ok = false
 
 	var normal := BallFlightRenderer.build_path(
-		250.0, Balance.TimingTier.PERFECT, stats, config
+		150.0, Balance.TimingTier.PERFECT, stats, config
 	)
-	if normal.vanishes_into_distance:
-		print("FAIL: 250yd shot should leave litter, not vanish")
+	var normal_end := BallFlightRenderer.sample(1.0, normal, config)
+	if not normal_end["visible"]:
+		print("FAIL: 150yd shot should remain visible and leave litter")
+		ok = false
+
+	if path.persp_p <= 1.0:
+		print("FAIL: 520yd persp_p=%.3f should exceed 1.0 (uncapped)" % path.persp_p)
 		ok = false
 
 	if ok:
-		print("OK: shots beyond 300yd vanish at horizon with fade")
+		print("OK: long shots extrapolate past far edge and cull sub-pixel")
 	return ok
