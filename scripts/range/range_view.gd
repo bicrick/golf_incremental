@@ -6,11 +6,14 @@ const POWER_BAR_HEIGHT := 56.0
 const POWER_BAR_HALF_WIDTH := 3.0
 const BALL_PIXEL_SCALE := Vector2(1, 1)
 const GOLFER_PIXEL_SCALE := Vector2(3, 3)
-const FLIGHT_ARC_MIN_PX := 24.0
-const FLIGHT_ARC_MAX_PX := 72.0
-const FLIGHT_APEX_SCALE_BOOST := 0.08
+const FLIGHT_ARC_MIN_PX := 12.0
+const FLIGHT_ARC_MAX_PX := 40.0
 const FLIGHT_TIME_MIN_SEC := 0.65
 const FLIGHT_TIME_RANGE_SEC := 0.95
+const FLIGHT_FAR_SCALE := 0.30
+const FLIGHT_DEPTH_EXPONENT := 0.34
+const FLIGHT_DEPTH_STRETCH := 1.20
+const FLIGHT_MIN_LANDING_Y := 176.0
 const LANDING_SCATTER_X := 28.0
 const LANDING_Y_MARGIN := 8.0
 const RANGE_X_MIN := 24.0
@@ -44,7 +47,7 @@ const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/S
 
 # Swing wind-up maps charge_progress (0→1) to Swing01–05 frames over charge_duration_sec().
 # Normal charge: Balance.CHARGE_DURATION_SEC (0.5s).
-# Release holds Swing05 (frame 4) at impact; ball roll uses 11 frames at speed 11 / flight_time.
+# Release holds Swing05 (frame 4) at impact; ball uses idle sprite while airborne.
 
 @onready var ball: AnimatedSprite2D = $Foreground/Ball
 @onready var golfer: AnimatedSprite2D = $Foreground/Golfer
@@ -64,9 +67,6 @@ const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/S
 @onready var camera: Camera2D = $Camera2D
 var power_bar_fill: Polygon2D = null
 
-@export var horizon_position: Vector2 = Vector2(240, 40)
-@export var tee_position: Vector2 = Vector2(240, 200)
-
 var _swing := Swing.new()
 var _ball_home: Vector2
 var _golfer_home: Vector2
@@ -79,7 +79,7 @@ var _golfer_joy_active: bool = false
 var _ball_in_flight: bool = false
 var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
-var _flight_end_scale_factor: float = 1.0
+var _flight_config: BallFlightRenderer.FlightConfig
 
 
 func _ready() -> void:
@@ -89,6 +89,7 @@ func _ready() -> void:
 	_setup_dinky_sprites()
 	_ball_home = ball.position
 	_golfer_home = golfer.position
+	_flight_config = _build_flight_config()
 	PixelFont.apply_label(sweet_spot_label, 8)
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
@@ -181,11 +182,11 @@ func _mat_trapezoid(
 	y_bottom: float,
 	y_top: float
 ) -> PackedVector2Array:
-	var x_left_top := _perspective_x_at_y(
-		FAIRWAY_VANISHING_POINT, x_left_bottom, y_bottom, y_top
+	var x_left_top := PerspectiveGround.centerline_x_at_y(
+		y_top, FAIRWAY_VANISHING_POINT, x_left_bottom, y_bottom
 	)
-	var x_right_top := _perspective_x_at_y(
-		FAIRWAY_VANISHING_POINT, x_right_bottom, y_bottom, y_top
+	var x_right_top := PerspectiveGround.centerline_x_at_y(
+		y_top, FAIRWAY_VANISHING_POINT, x_right_bottom, y_bottom
 	)
 	return PackedVector2Array([
 		Vector2(x_left_bottom, y_bottom),
@@ -195,47 +196,24 @@ func _mat_trapezoid(
 	])
 
 
-static func _perspective_x_at_y(
-	vanishing_point: Vector2,
-	x_at_far_y: float,
-	y_far: float,
-	y_near: float
-) -> float:
-	return FairwayStripes.perspective_x_at_y(vanishing_point, x_at_far_y, y_far, y_near)
-
-
-static func _rect_polygon(x0: float, y0: float, x1: float, y1: float) -> PackedVector2Array:
-	return PackedVector2Array([
-		Vector2(x0, y0),
-		Vector2(x1, y0),
-		Vector2(x1, y1),
-		Vector2(x0, y1),
-	])
-
-
 func _process(delta: float) -> void:
 	_swing.update(delta)
 	_update_ball_reload()
 	_update_charge_visuals()
 
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index != MOUSE_BUTTON_LEFT:
-			return
-		if mb.pressed:
-			_swing.start_charge()
-		else:
-			_swing.release_strike()
-	elif event is InputEventKey:
-		var key := event as InputEventKey
-		if key.echo or key.keycode != KEY_SPACE:
-			return
-		if key.pressed:
-			_swing.start_charge()
-		else:
-			_swing.release_strike()
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if not event is InputEventKey:
+		return
+	var key := event as InputEventKey
+	if key.echo or key.keycode != KEY_SPACE:
+		return
+	if key.pressed:
+		_swing.start_charge()
+	else:
+		_swing.release_strike()
 
 
 func _on_swing_charging_changed(charging: bool) -> void:
@@ -504,6 +482,28 @@ func _respawn_ball_at_tee() -> void:
 	_ball_at_tee = true
 
 
+func _build_flight_config() -> BallFlightRenderer.FlightConfig:
+	var config := BallFlightRenderer.FlightConfig.new()
+	config.tee_x = _ball_home.x
+	config.tee_y = _ball_home.y
+	config.horizon_ground_y = FAIRWAY_TOP_Y + LANDING_Y_MARGIN
+	config.mat_back_y = MAT_Y_BACK
+	config.vanishing_point = FAIRWAY_VANISHING_POINT
+	config.far_scale = FLIGHT_FAR_SCALE
+	config.flight_depth_exponent = FLIGHT_DEPTH_EXPONENT
+	config.flight_depth_stretch = FLIGHT_DEPTH_STRETCH
+	config.min_landing_y = FLIGHT_MIN_LANDING_Y
+	config.arc_min_px = FLIGHT_ARC_MIN_PX
+	config.arc_max_px = FLIGHT_ARC_MAX_PX
+	config.landing_scatter_x = LANDING_SCATTER_X
+	config.range_x_min = RANGE_X_MIN
+	config.range_x_max = RANGE_X_MAX
+	config.flight_time_min_sec = FLIGHT_TIME_MIN_SEC
+	config.flight_time_range_sec = FLIGHT_TIME_RANGE_SEC
+	config.base_ball_scale = _base_ball_scale
+	return config
+
+
 func _leave_litter_ball(land_position: Vector2, land_scale: Vector2) -> void:
 	var litter := Sprite2D.new()
 	litter.texture = _ball_lay_texture
@@ -512,83 +512,39 @@ func _leave_litter_ball(land_position: Vector2, land_scale: Vector2) -> void:
 	littered_balls.add_child(litter)
 
 
-func _ground_y_for_depth(t: float) -> float:
-	# Map shot depth to fairway ground plane: near tee y → far horizon line (never above VP).
-	return lerpf(_ball_home.y, FAIRWAY_TOP_Y + LANDING_Y_MARGIN, t)
+func _apply_flight_sample(progress: float, path: BallFlightRenderer.FlightPath) -> void:
+	var sample := BallFlightRenderer.sample(progress, path, _flight_config)
+	ball.position = sample["visual_pos"]
+	ball.scale = sample["scale"]
+	ball.modulate.a = sample["ball_alpha"]
 
 
-func _ground_centerline_x_at_y(y: float) -> float:
-	return _perspective_x_at_y(
-		FAIRWAY_VANISHING_POINT,
-		_ball_home.x,
-		_ball_home.y,
-		y
+func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
+	_flight_config.base_ball_scale = _base_ball_scale
+	var path := BallFlightRenderer.build_path(
+		yards, timing_tier, GameState.stats, _flight_config
 	)
-
-
-func _landing_target_for_depth(t: float) -> Vector2:
-	var y := _ground_y_for_depth(t)
-	return Vector2(_ground_centerline_x_at_y(y), y)
-
-
-func _scatter_landing_target(base_target: Vector2, depth_t: float) -> Vector2:
-	var scatter_x := randf_range(-LANDING_SCATTER_X, LANDING_SCATTER_X) * lerpf(0.65, 1.0, depth_t)
-	var landed := base_target + Vector2(scatter_x, 0.0)
-	landed.x = clampf(landed.x, RANGE_X_MIN, RANGE_X_MAX)
-	landed.y = clampf(
-		landed.y,
-		FAIRWAY_TOP_Y + LANDING_Y_MARGIN,
-		_ball_home.y + 4.0
-	)
-	return landed
-
-
-func _flight_arc_height(depth_t: float) -> float:
-	return lerpf(FLIGHT_ARC_MIN_PX, FLIGHT_ARC_MAX_PX, depth_t)
-
-
-func _flight_position_at(progress: float, start: Vector2, end: Vector2, depth_t: float) -> void:
-	var ground := start.lerp(end, progress)
-	var arc_h := _flight_arc_height(depth_t)
-	# Parabola: 0 at takeoff/landing, peak = arc_h at progress 0.5
-	var lift := 4.0 * arc_h * progress * (1.0 - progress)
-	ball.position = Vector2(ground.x, ground.y - lift)
-
-	var depth_scale := lerpf(1.0, _flight_end_scale_factor, progress)
-	var apex_weight := 4.0 * progress * (1.0 - progress)
-	ball.scale = _base_ball_scale * depth_scale * (1.0 + FLIGHT_APEX_SCALE_BOOST * apex_weight)
-
-
-func _fly_ball(yards: float, feedback_tier: int, _timing_tier: int) -> void:
-	var t := Economy.visual_depth_t(yards, GameState.stats)
-	var target := _scatter_landing_target(_landing_target_for_depth(t), t)
-	var flight_time := FLIGHT_TIME_MIN_SEC + t * FLIGHT_TIME_RANGE_SEC
-	var end_scale_factor := lerpf(0.55, 0.05, t)
-	var start_pos := _ball_home
-	_flight_end_scale_factor = end_scale_factor
 
 	_ball_in_flight = true
 	_ball_at_tee = false
 	ball.visible = true
-	ball.position = start_pos
+	ball.position = _ball_home
 	ball.scale = _base_ball_scale
-	ball.play(&"roll")
-	ball.sprite_frames.set_animation_speed(
-		&"roll",
-		float(DinkySpriteFrames.BALL_ROLL_FRAME_COUNT) / flight_time
-	)
+	ball.modulate = Color.WHITE
+	ball.play(&"idle")
 
 	var tween := create_tween()
-	tween.tween_method(
-		_flight_position_at.bind(start_pos, target, t),
-		0.0,
-		1.0,
-		flight_time
-	).set_trans(Tween.TRANS_LINEAR)
+	tween.tween_method(_apply_flight_sample.bind(path), 0.0, 1.0, path.flight_time)\
+		.set_trans(Tween.TRANS_LINEAR)
 	tween.chain().tween_callback(func():
+		var landing := BallFlightRenderer.sample(1.0, path, _flight_config)
 		_ball_in_flight = false
-		_leave_litter_ball(ball.position, ball.scale)
+		if path.vanishes_into_distance:
+			DistanceTwinkle.spawn(self, landing["visual_pos"])
+		else:
+			_leave_litter_ball(landing["visual_pos"], landing["scale"])
 		ball.visible = false
+		ball.modulate = Color.WHITE
 		_ball_at_tee = false
 	)
 

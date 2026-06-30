@@ -87,8 +87,11 @@ func _check_distance_curve(gs: Node) -> bool:
 	gs.upgrade_levels = max_levels
 	gs._recompute_stats()
 	var end_yards := Economy.yards_from_quality(1.0, gs.stats)
-	if absf(end_yards - 300.0) > 15.0:
-		print("FAIL: maxed distance perfect yards expected ~300, got %.2f" % end_yards)
+	if end_yards < 480.0:
+		print("FAIL: maxed distance perfect yards expected ~500+, got %.2f" % end_yards)
+		ok = false
+	elif end_yards > 560.0:
+		print("FAIL: maxed distance perfect yards unexpectedly high %.2f" % end_yards)
 		ok = false
 	else:
 		print(

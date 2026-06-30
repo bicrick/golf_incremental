@@ -15,7 +15,7 @@ static func _init_defs() -> void:
 		_def(
 			"power", Balance.UpgradeBranch.DISTANCE, "Power", "Base swing strength.",
 			5, 15.0, 1.45,
-			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.13},
+			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.16},
 			"", {}, Vector2(213, 6),
 			DINKY_BASE + "/HUD/PowerBar.png"
 		),
@@ -23,21 +23,21 @@ static func _init_defs() -> void:
 		_def(
 			"leg_day", Balance.UpgradeBranch.DISTANCE, "Leg Day", "+base yards.",
 			10, 25.0, 1.5,
-			{"type": "multiply", "stat": "base_yards", "value_per_level": 1.112},
+			{"type": "multiply", "stat": "base_yards", "value_per_level": 1.13},
 			"power", {"upgrade_id": "power", "level": 1}, Vector2(48, 62),
 			DINKY_BASE + "/Player/Swing03.png"
 		),
 		_def(
 			"followthrough_form", Balance.UpgradeBranch.DISTANCE, "Form", "+distance %.",
 			10, 40.0, 1.55,
-			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.065},
+			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.088},
 			"leg_day", {"upgrade_id": "leg_day", "level": 1}, Vector2(16, 114),
 			DINKY_BASE + "/Ball/Ball-Sprites_0005.png"
 		),
 		_def(
 			"core_strength", Balance.UpgradeBranch.DISTANCE, "Core", "Raise max yards.",
 			8, 75.0, 1.6,
-			{"type": "add", "stat": "max_yards", "value_per_level": 32.0},
+			{"type": "add", "stat": "max_yards", "value_per_level": 72.0},
 			"followthrough_form", {"upgrade_id": "followthrough_form", "level": 1}, Vector2(48, 166),
 			DINKY_BASE + "/Player/Swing05.png"
 		),

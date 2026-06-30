@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Range Rat title screen — perspective fairway stripes, Play starts the game.
+## Range Rat title screen — parallax cloud sky, Play starts the game.
 
 signal play_pressed
 
@@ -17,7 +17,7 @@ const COLOR_BUTTON_PRESSED := Color(0.68, 0.58, 0.38, 1.0)
 const BOB_AMPLITUDE_PX := 3.0
 const BOB_SPEED := 2.4
 
-@onready var fairway_bg: Control = $FairwayBg
+@onready var sky_bg: Control = $SkyBg
 @onready var overlay: Control = $Overlay
 @onready var title_label: Label = $Overlay/Center/VBox/TitleLabel
 @onready var play_button: Button = $Overlay/Center/VBox/PlayBob/PlayButton
@@ -28,7 +28,6 @@ var _transitioning := false
 
 
 func _ready() -> void:
-	fairway_bg.setup_for_title()
 	_apply_fonts()
 	_style_play_button()
 	play_button.pressed.connect(_on_play_pressed)
@@ -94,7 +93,7 @@ func _on_play_pressed() -> void:
 	SfxManager.play_start()
 	SfxManager.start_bgm()
 	var tween := create_tween().set_parallel(true)
-	tween.tween_property(fairway_bg, "modulate:a", 0.0, FADE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(
+	tween.tween_property(sky_bg, "modulate:a", 0.0, FADE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(
 		Tween.EASE_IN_OUT
 	)
 	tween.tween_property(overlay, "modulate:a", 0.0, FADE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(
@@ -109,7 +108,7 @@ func _finish_fade_out() -> void:
 
 func reset_for_show() -> void:
 	_transitioning = false
-	fairway_bg.modulate.a = 1.0
+	sky_bg.modulate.a = 1.0
 	overlay.modulate.a = 1.0
 	play_button.disabled = false
 	_bob_time = 0.0

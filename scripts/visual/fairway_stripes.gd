@@ -1,6 +1,6 @@
 class_name FairwayStripes
 extends RefCounted
-## Procedural perspective fairway stripes — shared by range view and title screen.
+## Procedural perspective fairway stripes — used by range view.
 
 const VANISHING_POINT := Vector2(240.0, 100.0)
 const VIEWPORT_WIDTH := 480.0
@@ -49,14 +49,6 @@ static func build_polygons(
 			]),
 		})
 	return polygons
-
-
-## Full-viewport title fan — VP sits above the screen so top_y can be 0 without bow-tie quads.
-static func build_title_screen_polygons() -> Array[Dictionary]:
-	const TITLE_TOP_Y := 0.0
-	const TITLE_BOTTOM_Y := 270.0
-	const TITLE_VP := Vector2(240.0, -40.0)
-	return build_polygons(TITLE_TOP_Y, TITLE_BOTTOM_Y, TITLE_VP)
 
 
 static func populate(

@@ -41,6 +41,14 @@ func save_game() -> void:
 		file.close()
 
 
+func reset_and_reload() -> void:
+	var dir := DirAccess.open("user://")
+	if dir and dir.file_exists("save.json"):
+		dir.remove("save.json")
+	GameState.reset_to_fresh()
+	get_tree().reload_current_scene()
+
+
 func load_game() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
 		return

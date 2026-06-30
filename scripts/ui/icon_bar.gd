@@ -1,5 +1,5 @@
 extends Control
-## Corner icon buttons — toggles overlay menus without blocking the range view.
+## Corner icon buttons — opens full-screen views (e.g. upgrade tree).
 
 signal upgrades_toggled(is_open: bool)
 
@@ -10,11 +10,10 @@ const COLOR_WOOD := Color(0.55, 0.42, 0.32, 1)
 const COLOR_WOOD_DARK := Color(0.35, 0.28, 0.22, 1)
 const COLOR_DISABLED := Color(0.45, 0.4, 0.35, 0.6)
 
-const PULSE_SCALE_MIN := 1.0
-const PULSE_SCALE_MAX := 1.06
+const PULSE_BOB_AMPLITUDE := 2.0
+const PULSE_BOB_FREQ := 2.4
 const PULSE_ALPHA_MIN := 0.94
 const PULSE_ALPHA_MAX := 1.0
-const PULSE_HALF_PERIOD := 1.0
 
 @onready var upgrades_button: Button = $TopRight/UpgradesButton
 @onready var settings_button: Button = $TopLeft/SettingsButton
@@ -24,7 +23,8 @@ const PULSE_HALF_PERIOD := 1.0
 var _upgrade_panel: Node = null
 var _upgrades_open := false
 var _pulse_active := false
-var _pulse_tween: Tween = null
+var _pulse_time := 0.0
+var _glyph_rest_y := 0.0
 
 
 func _ready() -> void:
@@ -35,10 +35,24 @@ func _ready() -> void:
 	_style_upgrades_button()
 	_style_icon_button(settings_button, COLOR_DISABLED)
 	_style_icon_button(stats_button, COLOR_DISABLED)
-	_upgrades_glyph.pivot_offset = _upgrades_glyph.size * 0.5
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
+	call_deferred("_capture_glyph_rest_y")
 	call_deferred("_update_pulse_state")
+
+
+func _capture_glyph_rest_y() -> void:
+	_glyph_rest_y = _upgrades_glyph.position.y
+
+
+func _process(delta: float) -> void:
+	if not _pulse_active:
+		return
+	_pulse_time += delta
+	var wave := sin(_pulse_time * PULSE_BOB_FREQ)
+	_upgrades_glyph.position.y = _glyph_rest_y + wave * PULSE_BOB_AMPLITUDE
+	var alpha := lerpf(PULSE_ALPHA_MIN, PULSE_ALPHA_MAX, 0.5 + 0.5 * wave)
+	_upgrades_glyph.modulate = Color(1.0, 1.0, 1.0, alpha)
 
 
 func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
@@ -68,38 +82,20 @@ func _update_pulse_state() -> void:
 
 func _start_pulse() -> void:
 	_stop_pulse(false)
-	_upgrades_glyph.scale = Vector2.ONE * PULSE_SCALE_MIN
+	_pulse_time = 0.0
 	_upgrades_glyph.modulate = Color(1.0, 1.0, 1.0, PULSE_ALPHA_MIN)
-	_pulse_tween = create_tween()
-	_pulse_tween.set_loops()
-	_pulse_tween.set_trans(Tween.TRANS_SINE)
-	_pulse_tween.set_ease(Tween.EASE_IN_OUT)
-	_pulse_tween.tween_property(
-		_upgrades_glyph, "scale", Vector2.ONE * PULSE_SCALE_MAX, PULSE_HALF_PERIOD
-	)
-	_pulse_tween.parallel().tween_property(
-		_upgrades_glyph, "modulate:a", PULSE_ALPHA_MAX, PULSE_HALF_PERIOD
-	)
-	_pulse_tween.tween_property(
-		_upgrades_glyph, "scale", Vector2.ONE * PULSE_SCALE_MIN, PULSE_HALF_PERIOD
-	)
-	_pulse_tween.parallel().tween_property(
-		_upgrades_glyph, "modulate:a", PULSE_ALPHA_MIN, PULSE_HALF_PERIOD
-	)
+	set_process(true)
 
 
 func _stop_pulse(reset_visual: bool = true) -> void:
-	if _pulse_tween and _pulse_tween.is_valid():
-		_pulse_tween.kill()
-	_pulse_tween = null
+	set_process(false)
 	if reset_visual:
 		_reset_glyph_visual()
 
 
 func _reset_glyph_visual() -> void:
-	_upgrades_glyph.scale = Vector2.ONE
+	_upgrades_glyph.position.y = _glyph_rest_y
 	_upgrades_glyph.modulate = Color.WHITE
-	_upgrades_glyph.pivot_offset = _upgrades_glyph.size * 0.5
 
 
 func _on_upgrades_pressed() -> void:

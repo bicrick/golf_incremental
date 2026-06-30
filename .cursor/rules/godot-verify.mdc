@@ -1,0 +1,53 @@
+---
+description: Always compile and verify Godot changes via CLI before claiming work is done
+alwaysApply: true
+---
+
+# Godot CLI Verification
+
+After any GDScript, scene (`.tscn`), or project changes, **run verification before claiming done**. Fix parse/compile errors before finishing. Do not claim success without at least headless smoke + relevant verify scripts.
+
+## Godot binary
+
+```bash
+GODOT="/Applications/Godot.app/Contents/MacOS/Godot"
+```
+
+Run from project root (`/Users/pbrown/Desktop/golf_incremental`).
+
+## Required commands
+
+**Headless smoke** (always run):
+
+```bash
+$GODOT --headless --path . --quit-after 2
+```
+
+**Import assets** (when audio, textures, or other imported assets changed):
+
+```bash
+$GODOT --headless --import --path . --quit-after 1
+```
+
+**Verify scripts** (run scripts relevant to touched systems):
+
+```bash
+$GODOT --headless --script res://tools/verify_<name>.gd
+```
+
+| Script | When to run |
+|--------|-------------|
+| `verify_hud_layout` | HUD / UI layout changes |
+| `verify_swing_distance` | Swing / ball physics |
+| `verify_upgrade_tree` | Upgrade tree / progression UI |
+| `verify_upgrade_effects` | Upgrade effect logic |
+| `verify_title_screen` | Title screen / main menu |
+| `verify_bgm` | Background music / audio |
+
+## Completion checklist
+
+1. Run headless smoke; exit code must be 0.
+2. Run import if assets changed.
+3. Run every verify script that covers systems you touched.
+4. Fix all parse/compile/runtime errors reported by the CLI.
+5. Only then report the task as complete.

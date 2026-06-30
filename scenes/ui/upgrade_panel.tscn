@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://upgrade_panel"]
 
 [ext_resource type="Script" path="res://scripts/ui/upgrade_panel.gd" id="1_script"]
-[ext_resource type="Texture2D" path="res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Sprite Sheets/GolfCourseTiles.png" id="2_tiles"]
+[ext_resource type="Script" path="res://scripts/ui/parallax_sky_background.gd" id="2_sky_bg"]
 
 [node name="UpgradePanel" type="Control"]
 layout_mode = 3
@@ -10,20 +10,21 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
+mouse_filter = 0
 script = ExtResource("1_script")
 
-[node name="DimOverlay" type="ColorRect" parent="."]
+[node name="SkyBg" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 0
-color = Color(0.08, 0.06, 0.05, 0.78)
+mouse_filter = 2
+clip_contents = true
+script = ExtResource("2_sky_bg")
 
-[node name="ModalRoot" type="Control" parent="."]
+[node name="Content" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -32,68 +33,45 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Frame" type="PanelContainer" parent="ModalRoot"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 8.0
-offset_top = 8.0
-offset_right = -8.0
-offset_bottom = -8.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="TiledBg" type="TextureRect" parent="ModalRoot/Frame"]
-layout_mode = 2
-texture = ExtResource("2_tiles")
-expand_mode = 1
-stretch_mode = 1
-texture_filter = 0
-
-[node name="DarkTint" type="ColorRect" parent="ModalRoot/Frame"]
-layout_mode = 2
-color = Color(0.03, 0.07, 0.02, 0.32)
-
-[node name="Content" type="Control" parent="ModalRoot/Frame"]
-layout_mode = 2
-
-[node name="Header" type="HBoxContainer" parent="ModalRoot/Frame/Content"]
+[node name="Header" type="HBoxContainer" parent="Content"]
 layout_mode = 0
 offset_left = 8.0
 offset_top = 6.0
-offset_right = 456.0
-offset_bottom = 22.0
+offset_right = 472.0
+offset_bottom = 24.0
+theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="ModalRoot/Frame/Content/Header"]
+[node name="BackButton" type="Button" parent="Content/Header"]
+custom_minimum_size = Vector2(48, 18)
 layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.2, 0.15, 0.1, 1)
-theme_override_font_sizes/font_size = 10
-text = "Upgrade Tree"
-
-[node name="CurrencyLabel" type="Label" parent="ModalRoot/Frame/Content/Header"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.25, 0.2, 0.12, 1)
+theme_override_colors/font_color = Color(0.12, 0.1, 0.08, 1)
 theme_override_font_sizes/font_size = 8
-text = "$0"
-
-[node name="CloseButton" type="Button" parent="ModalRoot/Frame/Content/Header"]
-custom_minimum_size = Vector2(20, 16)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.25, 0.18, 0.1, 1)
-theme_override_font_sizes/font_size = 10
-text = "X"
+text = "Back"
 flat = true
 
-[node name="TreeCanvas" type="Control" parent="ModalRoot/Frame/Content"]
-layout_mode = 0
-offset_left = 0.0
-offset_top = 26.0
-offset_right = 464.0
-offset_bottom = 246.0
+[node name="Title" type="Label" parent="Content/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.92, 0.45, 1)
+theme_override_font_sizes/font_size = 10
+text = "Upgrade Tree"
+horizontal_alignment = 1
 
-[node name="Connectors" type="Control" parent="ModalRoot/Frame/Content/TreeCanvas"]
+[node name="CurrencyLabel" type="Label" parent="Content/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.45, 1)
+theme_override_font_sizes/font_size = 8
+text = "$0"
+horizontal_alignment = 2
+
+[node name="TreeCanvas" type="Control" parent="Content"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 28.0
+offset_right = 472.0
+offset_bottom = 262.0
+
+[node name="Connectors" type="Control" parent="Content/TreeCanvas"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -102,7 +80,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Nodes" type="Control" parent="ModalRoot/Frame/Content/TreeCanvas"]
+[node name="Nodes" type="Control" parent="Content/TreeCanvas"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

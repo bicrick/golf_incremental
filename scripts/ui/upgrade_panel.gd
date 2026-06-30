@@ -1,24 +1,16 @@
 extends Control
-## Full-screen upgrade tree overlay — graph layout with Dinky icons.
+## Full-screen upgrade tree view — cloud sky background, progressive node reveal.
 
 const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
-const GRASS_TILES_PATH := (
-	"res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Sprite Sheets/GolfCourseTiles.png"
-)
-const GRASS_TILE_REGION := Rect2(16, 16, 16, 16)
 
-const COLOR_FRAME := Color(0.42, 0.34, 0.24, 1)
 const COLOR_LINE := Color(0.55, 0.48, 0.32, 0.85)
 const COLOR_LINE_LOCKED := Color(0.35, 0.32, 0.28, 0.5)
 
-@onready var dim_overlay: ColorRect = $DimOverlay
-@onready var frame: PanelContainer = $ModalRoot/Frame
-@onready var tiled_bg: TextureRect = $ModalRoot/Frame/TiledBg
-@onready var connectors: Control = $ModalRoot/Frame/Content/TreeCanvas/Connectors
-@onready var nodes_root: Control = $ModalRoot/Frame/Content/TreeCanvas/Nodes
-@onready var title_label: Label = $ModalRoot/Frame/Content/Header/Title
-@onready var currency_label: Label = $ModalRoot/Frame/Content/Header/CurrencyLabel
-@onready var close_button: Button = $ModalRoot/Frame/Content/Header/CloseButton
+@onready var connectors: Control = $Content/TreeCanvas/Connectors
+@onready var nodes_root: Control = $Content/TreeCanvas/Nodes
+@onready var title_label: Label = $Content/Header/Title
+@onready var currency_label: Label = $Content/Header/CurrencyLabel
+@onready var back_button: Button = $Content/Header/BackButton
 
 var _is_open := false
 var _nodes: Dictionary = {}
@@ -26,13 +18,11 @@ var _nodes: Dictionary = {}
 
 func _ready() -> void:
 	visible = false
-	close_button.pressed.connect(close)
-	dim_overlay.gui_input.connect(_on_dim_input)
+	back_button.pressed.connect(close)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
-	_setup_grass_background()
-	_style_frame()
 	_apply_fonts()
+	_style_back_button()
 	_build_tree()
 	_refresh_all()
 
@@ -69,14 +59,6 @@ func _notify_icon_bar(is_open: bool) -> void:
 		icon_bar.set_upgrades_open(is_open)
 
 
-func _setup_grass_background() -> void:
-	var atlas := AtlasTexture.new()
-	atlas.atlas = load(GRASS_TILES_PATH)
-	atlas.region = GRASS_TILE_REGION
-	tiled_bg.texture = atlas
-	tiled_bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-
-
 func _build_tree() -> void:
 	for child in nodes_root.get_children():
 		child.queue_free()
@@ -91,10 +73,23 @@ func _build_tree() -> void:
 	connectors.draw.connect(_draw_connectors)
 
 
+func _is_node_revealed(id: String) -> bool:
+	var def := UpgradeDefinitions.get_def(id)
+	if def.is_empty():
+		return false
+	if def.get("parent_id", "").is_empty():
+		return true
+	return UpgradeDefinitions.is_unlocked(id, GameState.upgrade_levels)
+
+
 func _refresh_all() -> void:
 	currency_label.text = "$%s" % _format_currency(GameState.currency)
 	for id in _nodes:
-		(_nodes[id] as PanelContainer).refresh()
+		var node: PanelContainer = _nodes[id]
+		var revealed := _is_node_revealed(id)
+		node.visible = revealed
+		if revealed:
+			node.refresh()
 	connectors.queue_redraw()
 
 
@@ -109,7 +104,10 @@ func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:
 		return
 	currency_label.text = "$%s" % _format_currency(currency)
 	for id in _nodes:
-		(_nodes[id] as PanelContainer).refresh()
+		var node: PanelContainer = _nodes[id]
+		if not node.visible:
+			continue
+		node.refresh()
 	connectors.queue_redraw()
 
 
@@ -118,16 +116,13 @@ func _on_upgrade_purchased(_id: String, _level: int, _branch: int) -> void:
 		_refresh_all()
 
 
-func _on_dim_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		close()
-
-
 func _draw_connectors() -> void:
 	for link in UpgradeDefinitions.connections():
 		var from_id: String = link["from"]
 		var to_id: String = link["to"]
 		if not _nodes.has(from_id) or not _nodes.has(to_id):
+			continue
+		if not _is_node_revealed(from_id) or not _is_node_revealed(to_id):
 			continue
 		var from_node: PanelContainer = _nodes[from_id]
 		var to_node: PanelContainer = _nodes[to_id]
@@ -165,24 +160,34 @@ func _draw_organic_connector(from: Vector2, to: Vector2, color: Color) -> void:
 	connectors.draw_polyline(points, color, 1.5, true)
 
 
-func _style_frame() -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.72, 0.62, 0.48, 0.15)
-	style.border_width_left = 3
-	style.border_width_top = 3
-	style.border_width_right = 3
-	style.border_width_bottom = 3
-	style.border_color = COLOR_FRAME
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
-	frame.add_theme_stylebox_override(&"panel", style)
-
-
 func _apply_fonts() -> void:
 	PixelFont.apply_label(title_label, 10)
 	PixelFont.apply_label(currency_label, 8)
+
+
+func _style_back_button() -> void:
+	back_button.add_theme_font_override(&"font", PixelFont.font_for_size(8))
+	back_button.add_theme_font_size_override(&"font_size", 8)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.82, 0.72, 0.48, 0.92)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.18, 0.52, 0.48, 1)
+	style.corner_radius_top_left = 2
+	style.corner_radius_top_right = 2
+	style.corner_radius_bottom_left = 2
+	style.corner_radius_bottom_right = 2
+	style.content_margin_left = 6
+	style.content_margin_right = 6
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	back_button.add_theme_stylebox_override(&"normal", style)
+	var hover := style.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(0.92, 0.82, 0.58, 0.95)
+	back_button.add_theme_stylebox_override(&"hover", hover)
+	back_button.add_theme_stylebox_override(&"pressed", hover)
 
 
 func _format_currency(n: float) -> String:

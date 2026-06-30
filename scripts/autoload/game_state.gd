@@ -58,3 +58,17 @@ func get_upgrade_cost(id: String) -> float:
 	if def.is_empty():
 		return 0.0
 	return Economy.upgrade_cost(float(def["base_cost"]), float(def["growth_rate"]), get_upgrade_level(id))
+
+
+func reset_to_fresh() -> void:
+	currency = 0.0
+	upgrade_levels.clear()
+	stats = Balance.default_stats()
+	lifetime = {
+		"total_swings": 0,
+		"lifetime_yards": 0.0,
+		"lifetime_earnings": 0.0,
+		"perfect_count": 0,
+	}
+	_recompute_stats()
+	EventBus.stats_changed.emit(stats, currency)

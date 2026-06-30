@@ -78,24 +78,87 @@ func _run() -> void:
 		print("FAIL: could not purchase dollars_per_yard")
 		ok = false
 
+	var range_view: Node2D = main.get_node("RangeView")
+	var ui: CanvasLayer = main.get_node("UI")
+	var hud: Control = main.get_node("UI/UIRoot/HUD")
+	var icon_bar: Control = main.get_node("UI/UIRoot/IconBar")
 	var panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
+
+	# Enter gameplay so main wires upgrade view navigation.
+	main.get_node("TitleScreen").visible = false
+	range_view.visible = true
+	ui.visible = true
+	main._set_gameplay_ui_visible(true)
+	await process_frame
 	if panel == null:
 		print("FAIL: UpgradePanel missing from main")
 		ok = false
 	else:
+		var sky_bg: Node = panel.get_node_or_null("SkyBg")
+		if sky_bg == null or not sky_bg.has_method("layer_count") or sky_bg.layer_count() != 4:
+			var count: int = sky_bg.layer_count() if sky_bg != null and sky_bg.has_method("layer_count") else -1
+			print("FAIL: expected 4 cloud layers on upgrade view, got %d" % count)
+			ok = false
+		if panel.get_node_or_null("DimOverlay") != null:
+			print("FAIL: upgrade view should not use modal DimOverlay")
+			ok = false
+
+		gs.upgrade_levels = {}
+		gs._recompute_stats()
 		panel.open()
 		await process_frame
 		if not panel.visible:
 			print("FAIL: panel not visible after open()")
 			ok = false
-		var nodes_root: Control = panel.get_node("ModalRoot/Frame/Content/TreeCanvas/Nodes")
-		if nodes_root.get_child_count() != 10:
-			print("FAIL: expected 10 tree nodes, got ", nodes_root.get_child_count())
+		if range_view.visible:
+			print("FAIL: range view should hide when upgrade view opens")
 			ok = false
+		if hud.visible or icon_bar.visible:
+			print("FAIL: gameplay HUD should hide when upgrade view opens")
+			ok = false
+
+		var nodes_root: Control = panel.get_node("Content/TreeCanvas/Nodes")
+		var visible_before := _count_visible_nodes(nodes_root)
+		if visible_before != 1:
+			print("FAIL: expected 1 revealed node at start, got ", visible_before)
+			ok = false
+
+		gs.currency = 500.0
+		panel._refresh_all()
+		await process_frame
+		if not gs.purchase_upgrade("power"):
+			print("FAIL: could not purchase power from upgrade view")
+			ok = false
+		panel._refresh_all()
+		await process_frame
+		var visible_after_power := _count_visible_nodes(nodes_root)
+		if visible_after_power != 4:
+			print("FAIL: expected 4 revealed nodes after power, got ", visible_after_power)
+			ok = false
+
+		if nodes_root.get_child_count() != 10:
+			print("FAIL: expected 10 tree nodes built, got ", nodes_root.get_child_count())
+			ok = false
+
 		panel.close()
+		await process_frame
 		if panel.visible:
 			print("FAIL: panel still visible after close()")
+			ok = false
+		if not range_view.visible:
+			print("FAIL: range view should restore after closing upgrade view")
+			ok = false
+		if not hud.visible or not icon_bar.visible:
+			print("FAIL: gameplay HUD should restore after closing upgrade view")
 			ok = false
 
 	print("upgrade_tree_ok=", ok)
 	quit(0 if ok else 1)
+
+
+func _count_visible_nodes(nodes_root: Control) -> int:
+	var count := 0
+	for child in nodes_root.get_children():
+		if child.visible:
+			count += 1
+	return count

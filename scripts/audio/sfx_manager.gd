@@ -1,54 +1,67 @@
 extends Node
-## Procedural placeholder SFX + optional BGM from assets/audio/music/.
+## Procedural placeholder SFX + BGM from assets/audio/music/.
 
 const POOL_SIZE := 3
 const MIX_RATE := 22050
 const MUSIC_DIR := "res://assets/audio/music/"
 const BGM_VOLUME_DB := -9.0
 const MUSIC_EXTENSIONS := ["mp3", "ogg", "wav", "flac"]
+const TITLE_TRACK_QUERY := "8 bit memory"
 
 var _pool: Array[AudioStreamPlayer] = []
 var _pool_index := 0
 var _streams: Dictionary = {}
 var _ambient_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
+var _music_tracks: Array[String] = []
+var _rotation_index := 0
+var _is_title_mode := false
 
 
 func _ready() -> void:
 	_build_streams()
 	_build_pool()
+	_refresh_music_tracks()
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
 	EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
+	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 
 
-func _build_pool() -> void:
-	for i in POOL_SIZE:
-		var player := AudioStreamPlayer.new()
-		player.name = "SfxPlayer%d" % i
-		player.bus = &"Master"
-		add_child(player)
-		_pool.append(player)
+func get_music_tracks() -> Array[String]:
+	_refresh_music_tracks()
+	return _music_tracks.duplicate()
 
 
-func _build_streams() -> void:
-	_streams["charge_start"] = _make_click(620.0, 0.05, 0.32)
-	_streams["thwack_miss"] = _make_thwack(90.0, 0.14, 0.45, 0.25)
-	_streams["thwack_ok"] = _make_thwack(130.0, 0.12, 0.5, 0.35)
-	_streams["thwack_good"] = _make_thwack(210.0, 0.1, 0.55, 0.55)
-	_streams["thwack_perfect"] = _make_thwack(320.0, 0.09, 0.6, 0.75)
-	_streams["perfect_chime"] = _make_chime([880.0, 1320.0], 0.22, 0.3)
-	_streams["cash_register"] = _make_chime([660.0, 880.0, 1108.0, 1320.0], 0.18, 0.32)
-	_streams["ui_click"] = _make_click(980.0, 0.035, 0.28)
-	_streams["play_whoosh"] = _make_thwack(150.0, 0.14, 0.2, 0.5)
-	_streams["play_fanfare"] = _make_chime([440.0, 554.0, 659.0, 880.0, 1108.0], 0.38, 0.24)
-	_streams["ambient_wind"] = _make_wind_loop(2.5, 0.06)
+func play_title_bgm() -> void:
+	if _music_player != null or _ambient_player != null:
+		return
+	_refresh_music_tracks()
+	var track_path := _find_track_by_name(TITLE_TRACK_QUERY)
+	if track_path.is_empty():
+		return
+	_is_title_mode = true
+	_play_track_at_path(track_path, true)
 
 
 func start_bgm() -> void:
-	if _music_player != null or _ambient_player != null:
+	if _ambient_player != null:
 		return
-	_start_background_audio()
+	if _music_player != null and not _is_title_mode:
+		return
+	# Title track already playing — keep the same loop into gameplay.
+	if _music_player != null and _is_title_mode and _music_player.playing:
+		return
+	_refresh_music_tracks()
+	if _music_tracks.is_empty():
+		if _music_player == null:
+			_start_ambient()
+		return
+	_is_title_mode = false
+	if _music_player != null and _music_player.finished.is_connected(_on_music_finished):
+		_music_player.finished.disconnect(_on_music_finished)
+	var start_index := _rotation_start_index()
+	_start_rotation_at(start_index)
 
 
 func play_start() -> void:
@@ -56,24 +69,92 @@ func play_start() -> void:
 	_play("play_fanfare", -4.0)
 
 
-func _start_background_audio() -> void:
-	var track_path := _find_first_music_track()
-	if track_path.is_empty():
-		_start_ambient()
-		return
-	var stream: AudioStream = load(track_path)
+func _refresh_music_tracks() -> void:
+	_music_tracks = _discover_music_tracks()
+
+
+func _discover_music_tracks() -> Array[String]:
+	var candidates: Array[String] = []
+	var dir := DirAccess.open(MUSIC_DIR)
+	if dir == null:
+		return candidates
+	for file_name in dir.get_files():
+		if file_name.get_extension().to_lower() in MUSIC_EXTENSIONS:
+			candidates.append(MUSIC_DIR.path_join(file_name))
+	candidates.sort()
+	return candidates
+
+
+func _find_track_by_name(query: String) -> String:
+	for path in _music_tracks:
+		if _track_names_match(query, path.get_file().get_basename()):
+			return path
+	return ""
+
+
+func _track_names_match(query: String, candidate: String) -> bool:
+	var normalized_query := _normalize_track_name(query)
+	var normalized_candidate := _normalize_track_name(candidate)
+	if normalized_candidate.contains(normalized_query) or normalized_query.contains(normalized_candidate):
+		return true
+	var min_len := mini(normalized_query.length(), normalized_candidate.length())
+	for prefix_len in range(min_len, 2, -1):
+		var prefix := normalized_query.substr(0, prefix_len)
+		if normalized_candidate.contains(prefix):
+			return true
+	return false
+
+
+func _normalize_track_name(name: String) -> String:
+	var normalized := name.to_lower()
+	normalized = normalized.replace(" ", "")
+	normalized = normalized.replace("-", "")
+	normalized = normalized.replace("_", "")
+	return normalized
+
+
+func _rotation_start_index() -> int:
+	var title_path := _find_track_by_name(TITLE_TRACK_QUERY)
+	if title_path.is_empty():
+		return 0
+	var title_index := _music_tracks.find(title_path)
+	if title_index < 0:
+		return 0
+	return (title_index + 1) % _music_tracks.size()
+
+
+func _start_rotation_at(index: int) -> void:
+	_rotation_index = index
+	_play_track_at_path(_music_tracks[_rotation_index], false)
+
+
+func _play_track_at_path(path: String, loop: bool) -> void:
+	var stream: AudioStream = load(path)
 	if stream == null:
-		push_warning("SfxManager: failed to load BGM at %s" % track_path)
-		_start_ambient()
+		push_warning("SfxManager: failed to load BGM at %s" % path)
+		if _music_player == null and not _is_title_mode:
+			_start_ambient()
 		return
-	_configure_loop(stream)
-	_music_player = AudioStreamPlayer.new()
-	_music_player.name = "BackgroundMusic"
+	_set_stream_loop(stream, loop)
+	if _music_player == null:
+		_music_player = AudioStreamPlayer.new()
+		_music_player.name = "BackgroundMusic"
+		_music_player.volume_db = BGM_VOLUME_DB
+		_music_player.autoplay = false
+		add_child(_music_player)
+	if _music_player.finished.is_connected(_on_music_finished):
+		_music_player.finished.disconnect(_on_music_finished)
 	_music_player.stream = stream
-	_music_player.volume_db = BGM_VOLUME_DB
-	_music_player.autoplay = false
-	add_child(_music_player)
+	if not loop:
+		_music_player.finished.connect(_on_music_finished)
 	_music_player.play()
+
+
+func _on_music_finished() -> void:
+	if _is_title_mode or _music_tracks.is_empty():
+		return
+	_rotation_index = (_rotation_index + 1) % _music_tracks.size()
+	_play_track_at_path(_music_tracks[_rotation_index], false)
 
 
 func _start_ambient() -> void:
@@ -86,25 +167,15 @@ func _start_ambient() -> void:
 	_ambient_player.play()
 
 
-func _find_first_music_track() -> String:
-	var dir := DirAccess.open(MUSIC_DIR)
-	if dir == null:
-		return ""
-	var candidates: Array[String] = []
-	for file_name in dir.get_files():
-		if file_name.get_extension().to_lower() in MUSIC_EXTENSIONS:
-			candidates.append(MUSIC_DIR.path_join(file_name))
-	candidates.sort()
-	return candidates[0] if not candidates.is_empty() else ""
-
-
-func _configure_loop(stream: AudioStream) -> void:
+func _set_stream_loop(stream: AudioStream, loop: bool) -> void:
 	if stream is AudioStreamMP3:
-		stream.loop = true
+		stream.loop = loop
 	elif stream is AudioStreamOggVorbis:
-		stream.loop = true
+		stream.loop = loop
 	elif stream is AudioStreamWAV:
-		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		stream.loop_mode = (
+			AudioStreamWAV.LOOP_FORWARD if loop else AudioStreamWAV.LOOP_DISABLED
+		)
 
 
 func _play(stream_key: String, volume_db: float = 0.0, pitch_scale: float = 1.0) -> void:
@@ -145,8 +216,51 @@ func _on_swing_resolved(
 		_play("cash_register", -4.0, cash_pitch)
 
 
-func _on_ui_panel_toggled(_panel_id: String, _is_open: bool) -> void:
+func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
+	if panel_id == "upgrades":
+		if is_open:
+			_play("menu_open_pop", -12.0)
+			_play("menu_open", -6.0)
+		else:
+			_play("menu_close", -7.0)
+		return
 	_play("ui_click", -8.0)
+
+
+func _on_upgrade_purchased(_id: String, level: int, _branch: int) -> void:
+	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
+	_play("upgrade_tap", -12.0, pitch)
+	_play("upgrade_purchase", -2.0, pitch)
+
+
+func _build_pool() -> void:
+	for i in POOL_SIZE:
+		var player := AudioStreamPlayer.new()
+		player.name = "SfxPlayer%d" % i
+		player.bus = &"Master"
+		add_child(player)
+		_pool.append(player)
+
+
+func _build_streams() -> void:
+	_streams["charge_start"] = _make_click(620.0, 0.05, 0.32)
+	_streams["thwack_miss"] = _make_thwack(90.0, 0.14, 0.45, 0.25)
+	_streams["thwack_ok"] = _make_thwack(130.0, 0.12, 0.5, 0.35)
+	_streams["thwack_good"] = _make_thwack(210.0, 0.1, 0.55, 0.55)
+	_streams["thwack_perfect"] = _make_thwack(320.0, 0.09, 0.6, 0.75)
+	_streams["perfect_chime"] = _make_chime([880.0, 1320.0], 0.22, 0.3)
+	_streams["cash_register"] = _make_chime([660.0, 880.0, 1108.0, 1320.0], 0.18, 0.32)
+	_streams["ui_click"] = _make_click(980.0, 0.035, 0.28)
+	_streams["menu_open_pop"] = _make_click(660.0, 0.028, 0.34)
+	_streams["menu_open"] = _make_arpeggio([523.0, 659.0, 784.0, 988.0], 0.045, 0.3)
+	_streams["menu_close"] = _make_arpeggio([880.0, 698.0, 554.0, 440.0], 0.04, 0.24)
+	_streams["upgrade_tap"] = _make_click(740.0, 0.022, 0.3)
+	_streams["upgrade_purchase"] = _make_arpeggio(
+		[698.0, 880.0, 1047.0, 1319.0, 1568.0], 0.032, 0.36
+	)
+	_streams["play_whoosh"] = _make_thwack(150.0, 0.14, 0.2, 0.5)
+	_streams["play_fanfare"] = _make_chime([440.0, 554.0, 659.0, 880.0, 1108.0], 0.38, 0.24)
+	_streams["ambient_wind"] = _make_wind_loop(2.5, 0.06)
 
 
 func _make_click(freq_hz: float, duration_sec: float, volume: float) -> AudioStreamWAV:
@@ -178,6 +292,22 @@ func _make_thwack(
 		var tone := sin(TAU * tone_hz * t) * (1.0 - noise_mix)
 		var noise := rng.randf_range(-1.0, 1.0) * noise_mix
 		var sample := (tone + noise) * volume * env
+		_write_sample(data, i, sample)
+	return _pack_wav(data)
+
+
+func _make_arpeggio(freqs: Array, note_duration_sec: float, volume: float) -> AudioStreamWAV:
+	var total_duration := note_duration_sec * freqs.size()
+	var sample_count := int(total_duration * MIX_RATE)
+	var data := PackedByteArray()
+	data.resize(sample_count * 2)
+	for i in sample_count:
+		var t := float(i) / MIX_RATE
+		var note_index := mini(int(t / note_duration_sec), freqs.size() - 1)
+		var note_t := fmod(t, note_duration_sec)
+		var freq := float(freqs[note_index])
+		var env := exp(-8.0 * note_t / note_duration_sec)
+		var sample := sin(TAU * freq * note_t) * volume * env
 		_write_sample(data, i, sample)
 	return _pack_wav(data)
 

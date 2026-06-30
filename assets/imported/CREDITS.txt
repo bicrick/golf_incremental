@@ -12,3 +12,7 @@ License: https://craftpix.net/file-licenses/ (Freebie Products)
 
 Used in Golf Incremental for HUD panels, buttons, and upgrade UI chrome (Pass 1+).
 Assets: assets/imported/rpg_ui_kit/
+
+Background music (assets/audio/music/):
+- 8-Bit Memories — title screen
+- cute_garden_party, Night Range, Range Rat Main Theme, 旅立ちの街 — gameplay rotation

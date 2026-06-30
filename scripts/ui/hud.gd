@@ -63,7 +63,7 @@ func _on_swing_charge_updated(_power: float, in_release_band: bool, past_peak: b
 
 func _set_idle_hint() -> void:
 	hint_label.visible = true
-	hint_label.text = "Hold to swing"
+	hint_label.text = "Hold Space to swing"
 	hint_label.modulate = Color(0.75, 0.78, 0.82, 0.85)
 
 
