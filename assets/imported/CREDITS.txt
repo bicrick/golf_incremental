@@ -1,0 +1,8 @@
+Dinky Tiny Golf (free asset pack)
+Artwork: Mike Moore — mike@pixelbitsnbytes.com
+Website: https://www.pixelbitsnbytes.com
+License: Free for commercial use with credit (see Dinky_Tiny_Golf_Free/license.txt)
+
+Used in Golf Incremental for ball, golfer swing, range mat tiles, and jackpot text sprites.
+
+UI font: Press Start 2P (SIL Open Font License) — assets/fonts/PressStart2P-Regular.ttf

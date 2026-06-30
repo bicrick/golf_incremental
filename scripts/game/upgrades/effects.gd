@@ -1,4 +1,4 @@
-class_name UpgradeEffects
+	class_name UpgradeEffects
 extends RefCounted
 ## Apply upgrade effects to PlayerStats — Workstream B.
 

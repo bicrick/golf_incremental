@@ -60,7 +60,7 @@ static func default_stats() -> PlayerStats:
 	var stats := PlayerStats.new()
 	stats.timing_window_perfect_ms = 50.0
 	stats.timing_window_good_ms = 100.0
-	stats.swing_cooldown_ms = 800.0
+	stats.swing_cooldown_ms = 1800.0
 	stats.base_yards = 10.0
 	stats.max_yards = 50.0
 	stats.dollars_per_yard = 1.0

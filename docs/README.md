@@ -44,6 +44,10 @@ A cozy, Miyazaki-adjacent **parallax 2.5D** pixel art golf incremental on a driv
 6. Your workstream in [technical/03-agent-workstreams.md](technical/03-agent-workstreams.md)
 7. [specs/v1-acceptance.md](specs/v1-acceptance.md) before marking v1 done
 
+## Third-party assets
+
+- **Dinky Tiny Golf** — Mike Moore ([pixelbitsnbytes.com](https://www.pixelbitsnbytes.com)), free commercial use with credit. See [`assets/imported/CREDITS.txt`](../assets/imported/CREDITS.txt) and [`assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/license.txt`](../assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/license.txt).
+
 ## Implementation status
 
 | Phase | Scope | Doc |

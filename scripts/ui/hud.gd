@@ -1,6 +1,9 @@
-extends CanvasLayer
+extends Control
 ## HUD: currency and combo — Workstream C expands.
 
+const EDGE_PADDING := 10
+
+@onready var _margin: MarginContainer = $Margin
 @onready var currency_label: Label = $Margin/VBox/CurrencyLabel
 @onready var combo_label: Label = $Margin/VBox/ComboLabel
 @onready var hint_label: Label = $Margin/VBox/HintLabel
@@ -9,6 +12,9 @@ var _chain_hint_active: bool = false
 
 
 func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_apply_pixel_fonts()
+	call_deferred("_layout_top_left")
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
 	EventBus.combo_broken.connect(_on_combo_broken)
@@ -19,6 +25,18 @@ func _ready() -> void:
 	EventBus.swing_chain_state_changed.connect(_on_chain_state_changed)
 	_update_currency(GameState.currency)
 	_set_idle_hint()
+
+
+func _apply_pixel_fonts() -> void:
+	PixelFont.apply_label(currency_label, 10)
+	PixelFont.apply_label(combo_label, 8)
+	PixelFont.apply_label(hint_label, 8)
+
+
+func _layout_top_left() -> void:
+	_margin.layout_mode = 0
+	_margin.position = Vector2(EDGE_PADDING, EDGE_PADDING)
+	_margin.size = _margin.get_combined_minimum_size()
 
 
 func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:

@@ -22,36 +22,25 @@ scroll_scale = Vector2(0.2, 0.2)
 color = Color(0.35, 0.55, 0.38, 1)
 polygon = PackedVector2Array(0, 80, 120, 50, 240, 70, 360, 45, 480, 75, 480, 180, 0, 180)
 
-[node name="ParallaxStructures" type="Parallax2D" parent="."]
-scroll_scale = Vector2(0.4, 0.4)
-
-[node name="Net" type="Polygon2D" parent="ParallaxStructures"]
-color = Color(0.2, 0.25, 0.3, 0.6)
-polygon = PackedVector2Array(140, 60, 340, 60, 320, 130, 160, 130)
-
 [node name="ParallaxFairway" type="Parallax2D" parent="."]
 scroll_scale = Vector2(0.8, 0.8)
 
-[node name="Fairway" type="Polygon2D" parent="ParallaxFairway"]
-color = Color(0.42, 0.62, 0.35, 1)
-polygon = PackedVector2Array(0, 120, 480, 120, 480, 270, 0, 270)
+[node name="FairwayStripes" type="Node2D" parent="ParallaxFairway"]
+
+[node name="RangeMat" type="Node2D" parent="."]
 
 [node name="Foreground" type="Node2D" parent="."]
 
-[node name="Tee" type="Polygon2D" parent="Foreground"]
-position = Vector2(228, 195)
-color = Color(0.3, 0.22, 0.15, 1)
-polygon = PackedVector2Array(0, 0, 24, 0, 24, 8, 0, 8)
+[node name="LitteredBalls" type="Node2D" parent="Foreground"]
+y_sort_enabled = true
 
-[node name="Golfer" type="Polygon2D" parent="Foreground"]
-position = Vector2(210, 165)
-color = Color(0.25, 0.35, 0.55, 1)
-polygon = PackedVector2Array(10, 0, 30, 0, 28, 40, 12, 40)
+[node name="Golfer" type="AnimatedSprite2D" parent="Foreground"]
+position = Vector2(198, 188)
+scale = Vector2(3, 3)
 
-[node name="Ball" type="Polygon2D" parent="Foreground"]
-position = Vector2(240, 200)
-color = Color(0.95, 0.95, 0.9, 1)
-polygon = PackedVector2Array(-4, -4, 4, -4, 4, 4, -4, 4)
+[node name="Ball" type="AnimatedSprite2D" parent="Foreground"]
+position = Vector2(248, 206)
+scale = Vector2(1, 1)
 
 [node name="ChargeMeter" type="Node2D" parent="."]
 position = Vector2(300, 182)
@@ -79,7 +68,14 @@ offset_right = 38.0
 offset_bottom = 48.0
 theme_override_colors/font_color = Color(0.45, 1, 0.55, 1)
 theme_override_colors/font_outline_color = Color(0.1, 0.25, 0.12, 0.9)
-theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 11
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 8
 text = "SWEET SPOT"
 horizontal_alignment = 1
+
+[node name="JackpotFeedback" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="TierSprite" type="Sprite2D" parent="JackpotFeedback"]
+visible = false
+position = Vector2(240, 72)
