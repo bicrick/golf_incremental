@@ -60,3 +60,20 @@ static func visual_landing_y(
 	stats: PlayerStats
 ) -> float:
 	return lerpf(tee_y, horizon_y, visual_depth_t(yards, stats))
+
+
+static func pickup_per_ball_value(stats: PlayerStats) -> float:
+	return Balance.PICKUP_PER_BALL * stats.pickup_bonus_mult * stats.global_multiplier
+
+
+static func combo_multiplier(combo_tier: int) -> float:
+	var tier := maxi(combo_tier, 1)
+	return 1.0 + Balance.COMBO_MULT_PER_TIER * float(tier - 1)
+
+
+static func bucket_complete_bonus_value(stats: PlayerStats) -> float:
+	return Balance.BUCKET_COMPLETE_BONUS * stats.global_multiplier
+
+
+static func resolve_pickup_ball_payout(combo_tier: int, stats: PlayerStats) -> float:
+	return pickup_per_ball_value(stats) * combo_multiplier(combo_tier)

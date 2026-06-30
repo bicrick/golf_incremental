@@ -5,6 +5,15 @@ extends RefCounted
 const SAVE_VERSION: int = 1
 const AUTOSAVE_INTERVAL_SEC: float = 30.0
 
+## v2 Phase C — balls per strike burst before harvest.
+const BUCKET_CAPACITY_DEFAULT: int = 6
+
+## v2 Phase D — pickup mini-game economy.
+const PICKUP_PER_BALL: float = 0.50
+const BUCKET_COMPLETE_BONUS: float = 5.0
+const COMBO_WINDOW_SEC: float = 0.8
+const COMBO_MULT_PER_TIER: float = 0.10
+
 # Hold-to-charge swing
 const CHARGE_DURATION_SEC: float = 0.5
 const CHARGE_DECAY_SEC: float = 0.6
@@ -48,6 +57,18 @@ const VISUAL_MAX_YARDS: float = 300.0
 const PERSPECTIVE_DEPTH_SCALE: float = 180.0
 ## Power on normalized depth — >1 keeps short shots near tee, compresses far yard gaps.
 const PERSPECTIVE_DEPTH_EXPONENT: float = 1.4
+
+## v2 Phase B — visual carry floor (gameplay yards unchanged; flight path only).
+## First fairway depth band (~50yd marker) for OK+ contact tiers.
+const VISUAL_FLOOR_Y: float = 170.0
+## Minimum perspective p for OK+ — matches VISUAL_FLOOR_Y on default tee/far segment.
+const VISUAL_FLOOR_P: float = 0.356
+## Cap whiff/miss depth near tee (dribble).
+const WHIFF_MAX_P: float = 0.06
+## OK+ minimum arc so short carries never read as ground skids.
+const VISUAL_ARC_MIN_PX: float = 18.0
+## Max tee-to-landing travel (px) for whiff acceptance tests.
+const VISUAL_DRIBBLE_MAX_PX: float = 14.0
 
 enum TimingTier { PERFECT, GOOD, OK, MISS }
 enum FeedbackTier { WHISPER, WARM, JACKPOT, MILESTONE }

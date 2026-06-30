@@ -39,3 +39,11 @@ theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
 theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 8
 text = "Hold to swing"
+
+[node name="PhaseLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.82, 0.72, 0.9)
+theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 8
+text = "STRIKE"

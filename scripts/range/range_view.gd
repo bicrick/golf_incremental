@@ -13,7 +13,7 @@ const FLIGHT_TIME_RANGE_SEC := 0.95
 const FLIGHT_DEPTH_EXPONENT := 0.34
 const FLIGHT_DEPTH_STRETCH := 1.02
 const FLIGHT_YARD_DEPTH_SCALE := 180.0
-const FLIGHT_MIN_LANDING_Y := 176.0
+const FLIGHT_MIN_LANDING_Y := Balance.VISUAL_FLOOR_Y
 const FLIGHT_BALL_TEXTURE_PX := 16.0
 const LANDING_SCATTER_X := 28.0
 const LANDING_Y_MARGIN := 8.0
@@ -40,9 +40,12 @@ const Z_BALL := 3
 const Z_GOLFER := 4
 const Z_FLOAT_TEXT := 4
 const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles/TEXT"
+const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
+const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 
 # Range Rat swing: charge maps progress to wind-up frames 0–7; release hits frame 8 (contact);
 # follow-through auto-plays frames 9–16. Idle loops 5 frames from idle sheet.
+# idle_out_of_balls loops 9 frames (3x3) when bucket is empty or in harvest phase.
 
 @onready var canvas_modulate: CanvasModulate = $CanvasModulate
 @onready var ball: AnimatedSprite2D = $Foreground/Ball
@@ -84,6 +87,7 @@ var _ball_lay_texture: Texture2D
 var _flight_config: BallFlightRenderer.FlightConfig
 var _fairway_stripes: Array[Polygon2D] = []
 var _placement_debug: PlacementDebug
+var _pickup: Node
 
 
 func _ready() -> void:
@@ -99,6 +103,10 @@ func _ready() -> void:
 	EventBus.swing_resolved.connect(_on_swing_resolved)
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
 	EventBus.swing_charge_updated.connect(_on_swing_charge_updated)
+	EventBus.bucket_changed.connect(_on_bucket_changed)
+	EventBus.phase_changed.connect(_on_phase_changed)
+	call_deferred("_sync_tee_ball_from_bucket")
+	call_deferred("_setup_pickup_controller")
 	if camera:
 		camera.make_current()
 	_set_idle_ring()
@@ -117,7 +125,7 @@ func _setup_dinky_sprites() -> void:
 	golfer.scale = GOLFER_PIXEL_SCALE
 	_base_golfer_scale = GOLFER_PIXEL_SCALE
 	golfer.offset = RangeRatSpriteFrames.FOOT_OFFSET
-	golfer.play(&"idle")
+	_play_golfer_idle()
 	golfer.animation_finished.connect(_on_golfer_animation_finished)
 
 
@@ -227,6 +235,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _placement_debug and _placement_debug.is_active():
 		return
+	if _pickup and _pickup.handle_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if not event is InputEventKey:
 		return
 	var key := event as InputEventKey
@@ -268,11 +279,50 @@ func _on_swing_charge_updated(_power: float, _in_band: bool, _past_peak: bool) -
 	golfer.frame = frame
 
 
+func _golfer_idle_anim() -> StringName:
+	if GameState.has_bucket_balls():
+		return &"idle"
+	return &"idle_out_of_balls"
+
+
+func _play_golfer_idle() -> void:
+	var anim := _golfer_idle_anim()
+	if golfer.animation == anim and golfer.is_playing():
+		return
+	if golfer.animation != anim:
+		golfer.stop()
+	golfer.play(anim)
+
+
+func _golfer_idle_blocked() -> bool:
+	return (
+		_golfer_joy_active
+		or _swing.is_charging()
+		or golfer.animation == &"joy"
+		or golfer.animation == &"swing"
+		or (golfer.animation == &"follow" and golfer.is_playing())
+	)
+
+
+func _sync_golfer_idle_from_bucket() -> void:
+	if _golfer_idle_blocked():
+		return
+	if GameState.has_bucket_balls():
+		# Bucket refilled — always leave idle_out_of_balls. Hold follow only while
+		# the struck ball is still in flight and the tee is empty.
+		if _golfer_holding_finish and not _ball_at_tee:
+			return
+		_golfer_holding_finish = false
+	else:
+		_golfer_holding_finish = false
+	_play_golfer_idle()
+
+
 func _on_golfer_animation_finished() -> void:
 	if golfer.animation == &"joy":
 		_golfer_joy_active = false
 		if not _swing.is_charging():
-			golfer.play(&"idle")
+			_play_golfer_idle()
 	elif golfer.animation == &"follow":
 		_hold_swing_finish()
 
@@ -338,21 +388,16 @@ func _update_charge_visuals() -> void:
 	if _placement_debug and _placement_debug.is_active():
 		return
 	if not _swing.is_charging():
-		if not _result_flash_active and not _ball_in_flight and _ball_at_tee:
-			ball.position = _ball_home
-			ball.scale = _base_ball_scale
-			if ball.animation != &"roll":
-				ball.play(&"idle")
+		if not _result_flash_active and not _ball_in_flight:
+			if _ball_at_tee:
+				ball.position = _ball_home
+				ball.scale = _base_ball_scale
+				if ball.animation != &"roll":
+					ball.play(&"idle")
 			golfer.position = _golfer_home
-			if (
-				not _golfer_joy_active
-				and not _golfer_holding_finish
-				and golfer.animation != &"joy"
-				and golfer.animation != &"follow"
-				and golfer.animation != &"swing"
-			):
-				golfer.play(&"idle")
-			_set_idle_ring()
+			_sync_golfer_idle_from_bucket()
+			if _ball_at_tee:
+				_set_idle_ring()
 		return
 
 	if charge_meter:
@@ -470,6 +515,10 @@ func _play_golfer_joy() -> void:
 
 
 func _hold_swing_finish() -> void:
+	if not GameState.has_bucket_balls() or _ball_at_tee:
+		_golfer_holding_finish = false
+		_play_golfer_idle()
+		return
 	_golfer_holding_finish = true
 	golfer.stop()
 	golfer.animation = &"follow"
@@ -477,11 +526,9 @@ func _hold_swing_finish() -> void:
 
 
 func _release_swing_finish() -> void:
-	if not _golfer_holding_finish:
-		return
 	_golfer_holding_finish = false
-	if not _swing.is_charging() and not _golfer_joy_active:
-		golfer.play(&"idle")
+	if not _golfer_idle_blocked():
+		_play_golfer_idle()
 
 
 func _play_swing_followthrough() -> void:
@@ -508,10 +555,14 @@ func _show_tier_sprite(tier: int, feedback_tier: int) -> void:
 	)
 
 
+func show_pickup_cash_float(world_pos: Vector2, payout: float, combo_tier: int) -> void:
+	FloatCashTextScript.spawn(self, world_pos, payout, combo_tier, Z_FLOAT_TEXT)
+
+
 func _spawn_float_text(tier: int, yards: float, payout: float) -> void:
 	var tier_name := Balance.TIER_NAMES[tier]
 	var label := Label.new()
-	label.text = "%s\n%d yds\n+$%d" % [tier_name, int(yards), int(payout)]
+	label.text = "%s\n%d yds\n+$%s" % [tier_name, int(yards), FloatCashTextScript.format_amount(payout)]
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	PixelFont.apply_label(label, 8)
 	label.modulate = Balance.TIER_COLORS[tier]
@@ -527,8 +578,57 @@ func _spawn_float_text(tier: int, yards: float, payout: float) -> void:
 	tween.chain().tween_callback(label.queue_free)
 
 
+func _on_bucket_changed(_count: int, _capacity: int) -> void:
+	_sync_tee_ball_from_bucket()
+	_sync_golfer_idle_from_bucket()
+
+
+func _on_phase_changed(phase: String) -> void:
+	if phase == "harvest":
+		_sync_tee_ball_from_bucket()
+	_sync_golfer_idle_from_bucket()
+
+
+func on_harvest_complete() -> void:
+	_respawn_ball_at_tee()
+
+
+func _setup_pickup_controller() -> void:
+	_pickup = PickupControllerScript.new()
+	_pickup.name = "PickupController"
+	add_child(_pickup)
+	var bucket_counter: Control = get_tree().root.get_node_or_null(
+		"Main/UI/UIRoot/IconBar/BottomRight/BucketCounter"
+	)
+	if bucket_counter:
+		_pickup.setup(self, littered_balls, bucket_counter)
+
+
+func _sync_tee_ball_from_bucket() -> void:
+	if _ball_in_flight:
+		return
+	if not GameState.has_bucket_balls():
+		ball.visible = false
+		_ball_at_tee = false
+		_sync_golfer_idle_from_bucket()
+		return
+	if _ball_at_tee:
+		ball.visible = true
+		ball.position = _ball_home
+		ball.scale = _base_ball_scale
+		if ball.animation != &"roll":
+			ball.play(&"idle")
+
+
 func _update_ball_reload() -> void:
-	if _ball_at_tee or _ball_in_flight:
+	if _ball_in_flight:
+		return
+	if not GameState.has_bucket_balls():
+		if ball.visible or _ball_at_tee:
+			ball.visible = false
+			_ball_at_tee = false
+		return
+	if _ball_at_tee:
 		return
 	if _swing.can_swing(GameState.stats):
 		_respawn_ball_at_tee()
@@ -541,6 +641,7 @@ func _respawn_ball_at_tee() -> void:
 	ball.play(&"idle")
 	_ball_at_tee = true
 	_release_swing_finish()
+	_sync_golfer_idle_from_bucket()
 
 
 func _build_flight_config() -> BallFlightRenderer.FlightConfig:
@@ -573,6 +674,9 @@ func _leave_litter_ball(land_position: Vector2, land_scale: Vector2) -> void:
 	litter.texture = _ball_lay_texture
 	litter.position = land_position
 	litter.scale = land_scale
+	litter.z_as_relative = false
+	litter.z_index = int(land_position.y)
+	litter.set_meta("collectible", true)
 	littered_balls.add_child(litter)
 
 
@@ -614,7 +718,11 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 			DistanceTwinkle.spawn(self, landing["visual_pos"])
 		ball.visible = false
 		ball.modulate = Color.WHITE
-		_ball_at_tee = false
+		if GameState.has_bucket_balls():
+			_update_ball_reload()
+		else:
+			_ball_at_tee = false
+		_sync_golfer_idle_from_bucket()
 	)
 
 	if feedback_tier == Balance.FeedbackTier.JACKPOT and camera:

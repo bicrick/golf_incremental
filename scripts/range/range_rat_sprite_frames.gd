@@ -4,12 +4,16 @@ extends RefCounted
 
 const BASE := "res://assets/sprites/range_rat"
 const IDLE_SHEET := BASE + "/range-rat-idle-sheet.png"
+const IDLE_OUT_OF_BALLS_SHEET := BASE + "/range-rat-idle-out-of-balls-sheet.png"
 const SWING_SHEET := BASE + "/range-rat-swing-sheet.png"
 
 const FRAME_SIZE := 52
 const IDLE_COLS := 3
 const IDLE_FRAME_COUNT := 5
 const IDLE_FPS := 2.5
+const IDLE_OUT_OF_BALLS_COLS := 3
+const IDLE_OUT_OF_BALLS_FRAME_COUNT := 9
+const IDLE_OUT_OF_BALLS_FPS := 9.0
 const SWING_COLS := 5
 const SWING_FRAME_COUNT := 17
 const WINDUP_LAST := 7
@@ -36,6 +40,7 @@ static func make_atlas_frame(sheet: Texture2D, cols: int, index: int) -> AtlasTe
 static func make_golfer_frames() -> SpriteFrames:
 	var frames := SpriteFrames.new()
 	var idle_sheet: Texture2D = load(IDLE_SHEET)
+	var idle_out_sheet: Texture2D = load(IDLE_OUT_OF_BALLS_SHEET)
 	var swing_sheet: Texture2D = load(SWING_SHEET)
 
 	frames.add_animation(&"idle")
@@ -43,6 +48,15 @@ static func make_golfer_frames() -> SpriteFrames:
 	frames.set_animation_speed(&"idle", IDLE_FPS)
 	for i in IDLE_FRAME_COUNT:
 		frames.add_frame(&"idle", make_atlas_frame(idle_sheet, IDLE_COLS, i))
+
+	frames.add_animation(&"idle_out_of_balls")
+	frames.set_animation_loop(&"idle_out_of_balls", true)
+	frames.set_animation_speed(&"idle_out_of_balls", IDLE_OUT_OF_BALLS_FPS)
+	for i in IDLE_OUT_OF_BALLS_FRAME_COUNT:
+		frames.add_frame(
+			&"idle_out_of_balls",
+			make_atlas_frame(idle_out_sheet, IDLE_OUT_OF_BALLS_COLS, i)
+		)
 
 	frames.add_animation(&"swing")
 	frames.set_animation_loop(&"swing", false)

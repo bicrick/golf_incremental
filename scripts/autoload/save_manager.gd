@@ -40,6 +40,8 @@ func save_game() -> void:
 		"currency": GameState.currency,
 		"upgrade_levels": GameState.upgrade_levels.duplicate(),
 		"lifetime": GameState.lifetime.duplicate(),
+		"bucket_remaining": GameState.bucket_remaining,
+		"bucket_capacity": GameState.bucket_capacity,
 		"last_save_time": Time.get_unix_time_from_system() * 1000,
 	}
 	var json := JSON.stringify(data)
@@ -109,3 +111,6 @@ func load_game() -> void:
 	GameState.currency = float(parsed.get("currency", 0.0))
 	GameState.upgrade_levels = parsed.get("upgrade_levels", {})
 	GameState.lifetime = parsed.get("lifetime", GameState.lifetime)
+	GameState.bucket_capacity = int(parsed.get("bucket_capacity", Balance.BUCKET_CAPACITY_DEFAULT))
+	var saved_remaining: int = int(parsed.get("bucket_remaining", -1))
+	GameState.bucket_remaining = saved_remaining if saved_remaining >= 0 else GameState.bucket_capacity

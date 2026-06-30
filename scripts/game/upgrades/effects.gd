@@ -68,6 +68,10 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 			return stats.global_multiplier
 		"flat_bonus_per_swing":
 			return stats.flat_bonus_per_swing
+		"pickup_bonus_mult":
+			return stats.pickup_bonus_mult
+		"bucket_capacity_bonus":
+			return stats.bucket_capacity_bonus
 		"crit_chance":
 			return stats.crit_chance
 		"crit_multiplier":
@@ -113,6 +117,10 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 			stats.global_multiplier = value
 		"flat_bonus_per_swing":
 			stats.flat_bonus_per_swing = value
+		"pickup_bonus_mult":
+			stats.pickup_bonus_mult = value
+		"bucket_capacity_bonus":
+			stats.bucket_capacity_bonus = value
 		"crit_chance":
 			stats.crit_chance = value
 		"crit_multiplier":

@@ -28,6 +28,8 @@ extends Resource
 @export var dollars_per_yard: float = 1.0
 @export var global_multiplier: float = 1.0
 @export var flat_bonus_per_swing: float = 0.0
+@export var pickup_bonus_mult: float = 1.0
+@export var bucket_capacity_bonus: float = 0.0
 @export var crit_chance: float = 0.0
 @export var crit_multiplier: float = 10.0
 
@@ -53,6 +55,8 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.dollars_per_yard = from.dollars_per_yard
 	copy.global_multiplier = from.global_multiplier
 	copy.flat_bonus_per_swing = from.flat_bonus_per_swing
+	copy.pickup_bonus_mult = from.pickup_bonus_mult
+	copy.bucket_capacity_bonus = from.bucket_capacity_bonus
 	copy.crit_chance = from.crit_chance
 	copy.crit_multiplier = from.crit_multiplier
 	copy.passive_swings_per_second = from.passive_swings_per_second

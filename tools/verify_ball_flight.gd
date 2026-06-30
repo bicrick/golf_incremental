@@ -37,7 +37,7 @@ func _make_config() -> BallFlightRenderer.FlightConfig:
 	config.flight_depth_exponent = 0.34
 	config.flight_depth_stretch = 1.02
 	config.yard_depth_scale = 180.0
-	config.min_landing_y = 176.0
+	config.min_landing_y = Balance.VISUAL_FLOOR_Y
 	config.base_ball_scale = Vector2(0.5, 0.5)
 	config.min_visible_px = 0.5
 	config.ball_texture_px = 8.0

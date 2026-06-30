@@ -15,10 +15,10 @@ const HOVER_BOB_AMPLITUDE := 1.5
 const HOVER_BOB_FREQ := 2.4
 
 @onready var upgrades_button: Button = $TopRight/UpgradesButton
-@onready var settings_button: Button = $BottomRight/SettingsButton
-@onready var stats_button: Button = $BottomLeft/StatsButton
+@onready var settings_button: Button = $BottomLeft/SettingsWrap/SettingsButton
 @onready var _upgrades_glyph: Control = $TopRight/UpgradesButton/Glyph
-@onready var _settings_glyph: Control = $BottomRight/SettingsButton/Glyph
+@onready var _settings_glyph: Control = $BottomLeft/SettingsWrap/SettingsButton/Glyph
+@onready var _settings_wrap: Control = $BottomLeft/SettingsWrap
 
 var _upgrade_panel: Node = null
 var _settings_panel: Node = null
@@ -44,8 +44,6 @@ func _ready() -> void:
 	settings_button.mouse_exited.connect(_on_settings_mouse_exited)
 	_style_upgrades_button()
 	_style_settings_button()
-	_style_icon_button(stats_button, COLOR_DISABLED)
-	stats_button.disabled = true
 	upgrades_button.tooltip_text = ""
 	settings_button.tooltip_text = ""
 	call_deferred("_capture_button_rest_positions")
@@ -54,7 +52,7 @@ func _ready() -> void:
 
 func _capture_button_rest_positions() -> void:
 	_upgrades_rest_y = upgrades_button.position.y
-	_settings_rest_y = settings_button.position.y
+	_settings_rest_y = _settings_wrap.position.y
 
 
 func _process(delta: float) -> void:
@@ -65,7 +63,7 @@ func _process(delta: float) -> void:
 	if _upgrades_hover:
 		upgrades_button.position.y = _upgrades_rest_y + wave
 	if _settings_hover:
-		settings_button.position.y = _settings_rest_y + wave
+		_settings_wrap.position.y = _settings_rest_y + wave
 
 
 func _on_upgrades_mouse_entered() -> void:
@@ -86,7 +84,7 @@ func _on_settings_mouse_entered() -> void:
 
 func _on_settings_mouse_exited() -> void:
 	_settings_hover = false
-	settings_button.position.y = _settings_rest_y
+	_settings_wrap.position.y = _settings_rest_y
 	_update_hover_process()
 
 

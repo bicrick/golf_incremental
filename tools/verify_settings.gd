@@ -230,7 +230,7 @@ func _test_main_has_settings_panel() -> bool:
 		main.queue_free()
 		return false
 
-	var icon_bar := main.get_node_or_null("UI/UIRoot/IconBar/BottomRight/SettingsButton")
+	var icon_bar := main.get_node_or_null("UI/UIRoot/IconBar/BottomLeft/SettingsWrap/SettingsButton")
 	if icon_bar == null:
 		print("FAIL: in-game settings button missing")
 		main.queue_free()
@@ -253,7 +253,8 @@ func _test_settings_button_behavior() -> bool:
 	await process_frame
 	await process_frame
 
-	var settings_btn: Button = main.get_node("UI/UIRoot/IconBar/BottomRight/SettingsButton")
+	var settings_btn: Button = main.get_node("UI/UIRoot/IconBar/BottomLeft/SettingsWrap/SettingsButton")
+	var settings_wrap: Control = main.get_node("UI/UIRoot/IconBar/BottomLeft/SettingsWrap")
 	var upgrades_btn: Button = main.get_node("UI/UIRoot/IconBar/TopRight/UpgradesButton")
 
 	if settings_btn.tooltip_text != "":
@@ -261,7 +262,7 @@ func _test_settings_button_behavior() -> bool:
 		main.queue_free()
 		return false
 
-	var settings_rest_y := settings_btn.position.y
+	var settings_rest_y := settings_wrap.position.y
 	var upgrades_rest_y := upgrades_btn.position.y
 	var game_state: Node = root.get_node_or_null("GameState")
 	if game_state != null:
@@ -275,10 +276,10 @@ func _test_settings_button_behavior() -> bool:
 	for _i in 20:
 		await process_frame
 
-	if not is_equal_approx(settings_btn.position.y, settings_rest_y):
+	if not is_equal_approx(settings_wrap.position.y, settings_rest_y):
 		print(
 			"FAIL: settings button bobbed without hover (y=%.2f -> %.2f)"
-			% [settings_rest_y, settings_btn.position.y]
+			% [settings_rest_y, settings_wrap.position.y]
 		)
 		main.queue_free()
 		return false

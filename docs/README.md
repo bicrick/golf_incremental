@@ -10,6 +10,7 @@ A cozy, Miyazaki-adjacent **parallax 2.5D** pixel art golf incremental on a driv
 
 | Doc | Read if you are working on… |
 |-----|----------------------------|
+| **[v2/ README](v2/README.md)** | **v2 redesign — bucket, pickup, contact swing, range tycoon (start here for new features)** |
 | [design/00-vision.md](design/00-vision.md) | Project pillars, tone, inspiration, north star |
 | [design/01-core-loop.md](design/01-core-loop.md) | Rhythm swing, timing tiers, swing cadence |
 | [design/02-world-and-range.md](design/02-world-and-range.md) | Parallax 2.5D layers, camera, targets, time-of-day |
@@ -55,5 +56,6 @@ A cozy, Miyazaki-adjacent **parallax 2.5D** pixel art golf incremental on a driv
 |-------|-------|-----|
 | v1 | Rhythm + 3 upgrade branches + parallax + save | [v1-acceptance.md](specs/v1-acceptance.md) |
 | v1.5 | Bullseyes on range, outfit sprite layers | [05-progression.md](design/05-progression.md) |
-| v2 | Golf friend passive income | [06-characters.md](design/06-characters.md) |
+| **v2 redesign** | **Bucket, pickup, contact swing, range tycoon, crew** | **[v2/README.md](v2/README.md)** |
+| v2 (legacy note) | Golf friend passive income | superseded by [v2/05-characters-and-crew.md](v2/05-characters-and-crew.md) |
 | Later | GodotSteam, Steam release | [00-stack.md](technical/00-stack.md) |

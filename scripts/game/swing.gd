@@ -33,6 +33,8 @@ func can_swing(stats: PlayerStats) -> bool:
 func start_charge() -> void:
 	if phase != Phase.IDLE:
 		return
+	if not GameState.has_bucket_balls():
+		return
 	if not can_swing(GameState.stats):
 		return
 	phase = Phase.CHARGING
@@ -75,6 +77,7 @@ func _resolve_swing(tier: int, timing_quality: float) -> void:
 
 	var feedback := _feedback_for(tier, payout)
 	EventBus.swing_resolved.emit(yards, tier, payout, feedback)
+	GameState.consume_bucket_ball()
 
 
 static func _feedback_for(tier: int, payout: float) -> int:

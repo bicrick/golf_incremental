@@ -1,6 +1,12 @@
 # Progression
 
-## Phase overview
+## v2 redesign (2025+)
+
+The game loop is being reworked. **New design lives in [`docs/v2/`](../v2/README.md)** — bucket bursts, pickup mini-game, contact timing, visual carry floor, range superintendent progression.
+
+v1 docs below remain accurate for shipped code until migration phases in [v2/07-implementation-phases.md](../v2/07-implementation-phases.md) land.
+
+## Phase overview (v1 era)
 
 | Phase | Focus | Upgrade branches (content) | Key features |
 |-------|-------|---------------------------|--------------|

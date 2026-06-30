@@ -43,8 +43,10 @@ static func build_path(
 ) -> FlightPath:
 	var path := FlightPath.new()
 	path.yards = yards
-	path.persp_p = yards_to_p(yards, config)
-	path.arc_height = arc_height_for_hit(yards, timing_tier, stats, config)
+	path.persp_p = resolve_visual_p(yards, timing_tier, config)
+	path.arc_height = arc_height_for_hit(
+		yards, timing_tier, stats, config, path.persp_p
+	)
 	var time_depth := clampf(path.persp_p, 0.0, 2.0)
 	path.flight_time = config.flight_time_min_sec + time_depth * config.flight_time_range_sec
 
@@ -72,27 +74,39 @@ static func yards_to_p(yards: float, config: FlightConfig) -> float:
 	if yards <= 0.0:
 		return 0.0
 	var raw := 1.0 - exp(-yards / config.yard_depth_scale)
-	var remapped := pow(raw, config.flight_depth_exponent) * config.flight_depth_stretch
-	var min_p := PerspectiveGround.p_at_y_segment(
-		config.min_landing_y, config.tee_y, config.far_ground_y
-	)
-	return maxf(remapped, min_p)
+	return pow(raw, config.flight_depth_exponent) * config.flight_depth_stretch
+
+
+## Gameplay yards → screen depth, with v2 carry floor / whiff cap by timing tier.
+static func resolve_visual_p(
+	yards: float,
+	timing_tier: int,
+	config: FlightConfig
+) -> float:
+	var p := yards_to_p(yards, config)
+	if timing_tier == Balance.TimingTier.MISS:
+		return minf(p, Balance.WHIFF_MAX_P)
+	return maxf(p, Balance.VISUAL_FLOOR_P)
 
 
 static func arc_height_for_hit(
 	yards: float,
 	timing_tier: int,
 	stats: PlayerStats,
-	config: FlightConfig
+	config: FlightConfig,
+	visual_p: float = -1.0
 ) -> float:
-	var persp_p := yards_to_p(yards, config)
+	var persp_p := visual_p if visual_p >= 0.0 else resolve_visual_p(yards, timing_tier, config)
 	var yard_frac := clampf(yards / maxf(stats.max_yards, 1.0), 0.0, 1.0)
 	var tier_norm := 1.0 - clampf(
 		float(timing_tier) / float(Balance.TimingTier.MISS), 0.0, 1.0
 	)
 	var hit_strength := lerpf(yard_frac * 0.4 + persp_p * 0.6, persp_p, tier_norm)
 	var base_arc := lerpf(config.arc_min_px, config.arc_max_px, clampf(hit_strength, 0.0, 1.0))
-	return base_arc * lerpf(0.88, 1.0, tier_norm)
+	base_arc *= lerpf(0.88, 1.0, tier_norm)
+	if timing_tier != Balance.TimingTier.MISS:
+		base_arc = maxf(base_arc, Balance.VISUAL_ARC_MIN_PX)
+	return base_arc
 
 
 static func is_visible_scale(scale_factor: float, config: FlightConfig) -> bool:

@@ -130,6 +130,15 @@ func play_start() -> void:
 	_play("play_fanfare", -4.0)
 
 
+func play_pickup_plink(combo_tier: int) -> void:
+	var pitch := 1.0 + 0.08 * float(maxi(combo_tier, 1) - 1)
+	_play("pickup_plink", -6.0, pitch)
+
+
+func play_bucket_full_chime() -> void:
+	_play("bucket_full_chime", -4.0)
+
+
 func _refresh_music_tracks() -> void:
 	_music_tracks = _discover_music_tracks()
 
@@ -327,6 +336,8 @@ func _build_streams() -> void:
 	)
 	_streams["play_whoosh"] = _make_thwack(150.0, 0.14, 0.2, 0.5)
 	_streams["play_fanfare"] = _make_chime([440.0, 554.0, 659.0, 880.0, 1108.0], 0.38, 0.24)
+	_streams["pickup_plink"] = _make_chime([880.0, 1175.0, 1568.0], 0.12, 0.28)
+	_streams["bucket_full_chime"] = _make_chime([523.0, 659.0, 784.0, 1047.0], 0.32, 0.34)
 	_streams["ambient_wind"] = _make_wind_loop(2.5, 0.06)
 
 
