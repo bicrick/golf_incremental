@@ -11,8 +11,8 @@ const COLOR_WOOD := Color(0.55, 0.42, 0.32, 1)
 const COLOR_WOOD_DARK := Color(0.35, 0.28, 0.22, 1)
 const COLOR_DISABLED := Color(0.45, 0.4, 0.35, 0.6)
 
-const PULSE_BOB_AMPLITUDE := 1.5
-const PULSE_BOB_FREQ := 1.2
+const HOVER_BOB_AMPLITUDE := 1.5
+const HOVER_BOB_FREQ := 2.4
 
 @onready var upgrades_button: Button = $TopRight/UpgradesButton
 @onready var settings_button: Button = $BottomRight/SettingsButton
@@ -24,9 +24,11 @@ var _upgrade_panel: Node = null
 var _settings_panel: Node = null
 var _upgrades_open := false
 var _settings_open := false
-var _pulse_active := false
-var _pulse_time := 0.0
-var _button_rest_y := 0.0
+var _upgrades_rest_y := 0.0
+var _settings_rest_y := 0.0
+var _upgrades_hover := false
+var _settings_hover := false
+var _hover_bob_time := 0.0
 
 
 func _ready() -> void:
@@ -36,67 +38,63 @@ func _ready() -> void:
 		_settings_panel = main.get_node_or_null("SettingsLayer/SettingsPanel")
 	upgrades_button.pressed.connect(_on_upgrades_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
+	upgrades_button.mouse_entered.connect(_on_upgrades_mouse_entered)
+	upgrades_button.mouse_exited.connect(_on_upgrades_mouse_exited)
+	settings_button.mouse_entered.connect(_on_settings_mouse_entered)
+	settings_button.mouse_exited.connect(_on_settings_mouse_exited)
 	_style_upgrades_button()
 	_style_settings_button()
 	_style_icon_button(stats_button, COLOR_DISABLED)
 	stats_button.disabled = true
-	EventBus.stats_changed.connect(_on_stats_changed)
-	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 	upgrades_button.tooltip_text = ""
 	settings_button.tooltip_text = ""
-	call_deferred("_capture_button_rest_y")
-	call_deferred("_update_pulse_state")
+	call_deferred("_capture_button_rest_positions")
+	set_process(false)
 
 
-func _capture_button_rest_y() -> void:
-	_button_rest_y = upgrades_button.position.y
+func _capture_button_rest_positions() -> void:
+	_upgrades_rest_y = upgrades_button.position.y
+	_settings_rest_y = settings_button.position.y
 
 
 func _process(delta: float) -> void:
-	if not _pulse_active:
+	if not _upgrades_hover and not _settings_hover:
 		return
-	_pulse_time += delta
-	var wave := sin(_pulse_time * PULSE_BOB_FREQ)
-	upgrades_button.position.y = _button_rest_y + wave * PULSE_BOB_AMPLITUDE
+	_hover_bob_time += delta
+	var wave := sin(_hover_bob_time * HOVER_BOB_FREQ) * HOVER_BOB_AMPLITUDE
+	if _upgrades_hover:
+		upgrades_button.position.y = _upgrades_rest_y + wave
+	if _settings_hover:
+		settings_button.position.y = _settings_rest_y + wave
 
 
-func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
-	_update_pulse_state()
-
-
-func _on_upgrade_purchased(_id: String, _level: int, _branch: int) -> void:
-	_update_pulse_state()
-
-
-func _has_affordable_upgrade() -> bool:
-	return UpgradeDefinitions.has_affordable_upgrade(
-		GameState.upgrade_levels, GameState.currency, GameState.lifetime
-	)
-
-
-func _update_pulse_state() -> void:
-	var should_pulse := not _upgrades_open and _has_affordable_upgrade()
-	if should_pulse == _pulse_active:
-		return
-	_pulse_active = should_pulse
-	if _pulse_active:
-		_start_pulse()
-	else:
-		_stop_pulse()
-
-
-func _start_pulse() -> void:
+func _on_upgrades_mouse_entered() -> void:
+	_upgrades_hover = true
 	set_process(true)
 
 
-func _stop_pulse(reset_visual: bool = true) -> void:
-	set_process(false)
-	if reset_visual:
-		_reset_button_bob()
+func _on_upgrades_mouse_exited() -> void:
+	_upgrades_hover = false
+	upgrades_button.position.y = _upgrades_rest_y
+	_update_hover_process()
 
 
-func _reset_button_bob() -> void:
-	upgrades_button.position.y = _button_rest_y
+func _on_settings_mouse_entered() -> void:
+	_settings_hover = true
+	set_process(true)
+
+
+func _on_settings_mouse_exited() -> void:
+	_settings_hover = false
+	settings_button.position.y = _settings_rest_y
+	_update_hover_process()
+
+
+func _update_hover_process() -> void:
+	var any_hover := _upgrades_hover or _settings_hover
+	set_process(any_hover)
+	if not any_hover:
+		_hover_bob_time = 0.0
 
 
 func _on_upgrades_pressed() -> void:
@@ -117,7 +115,6 @@ func _on_upgrades_pressed() -> void:
 func set_upgrades_open(is_open: bool) -> void:
 	_upgrades_open = is_open
 	_set_upgrades_pressed(is_open)
-	_update_pulse_state()
 
 
 func _set_upgrades_pressed(is_open: bool) -> void:

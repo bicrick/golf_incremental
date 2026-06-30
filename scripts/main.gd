@@ -13,8 +13,6 @@ func _ready() -> void:
 	range_view.visible = false
 	ui.visible = false
 	title_screen.play_pressed.connect(_on_play_pressed)
-	if title_screen.has_method("set_settings_panel"):
-		title_screen.set_settings_panel(settings_panel)
 	settings_panel.wipe_confirmed.connect(_on_wipe_confirmed)
 	EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
 	SfxManager.play_title_bgm()

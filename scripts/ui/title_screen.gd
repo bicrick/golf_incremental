@@ -21,24 +21,16 @@ const BOB_SPEED := 2.4
 @onready var overlay: Control = $Overlay
 @onready var title_label: Label = $Overlay/Center/VBox/TitleLabel
 @onready var play_button: Button = $Overlay/Center/VBox/PlayBob/PlayButton
-@onready var settings_button: Button = $Overlay/SettingsButton
 
 var _bob_time := 0.0
 var _play_button_rest_y := 0.0
 var _transitioning := false
-var _settings_panel: Node = null
-
-
-func set_settings_panel(panel: Node) -> void:
-	_settings_panel = panel
 
 
 func _ready() -> void:
 	_apply_fonts()
 	_style_play_button()
-	_style_settings_button()
 	play_button.pressed.connect(_on_play_pressed)
-	settings_button.pressed.connect(_on_settings_pressed)
 	call_deferred("_capture_play_button_rest_y")
 
 
@@ -91,23 +83,6 @@ func _make_button_style(fill: Color) -> StyleBoxFlat:
 	style.content_margin_top = 6
 	style.content_margin_bottom = 6
 	return style
-
-
-func _on_settings_pressed() -> void:
-	if _transitioning or _settings_panel == null:
-		return
-	if _settings_panel.has_method("open"):
-		_settings_panel.open()
-
-
-func _style_settings_button() -> void:
-	settings_button.custom_minimum_size = Vector2(24, 24)
-	settings_button.tooltip_text = ""
-	var empty := StyleBoxEmpty.new()
-	settings_button.add_theme_stylebox_override(&"normal", empty)
-	settings_button.add_theme_stylebox_override(&"hover", empty)
-	settings_button.add_theme_stylebox_override(&"pressed", empty)
-	settings_button.add_theme_stylebox_override(&"focus", empty)
 
 
 func _on_play_pressed() -> void:
