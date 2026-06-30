@@ -17,11 +17,15 @@ var _rotation_index := 0
 var _is_title_mode := false
 var _sfx_enabled := true
 var _music_enabled := true
+var _sfx_volume := 1.0
+var _music_volume := 1.0
 
 
 func _ready() -> void:
 	_sfx_enabled = SaveManager.sfx_enabled
 	_music_enabled = SaveManager.music_enabled
+	_sfx_volume = SaveManager.sfx_volume
+	_music_volume = SaveManager.music_volume
 	_build_streams()
 	_build_pool()
 	_refresh_music_tracks()
@@ -42,6 +46,27 @@ func is_sfx_enabled() -> bool:
 
 func is_music_enabled() -> bool:
 	return _music_enabled
+
+
+func get_sfx_volume() -> float:
+	return _sfx_volume
+
+
+func get_music_volume() -> float:
+	return _music_volume
+
+
+func set_sfx_volume(volume: float) -> void:
+	_sfx_volume = clampf(volume, 0.0, 1.0)
+	SaveManager.sfx_volume = _sfx_volume
+	SaveManager.save_settings()
+
+
+func set_music_volume(volume: float) -> void:
+	_music_volume = clampf(volume, 0.0, 1.0)
+	SaveManager.music_volume = _music_volume
+	SaveManager.save_settings()
+	_apply_music_volume()
 
 
 func set_sfx_enabled(enabled: bool) -> void:
@@ -138,7 +163,7 @@ func _play_track_at_path(path: String, loop: bool) -> void:
 	if _music_player == null:
 		_music_player = AudioStreamPlayer.new()
 		_music_player.name = "BackgroundMusic"
-		_music_player.volume_db = BGM_VOLUME_DB
+		_music_player.volume_db = _effective_music_db(BGM_VOLUME_DB)
 		_music_player.autoplay = false
 		add_child(_music_player)
 	if _music_player.finished.is_connected(_on_music_finished):
@@ -146,6 +171,7 @@ func _play_track_at_path(path: String, loop: bool) -> void:
 	_music_player.stream = stream
 	if not loop:
 		_music_player.finished.connect(_on_music_finished)
+	_apply_music_volume()
 	_music_player.play()
 
 
@@ -160,7 +186,7 @@ func _start_ambient() -> void:
 	_ambient_player = AudioStreamPlayer.new()
 	_ambient_player.name = "AmbientWind"
 	_ambient_player.stream = _streams["ambient_wind"]
-	_ambient_player.volume_db = -28.0
+	_ambient_player.volume_db = _effective_music_db(-28.0)
 	_ambient_player.autoplay = false
 	add_child(_ambient_player)
 	_ambient_player.play()
@@ -178,16 +204,29 @@ func _set_stream_loop(stream: AudioStream, loop: bool) -> void:
 
 
 func _apply_music_enabled() -> void:
-	if _music_enabled:
-		_set_music_volume(BGM_VOLUME_DB)
-		if _ambient_player != null:
-			_ambient_player.volume_db = -28.0
-		if _music_player == null and _ambient_player == null:
-			play_title_bgm()
+	_apply_music_volume()
+	if not _music_enabled:
 		return
-	_set_music_volume(-80.0)
+	if _music_player == null and _ambient_player == null:
+		play_title_bgm()
+
+
+func _apply_music_volume() -> void:
+	_set_music_volume(_effective_music_db(BGM_VOLUME_DB))
 	if _ambient_player != null:
-		_ambient_player.volume_db = -80.0
+		_ambient_player.volume_db = _effective_music_db(-28.0)
+
+
+func _effective_music_db(base_db: float) -> float:
+	if not _music_enabled or _music_volume <= 0.0:
+		return -80.0
+	return base_db + linear_to_db(_music_volume)
+
+
+func _effective_sfx_db(base_db: float) -> float:
+	if not _sfx_enabled or _sfx_volume <= 0.0:
+		return -80.0
+	return base_db + linear_to_db(_sfx_volume)
 
 
 func _set_music_volume(volume_db: float) -> void:
@@ -196,14 +235,14 @@ func _set_music_volume(volume_db: float) -> void:
 
 
 func _play(stream_key: String, volume_db: float = 0.0, pitch_scale: float = 1.0) -> void:
-	if not _sfx_enabled:
+	if not _sfx_enabled or _sfx_volume <= 0.0:
 		return
 	if not _streams.has(stream_key):
 		return
 	var player := _pool[_pool_index]
 	_pool_index = (_pool_index + 1) % POOL_SIZE
 	player.stream = _streams[stream_key]
-	player.volume_db = volume_db
+	player.volume_db = _effective_sfx_db(volume_db)
 	player.pitch_scale = pitch_scale
 	player.play()
 

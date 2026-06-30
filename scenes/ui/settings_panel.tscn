@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://settings_panel"]
+[gd_scene load_steps=4 format=3 uid="uid://settings_panel"]
 
 [ext_resource type="Script" path="res://scripts/ui/settings_panel.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/ui/parallax_sky_background.gd" id="2_sky_bg"]
+[ext_resource type="Script" path="res://scripts/ui/pixel_slider.gd" id="3_slider"]
 
 [node name="SettingsPanel" type="Control"]
 layout_mode = 3
@@ -64,10 +65,40 @@ layout_mode = 2
 [node name="Body" type="VBoxContainer" parent="Content"]
 layout_mode = 0
 offset_left = 48.0
-offset_top = 56.0
+offset_top = 48.0
 offset_right = 432.0
-offset_bottom = 220.0
-theme_override_constants/separation = 16
+offset_bottom = 248.0
+theme_override_constants/separation = 10
+
+[node name="MusicRow" type="HBoxContainer" parent="Content/Body"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="MusicLabel" type="Label" parent="Content/Body/MusicRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+text = "Music"
+
+[node name="MusicToggle" type="CheckButton" parent="Content/Body/MusicRow"]
+layout_mode = 2
+button_pressed = true
+text = "On"
+
+[node name="MusicVolumeRow" type="HBoxContainer" parent="Content/Body"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="MusicVolumeLabel" type="Label" parent="Content/Body/MusicVolumeRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+text = "Music Volume"
+
+[node name="MusicVolumeSlider" type="Control" parent="Content/Body/MusicVolumeRow"]
+custom_minimum_size = Vector2(120, 18)
+layout_mode = 2
+script = ExtResource("3_slider")
 
 [node name="SfxRow" type="HBoxContainer" parent="Content/Body"]
 layout_mode = 2
@@ -84,20 +115,20 @@ layout_mode = 2
 button_pressed = true
 text = "On"
 
-[node name="MusicRow" type="HBoxContainer" parent="Content/Body"]
+[node name="SfxVolumeRow" type="HBoxContainer" parent="Content/Body"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="MusicLabel" type="Label" parent="Content/Body/MusicRow"]
+[node name="SfxVolumeLabel" type="Label" parent="Content/Body/SfxVolumeRow"]
 custom_minimum_size = Vector2(180, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 8
-text = "Music"
+text = "SFX Volume"
 
-[node name="MusicToggle" type="CheckButton" parent="Content/Body/MusicRow"]
+[node name="SfxVolumeSlider" type="Control" parent="Content/Body/SfxVolumeRow"]
+custom_minimum_size = Vector2(120, 18)
 layout_mode = 2
-button_pressed = true
-text = "On"
+script = ExtResource("3_slider")
 
 [node name="WipeButton" type="Button" parent="Content/Body"]
 layout_mode = 2

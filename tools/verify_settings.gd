@@ -19,6 +19,8 @@ func _run() -> void:
 	ok = _test_default_settings() and ok
 	ok = await _test_persist_settings() and ok
 	ok = await _test_sfx_manager_flags() and ok
+	ok = _test_volume_persistence() and ok
+	ok = await _test_sfx_manager_volume_api() and ok
 	ok = _test_wipe_keeps_settings() and ok
 	ok = await _test_main_has_settings_panel() and ok
 	ok = await _test_settings_button_behavior() and ok
@@ -52,6 +54,9 @@ func _test_default_settings() -> bool:
 	var save_manager: Node = root.get_node("SaveManager")
 	if save_manager.sfx_enabled != true or save_manager.music_enabled != true:
 		print("FAIL: default settings should enable sfx and music")
+		return false
+	if not is_equal_approx(save_manager.sfx_volume, 1.0) or not is_equal_approx(save_manager.music_volume, 1.0):
+		print("FAIL: default volume should be 1.0")
 		return false
 	print("OK: default_settings")
 	return true
@@ -99,6 +104,74 @@ func _test_sfx_manager_flags() -> bool:
 	return true
 
 
+func _test_volume_persistence() -> bool:
+	var save_manager: Node = root.get_node("SaveManager")
+	save_manager.sfx_volume = 0.35
+	save_manager.music_volume = 0.65
+	save_manager.save_settings()
+
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(SETTINGS_PATH))
+	if typeof(parsed) != TYPE_DICTIONARY:
+		print("FAIL: settings json corrupt after volume save")
+		return false
+	if not is_equal_approx(float(parsed.get("sfx_volume", -1.0)), 0.35):
+		print("FAIL: sfx_volume not persisted")
+		return false
+	if not is_equal_approx(float(parsed.get("music_volume", -1.0)), 0.65):
+		print("FAIL: music_volume not persisted")
+		return false
+
+	save_manager.load_settings()
+	if not is_equal_approx(save_manager.sfx_volume, 0.35) or not is_equal_approx(save_manager.music_volume, 0.65):
+		print("FAIL: volumes not loaded from settings file")
+		return false
+
+	print("OK: volume_persistence")
+	return true
+
+
+func _test_sfx_manager_volume_api() -> bool:
+	var sfx: Node = root.get_node("SfxManager")
+	sfx.set_sfx_enabled(true)
+	sfx.set_music_enabled(true)
+	sfx.set_sfx_volume(0.5)
+	sfx.set_music_volume(0.25)
+
+	if not is_equal_approx(sfx.get_sfx_volume(), 0.5):
+		print("FAIL: get_sfx_volume mismatch")
+		return false
+	if not is_equal_approx(sfx.get_music_volume(), 0.25):
+		print("FAIL: get_music_volume mismatch")
+		return false
+
+	sfx.play_title_bgm()
+	await process_frame
+
+	var music := sfx.get_node_or_null("BackgroundMusic") as AudioStreamPlayer
+	if music == null or not music.playing:
+		print("FAIL: music should play for volume api test")
+		return false
+
+	var expected_db: float = -9.0 + linear_to_db(0.25)
+	if not is_equal_approx(music.volume_db, expected_db):
+		print("FAIL: music volume_db expected %.2f got %.2f" % [expected_db, music.volume_db])
+		return false
+
+	sfx._play("ui_click", -8.0)
+	await process_frame
+	for child in sfx.get_children():
+		if child is AudioStreamPlayer and child.name.begins_with("SfxPlayer") and child.playing:
+			var expected_sfx_db: float = -8.0 + linear_to_db(0.5)
+			if not is_equal_approx(child.volume_db, expected_sfx_db):
+				print("FAIL: sfx volume_db expected %.2f got %.2f" % [expected_sfx_db, child.volume_db])
+				return false
+			print("OK: sfx_manager_volume_api")
+			return true
+
+	print("FAIL: sfx player did not play during volume api test")
+	return false
+
+
 func _test_wipe_keeps_settings() -> bool:
 	var save_manager: Node = root.get_node("SaveManager")
 	var game_state: Node = root.get_node("GameState")
@@ -142,6 +215,14 @@ func _test_main_has_settings_panel() -> bool:
 	var settings_panel := main.get_node_or_null("SettingsLayer/SettingsPanel")
 	if settings_panel == null:
 		print("FAIL: SettingsPanel missing from main scene")
+		main.queue_free()
+		return false
+	if settings_panel.get_node_or_null("Content/Body/MusicVolumeRow/MusicVolumeSlider") == null:
+		print("FAIL: music volume slider missing")
+		main.queue_free()
+		return false
+	if settings_panel.get_node_or_null("Content/Body/SfxVolumeRow/SfxVolumeSlider") == null:
+		print("FAIL: sfx volume slider missing")
 		main.queue_free()
 		return false
 	if not settings_panel.has_method("open") or not settings_panel.has_method("is_open"):
