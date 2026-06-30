@@ -102,7 +102,7 @@ func _on_settings_pressed() -> void:
 
 func _style_settings_button() -> void:
 	settings_button.custom_minimum_size = Vector2(24, 24)
-	settings_button.tooltip_text = "Settings"
+	settings_button.tooltip_text = ""
 	var empty := StyleBoxEmpty.new()
 	settings_button.add_theme_stylebox_override(&"normal", empty)
 	settings_button.add_theme_stylebox_override(&"hover", empty)

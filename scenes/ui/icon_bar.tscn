@@ -32,7 +32,6 @@ grow_vertical = 0
 layout_mode = 0
 offset_right = 24.0
 offset_bottom = 24.0
-tooltip_text = "Settings"
 toggle_mode = true
 flat = true
 

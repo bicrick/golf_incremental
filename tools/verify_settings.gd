@@ -21,6 +21,7 @@ func _run() -> void:
 	ok = await _test_sfx_manager_flags() and ok
 	ok = _test_wipe_keeps_settings() and ok
 	ok = await _test_main_has_settings_panel() and ok
+	ok = await _test_settings_button_behavior() and ok
 
 	_cleanup_user_files()
 	print("settings_ok=", ok)
@@ -162,6 +163,64 @@ func _test_main_has_settings_panel() -> bool:
 
 	main.queue_free()
 	print("OK: main_settings_panel")
+	return true
+
+
+func _test_settings_button_behavior() -> bool:
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+
+	var icon_bar: Control = main.get_node("UI/UIRoot/IconBar")
+	var settings_btn: Button = main.get_node("UI/UIRoot/IconBar/BottomRight/SettingsButton")
+	var title_settings: Button = main.get_node("TitleScreen/Overlay/SettingsButton")
+	var upgrades_btn: Button = main.get_node("UI/UIRoot/IconBar/TopRight/UpgradesButton")
+
+	if settings_btn.tooltip_text != "":
+		print("FAIL: in-game settings button should have no tooltip, got '%s'" % settings_btn.tooltip_text)
+		main.queue_free()
+		return false
+	if title_settings.tooltip_text != "":
+		print("FAIL: title settings button should have no tooltip, got '%s'" % title_settings.tooltip_text)
+		main.queue_free()
+		return false
+
+	var settings_rest_y := settings_btn.position.y
+	var game_state: Node = root.get_node_or_null("GameState")
+	if game_state != null:
+		game_state.currency = 999999.0
+		var event_bus: Node = root.get_node_or_null("EventBus")
+		if event_bus:
+			event_bus.stats_changed.emit(game_state.stats, game_state.currency)
+	await process_frame
+	await process_frame
+
+	for _i in 20:
+		await process_frame
+
+	if not is_equal_approx(settings_btn.position.y, settings_rest_y):
+		print(
+			"FAIL: settings button bobbed (y=%.2f -> %.2f)"
+			% [settings_rest_y, settings_btn.position.y]
+		)
+		main.queue_free()
+		return false
+
+	if icon_bar.has_method("_has_affordable_upgrade") and icon_bar._has_affordable_upgrade():
+		if is_equal_approx(upgrades_btn.position.y, icon_bar._button_rest_y):
+			print("FAIL: upgrades button should bob when affordable upgrades exist")
+			main.queue_free()
+			return false
+
+	var gear: Node = settings_btn.get_node("Glyph")
+	if gear.get_script() == null:
+		print("FAIL: settings glyph script missing")
+		main.queue_free()
+		return false
+
+	main.queue_free()
+	print("OK: settings_button_behavior")
 	return true
 
 

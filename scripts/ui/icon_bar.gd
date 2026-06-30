@@ -43,6 +43,7 @@ func _ready() -> void:
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 	upgrades_button.tooltip_text = ""
+	settings_button.tooltip_text = ""
 	call_deferred("_capture_button_rest_y")
 	call_deferred("_update_pulse_state")
 
@@ -161,6 +162,7 @@ func _set_settings_pressed(is_open: bool) -> void:
 
 func _style_settings_button() -> void:
 	settings_button.custom_minimum_size = Vector2(ICON_SIZE)
+	settings_button.tooltip_text = ""
 	var empty := StyleBoxEmpty.new()
 	settings_button.add_theme_stylebox_override("normal", empty)
 	settings_button.add_theme_stylebox_override("hover", empty)
