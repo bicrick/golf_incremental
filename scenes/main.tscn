@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://bv7ncrrp8hngf" path="res://scripts/ui/ui_root.gd" id="5_ui_root"]
 [ext_resource type="PackedScene" path="res://scenes/ui/title_screen.tscn" id="6_title"]
 [ext_resource type="Script" uid="uid://bqqkov8a6pslv" path="res://scripts/main.gd" id="7_main"]
+[ext_resource type="PackedScene" path="res://scenes/ui/settings_panel.tscn" id="8_settings"]
 
 [node name="Main" type="Node" unique_id=785145167]
 script = ExtResource("7_main")
@@ -34,5 +35,10 @@ layout_mode = 1
 
 [node name="UpgradePanel" parent="UI/UIRoot" unique_id=811323415 instance=ExtResource("4_panel")]
 layout_mode = 1
+
+[node name="SettingsLayer" type="CanvasLayer" parent="."]
+layer = 25
+
+[node name="SettingsPanel" parent="SettingsLayer" instance=ExtResource("8_settings")]
 
 [node name="TitleScreen" parent="." unique_id=1287109368 instance=ExtResource("6_title")]

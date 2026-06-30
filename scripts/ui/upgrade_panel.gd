@@ -39,6 +39,7 @@ func toggle() -> void:
 
 
 func open() -> void:
+	_close_settings_panel()
 	_is_open = true
 	visible = true
 	_refresh_all()
@@ -57,6 +58,15 @@ func _notify_icon_bar(is_open: bool) -> void:
 	var icon_bar := get_parent().get_node_or_null("IconBar")
 	if icon_bar and icon_bar.has_method("set_upgrades_open"):
 		icon_bar.set_upgrades_open(is_open)
+
+
+func _close_settings_panel() -> void:
+	var main := get_tree().root.get_node_or_null("Main")
+	if main == null:
+		return
+	var settings_panel := main.get_node_or_null("SettingsLayer/SettingsPanel")
+	if settings_panel and settings_panel.has_method("is_open") and settings_panel.is_open():
+		settings_panel.close()
 
 
 func _build_tree() -> void:

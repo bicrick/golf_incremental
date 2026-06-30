@@ -4,7 +4,7 @@ extends Node2D
 const CHARGE_METER_POSITION := Vector2(300, 182)
 const POWER_BAR_HEIGHT := 56.0
 const POWER_BAR_HALF_WIDTH := 3.0
-const BALL_PIXEL_SCALE := Vector2(1, 1)
+const BALL_PIXEL_SCALE := Vector2(0.5, 0.5)
 const GOLFER_PIXEL_SCALE := Vector2(3, 3)
 const FLIGHT_ARC_MIN_PX := 12.0
 const FLIGHT_ARC_MAX_PX := 40.0
@@ -507,6 +507,7 @@ func _build_flight_config() -> BallFlightRenderer.FlightConfig:
 	config.flight_time_min_sec = FLIGHT_TIME_MIN_SEC
 	config.flight_time_range_sec = FLIGHT_TIME_RANGE_SEC
 	config.base_ball_scale = _base_ball_scale
+	config.min_visible_px = 1.0 * _base_ball_scale.x
 	return config
 
 

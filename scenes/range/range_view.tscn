@@ -40,7 +40,7 @@ scale = Vector2(3, 3)
 
 [node name="Ball" type="AnimatedSprite2D" parent="Foreground"]
 position = Vector2(248, 206)
-scale = Vector2(1, 1)
+scale = Vector2(0.5, 0.5)
 
 [node name="ChargeMeter" type="Node2D" parent="."]
 position = Vector2(300, 182)

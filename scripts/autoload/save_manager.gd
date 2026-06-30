@@ -1,11 +1,17 @@
 extends Node
-## Persist game state to user://save.json
+## Persist game state to user://save.json and audio prefs to user://settings.json
 
 const SAVE_PATH: String = "user://save.json"
+const SETTINGS_PATH: String = "user://settings.json"
+
+var sfx_enabled: bool = true
+var music_enabled: bool = true
+
 var _autosave_timer: float = 0.0
 
 
 func _ready() -> void:
+	load_settings()
 	EventBus.upgrade_purchased.connect(_on_state_changed)
 	EventBus.swing_resolved.connect(_on_state_changed)
 
@@ -41,12 +47,42 @@ func save_game() -> void:
 		file.close()
 
 
-func reset_and_reload() -> void:
+func load_settings() -> void:
+	if not FileAccess.file_exists(SETTINGS_PATH):
+		return
+	var file := FileAccess.open(SETTINGS_PATH, FileAccess.READ)
+	if not file:
+		return
+	var parsed = JSON.parse_string(file.get_as_text())
+	file.close()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_warning("SaveManager: corrupt settings, using defaults")
+		return
+	sfx_enabled = bool(parsed.get("sfx_enabled", true))
+	music_enabled = bool(parsed.get("music_enabled", true))
+
+
+func save_settings() -> void:
+	var data := {
+		"sfx_enabled": sfx_enabled,
+		"music_enabled": music_enabled,
+	}
+	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(data))
+		file.close()
+
+
+func wipe_character() -> void:
 	var dir := DirAccess.open("user://")
 	if dir and dir.file_exists("save.json"):
 		dir.remove("save.json")
 	GameState.reset_to_fresh()
 	get_tree().reload_current_scene()
+
+
+func reset_and_reload() -> void:
+	wipe_character()
 
 
 func load_game() -> void:

@@ -1,0 +1,109 @@
+[gd_scene load_steps=3 format=3 uid="uid://settings_panel"]
+
+[ext_resource type="Script" path="res://scripts/ui/settings_panel.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/ui/parallax_sky_background.gd" id="2_sky_bg"]
+
+[node name="SettingsPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_script")
+
+[node name="SkyBg" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+clip_contents = true
+script = ExtResource("2_sky_bg")
+
+[node name="Content" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Header" type="HBoxContainer" parent="Content"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 6.0
+offset_right = 472.0
+offset_bottom = 24.0
+theme_override_constants/separation = 8
+
+[node name="BackButton" type="Button" parent="Content/Header"]
+custom_minimum_size = Vector2(48, 18)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.12, 0.1, 0.08, 1)
+theme_override_font_sizes/font_size = 8
+text = "Back"
+flat = true
+
+[node name="Title" type="Label" parent="Content/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.92, 0.45, 1)
+theme_override_font_sizes/font_size = 10
+text = "Settings"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="Content/Header"]
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+
+[node name="Body" type="VBoxContainer" parent="Content"]
+layout_mode = 0
+offset_left = 48.0
+offset_top = 56.0
+offset_right = 432.0
+offset_bottom = 220.0
+theme_override_constants/separation = 16
+
+[node name="SfxRow" type="HBoxContainer" parent="Content/Body"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SfxLabel" type="Label" parent="Content/Body/SfxRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+text = "Sound Effects"
+
+[node name="SfxToggle" type="CheckButton" parent="Content/Body/SfxRow"]
+layout_mode = 2
+button_pressed = true
+text = "On"
+
+[node name="MusicRow" type="HBoxContainer" parent="Content/Body"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="MusicLabel" type="Label" parent="Content/Body/MusicRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+text = "Music"
+
+[node name="MusicToggle" type="CheckButton" parent="Content/Body/MusicRow"]
+layout_mode = 2
+button_pressed = true
+text = "On"
+
+[node name="WipeButton" type="Button" parent="Content/Body"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="WipeDialog" type="ConfirmationDialog" parent="."]
+title = "Wipe Character?"
+initial_position = 1
+size = Vector2i(360, 140)

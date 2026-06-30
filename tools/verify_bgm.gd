@@ -47,6 +47,22 @@ func _run() -> void:
 	print("OK: title_track=", title_path)
 	print("OK: title_playing=", music.playing)
 
+	if music.stream is AudioStreamMP3:
+		if music.stream.loop:
+			print("FAIL: title BGM should not loop")
+			quit(1)
+			return
+	elif music.stream is AudioStreamOggVorbis:
+		if music.stream.loop:
+			print("FAIL: title BGM should not loop")
+			quit(1)
+			return
+
+	if not music.finished.is_connected(sfx._on_music_finished):
+		print("FAIL: title BGM should use rotation handler")
+		quit(1)
+		return
+
 	sfx.start_bgm()
 	await process_frame
 
@@ -57,7 +73,7 @@ func _run() -> void:
 
 	var gameplay_path := music.stream.resource_path
 	if gameplay_path != title_path:
-		print("FAIL: start_bgm should keep title track, got ", gameplay_path)
+		print("FAIL: start_bgm should keep current track, got ", gameplay_path)
 		quit(1)
 		return
 
@@ -65,21 +81,21 @@ func _run() -> void:
 	print("OK: title_track_continues=true")
 
 	if music.stream is AudioStreamMP3:
-		if not music.stream.loop:
-			print("FAIL: title track should keep looping in gameplay")
+		if music.stream.loop:
+			print("FAIL: gameplay BGM should not loop")
 			quit(1)
 			return
 	elif music.stream is AudioStreamOggVorbis:
-		if not music.stream.loop:
-			print("FAIL: title track should keep looping in gameplay")
+		if music.stream.loop:
+			print("FAIL: gameplay BGM should not loop")
 			quit(1)
 			return
 
-	if music.finished.is_connected(sfx._on_music_finished):
-		print("FAIL: looping title track should not use rotation handler")
+	if not music.finished.is_connected(sfx._on_music_finished):
+		print("FAIL: gameplay BGM should use rotation handler")
 		quit(1)
 		return
 
 	print("OK: volume_db=", music.volume_db)
-	print("OK: gameplay_mode=title_track_loop")
+	print("OK: gameplay_mode=playlist_rotation")
 	quit(0)

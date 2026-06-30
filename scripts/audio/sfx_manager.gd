@@ -15,9 +15,13 @@ var _music_player: AudioStreamPlayer
 var _music_tracks: Array[String] = []
 var _rotation_index := 0
 var _is_title_mode := false
+var _sfx_enabled := true
+var _music_enabled := true
 
 
 func _ready() -> void:
+	_sfx_enabled = SaveManager.sfx_enabled
+	_music_enabled = SaveManager.music_enabled
 	_build_streams()
 	_build_pool()
 	_refresh_music_tracks()
@@ -32,7 +36,30 @@ func get_music_tracks() -> Array[String]:
 	return _music_tracks.duplicate()
 
 
+func is_sfx_enabled() -> bool:
+	return _sfx_enabled
+
+
+func is_music_enabled() -> bool:
+	return _music_enabled
+
+
+func set_sfx_enabled(enabled: bool) -> void:
+	_sfx_enabled = enabled
+	SaveManager.sfx_enabled = enabled
+	SaveManager.save_settings()
+
+
+func set_music_enabled(enabled: bool) -> void:
+	_music_enabled = enabled
+	SaveManager.music_enabled = enabled
+	SaveManager.save_settings()
+	_apply_music_enabled()
+
+
 func play_title_bgm() -> void:
+	if not _music_enabled:
+		return
 	if _music_player != null or _ambient_player != null:
 		return
 	_refresh_music_tracks()
@@ -40,21 +67,28 @@ func play_title_bgm() -> void:
 		return
 	_is_title_mode = true
 	_rotation_index = _random_track_index()
-	_play_track_at_path(_music_tracks[_rotation_index], true)
+	_play_track_at_path(_music_tracks[_rotation_index], false)
 
 
 func start_bgm() -> void:
+	if not _music_enabled:
+		return
 	if _ambient_player != null:
 		return
 	if _music_player != null and not _is_title_mode:
-		return
-	# Title track already playing — keep the same loop into gameplay.
-	if _music_player != null and _is_title_mode and _music_player.playing:
 		return
 	_refresh_music_tracks()
 	if _music_tracks.is_empty():
 		if _music_player == null:
 			_start_ambient()
+		return
+	# Title track already playing — finish this track, then rotate through the playlist.
+	if _music_player != null and _is_title_mode and _music_player.playing:
+		_is_title_mode = false
+		if _music_player.stream != null:
+			_set_stream_loop(_music_player.stream, false)
+		if not _music_player.finished.is_connected(_on_music_finished):
+			_music_player.finished.connect(_on_music_finished)
 		return
 	_is_title_mode = false
 	if _music_player != null and _music_player.finished.is_connected(_on_music_finished):
@@ -116,7 +150,7 @@ func _play_track_at_path(path: String, loop: bool) -> void:
 
 
 func _on_music_finished() -> void:
-	if _is_title_mode or _music_tracks.is_empty():
+	if _music_tracks.is_empty():
 		return
 	_rotation_index = (_rotation_index + 1) % _music_tracks.size()
 	_play_track_at_path(_music_tracks[_rotation_index], false)
@@ -143,7 +177,27 @@ func _set_stream_loop(stream: AudioStream, loop: bool) -> void:
 		)
 
 
+func _apply_music_enabled() -> void:
+	if _music_enabled:
+		_set_music_volume(BGM_VOLUME_DB)
+		if _ambient_player != null:
+			_ambient_player.volume_db = -28.0
+		if _music_player == null and _ambient_player == null:
+			play_title_bgm()
+		return
+	_set_music_volume(-80.0)
+	if _ambient_player != null:
+		_ambient_player.volume_db = -80.0
+
+
+func _set_music_volume(volume_db: float) -> void:
+	if _music_player != null:
+		_music_player.volume_db = volume_db
+
+
 func _play(stream_key: String, volume_db: float = 0.0, pitch_scale: float = 1.0) -> void:
+	if not _sfx_enabled:
+		return
 	if not _streams.has(stream_key):
 		return
 	var player := _pool[_pool_index]
@@ -182,7 +236,7 @@ func _on_swing_resolved(
 
 
 func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
-	if panel_id == "upgrades":
+	if panel_id == "upgrades" or panel_id == "settings":
 		if is_open:
 			_play("menu_open_pop", -12.0)
 			_play("menu_open", -6.0)
