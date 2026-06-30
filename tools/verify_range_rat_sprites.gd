@@ -34,9 +34,9 @@ func _test_constants() -> bool:
 	if RangeRat.IDLE_FRAME_COUNT != 5:
 		print("FAIL: IDLE_FRAME_COUNT expected 5, got %d" % RangeRat.IDLE_FRAME_COUNT)
 		ok = false
-	if RangeRat.IDLE_OUT_OF_BALLS_FRAME_COUNT != 9:
+	if RangeRat.IDLE_OUT_OF_BALLS_FRAME_COUNT != 17:
 		print(
-			"FAIL: IDLE_OUT_OF_BALLS_FRAME_COUNT expected 9, got %d"
+			"FAIL: IDLE_OUT_OF_BALLS_FRAME_COUNT expected 17, got %d"
 			% RangeRat.IDLE_OUT_OF_BALLS_FRAME_COUNT
 		)
 		ok = false
@@ -56,8 +56,8 @@ func _test_frame_regions() -> bool:
 	var oob_last := RangeRat.frame_region(
 		RangeRat.IDLE_OUT_OF_BALLS_COLS, RangeRat.IDLE_OUT_OF_BALLS_FRAME_COUNT - 1
 	)
-	if oob_last != Rect2i(104, 104, 52, 52):
-		print("FAIL: idle_out_of_balls frame 9 region expected Rect2i(104, 104, 52, 52), got %s" % oob_last)
+	if oob_last != Rect2i(52, 156, 52, 52):
+		print("FAIL: idle_out_of_balls frame 17 region expected Rect2i(52, 156, 52, 52), got %s" % oob_last)
 		ok = false
 	return ok
 

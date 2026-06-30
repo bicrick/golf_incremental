@@ -31,6 +31,7 @@ func _run() -> void:
 	ok = _check_skip_harvest_early(gs) and ok
 	ok = _check_event_bus_signals(gs) and ok
 	ok = await _check_phase_integration(main, gs) and ok
+	ok = await _check_harvest_sidestep(main, gs) and ok
 	_cleanup_save()
 	print("pickup_ok=", ok)
 	quit(0 if ok else 1)
@@ -302,4 +303,49 @@ func _check_phase_integration(main: Node, gs: Node) -> bool:
 			return false
 
 	print("OK: range pickup integration")
+	return true
+
+
+func _check_harvest_sidestep(main: Node, gs: Node) -> bool:
+	_reset(gs)
+	main._on_play_pressed()
+	await process_frame
+	await process_frame
+	var range_view: Node2D = main.get_node("RangeView")
+	var home: Vector2 = range_view.golfer_strike_home()
+	var offset: Vector2 = range_view.golfer_harvest_offset()
+	var harvest_pos: Vector2 = home + offset
+
+	_enter_harvest(gs)
+	await process_frame
+	var deadline := Time.get_ticks_msec() + 1200
+	while Time.get_ticks_msec() < deadline:
+		if range_view.golfer.position.is_equal_approx(harvest_pos):
+			break
+		await process_frame
+	if not range_view.golfer.position.is_equal_approx(harvest_pos):
+		print(
+			"FAIL: harvest sidestep expected %s, got %s"
+			% [harvest_pos, range_view.golfer.position]
+		)
+		return false
+	if range_view.golfer.animation != &"idle_out_of_balls":
+		print("FAIL: harvest sidestep should play idle_out_of_balls")
+		return false
+
+	gs.skip_harvest()
+	await process_frame
+	deadline = Time.get_ticks_msec() + 1200
+	while Time.get_ticks_msec() < deadline:
+		if range_view.golfer.position.is_equal_approx(home):
+			break
+		await process_frame
+	if not range_view.golfer.position.is_equal_approx(home):
+		print(
+			"FAIL: strike return expected %s, got %s"
+			% [home, range_view.golfer.position]
+		)
+		return false
+
+	print("OK: harvest sidestep offset %.0fpx, return to strike home" % offset.x)
 	return true

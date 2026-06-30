@@ -6,6 +6,8 @@ const POWER_BAR_HEIGHT := 56.0
 const POWER_BAR_HALF_WIDTH := 3.0
 const BALL_PIXEL_SCALE := Vector2(0.6, 0.6)
 const GOLFER_PIXEL_SCALE := Vector2(1.44, 1.44)
+const GOLFER_HARVEST_SIDESTEP_X := -50.0
+const GOLFER_HARVEST_TWEEN_SEC := 0.4
 const FLIGHT_ARC_MIN_PX := 12.0
 const FLIGHT_ARC_MAX_PX := 40.0
 const FLIGHT_TIME_MIN_SEC := 0.65
@@ -45,7 +47,7 @@ const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 
 # Range Rat swing: charge maps progress to wind-up frames 0–7; release hits frame 8 (contact);
 # follow-through auto-plays frames 9–16. Idle loops 5 frames from idle sheet.
-# idle_out_of_balls loops 9 frames (3x3) when bucket is empty or in harvest phase.
+# idle_out_of_balls loops 17 frames (5x4) when bucket is empty or in harvest phase.
 
 @onready var canvas_modulate: CanvasModulate = $CanvasModulate
 @onready var ball: AnimatedSprite2D = $Foreground/Ball
@@ -88,6 +90,9 @@ var _flight_config: BallFlightRenderer.FlightConfig
 var _fairway_stripes: Array[Polygon2D] = []
 var _placement_debug: PlacementDebug
 var _pickup: Node
+var _golfer_sidestep_tween: Tween
+var _golfer_at_harvest_side := false
+var _pending_harvest_sidestep := false
 
 
 func _ready() -> void:
@@ -210,6 +215,10 @@ func _on_debug_positions_changed(golfer_pos: Vector2, ball_pos: Vector2) -> void
 	_ball_home = ball_pos
 	_flight_config.tee_x = _ball_home.x
 	_flight_config.tee_y = _ball_home.y
+	if GameState.is_harvest_phase() and _golfer_at_harvest_side:
+		_tween_golfer_to(_golfer_harvest_position(), true)
+	elif not GameState.is_harvest_phase():
+		golfer.position = _golfer_home
 
 
 func _on_debug_scales_changed(golfer_scale: Vector2, ball_scale: Vector2) -> void:
@@ -304,6 +313,71 @@ func _golfer_idle_blocked() -> bool:
 	)
 
 
+func golfer_strike_home() -> Vector2:
+	return _golfer_home
+
+
+func golfer_harvest_offset() -> Vector2:
+	return Vector2(GOLFER_HARVEST_SIDESTEP_X, 0.0)
+
+
+func _golfer_harvest_position() -> Vector2:
+	return _golfer_home + golfer_harvest_offset()
+
+
+func _kill_golfer_sidestep_tween() -> void:
+	if _golfer_sidestep_tween and _golfer_sidestep_tween.is_valid():
+		_golfer_sidestep_tween.kill()
+	_golfer_sidestep_tween = null
+
+
+func _tween_golfer_to(target: Vector2, at_harvest_side: bool = _golfer_at_harvest_side) -> void:
+	_kill_golfer_sidestep_tween()
+	if golfer.position.is_equal_approx(target):
+		_golfer_at_harvest_side = at_harvest_side
+		return
+	_golfer_sidestep_tween = create_tween()
+	_golfer_sidestep_tween.tween_property(
+		golfer, "position", target, GOLFER_HARVEST_TWEEN_SEC
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	_golfer_sidestep_tween.tween_callback(func() -> void:
+		_golfer_at_harvest_side = at_harvest_side
+	)
+
+
+func _is_golfer_sidestep_tweening() -> bool:
+	return _golfer_sidestep_tween != null and _golfer_sidestep_tween.is_valid()
+
+
+func _request_harvest_sidestep() -> void:
+	if not GameState.is_harvest_phase():
+		return
+	if _golfer_idle_blocked() or _ball_in_flight:
+		_pending_harvest_sidestep = true
+		return
+	_pending_harvest_sidestep = false
+	_golfer_at_harvest_side = true
+	_play_golfer_idle()
+	_tween_golfer_to(_golfer_harvest_position(), true)
+
+
+func _request_strike_home() -> void:
+	_pending_harvest_sidestep = false
+	_golfer_at_harvest_side = false
+	_tween_golfer_to(_golfer_home, false)
+
+
+func _try_pending_harvest_sidestep() -> void:
+	if not _pending_harvest_sidestep:
+		return
+	if not GameState.is_harvest_phase():
+		_pending_harvest_sidestep = false
+		return
+	if _golfer_idle_blocked() or _ball_in_flight:
+		return
+	_request_harvest_sidestep()
+
+
 func _sync_golfer_idle_from_bucket() -> void:
 	if _golfer_idle_blocked():
 		return
@@ -325,6 +399,7 @@ func _on_golfer_animation_finished() -> void:
 			_play_golfer_idle()
 	elif golfer.animation == &"follow":
 		_hold_swing_finish()
+	_try_pending_harvest_sidestep()
 
 
 func _set_idle_ring() -> void:
@@ -394,7 +469,10 @@ func _update_charge_visuals() -> void:
 				ball.scale = _base_ball_scale
 				if ball.animation != &"roll":
 					ball.play(&"idle")
-			golfer.position = _golfer_home
+			if GameState.is_harvest_phase():
+				_try_pending_harvest_sidestep()
+			elif not _is_golfer_sidestep_tweening():
+				golfer.position = _golfer_home
 			_sync_golfer_idle_from_bucket()
 			if _ball_at_tee:
 				_set_idle_ring()
@@ -529,6 +607,7 @@ func _release_swing_finish() -> void:
 	_golfer_holding_finish = false
 	if not _golfer_idle_blocked():
 		_play_golfer_idle()
+	_try_pending_harvest_sidestep()
 
 
 func _play_swing_followthrough() -> void:
@@ -586,6 +665,9 @@ func _on_bucket_changed(_count: int, _capacity: int) -> void:
 func _on_phase_changed(phase: String) -> void:
 	if phase == "harvest":
 		_sync_tee_ball_from_bucket()
+		_request_harvest_sidestep()
+	elif phase == "strike":
+		_request_strike_home()
 	_sync_golfer_idle_from_bucket()
 
 
@@ -723,6 +805,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 		else:
 			_ball_at_tee = false
 		_sync_golfer_idle_from_bucket()
+		_try_pending_harvest_sidestep()
 	)
 
 	if feedback_tier == Balance.FeedbackTier.JACKPOT and camera:
