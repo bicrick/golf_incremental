@@ -10,6 +10,8 @@ const MUSIC_EXTENSIONS := ["mp3", "ogg", "wav", "flac"]
 var _pool: Array[AudioStreamPlayer] = []
 var _pool_index := 0
 var _streams: Dictionary = {}
+var _golf_hit_normal: Array[AudioStream] = []
+var _golf_hit_power: Array[AudioStream] = []
 var _ambient_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 var _music_tracks: Array[String] = []
@@ -27,6 +29,7 @@ func _ready() -> void:
 	_sfx_volume = SaveManager.sfx_volume
 	_music_volume = SaveManager.music_volume
 	_build_streams()
+	_load_golf_hit_streams()
 	_build_pool()
 	_refresh_music_tracks()
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
@@ -235,16 +238,33 @@ func _set_music_volume(volume_db: float) -> void:
 
 
 func _play(stream_key: String, volume_db: float = 0.0, pitch_scale: float = 1.0) -> void:
+	if not _streams.has(stream_key):
+		return
+	_play_stream(_streams[stream_key], volume_db, pitch_scale)
+
+
+func _play_stream(stream: AudioStream, volume_db: float = 0.0, pitch_scale: float = 1.0) -> void:
 	if not _sfx_enabled or _sfx_volume <= 0.0:
 		return
-	if not _streams.has(stream_key):
+	if stream == null:
 		return
 	var player := _pool[_pool_index]
 	_pool_index = (_pool_index + 1) % POOL_SIZE
-	player.stream = _streams[stream_key]
+	player.stream = stream
 	player.volume_db = _effective_sfx_db(volume_db)
 	player.pitch_scale = pitch_scale
 	player.play()
+
+
+func _play_golf_hit(timing_tier: int, feedback_tier: int) -> void:
+	var is_big := GolfHitSfx.is_big_hit(timing_tier, feedback_tier)
+	var pool := _golf_hit_power if is_big else _golf_hit_normal
+	if pool.is_empty():
+		return
+	var stream := pool[randi() % pool.size()]
+	var volume_db := GolfHitSfx.volume_db_for(timing_tier, is_big)
+	var pitch := randf_range(0.97, 1.03)
+	_play_stream(stream, volume_db, pitch)
 
 
 func _on_swing_charging_changed(charging: bool) -> void:
@@ -258,16 +278,9 @@ func _on_swing_resolved(
 	payout: float,
 	_feedback_tier: int
 ) -> void:
-	match timing_tier:
-		Balance.TimingTier.PERFECT:
-			_play("thwack_perfect", -2.0)
-			_play("perfect_chime", -4.0, 1.0)
-		Balance.TimingTier.GOOD:
-			_play("thwack_good", -3.0)
-		Balance.TimingTier.OK:
-			_play("thwack_ok", -5.0)
-		_:
-			_play("thwack_miss", -6.0, 0.95)
+	_play_golf_hit(timing_tier, _feedback_tier)
+	if timing_tier == Balance.TimingTier.PERFECT:
+		_play("perfect_chime", -4.0, 1.0)
 
 	if payout >= 25.0:
 		var cash_pitch := clampf(1.0 + log(maxf(payout, 1.0)) / log(500.0) * 0.35, 1.0, 1.45)
@@ -302,10 +315,6 @@ func _build_pool() -> void:
 
 func _build_streams() -> void:
 	_streams["charge_start"] = _make_click(620.0, 0.05, 0.32)
-	_streams["thwack_miss"] = _make_thwack(90.0, 0.14, 0.45, 0.25)
-	_streams["thwack_ok"] = _make_thwack(130.0, 0.12, 0.5, 0.35)
-	_streams["thwack_good"] = _make_thwack(210.0, 0.1, 0.55, 0.55)
-	_streams["thwack_perfect"] = _make_thwack(320.0, 0.09, 0.6, 0.75)
 	_streams["perfect_chime"] = _make_chime([880.0, 1320.0], 0.22, 0.3)
 	_streams["cash_register"] = _make_chime([660.0, 880.0, 1108.0, 1320.0], 0.18, 0.32)
 	_streams["ui_click"] = _make_click(980.0, 0.035, 0.28)
@@ -319,6 +328,23 @@ func _build_streams() -> void:
 	_streams["play_whoosh"] = _make_thwack(150.0, 0.14, 0.2, 0.5)
 	_streams["play_fanfare"] = _make_chime([440.0, 554.0, 659.0, 880.0, 1108.0], 0.38, 0.24)
 	_streams["ambient_wind"] = _make_wind_loop(2.5, 0.06)
+
+
+func _load_golf_hit_streams() -> void:
+	_golf_hit_normal.clear()
+	_golf_hit_power.clear()
+	for path in GolfHitSfx.normal_paths():
+		var stream: AudioStream = load(path)
+		if stream == null:
+			push_warning("SfxManager: failed to load golf hit at %s" % path)
+			continue
+		_golf_hit_normal.append(stream)
+	for path in GolfHitSfx.power_paths():
+		var stream: AudioStream = load(path)
+		if stream == null:
+			push_warning("SfxManager: failed to load golf power hit at %s" % path)
+			continue
+		_golf_hit_power.append(stream)
 
 
 func _make_click(freq_hz: float, duration_sec: float, volume: float) -> AudioStreamWAV:

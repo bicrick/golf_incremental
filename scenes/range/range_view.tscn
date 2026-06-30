@@ -50,23 +50,21 @@ scroll_scale = Vector2(0.8, 0.8)
 
 [node name="FairwayStripes" type="Node2D" parent="ParallaxFairway"]
 
-[node name="RangeMat" type="Node2D" parent="."]
-
 [node name="Foreground" type="Node2D" parent="."]
 
 [node name="LitteredBalls" type="Node2D" parent="Foreground"]
 y_sort_enabled = true
 
 [node name="Golfer" type="AnimatedSprite2D" parent="Foreground"]
-position = Vector2(223, 214)
-scale = Vector2(1.375, 1.375)
+position = Vector2(182.06, 237)
+scale = Vector2(1.44, 1.44)
 
 [node name="Ball" type="AnimatedSprite2D" parent="Foreground"]
-position = Vector2(248, 206)
-scale = Vector2(0.5, 0.5)
+position = Vector2(207.23, 226.53)
+scale = Vector2(0.6, 0.6)
 
 [node name="ChargeMeter" type="Node2D" parent="."]
-position = Vector2(300, 182)
+position = Vector2(270, 182)
 
 [node name="BeatRing" type="Node2D" parent="ChargeMeter"]
 

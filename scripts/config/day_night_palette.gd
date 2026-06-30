@@ -7,14 +7,11 @@ const CYCLE_SEC := 120.0
 const SUN_COLOR := Color(1.0, 0.92, 0.55, 1.0)
 const MOON_COLOR := Color(0.85, 0.88, 0.95, 1.0)
 
-# Legacy aliases used by mat setup and tests.
+# Legacy aliases used by tests.
 const SKY_DAY := Color(0.55, 0.75, 0.92, 1.0)
 const SKY_NIGHT := Color(0.10, 0.14, 0.32, 1.0)
 const CANVAS_MODULATE_DAY := Color(1.0, 1.0, 1.0, 1.0)
 const CANVAS_MODULATE_NIGHT := Color(0.58, 0.62, 0.78, 1.0)
-const MAT_BORDER_DAY := Color(0.08, 0.18, 0.08, 1.0)
-const MAT_FILL_DAY := Color(0.15, 0.38, 0.15, 1.0)
-const MAT_HIGHLIGHT_DAY := Color(0.28, 0.55, 0.28, 1.0)
 
 const DECOR_FADE_SEC := 8.0
 const CLOUD_WINDOW_START := 24.0
@@ -29,9 +26,6 @@ class AtmosphereSnapshot:
 	var fairway_base: Color
 	var fairway_light: Color
 	var fairway_dark: Color
-	var mat_border: Color
-	var mat_fill: Color
-	var mat_highlight: Color
 	var canvas_modulate: Color
 	var moon_sky_cutout: Color
 
@@ -49,9 +43,6 @@ static func _snap(
 	f_base: Color,
 	f_light: Color,
 	f_dark: Color,
-	mat_border: Color,
-	mat_fill: Color,
-	mat_highlight: Color,
 	canvas: Color
 ) -> AtmosphereSnapshot:
 	var s := AtmosphereSnapshot.new()
@@ -60,9 +51,6 @@ static func _snap(
 	s.fairway_base = f_base
 	s.fairway_light = f_light
 	s.fairway_dark = f_dark
-	s.mat_border = mat_border
-	s.mat_fill = mat_fill
-	s.mat_highlight = mat_highlight
 	s.canvas_modulate = canvas
 	s.moon_sky_cutout = sky
 	return s
@@ -75,9 +63,6 @@ static func _midnight() -> AtmosphereSnapshot:
 		Color(0.22, 0.32, 0.26),
 		Color(0.28, 0.40, 0.32),
 		Color(0.19, 0.28, 0.22),
-		Color(0.04, 0.09, 0.06),
-		Color(0.07, 0.18, 0.10),
-		Color(0.13, 0.26, 0.16),
 		Color(0.48, 0.50, 0.66)
 	)
 
@@ -89,9 +74,6 @@ static func _dawn() -> AtmosphereSnapshot:
 		Color(0.36, 0.52, 0.30),
 		Color(0.48, 0.68, 0.40),
 		Color(0.32, 0.46, 0.27),
-		Color(0.07, 0.16, 0.08),
-		Color(0.13, 0.34, 0.14),
-		Color(0.24, 0.48, 0.26),
 		Color(0.88, 0.86, 0.92)
 	)
 
@@ -103,9 +85,6 @@ static func _day() -> AtmosphereSnapshot:
 		Color(0.40, 0.58, 0.32),
 		Color(0.54, 0.76, 0.44),
 		Color(0.36, 0.52, 0.28),
-		Color(0.08, 0.18, 0.08),
-		Color(0.15, 0.38, 0.15),
-		Color(0.28, 0.55, 0.28),
 		Color(1.0, 1.0, 1.0)
 	)
 
@@ -117,9 +96,6 @@ static func _dusk() -> AtmosphereSnapshot:
 		Color(0.38, 0.54, 0.30),
 		Color(0.50, 0.68, 0.38),
 		Color(0.34, 0.48, 0.27),
-		Color(0.07, 0.15, 0.07),
-		Color(0.14, 0.34, 0.14),
-		Color(0.26, 0.50, 0.26),
 		Color(0.94, 0.90, 0.84)
 	)
 
@@ -131,9 +107,6 @@ static func _night() -> AtmosphereSnapshot:
 		Color(0.26, 0.38, 0.30),
 		Color(0.35, 0.50, 0.38),
 		Color(0.23, 0.34, 0.26),
-		Color(0.05, 0.11, 0.07),
-		Color(0.09, 0.23, 0.12),
-		Color(0.17, 0.33, 0.20),
 		Color(0.58, 0.62, 0.78)
 	)
 
@@ -172,9 +145,6 @@ static func lerp_snapshots(a: AtmosphereSnapshot, b: AtmosphereSnapshot, weight:
 	s.fairway_base = a.fairway_base.lerp(b.fairway_base, w)
 	s.fairway_light = a.fairway_light.lerp(b.fairway_light, w)
 	s.fairway_dark = a.fairway_dark.lerp(b.fairway_dark, w)
-	s.mat_border = a.mat_border.lerp(b.mat_border, w)
-	s.mat_fill = a.mat_fill.lerp(b.mat_fill, w)
-	s.mat_highlight = a.mat_highlight.lerp(b.mat_highlight, w)
 	s.canvas_modulate = a.canvas_modulate.lerp(b.canvas_modulate, w)
 	s.moon_sky_cutout = s.sky
 	return s

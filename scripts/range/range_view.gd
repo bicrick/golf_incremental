@@ -1,11 +1,11 @@
 extends Node2D
 ## Driving range view: parallax 2.5D layers, charge ring, ball flight, Range Rat + Dinky ball sprites.
 
-const CHARGE_METER_POSITION := Vector2(300, 182)
+const CHARGE_METER_POSITION := Vector2(270, 182)
 const POWER_BAR_HEIGHT := 56.0
 const POWER_BAR_HALF_WIDTH := 3.0
-const BALL_PIXEL_SCALE := Vector2(0.5, 0.5)
-const GOLFER_PIXEL_SCALE := Vector2(1.375, 1.375)
+const BALL_PIXEL_SCALE := Vector2(0.6, 0.6)
+const GOLFER_PIXEL_SCALE := Vector2(1.44, 1.44)
 const FLIGHT_ARC_MIN_PX := 12.0
 const FLIGHT_ARC_MAX_PX := 40.0
 const FLIGHT_TIME_MIN_SEC := 0.65
@@ -14,7 +14,7 @@ const FLIGHT_DEPTH_EXPONENT := 0.34
 const FLIGHT_DEPTH_STRETCH := 1.02
 const FLIGHT_YARD_DEPTH_SCALE := 180.0
 const FLIGHT_MIN_LANDING_Y := 176.0
-const FLIGHT_BALL_TEXTURE_PX := 8.0
+const FLIGHT_BALL_TEXTURE_PX := 16.0
 const LANDING_SCATTER_X := 28.0
 const LANDING_Y_MARGIN := 8.0
 const RANGE_X_MIN := 24.0
@@ -30,16 +30,11 @@ const FAIRWAY_STRIPE_COUNT := 24
 const FAIRWAY_BASE_COLOR := Color(0.40, 0.58, 0.32)
 const FAIRWAY_STRIPE_LIGHT := Color(0.54, 0.76, 0.44)
 const FAIRWAY_STRIPE_DARK := Color(0.36, 0.52, 0.28)
-const MAT_Y_FRONT := 225.0
-const MAT_Y_BACK := 195.0
-const MAT_X_LEFT := 158.0
-const MAT_X_RIGHT := 292.0
-const MAT_BORDER_OUTSET := 3.0
-# Absolute canvas z_index (z_as_relative = false) — background < fairway < mat < litter < ball < golfer < float text
+const MAT_Y_BACK := 180.0
+# Absolute canvas z_index (z_as_relative = false) — background < fairway < litter < ball < golfer < float text
 const Z_PARALLAX_SKY := -30
 const Z_PARALLAX_HILLS := -20
 const Z_PARALLAX_FAIRWAY := -10
-const Z_MAT := 0
 const Z_LITTER := 1
 const Z_BALL := 3
 const Z_GOLFER := 4
@@ -53,7 +48,6 @@ const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/S
 @onready var ball: AnimatedSprite2D = $Foreground/Ball
 @onready var golfer: AnimatedSprite2D = $Foreground/Golfer
 @onready var littered_balls: Node2D = $Foreground/LitteredBalls
-@onready var range_mat: Node2D = $RangeMat
 @onready var parallax_sky: Parallax2D = $ParallaxSky
 @onready var sky_polygon: Polygon2D = $ParallaxSky/Sky
 @onready var sky_stars: Node2D = $ParallaxSky/Stars
@@ -89,14 +83,11 @@ var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
 var _flight_config: BallFlightRenderer.FlightConfig
 var _fairway_stripes: Array[Polygon2D] = []
-var _mat_border: Polygon2D = null
-var _mat_fill: Polygon2D = null
-var _mat_highlight: Polygon2D = null
+var _placement_debug: PlacementDebug
 
 
 func _ready() -> void:
 	_setup_fairway_stripes()
-	_setup_range_mat()
 	_configure_draw_layers()
 	_setup_dinky_sprites()
 	_ball_home = ball.position
@@ -112,6 +103,7 @@ func _ready() -> void:
 		camera.make_current()
 	_set_idle_ring()
 	apply_atmosphere(24.0)
+	_setup_placement_debug()
 
 
 func _setup_dinky_sprites() -> void:
@@ -135,42 +127,6 @@ func _setup_fairway_stripes() -> void:
 	)
 
 
-func _setup_range_mat() -> void:
-	range_mat.position = Vector2.ZERO
-	for child in range_mat.get_children():
-		child.free()
-
-	var fill_corners := _mat_trapezoid(MAT_X_LEFT, MAT_X_RIGHT, MAT_Y_FRONT, MAT_Y_BACK)
-	var border_corners := _mat_trapezoid(
-		MAT_X_LEFT - MAT_BORDER_OUTSET,
-		MAT_X_RIGHT + MAT_BORDER_OUTSET,
-		MAT_Y_FRONT + MAT_BORDER_OUTSET * 0.5,
-		MAT_Y_BACK - MAT_BORDER_OUTSET
-	)
-
-	_mat_border = Polygon2D.new()
-	_mat_border.color = DayNightPalette.MAT_BORDER_DAY
-	_mat_border.polygon = border_corners
-	range_mat.add_child(_mat_border)
-
-	_mat_fill = Polygon2D.new()
-	_mat_fill.color = DayNightPalette.MAT_FILL_DAY
-	_mat_fill.polygon = fill_corners
-	range_mat.add_child(_mat_fill)
-
-	var back_left := fill_corners[3]
-	var back_right := fill_corners[2]
-	_mat_highlight = Polygon2D.new()
-	_mat_highlight.color = DayNightPalette.MAT_HIGHLIGHT_DAY
-	_mat_highlight.polygon = PackedVector2Array([
-		back_left + Vector2(3.0, 3.0),
-		back_right + Vector2(-3.0, 3.0),
-		back_right + Vector2(-3.0, 7.0),
-		back_left + Vector2(3.0, 7.0),
-	])
-	range_mat.add_child(_mat_highlight)
-
-
 func apply_atmosphere(cycle_time: float) -> void:
 	var snap := DayNightPalette.sample_at(cycle_time)
 	if sky_polygon:
@@ -180,12 +136,6 @@ func apply_atmosphere(cycle_time: float) -> void:
 	FairwayStripes.apply_palette(
 		_fairway_stripes, snap.fairway_base, snap.fairway_light, snap.fairway_dark
 	)
-	if _mat_border:
-		_mat_border.color = snap.mat_border
-	if _mat_fill:
-		_mat_fill.color = snap.mat_fill
-	if _mat_highlight:
-		_mat_highlight.color = snap.mat_highlight
 	if canvas_modulate:
 		canvas_modulate.color = snap.canvas_modulate
 	if sun and sun.has_method(&"apply_celestial"):
@@ -214,9 +164,6 @@ func _configure_draw_layers() -> void:
 	parallax_fairway.z_as_relative = false
 	parallax_fairway.z_index = Z_PARALLAX_FAIRWAY
 
-	range_mat.z_as_relative = false
-	range_mat.z_index = Z_MAT
-
 	foreground.z_as_relative = false
 	foreground.z_index = Z_LITTER
 	littered_balls.z_as_relative = false
@@ -227,34 +174,58 @@ func _configure_draw_layers() -> void:
 	ball.z_index = Z_BALL
 
 
-func _mat_trapezoid(
-	x_left_bottom: float,
-	x_right_bottom: float,
-	y_bottom: float,
-	y_top: float
-) -> PackedVector2Array:
-	var x_left_top := PerspectiveGround.centerline_x_at_y(
-		y_top, FAIRWAY_VANISHING_POINT, x_left_bottom, y_bottom
-	)
-	var x_right_top := PerspectiveGround.centerline_x_at_y(
-		y_top, FAIRWAY_VANISHING_POINT, x_right_bottom, y_bottom
-	)
-	return PackedVector2Array([
-		Vector2(x_left_bottom, y_bottom),
-		Vector2(x_right_bottom, y_bottom),
-		Vector2(x_right_top, y_top),
-		Vector2(x_left_top, y_top),
-	])
-
-
 func _process(delta: float) -> void:
 	_swing.update(delta)
 	_update_ball_reload()
 	_update_charge_visuals()
 
 
+func _setup_placement_debug() -> void:
+	_placement_debug = PlacementDebug.new()
+	add_child(_placement_debug)
+	_placement_debug.setup(
+		golfer,
+		ball,
+		foreground,
+		_golfer_home,
+		_ball_home,
+		_base_golfer_scale,
+		_base_ball_scale,
+		_on_debug_positions_changed,
+		_on_debug_scales_changed
+	)
+	_placement_debug.mode_changed.connect(_on_debug_mode_changed)
+
+
+func _on_debug_positions_changed(golfer_pos: Vector2, ball_pos: Vector2) -> void:
+	_golfer_home = golfer_pos
+	_ball_home = ball_pos
+	_flight_config.tee_x = _ball_home.x
+	_flight_config.tee_y = _ball_home.y
+
+
+func _on_debug_scales_changed(golfer_scale: Vector2, ball_scale: Vector2) -> void:
+	_base_golfer_scale = golfer_scale
+	_base_ball_scale = ball_scale
+	golfer.scale = golfer_scale
+	ball.scale = ball_scale
+	_flight_config.base_ball_scale = ball_scale
+	_flight_config.min_visible_px = 1.0 * ball_scale.x
+
+
+func _on_debug_mode_changed(active: bool) -> void:
+	if active and _swing.is_charging():
+		_swing.release_strike()
+	if active:
+		if charge_meter:
+			charge_meter.visible = false
+		_set_idle_ring()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
+		return
+	if _placement_debug and _placement_debug.is_active():
 		return
 	if not event is InputEventKey:
 		return
@@ -364,6 +335,8 @@ func _update_power_bar(power: float, in_band: bool, past_peak: bool) -> void:
 
 
 func _update_charge_visuals() -> void:
+	if _placement_debug and _placement_debug.is_active():
+		return
 	if not _swing.is_charging():
 		if not _result_flash_active and not _ball_in_flight and _ball_at_tee:
 			ball.position = _ball_home
@@ -480,6 +453,7 @@ func _on_swing_resolved(
 	feedback_tier: int
 ) -> void:
 	_flash_beat_ring(tier)
+	HitPoof.spawn(self, ball.global_position, tier, feedback_tier)
 	_spawn_float_text(tier, yards, payout)
 	_show_tier_sprite(tier, feedback_tier)
 	if feedback_tier == Balance.FeedbackTier.JACKPOT:

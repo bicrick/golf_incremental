@@ -6,7 +6,7 @@ const TEE_X := 248.0
 const TEE_Y := 206.0
 const FAR_GROUND_Y := 105.0
 const GROUND_BOTTOM_Y := 270.0
-const MAT_BACK_Y := 195.0
+const MAT_BACK_Y := 180.0
 const VANISHING_POINT := Vector2(240.0, 100.0)
 
 
