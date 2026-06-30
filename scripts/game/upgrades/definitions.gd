@@ -15,7 +15,7 @@ static func _init_defs() -> void:
 		_def(
 			"power", Balance.UpgradeBranch.DISTANCE, "Power", "Base swing strength.",
 			5, 15.0, 1.45,
-			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.12},
+			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.13},
 			"", {}, Vector2(213, 6),
 			DINKY_BASE + "/HUD/PowerBar.png"
 		),
@@ -23,21 +23,21 @@ static func _init_defs() -> void:
 		_def(
 			"leg_day", Balance.UpgradeBranch.DISTANCE, "Leg Day", "+base yards.",
 			10, 25.0, 1.5,
-			{"type": "multiply", "stat": "base_yards", "value_per_level": 1.1},
+			{"type": "multiply", "stat": "base_yards", "value_per_level": 1.112},
 			"power", {"upgrade_id": "power", "level": 1}, Vector2(48, 62),
 			DINKY_BASE + "/Player/Swing03.png"
 		),
 		_def(
 			"followthrough_form", Balance.UpgradeBranch.DISTANCE, "Form", "+distance %.",
 			10, 40.0, 1.55,
-			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.06},
+			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.065},
 			"leg_day", {"upgrade_id": "leg_day", "level": 1}, Vector2(16, 114),
 			DINKY_BASE + "/Ball/Ball-Sprites_0005.png"
 		),
 		_def(
 			"core_strength", Balance.UpgradeBranch.DISTANCE, "Core", "Raise max yards.",
 			8, 75.0, 1.6,
-			{"type": "add", "stat": "max_yards", "value_per_level": 8.0},
+			{"type": "add", "stat": "max_yards", "value_per_level": 32.0},
 			"followthrough_form", {"upgrade_id": "followthrough_form", "level": 1}, Vector2(48, 166),
 			DINKY_BASE + "/Player/Swing05.png"
 		),
@@ -161,6 +161,25 @@ static func is_unlocked(id: String, levels: Dictionary, _lifetime: Dictionary = 
 	var req_id: String = prereq.get("upgrade_id", "")
 	var req_level: int = prereq.get("level", 1)
 	return levels.get(req_id, 0) >= req_level
+
+
+static func has_affordable_upgrade(
+	levels: Dictionary, currency: float, lifetime: Dictionary = {}
+) -> bool:
+	_init_defs()
+	for id in _tree_order:
+		var def: Dictionary = _by_id[id]
+		var level: int = int(levels.get(id, 0))
+		if level >= int(def["max_level"]):
+			continue
+		if not is_unlocked(id, levels, lifetime):
+			continue
+		var cost := Economy.upgrade_cost(
+			float(def["base_cost"]), float(def["growth_rate"]), level
+		)
+		if currency >= cost:
+			return true
+	return false
 
 
 static func lock_hint(id: String, levels: Dictionary) -> String:

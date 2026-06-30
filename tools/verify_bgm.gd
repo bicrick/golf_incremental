@@ -10,6 +10,8 @@ func _run() -> void:
 	var sfx: Node = load("res://scripts/audio/sfx_manager.gd").new()
 	root.add_child(sfx)
 	await process_frame
+	sfx.start_bgm()
+	await process_frame
 
 	var music := sfx.get_node_or_null("BackgroundMusic") as AudioStreamPlayer
 	if music == null:

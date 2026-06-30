@@ -42,6 +42,13 @@ const TIER_COLORS: Array[Color] = [
 
 const JACKPOT_PAYOUT_THRESHOLD: float = 500.0
 
+## Fixed world-to-screen range — visual depth ignores gameplay max_yards cap.
+const VISUAL_MAX_YARDS: float = 300.0
+## Exponential depth scale — larger = nearer shots stay closer to tee before compressing.
+const PERSPECTIVE_DEPTH_SCALE: float = 180.0
+## Power on normalized depth — >1 keeps short shots near tee, compresses far yard gaps.
+const PERSPECTIVE_DEPTH_EXPONENT: float = 1.4
+
 enum TimingTier { PERFECT, GOOD, OK, MISS }
 enum FeedbackTier { WHISPER, WARM, JACKPOT, MILESTONE }
 enum UpgradeBranch { RHYTHM, DISTANCE, CLUBS, BALLS, RANGE, OUTFITS, ECONOMY, FRIENDS }
@@ -52,7 +59,7 @@ static func default_stats() -> PlayerStats:
 	stats.timing_window_perfect_ms = 50.0
 	stats.timing_window_good_ms = 100.0
 	stats.swing_cooldown_ms = 1800.0
-	stats.base_yards = 10.0
-	stats.max_yards = 50.0
+	stats.base_yards = 30.0
+	stats.max_yards = 45.0
 	stats.dollars_per_yard = 1.0
 	return stats

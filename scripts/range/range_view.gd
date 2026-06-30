@@ -115,42 +115,7 @@ func _setup_dinky_sprites() -> void:
 
 
 func _setup_fairway_stripes() -> void:
-	var container: Node2D = $ParallaxFairway/FairwayStripes
-	for child in container.get_children():
-		child.free()
-
-	# Full viewport-width safety fill so perspective wedge tops never expose side voids.
-	var viewport_base := Polygon2D.new()
-	viewport_base.color = FAIRWAY_BASE_COLOR
-	viewport_base.polygon = PackedVector2Array([
-		Vector2(-FAIRWAY_VIEWPORT_PAD, FAIRWAY_BOTTOM_Y),
-		Vector2(480.0 + FAIRWAY_VIEWPORT_PAD, FAIRWAY_BOTTOM_Y),
-		Vector2(480.0 + FAIRWAY_VIEWPORT_PAD, FAIRWAY_TOP_Y),
-		Vector2(-FAIRWAY_VIEWPORT_PAD, FAIRWAY_TOP_Y),
-	])
-	container.add_child(viewport_base)
-
-	var colors: Array[Color] = [FAIRWAY_STRIPE_LIGHT, FAIRWAY_STRIPE_DARK]
-	var span := FAIRWAY_BOTTOM_RIGHT - FAIRWAY_BOTTOM_LEFT
-	var segment_width := span / float(FAIRWAY_STRIPE_COUNT)
-	for index in FAIRWAY_STRIPE_COUNT:
-		var x0_bottom := FAIRWAY_BOTTOM_LEFT + index * segment_width
-		var x1_bottom := FAIRWAY_BOTTOM_LEFT + (index + 1) * segment_width
-		var x0_top := _perspective_x_at_y(
-			FAIRWAY_VANISHING_POINT, x0_bottom, FAIRWAY_BOTTOM_Y, FAIRWAY_TOP_Y
-		)
-		var x1_top := _perspective_x_at_y(
-			FAIRWAY_VANISHING_POINT, x1_bottom, FAIRWAY_BOTTOM_Y, FAIRWAY_TOP_Y
-		)
-		var stripe := Polygon2D.new()
-		stripe.color = colors[index % 2]
-		stripe.polygon = PackedVector2Array([
-			Vector2(x0_bottom, FAIRWAY_BOTTOM_Y),
-			Vector2(x1_bottom, FAIRWAY_BOTTOM_Y),
-			Vector2(x1_top, FAIRWAY_TOP_Y),
-			Vector2(x0_top, FAIRWAY_TOP_Y),
-		])
-		container.add_child(stripe)
+	FairwayStripes.populate($ParallaxFairway/FairwayStripes, FAIRWAY_TOP_Y, FAIRWAY_BOTTOM_Y)
 
 
 func _setup_range_mat() -> void:
@@ -187,38 +152,6 @@ func _setup_range_mat() -> void:
 		back_left + Vector2(3.0, 7.0),
 	])
 	range_mat.add_child(highlight)
-
-	var grid_color := Color(0.22, 0.48, 0.22)
-	var mid_y := lerpf(MAT_Y_FRONT, MAT_Y_BACK, 0.55)
-	var mid_left := _perspective_x_at_y(
-		FAIRWAY_VANISHING_POINT, MAT_X_LEFT, MAT_Y_FRONT, mid_y
-	)
-	var mid_right := _perspective_x_at_y(
-		FAIRWAY_VANISHING_POINT, MAT_X_RIGHT, MAT_Y_FRONT, mid_y
-	)
-	var h_line := Polygon2D.new()
-	h_line.color = grid_color
-	h_line.polygon = PackedVector2Array([
-		Vector2(mid_left + 5.0, mid_y - 0.5),
-		Vector2(mid_right - 5.0, mid_y - 0.5),
-		Vector2(mid_right - 5.0, mid_y + 0.5),
-		Vector2(mid_left + 5.0, mid_y + 0.5),
-	])
-	range_mat.add_child(h_line)
-
-	var center_bottom := (MAT_X_LEFT + MAT_X_RIGHT) * 0.5
-	var center_top := _perspective_x_at_y(
-		FAIRWAY_VANISHING_POINT, center_bottom, MAT_Y_FRONT, MAT_Y_BACK
-	)
-	var v_line := Polygon2D.new()
-	v_line.color = grid_color
-	v_line.polygon = PackedVector2Array([
-		Vector2(center_bottom - 0.5, MAT_Y_FRONT - 5.0),
-		Vector2(center_bottom + 0.5, MAT_Y_FRONT - 5.0),
-		Vector2(center_top + 0.5, MAT_Y_BACK + 5.0),
-		Vector2(center_top - 0.5, MAT_Y_BACK + 5.0),
-	])
-	range_mat.add_child(v_line)
 
 
 func _configure_draw_layers() -> void:
@@ -268,11 +201,7 @@ static func _perspective_x_at_y(
 	y_far: float,
 	y_near: float
 ) -> float:
-	var denom := y_far - vanishing_point.y
-	if absf(denom) < 0.001:
-		return vanishing_point.x
-	var t := (y_near - vanishing_point.y) / denom
-	return vanishing_point.x + t * (x_at_far_y - vanishing_point.x)
+	return FairwayStripes.perspective_x_at_y(vanishing_point, x_at_far_y, y_far, y_near)
 
 
 static func _rect_polygon(x0: float, y0: float, x1: float, y1: float) -> PackedVector2Array:
@@ -631,15 +560,10 @@ func _flight_position_at(progress: float, start: Vector2, end: Vector2, depth_t:
 
 
 func _fly_ball(yards: float, feedback_tier: int, _timing_tier: int) -> void:
-	# Depth from continuous yards — max_yards is a payout cap, not visual scale.
-	var visual_max := maxf(
-		GameState.stats.base_yards * GameState.stats.yard_multiplier,
-		1.0
-	)
-	var t := clampf(yards / visual_max, 0.08, 1.0)
+	var t := Economy.visual_depth_t(yards, GameState.stats)
 	var target := _scatter_landing_target(_landing_target_for_depth(t), t)
 	var flight_time := FLIGHT_TIME_MIN_SEC + t * FLIGHT_TIME_RANGE_SEC
-	var end_scale_factor := lerpf(0.4, 0.12, t)
+	var end_scale_factor := lerpf(0.55, 0.05, t)
 	var start_pos := _ball_home
 	_flight_end_scale_factor = end_scale_factor
 

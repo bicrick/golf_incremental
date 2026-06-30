@@ -9,9 +9,9 @@ extends Resource
 @export var perfect_payout_bonus: float = 0.0
 
 # Distance
-@export var base_yards: float = 10.0
+@export var base_yards: float = 30.0
 @export var yard_multiplier: float = 1.0
-@export var max_yards: float = 50.0
+@export var max_yards: float = 45.0
 @export var yard_variance: float = 0.2
 
 # Equipment

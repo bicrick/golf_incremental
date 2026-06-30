@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://b8cisw5axuxjg"]
+
+[ext_resource type="Script" uid="uid://0xvbif2ul66q" path="res://scripts/ui/title_screen.gd" id="1_title"]
+[ext_resource type="Script" uid="uid://6hlbkmf0ioxk" path="res://scripts/ui/fairway_stripe_background.gd" id="2_fairway_bg"]
+
+[node name="TitleScreen" type="CanvasLayer" unique_id=500549759]
+layer = 20
+script = ExtResource("1_title")
+
+[node name="FairwayBg" type="Control" parent="." unique_id=1564644422]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_fairway_bg")
+
+[node name="Overlay" type="Control" parent="." unique_id=1493703161]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Center" type="CenterContainer" parent="Overlay" unique_id=612060388]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="Overlay/Center" unique_id=224821691]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="TitleLabel" type="Label" parent="Overlay/Center/VBox" unique_id=1358783386]
+layout_mode = 2
+text = "Range Rat"
+horizontal_alignment = 1
+
+[node name="PlayBob" type="Control" parent="Overlay/Center/VBox" unique_id=857982182]
+custom_minimum_size = Vector2(128, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="PlayButton" type="Button" parent="Overlay/Center/VBox/PlayBob" unique_id=1193996604]
+layout_mode = 0
+offset_right = 128.0
+offset_bottom = 36.0
+text = "PLAY"

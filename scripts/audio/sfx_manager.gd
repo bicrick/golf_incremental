@@ -17,7 +17,6 @@ var _music_player: AudioStreamPlayer
 func _ready() -> void:
 	_build_streams()
 	_build_pool()
-	_start_background_audio()
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
 	EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
@@ -41,7 +40,20 @@ func _build_streams() -> void:
 	_streams["perfect_chime"] = _make_chime([880.0, 1320.0], 0.22, 0.3)
 	_streams["cash_register"] = _make_chime([660.0, 880.0, 1108.0, 1320.0], 0.18, 0.32)
 	_streams["ui_click"] = _make_click(980.0, 0.035, 0.28)
+	_streams["play_whoosh"] = _make_thwack(150.0, 0.14, 0.2, 0.5)
+	_streams["play_fanfare"] = _make_chime([440.0, 554.0, 659.0, 880.0, 1108.0], 0.38, 0.24)
 	_streams["ambient_wind"] = _make_wind_loop(2.5, 0.06)
+
+
+func start_bgm() -> void:
+	if _music_player != null or _ambient_player != null:
+		return
+	_start_background_audio()
+
+
+func play_start() -> void:
+	_play("play_whoosh", -8.0, 0.95)
+	_play("play_fanfare", -4.0)
 
 
 func _start_background_audio() -> void:
@@ -59,8 +71,9 @@ func _start_background_audio() -> void:
 	_music_player.name = "BackgroundMusic"
 	_music_player.stream = stream
 	_music_player.volume_db = BGM_VOLUME_DB
-	_music_player.autoplay = true
+	_music_player.autoplay = false
 	add_child(_music_player)
+	_music_player.play()
 
 
 func _start_ambient() -> void:
@@ -68,8 +81,9 @@ func _start_ambient() -> void:
 	_ambient_player.name = "AmbientWind"
 	_ambient_player.stream = _streams["ambient_wind"]
 	_ambient_player.volume_db = -28.0
-	_ambient_player.autoplay = true
+	_ambient_player.autoplay = false
 	add_child(_ambient_player)
+	_ambient_player.play()
 
 
 func _find_first_music_track() -> String:

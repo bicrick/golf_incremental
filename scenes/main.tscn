@@ -1,19 +1,22 @@
-[gd_scene load_steps=6 format=3 uid="uid://main_scene"]
+[gd_scene format=3 uid="uid://dhp1j1vlouof6"]
 
-[ext_resource type="PackedScene" uid="uid://range_view" path="res://scenes/range/range_view.tscn" id="1_range"]
-[ext_resource type="PackedScene" uid="uid://hud_scene" path="res://scenes/ui/hud.tscn" id="2_hud"]
-[ext_resource type="PackedScene" uid="uid://icon_bar_scene" path="res://scenes/ui/icon_bar.tscn" id="3_icons"]
-[ext_resource type="PackedScene" uid="uid://upgrade_panel" path="res://scenes/ui/upgrade_panel.tscn" id="4_panel"]
-[ext_resource type="Script" path="res://scripts/ui/ui_root.gd" id="5_ui_root"]
+[ext_resource type="PackedScene" path="res://scenes/range/range_view.tscn" id="1_range"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="2_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/icon_bar.tscn" id="3_icons"]
+[ext_resource type="PackedScene" path="res://scenes/ui/upgrade_panel.tscn" id="4_panel"]
+[ext_resource type="Script" uid="uid://bv7ncrrp8hngf" path="res://scripts/ui/ui_root.gd" id="5_ui_root"]
+[ext_resource type="PackedScene" path="res://scenes/ui/title_screen.tscn" id="6_title"]
+[ext_resource type="Script" uid="uid://bqqkov8a6pslv" path="res://scripts/main.gd" id="7_main"]
 
-[node name="Main" type="Node"]
+[node name="Main" type="Node" unique_id=785145167]
+script = ExtResource("7_main")
 
-[node name="RangeView" parent="." instance=ExtResource("1_range")]
+[node name="RangeView" parent="." unique_id=546952961 instance=ExtResource("1_range")]
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="UI" type="CanvasLayer" parent="." unique_id=1331961131]
 layer = 10
 
-[node name="UIRoot" type="Control" parent="UI"]
+[node name="UIRoot" type="Control" parent="UI" unique_id=148558970]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -23,8 +26,13 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("5_ui_root")
 
-[node name="HUD" parent="UI/UIRoot" instance=ExtResource("2_hud")]
+[node name="HUD" parent="UI/UIRoot" unique_id=647788328 instance=ExtResource("2_hud")]
+layout_mode = 1
 
-[node name="IconBar" parent="UI/UIRoot" instance=ExtResource("3_icons")]
+[node name="IconBar" parent="UI/UIRoot" unique_id=391510951 instance=ExtResource("3_icons")]
+layout_mode = 1
 
-[node name="UpgradePanel" parent="UI/UIRoot" instance=ExtResource("4_panel")]
+[node name="UpgradePanel" parent="UI/UIRoot" unique_id=811323415 instance=ExtResource("4_panel")]
+layout_mode = 1
+
+[node name="TitleScreen" parent="." unique_id=1287109368 instance=ExtResource("6_title")]

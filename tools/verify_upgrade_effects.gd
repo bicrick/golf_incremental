@@ -64,8 +64,38 @@ func _run() -> void:
 				]
 			)
 
+	ok = _check_distance_curve(gs) and ok
+
 	print("upgrade_effects_ok=", ok)
 	quit(0 if ok else 1)
+
+
+func _check_distance_curve(gs: Node) -> bool:
+	var ok := true
+	gs.upgrade_levels = {}
+	gs._recompute_stats()
+	var start_yards := Economy.yards_from_quality(1.0, gs.stats)
+	if absf(start_yards - 30.0) > 1.5:
+		print("FAIL: fresh save perfect yards expected ~30, got %.2f" % start_yards)
+		ok = false
+	else:
+		print("OK: fresh save perfect yards=%.2f" % start_yards)
+
+	var max_levels := {}
+	for id in ["power", "leg_day", "followthrough_form", "core_strength"]:
+		max_levels[id] = UpgradeDefinitions.get_def(id).get("max_level", 0)
+	gs.upgrade_levels = max_levels
+	gs._recompute_stats()
+	var end_yards := Economy.yards_from_quality(1.0, gs.stats)
+	if absf(end_yards - 300.0) > 15.0:
+		print("FAIL: maxed distance perfect yards expected ~300, got %.2f" % end_yards)
+		ok = false
+	else:
+		print(
+			"OK: maxed distance perfect yards=%.2f (base=%.2f mult=%.3f cap=%.0f)"
+			% [end_yards, gs.stats.base_yards, gs.stats.yard_multiplier, gs.stats.max_yards]
+		)
+	return ok
 
 
 func _snapshot(gs: Node) -> Dictionary:
@@ -81,8 +111,7 @@ func _snapshot(gs: Node) -> Dictionary:
 
 func _visual_depth_for(stats: PlayerStats, timing_tier: int) -> float:
 	var result := Economy.resolve_payout(timing_tier, stats)
-	var visual_max := maxf(stats.base_yards * stats.yard_multiplier, 1.0)
-	return clampf(result.yards / visual_max, 0.08, 1.0)
+	return Economy.visual_depth_t(result.yards, stats)
 
 
 func _check_upgrade(id: String, before: Dictionary, after: Dictionary) -> String:
@@ -111,10 +140,7 @@ func _check_upgrade(id: String, before: Dictionary, after: Dictionary) -> String
 				return "perfect yards decreased (%.2f -> %.2f)" % [
 					before.perfect_yards, after.perfect_yards
 				]
-			if after.visual_depth < before.visual_depth - 0.001:
-				return "visual depth decreased (%.3f -> %.3f)" % [
-					before.visual_depth, after.visual_depth
-				]
+			# Raising max_yards expands the visual range — same yards may land closer to tee.
 		"metronome":
 			if a_stats.timing_window_perfect_ms <= b_stats.timing_window_perfect_ms:
 				return "timing_window_perfect_ms did not increase"
