@@ -1,20 +1,19 @@
-[gd_scene load_steps=4 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=5 format=3 uid="uid://main_scene"]
 
 [ext_resource type="PackedScene" uid="uid://range_view" path="res://scenes/range/range_view.tscn" id="1_range"]
 [ext_resource type="PackedScene" uid="uid://hud_scene" path="res://scenes/ui/hud.tscn" id="2_hud"]
-[ext_resource type="PackedScene" uid="uid://upgrade_panel" path="res://scenes/ui/upgrade_panel.tscn" id="3_panel"]
+[ext_resource type="PackedScene" uid="uid://icon_bar_scene" path="res://scenes/ui/icon_bar.tscn" id="3_icons"]
+[ext_resource type="PackedScene" uid="uid://upgrade_panel" path="res://scenes/ui/upgrade_panel.tscn" id="4_panel"]
 
 [node name="Main" type="Node"]
 
 [node name="RangeView" parent="." instance=ExtResource("1_range")]
 
 [node name="UI" type="CanvasLayer" parent="."]
+layer = 10
 
 [node name="HUD" parent="UI" instance=ExtResource("2_hud")]
 
-[node name="UpgradePanel" parent="UI" instance=ExtResource("3_panel")]
-anchors_preset = 0
-offset_left = 300.0
-offset_top = 8.0
-offset_right = 472.0
-offset_bottom = 262.0
+[node name="IconBar" parent="UI" instance=ExtResource("3_icons")]
+
+[node name="UpgradePanel" parent="UI" instance=ExtResource("4_panel")]

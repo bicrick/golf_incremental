@@ -53,13 +53,33 @@ position = Vector2(240, 200)
 color = Color(0.95, 0.95, 0.9, 1)
 polygon = PackedVector2Array(-4, -4, 4, -4, 4, 4, -4, 4)
 
-[node name="BeatRing" type="Node2D" parent="."]
-position = Vector2(240, 200)
+[node name="ChargeMeter" type="Node2D" parent="."]
+position = Vector2(300, 182)
 
-[node name="RingOuter" type="Polygon2D" parent="BeatRing"]
+[node name="BeatRing" type="Node2D" parent="ChargeMeter"]
+
+[node name="SweetSpotGlow" type="Polygon2D" parent="ChargeMeter/BeatRing"]
+visible = false
+color = Color(1, 0.88, 0.25, 0.55)
+polygon = PackedVector2Array(-18, 0, 0, -18, 18, 0, 0, 18)
+
+[node name="RingOuter" type="Polygon2D" parent="ChargeMeter/BeatRing"]
 color = Color(1, 1, 1, 0.35)
-polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
+polygon = PackedVector2Array(-28, 0, 0, -28, 28, 0, 0, 28)
 
-[node name="RingInner" type="Polygon2D" parent="BeatRing"]
-color = Color(1, 0.92, 0.6, 0.5)
-polygon = PackedVector2Array(-10, 0, 0, -10, 10, 0, 0, 10)
+[node name="RingInner" type="Polygon2D" parent="ChargeMeter/BeatRing"]
+color = Color(1, 0.92, 0.6, 0.55)
+polygon = PackedVector2Array(-14, 0, 0, -14, 14, 0, 0, 14)
+
+[node name="SweetSpotLabel" type="Label" parent="ChargeMeter"]
+visible = false
+offset_left = -38.0
+offset_top = 32.0
+offset_right = 38.0
+offset_bottom = 48.0
+theme_override_colors/font_color = Color(0.45, 1, 0.55, 1)
+theme_override_colors/font_outline_color = Color(0.1, 0.25, 0.12, 0.9)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 11
+text = "SWEET SPOT"
+horizontal_alignment = 1
