@@ -11,7 +11,6 @@ Multiplicative stacking across branches — this is the Fortune Mill spike.
 ```
 payout = baseYards
        × rhythmTierMult
-       × comboMult
        × clubMult
        × ballMult
        × targetZoneMult
@@ -21,13 +20,14 @@ payout = baseYards
        + flatBonusPerSwing  (optional, from upgrades)
 ```
 
+> **v1 note:** Combo multiplier stacking removed for rework. Payout is tier × stat mults only.
+
 ### Variable definitions
 
 | Variable | Source | Default (v1) |
 |----------|--------|--------------|
 | `baseYards` | Swing resolution + distance upgrades | 5–20 early |
 | `rhythmTierMult` | Perfect/Good/OK/Miss | 1.0 / 0.7 / 0.4 / 0.1 |
-| `comboMult` | Combo stack | 1.0 + 0.1 × comboCount |
 | `clubMult` | Club branch | 1.0 |
 | `ballMult` | Ball branch | 1.0 |
 | `targetZoneMult` | Bullseye zone (v1.5+) | 1.0 |
@@ -40,7 +40,7 @@ payout = baseYards
 
 1. Compute `baseYards` from stats + timing
 2. Apply `targetZoneMult` (v1.5+)
-3. Multiply all stat mults: `rhythmTierMult × comboMult × clubMult × ballMult × outfitMult × globalMult`
+3. Multiply all stat mults: `rhythmTierMult × clubMult × ballMult × outfitMult × globalMult`
 4. Multiply by `dollarsPerYard`
 5. Add `flatBonusPerSwing`
 6. Round/display with appropriate formatting (K, M, B suffixes at scale)
@@ -52,7 +52,7 @@ After computing `payout`, classify `FeedbackTier`:
 | Condition | FeedbackTier |
 |-----------|--------------|
 | `payout < greatThreshold` | `whisper` or `warm` |
-| Bullseye center OR crit OR combo breakpoint | `jackpot` |
+| Bullseye center OR crit | `jackpot` |
 | `payout >= jackpotThreshold` | `jackpot` |
 | Milestone event | `milestone` |
 
@@ -93,11 +93,10 @@ Unlock branches, visuals, or features at lifetime stats:
 | Example milestone | Unlocks |
 |-------------------|---------|
 | 100 total yards | Club tier 2 |
-| 10 Perfect combo | Bullseye II (v1.5) |
 | $50,000 lifetime | Golden evening time-of-day |
 | $1,000,000 lifetime | Blue hour range |
 
-Store lifetime stats in save: `lifetimeYards`, `lifetimeEarnings`, `bestCombo`, etc.
+Store lifetime stats in save: `lifetimeYards`, `lifetimeEarnings`, `perfectCount`, etc.
 
 UI always surfaces **next milestone** prominently.
 
@@ -117,7 +116,7 @@ interface EconomyState {
   currency: number;
   lifetimeEarnings: number;
   lifetimeYards: number;
-  bestCombo: number;
+  perfectCount: number;
   upgradeLevels: Record<string, number>;
 }
 ```

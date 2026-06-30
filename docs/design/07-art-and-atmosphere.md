@@ -163,6 +163,10 @@ Effects (1–3 seconds, then decay):
 - Number popups: gold `modulate` on jackpot
 - No purple UI chrome
 
+### RPG UI kit (Craftpix #255216)
+
+Source sprites live in `assets/imported/rpg_ui_kit/PNG/` (parchment panels, teal accents, 9-slice buttons). Use **Nearest** texture filter (project default) and integer scale — same rules as parallax pixel art. Prefer parchment/teal kit tones over purple UI chrome when reskinning HUD and upgrade panels (Pass 1+).
+
 ---
 
 ## Asset pipeline

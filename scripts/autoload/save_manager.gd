@@ -22,7 +22,7 @@ func _notification(what: int) -> void:
 		save_game()
 
 
-func _on_state_changed(_a = null, _b = null, _c = null, _d = null, _e = null) -> void:
+func _on_state_changed(_a = null, _b = null, _c = null, _d = null, _e = null, _f = null) -> void:
 	pass  # Throttled by autosave timer
 
 

@@ -11,7 +11,7 @@ A cozy, Miyazaki-adjacent **parallax 2.5D** pixel art golf incremental on a driv
 | Doc | Read if you are working on… |
 |-----|----------------------------|
 | [design/00-vision.md](design/00-vision.md) | Project pillars, tone, inspiration, north star |
-| [design/01-core-loop.md](design/01-core-loop.md) | Rhythm swing, timing tiers, combo, swing cadence |
+| [design/01-core-loop.md](design/01-core-loop.md) | Rhythm swing, timing tiers, swing cadence |
 | [design/02-world-and-range.md](design/02-world-and-range.md) | Parallax 2.5D layers, camera, targets, time-of-day |
 | [design/03-economy.md](design/03-economy.md) | Payout formula, cost curves, currency, milestones |
 | [design/04-upgrade-tree.md](design/04-upgrade-tree.md) | All 8 upgrade branches, outfit stat pieces |
@@ -47,6 +47,7 @@ A cozy, Miyazaki-adjacent **parallax 2.5D** pixel art golf incremental on a driv
 ## Third-party assets
 
 - **Dinky Tiny Golf** — Mike Moore ([pixelbitsnbytes.com](https://www.pixelbitsnbytes.com)), free commercial use with credit. See [`assets/imported/CREDITS.txt`](../assets/imported/CREDITS.txt) and [`assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/license.txt`](../assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/license.txt).
+- **Free Basic Pixel Art UI for RPG** — Craftpix.net (#255216), freebie license. See [`assets/imported/CREDITS.txt`](../assets/imported/CREDITS.txt) and [`assets/imported/rpg_ui_kit/LICENSE.txt`](../assets/imported/rpg_ui_kit/LICENSE.txt).
 
 ## Implementation status
 

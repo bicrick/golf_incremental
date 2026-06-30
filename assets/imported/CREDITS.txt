@@ -6,3 +6,9 @@ License: Free for commercial use with credit (see Dinky_Tiny_Golf_Free/license.t
 Used in Golf Incremental for ball, golfer swing, range mat tiles, and jackpot text sprites.
 
 UI font: Press Start 2P (SIL Open Font License) — assets/fonts/PressStart2P-Regular.ttf
+
+Free Basic Pixel Art UI for RPG (Craftpix.net #255216)
+License: https://craftpix.net/file-licenses/ (Freebie Products)
+
+Used in Golf Incremental for HUD panels, buttons, and upgrade UI chrome (Pass 1+).
+Assets: assets/imported/rpg_ui_kit/

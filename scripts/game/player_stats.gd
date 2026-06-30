@@ -6,8 +6,6 @@ extends Resource
 @export var timing_window_perfect_ms: float = 50.0
 @export var timing_window_good_ms: float = 100.0
 @export var swing_cooldown_ms: float = 800.0
-@export var combo_decay_slow: float = 0.0
-@export var good_counts_for_combo: bool = false
 @export var perfect_payout_bonus: float = 0.0
 
 # Distance
@@ -43,8 +41,6 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.timing_window_perfect_ms = from.timing_window_perfect_ms
 	copy.timing_window_good_ms = from.timing_window_good_ms
 	copy.swing_cooldown_ms = from.swing_cooldown_ms
-	copy.combo_decay_slow = from.combo_decay_slow
-	copy.good_counts_for_combo = from.good_counts_for_combo
 	copy.perfect_payout_bonus = from.perfect_payout_bonus
 	copy.base_yards = from.base_yards
 	copy.yard_multiplier = from.yard_multiplier

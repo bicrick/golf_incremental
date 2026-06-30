@@ -33,11 +33,7 @@ static func _apply_add(stats: PlayerStats, stat_name: String, per_level: float, 
 
 
 static func _apply_binary(stats: PlayerStats, stat_name: String, value: Variant) -> void:
-	match typeof(value):
-		TYPE_BOOL:
-			_write_stat(stats, stat_name, 1.0 if value else 0.0)
-		TYPE_FLOAT, TYPE_INT:
-			_write_stat(stats, stat_name, float(value))
+	_write_stat(stats, stat_name, 1.0 if bool(value) else 0.0)
 
 
 static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
@@ -48,8 +44,6 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 			return stats.timing_window_good_ms
 		"swing_cooldown_ms":
 			return stats.swing_cooldown_ms
-		"combo_decay_slow":
-			return stats.combo_decay_slow
 		"perfect_payout_bonus":
 			return stats.perfect_payout_bonus
 		"base_yards":
@@ -95,8 +89,6 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 			stats.timing_window_good_ms = value
 		"swing_cooldown_ms":
 			stats.swing_cooldown_ms = value
-		"combo_decay_slow":
-			stats.combo_decay_slow = value
 		"perfect_payout_bonus":
 			stats.perfect_payout_bonus = value
 		"base_yards":

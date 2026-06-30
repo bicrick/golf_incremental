@@ -8,7 +8,6 @@ var lifetime: Dictionary = {
 	"total_swings": 0,
 	"lifetime_yards": 0.0,
 	"lifetime_earnings": 0.0,
-	"best_combo": 0,
 	"perfect_count": 0,
 }
 

@@ -2,19 +2,12 @@ class_name ChargeSwing
 extends RefCounted
 ## Charge curve and peak-timing evaluation for hold-release swings.
 
-var combo: int = 0
-var chain_mode: bool = false
-
 
 func charge_duration_sec() -> float:
-	if chain_mode:
-		return Balance.CHARGE_DURATION_SEC * Balance.CHAIN_CHARGE_DURATION_SCALE
 	return Balance.CHARGE_DURATION_SEC
 
 
 func charge_decay_sec() -> float:
-	if chain_mode:
-		return Balance.CHARGE_DECAY_SEC * Balance.CHAIN_CHARGE_DECAY_SCALE
 	return Balance.CHARGE_DECAY_SEC
 
 
@@ -99,10 +92,7 @@ func _yard_quality_late(late_ms: float) -> float:
 	var floor := Balance.YARD_QUALITY_FLOOR
 	var peak := Balance.YARD_QUALITY_LATE_PEAK
 	var span := peak - floor
-	var post_good_ms := Balance.POST_PEAK_GOOD_MS
-	if chain_mode:
-		post_good_ms *= Balance.CHAIN_CHARGE_DURATION_SCALE
-	var sigma := maxf(post_good_ms * 1.25, 1.0)
+	var sigma := maxf(Balance.POST_PEAK_GOOD_MS * 1.25, 1.0)
 	return floor + span * exp(-0.5 * pow(late_ms / sigma, 2.0))
 
 
@@ -125,10 +115,7 @@ func evaluate_timing(hold_duration_sec: float, stats: PlayerStats) -> int:
 
 	# Late release — no Perfect; degrades quickly through Good → OK → Miss.
 	var overshoot_ms := delta_sec * 1000.0
-	var post_peak_good_ms := Balance.POST_PEAK_GOOD_MS
-	if chain_mode:
-		post_peak_good_ms *= Balance.CHAIN_CHARGE_DURATION_SCALE
-	if overshoot_ms <= post_peak_good_ms:
+	if overshoot_ms <= Balance.POST_PEAK_GOOD_MS:
 		return Balance.TimingTier.GOOD
 	var ok_max := charge_decay_sec() * 0.5
 	if delta_sec <= ok_max:

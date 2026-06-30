@@ -37,34 +37,16 @@ Release while idle is ignored. A new hold during cooldown is ignored. Swing cool
 
 ### Timing tiers
 
-| Tier | Window (baseline) | Payout multiplier | Combo |
-|------|-------------------|-------------------|-------|
-| **Perfect** | Tightest (±50 ms from peak) | 1.0× (baseline for rhythm) | Advances combo |
-| **Good** | Medium (±100 ms) | ~0.7× | May advance combo (upgradeable) |
-| **OK** | Wide (±150 ms) | ~0.4× | No combo advance |
-| **Miss** | Outside all windows, or release before min hold (~50 ms) | Pity payout (~0.1×) | Breaks combo |
+| Tier | Window (baseline) | Payout multiplier |
+|------|-------------------|-------------------|
+| **Perfect** | Tightest (±50 ms from peak) | 1.0× (baseline for rhythm) |
+| **Good** | Medium (±100 ms) | ~0.7× |
+| **OK** | Wide (±150 ms) | ~0.4× |
+| **Miss** | Outside all windows, or release before min hold (~50 ms) | Pity payout (~0.1×) |
 
 **Fortune Mill chill rule:** Miss never pays zero. Partial credit keeps flow alive.
 
-### Combo system
-
-- Consecutive **Perfect** hits stack a combo counter
-- Combo grants escalating multiplier (e.g. +10% per stack, cap tunable)
-- **Miss** breaks combo; **Good** breaks unless "Combo keeper" upgrade owned
-- Combo breakpoint (e.g. 5, 10 Perfects) can trigger **jackpot feedback tier** — see [07-art-and-atmosphere.md](07-art-and-atmosphere.md)
-
-### Perfect strike chain (v1: 2 levels)
-
-When `CHAIN_ENABLED` is true in `balance.gd` (default on; future upgrade gate):
-
-| Step | Player action | Result |
-|------|---------------|--------|
-| 1 | Release **Perfect** on base charge | Enter **chain window** (~100 ms) — swing not resolved yet; meter flashes orange **"Again!"** |
-| 2a | Press/hold within window | **Chain charge** — faster ring (~40% of base charge time), orange **"CHAIN!"** styling |
-| 2b | Window expires without press | Resolve as **Perfect level 1** — normal payout, ball flies |
-| 3 | Release on chain charge | Tier evaluated on faster curve; **Perfect** = **chain level 2** payout (`CHAIN_LEVEL_2_MULT`, default 2.0× on top of tier + combo); non-Perfect resolves at that tier and chain ends |
-
-Max depth is **2** (no third ring). Audio: perfect chime → chain window tick → bigger chime on chain perfect.
+> **v1 note:** Combo / multi-strike chaining was removed for rework. Swings follow classic **IDLE → CHARGING → resolve → cooldown → IDLE**. Late-game skill curve TBD.
 
 ## Swing cadence (separate from charge duration)
 
@@ -94,8 +76,8 @@ Each resolved swing emits a `FeedbackTier` used by audio/VFX:
 | FeedbackTier | Typical trigger |
 |--------------|-----------------|
 | `whisper` | OK hit, small payout |
-| `warm` | Perfect, modest combo |
-| `jackpot` | Bullseye, crit, combo milestone, payout threshold |
+| `warm` | Perfect |
+| `jackpot` | Bullseye, crit, payout threshold |
 | `milestone` | Branch unlock, time-of-day shift |
 
 See [07-art-and-atmosphere.md](07-art-and-atmosphere.md) for spike rules.
@@ -114,7 +96,6 @@ v1 economy module should not assume passive income exists, but types should allo
 - [ ] Hold begins charge and power curve rises to peak
 - [ ] Release registers timing against peak moment
 - [ ] Tier + yards + payout calculated and emitted as event
-- [ ] Combo updates on tier rules
 - [ ] Swing cooldown enforced between swings
 - [ ] Ball flight tween plays regardless of tier
 

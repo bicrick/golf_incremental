@@ -31,14 +31,6 @@ theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 10
 text = "$0"
 
-[node name="ComboLabel" type="Label" parent="Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.85, 0.7, 1)
-theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.6)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 8
-text = "Combo: 0"
-
 [node name="HintLabel" type="Label" parent="Margin/VBox"]
 visible = false
 layout_mode = 2
@@ -46,4 +38,4 @@ theme_override_colors/font_color = Color(1, 0.92, 0.45, 1)
 theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
 theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 8
-text = "Strike!"
+text = "Hold to swing"

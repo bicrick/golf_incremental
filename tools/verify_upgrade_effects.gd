@@ -70,7 +70,7 @@ func _run() -> void:
 
 func _snapshot(gs: Node) -> Dictionary:
 	var stats: PlayerStats = gs.stats
-	var perfect := Economy.resolve_payout(PERFECT, 0, stats)
+	var perfect := Economy.resolve_payout(PERFECT, stats)
 	return {
 		"stats": stats,
 		"perfect_yards": perfect.yards,
@@ -80,7 +80,7 @@ func _snapshot(gs: Node) -> Dictionary:
 
 
 func _visual_depth_for(stats: PlayerStats, timing_tier: int) -> float:
-	var result := Economy.resolve_payout(timing_tier, 0, stats)
+	var result := Economy.resolve_payout(timing_tier, stats)
 	var visual_max := maxf(stats.base_yards * stats.yard_multiplier, 1.0)
 	return clampf(result.yards / visual_max, 0.08, 1.0)
 

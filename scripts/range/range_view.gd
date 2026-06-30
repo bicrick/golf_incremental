@@ -43,7 +43,7 @@ const SWING_FRAME_COUNT := 5
 const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles/TEXT"
 
 # Swing wind-up maps charge_progress (0→1) to Swing01–05 frames over charge_duration_sec().
-# Normal charge: Balance.CHARGE_DURATION_SEC (0.5s). Chain charge: × CHAIN_CHARGE_DURATION_SCALE (0.2s).
+# Normal charge: Balance.CHARGE_DURATION_SEC (0.5s).
 # Release holds Swing05 (frame 4) at impact; ball roll uses 11 frames at speed 11 / flight_time.
 
 @onready var ball: AnimatedSprite2D = $Foreground/Ball
@@ -75,8 +75,6 @@ var _base_golfer_scale: Vector2 = GOLFER_PIXEL_SCALE
 var _ring_base_scale: float = 1.0
 var _flash_tween: Tween
 var _result_flash_active: bool = false
-var _chain_active: bool = false
-var _chain_visual_level: int = 0
 var _golfer_joy_active: bool = false
 var _ball_in_flight: bool = false
 var _ball_at_tee: bool = true
@@ -97,9 +95,6 @@ func _ready() -> void:
 	EventBus.swing_resolved.connect(_on_swing_resolved)
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
 	EventBus.swing_charge_updated.connect(_on_swing_charge_updated)
-	EventBus.swing_chain_window_started.connect(_on_chain_window_started)
-	EventBus.swing_chain_charging_started.connect(_on_chain_charging_started)
-	EventBus.swing_chain_state_changed.connect(_on_chain_state_changed)
 	if camera:
 		camera.make_current()
 	_set_idle_ring()
@@ -382,7 +377,7 @@ func _update_sweet_spot_indicator(in_band: bool, elapsed: float) -> void:
 			sweet_spot_label.modulate = Color(0.45, 1.0, 0.55, text_pulse)
 
 
-func _update_power_bar(power: float, in_band: bool, past_peak: bool, is_chain: bool = false) -> void:
+func _update_power_bar(power: float, in_band: bool, past_peak: bool) -> void:
 	if not power_bar_fill:
 		return
 	var fill_h := power * POWER_BAR_HEIGHT
@@ -398,15 +393,7 @@ func _update_power_bar(power: float, in_band: bool, past_peak: bool, is_chain: b
 		Vector2(-POWER_BAR_HALF_WIDTH, bottom - fill_h),
 	])
 	if in_band:
-		if is_chain:
-			power_bar_fill.color = Color(
-				Balance.CHAIN_RING_COLOR.r,
-				Balance.CHAIN_RING_COLOR.g,
-				Balance.CHAIN_RING_COLOR.b * 0.45,
-				0.95
-			)
-		else:
-			power_bar_fill.color = Color(0.4, 0.95, 0.5, 0.95)
+		power_bar_fill.color = Color(0.4, 0.95, 0.5, 0.95)
 	elif past_peak:
 		power_bar_fill.color = Color(0.95, 0.4, 0.35, 0.9)
 	else:
@@ -414,10 +401,6 @@ func _update_power_bar(power: float, in_band: bool, past_peak: bool, is_chain: b
 
 
 func _update_charge_visuals() -> void:
-	if _swing.is_chain_window():
-		_update_chain_window_visuals()
-		return
-
 	if not _swing.is_charging():
 		if not _result_flash_active and not _ball_in_flight and _ball_at_tee:
 			ball.position = _ball_home
@@ -440,7 +423,6 @@ func _update_charge_visuals() -> void:
 	var overshoot := charge.overshoot_fraction(elapsed)
 	var past_peak := overshoot > 0.0
 	var outer_scale := charge.outer_ring_scale(elapsed)
-	var is_chain := _swing.is_chain_charging()
 	var converge := 1.0 - clampf(
 		(outer_scale - Balance.RING_OUTER_ALIGN_SCALE)
 		/ (Balance.RING_OUTER_START_SCALE - Balance.RING_OUTER_ALIGN_SCALE),
@@ -452,23 +434,8 @@ func _update_charge_visuals() -> void:
 	if ring_inner:
 		ring_inner.scale = Vector2.ONE * charge.inner_ring_scale()
 		if in_band:
-			var pulse := 0.7 + 0.3 * sin(elapsed * (22.0 if is_chain else 18.0))
-			if is_chain:
-				ring_inner.modulate = Color(
-					Balance.CHAIN_RING_COLOR.r,
-					Balance.CHAIN_RING_COLOR.g,
-					Balance.CHAIN_RING_COLOR.b,
-					pulse
-				)
-			else:
-				ring_inner.modulate = Color(0.35, 1.0, 0.48, pulse)
-		elif is_chain:
-			ring_inner.modulate = Color(
-				Balance.CHAIN_RING_COLOR.r,
-				Balance.CHAIN_RING_COLOR.g * lerpf(0.75, 1.0, power),
-				Balance.CHAIN_RING_COLOR.b * 0.35,
-				lerpf(0.55, 1.0, power)
-			)
+			var pulse := 0.7 + 0.3 * sin(elapsed * 18.0)
+			ring_inner.modulate = Color(0.35, 1.0, 0.48, pulse)
 		else:
 			ring_inner.modulate = Color(
 				1.0,
@@ -479,17 +446,8 @@ func _update_charge_visuals() -> void:
 	if ring_outer:
 		ring_outer.scale = Vector2.ONE * outer_scale
 		if in_band:
-			if is_chain:
-				var chain_pulse := 0.8 + 0.2 * sin(elapsed * 22.0)
-				ring_outer.modulate = Color(
-					Balance.CHAIN_RING_COLOR.r,
-					Balance.CHAIN_RING_COLOR.g,
-					Balance.CHAIN_RING_COLOR.b * 0.45,
-					chain_pulse
-				)
-			else:
-				var gold_pulse := 0.75 + 0.25 * sin(elapsed * 18.0)
-				ring_outer.modulate = Color(1.0, 0.88, 0.25, gold_pulse)
+			var gold_pulse := 0.75 + 0.25 * sin(elapsed * 18.0)
+			ring_outer.modulate = Color(1.0, 0.88, 0.25, gold_pulse)
 		elif past_peak:
 			var red := clampf(overshoot * 1.8, 0.0, 1.0)
 			var pulse := 0.82 + 0.18 * sin(elapsed * 14.0)
@@ -499,30 +457,11 @@ func _update_charge_visuals() -> void:
 				lerpf(0.95, 0.25, red),
 				lerpf(0.75, 0.95, red) * pulse
 			)
-		elif is_chain:
-			ring_outer.modulate = Color(
-				Balance.CHAIN_RING_COLOR.r,
-				Balance.CHAIN_RING_COLOR.g,
-				Balance.CHAIN_RING_COLOR.b * 0.35,
-				lerpf(0.45, 0.95, converge)
-			)
 		else:
 			ring_outer.modulate = Color(1.0, 1.0, 1.0, lerpf(0.3, 0.9, converge))
 
-	if is_chain and sweet_spot_label:
-		sweet_spot_label.visible = true
-		sweet_spot_label.text = Balance.CHAIN_LABEL_CHARGE
-		var chain_text_pulse := 0.85 + 0.15 * sin(elapsed * 22.0)
-		sweet_spot_label.modulate = Color(
-			Balance.CHAIN_RING_COLOR.r,
-			Balance.CHAIN_RING_COLOR.g,
-			Balance.CHAIN_RING_COLOR.b * 0.5,
-			chain_text_pulse
-		)
-	else:
-		_update_sweet_spot_indicator(in_band, elapsed)
-
-	_update_power_bar(power, in_band, past_peak, is_chain)
+	_update_sweet_spot_indicator(in_band, elapsed)
+	_update_power_bar(power, in_band, past_peak)
 
 	if not _ball_at_tee:
 		return
@@ -534,55 +473,7 @@ func _update_charge_visuals() -> void:
 	golfer.position = _golfer_home + Vector2(lerpf(0.0, -4.0, power), lerpf(0.0, 2.0, power))
 
 
-func _update_chain_window_visuals() -> void:
-	if charge_meter:
-		charge_meter.visible = true
-	if power_bar_fill:
-		power_bar_fill.visible = false
-
-	var elapsed := _swing.chain_window_elapsed_sec()
-	var remaining := _swing.chain_window_remaining_sec()
-	var urgency := 1.0 - clampf(remaining / Balance.CHAIN_WINDOW_SEC, 0.0, 1.0)
-	var pulse := 0.55 + 0.45 * sin(elapsed * 36.0)
-
-	beat_ring.scale = Vector2.ONE * _ring_base_scale * (1.0 + 0.06 * sin(elapsed * 36.0))
-	if ring_inner:
-		ring_inner.scale = Vector2.ONE * Balance.RING_INNER_SCALE
-		ring_inner.modulate = Color(
-			Balance.CHAIN_RING_COLOR.r,
-			Balance.CHAIN_RING_COLOR.g,
-			Balance.CHAIN_RING_COLOR.b * 0.45,
-			lerpf(0.45, 1.0, pulse)
-		)
-	if ring_outer:
-		ring_outer.scale = Vector2.ONE * lerpf(1.25, Balance.RING_OUTER_ALIGN_SCALE, urgency)
-		ring_outer.modulate = Color(
-			Balance.CHAIN_RING_COLOR.r,
-			Balance.CHAIN_RING_COLOR.g,
-			Balance.CHAIN_RING_COLOR.b * 0.35,
-			lerpf(0.35, 0.95, pulse)
-		)
-	if sweet_spot_glow:
-		sweet_spot_glow.visible = true
-		sweet_spot_glow.modulate = Color(
-			Balance.CHAIN_RING_COLOR.r,
-			Balance.CHAIN_RING_COLOR.g,
-			Balance.CHAIN_RING_COLOR.b * 0.5,
-			pulse
-		)
-		sweet_spot_glow.scale = Vector2.ONE * (1.0 + 0.12 * sin(elapsed * 36.0))
-	if sweet_spot_label:
-		sweet_spot_label.visible = true
-		sweet_spot_label.text = Balance.CHAIN_LABEL_WINDOW
-		sweet_spot_label.modulate = Color(
-			Balance.CHAIN_RING_COLOR.r,
-			Balance.CHAIN_RING_COLOR.g,
-			Balance.CHAIN_RING_COLOR.b * 0.55,
-			lerpf(0.75, 1.0, pulse)
-		)
-
-
-func _flash_beat_ring(tier: int, chain_level: int = 1) -> void:
+func _flash_beat_ring(tier: int) -> void:
 	if not beat_ring:
 		return
 	_result_flash_active = true
@@ -595,8 +486,6 @@ func _flash_beat_ring(tier: int, chain_level: int = 1) -> void:
 	if _flash_tween and _flash_tween.is_valid():
 		_flash_tween.kill()
 	var flash_color: Color = Balance.TIER_COLORS[tier]
-	if chain_level >= 2 and tier == Balance.TimingTier.PERFECT:
-		flash_color = Balance.CHAIN_RING_COLOR
 	beat_ring.scale = Vector2.ONE * _ring_base_scale
 	if ring_inner:
 		ring_inner.scale = Vector2.ONE * Balance.RING_INNER_SCALE
@@ -619,36 +508,14 @@ func _on_swing_resolved(
 	yards: float,
 	tier: int,
 	payout: float,
-	feedback_tier: int,
-	_combo: int,
-	chain_level: int
+	feedback_tier: int
 ) -> void:
-	_chain_active = false
-	_chain_visual_level = 0
-	_flash_beat_ring(tier, chain_level)
-	_spawn_float_text(tier, yards, payout, chain_level)
-	_show_tier_sprite(tier, feedback_tier, chain_level)
-	if feedback_tier == Balance.FeedbackTier.JACKPOT or (
-		chain_level >= 2 and tier == Balance.TimingTier.PERFECT
-	):
+	_flash_beat_ring(tier)
+	_spawn_float_text(tier, yards, payout)
+	_show_tier_sprite(tier, feedback_tier)
+	if feedback_tier == Balance.FeedbackTier.JACKPOT:
 		_play_golfer_joy()
 	_fly_ball(yards, feedback_tier, tier)
-
-
-func _on_chain_window_started() -> void:
-	_chain_active = true
-	_chain_visual_level = 1
-
-
-func _on_chain_charging_started() -> void:
-	_chain_active = true
-	_chain_visual_level = 2
-
-
-func _on_chain_state_changed(active: bool, _chain_level: int) -> void:
-	if not active:
-		_chain_active = false
-		_chain_visual_level = 0
 
 
 func _play_golfer_joy() -> void:
@@ -656,13 +523,11 @@ func _play_golfer_joy() -> void:
 	golfer.play(&"joy")
 
 
-func _show_tier_sprite(tier: int, feedback_tier: int, chain_level: int) -> void:
+func _show_tier_sprite(tier: int, feedback_tier: int) -> void:
 	if not tier_sprite:
 		return
 	var path := ""
-	if chain_level >= 2 and tier == Balance.TimingTier.PERFECT:
-		path = TEXT_BASE + "/TXT_HOLEINONE.png"
-	elif feedback_tier == Balance.FeedbackTier.JACKPOT:
+	if feedback_tier == Balance.FeedbackTier.JACKPOT:
 		path = TEXT_BASE + "/TXT_EAGLE.png"
 	if path.is_empty():
 		return
@@ -678,18 +543,13 @@ func _show_tier_sprite(tier: int, feedback_tier: int, chain_level: int) -> void:
 	)
 
 
-func _spawn_float_text(tier: int, yards: float, payout: float, chain_level: int = 1) -> void:
+func _spawn_float_text(tier: int, yards: float, payout: float) -> void:
 	var tier_name := Balance.TIER_NAMES[tier]
-	if chain_level >= 2 and tier == Balance.TimingTier.PERFECT:
-		tier_name = "%s x%.0f" % [tier_name, Balance.CHAIN_LEVEL_2_MULT]
 	var label := Label.new()
 	label.text = "%s\n%d yds\n+$%d" % [tier_name, int(yards), int(payout)]
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	PixelFont.apply_label(label, 8)
-	var text_color: Color = Balance.TIER_COLORS[tier]
-	if chain_level >= 2 and tier == Balance.TimingTier.PERFECT:
-		text_color = Balance.CHAIN_RING_COLOR
-	label.modulate = text_color
+	label.modulate = Balance.TIER_COLORS[tier]
 	label.position = ball.global_position + Vector2(-36, -52)
 	add_child(label)
 
