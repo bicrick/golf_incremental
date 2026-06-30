@@ -39,6 +39,11 @@ const TIER_MULTS: Dictionary = {
 	3: 0.1,   # MISS pity
 }
 
+# Continuous yard curve — tiers stay discrete for labels / payout mult only.
+const YARD_QUALITY_FLOOR: float = 0.1
+## Late release cannot reach dead-center quality (no Perfect tier past peak).
+const YARD_QUALITY_LATE_PEAK: float = 0.92
+
 const TIER_NAMES: Array[String] = ["Perfect!", "Good", "OK", "Miss"]
 
 const TIER_COLORS: Array[Color] = [

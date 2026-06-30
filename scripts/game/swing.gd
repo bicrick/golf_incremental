@@ -83,15 +83,17 @@ func release_strike() -> void:
 		Phase.CHARGING:
 			var hold_sec := charge_elapsed_sec()
 			var tier := charge.evaluate_timing(hold_sec, GameState.stats)
+			var quality := charge.timing_quality(hold_sec, GameState.stats)
 			if tier == Balance.TimingTier.PERFECT and Balance.CHAIN_ENABLED:
 				_enter_chain_window()
 				return
-			_resolve_swing(tier, 1)
+			_resolve_swing(tier, 1, quality)
 		Phase.CHAIN_CHARGING:
 			var hold_sec := charge_elapsed_sec()
 			var tier := charge.evaluate_timing(hold_sec, GameState.stats)
+			var quality := charge.timing_quality(hold_sec, GameState.stats)
 			var chain_level := 2 if tier == Balance.TimingTier.PERFECT else 1
-			_resolve_swing(tier, chain_level)
+			_resolve_swing(tier, chain_level, quality)
 		_:
 			pass
 
@@ -115,7 +117,7 @@ func _enter_chain_window() -> void:
 	EventBus.swing_chain_state_changed.emit(true, 1)
 
 
-func _resolve_swing(tier: int, chain_level: int) -> void:
+func _resolve_swing(tier: int, chain_level: int, timing_quality: float = 1.0) -> void:
 	_last_swing_msec = Time.get_ticks_msec()
 	phase = Phase.IDLE
 	charge.chain_mode = false
@@ -145,7 +147,9 @@ func _resolve_swing(tier: int, chain_level: int) -> void:
 
 	_first_perfect_combo_applied = false
 
-	var result := Economy.resolve_payout(tier, charge.combo, GameState.stats, chain_level)
+	var result := Economy.resolve_payout(
+		tier, charge.combo, GameState.stats, chain_level, timing_quality
+	)
 	var yards: float = result.yards
 	var payout: float = result.payout
 

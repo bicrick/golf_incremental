@@ -6,10 +6,13 @@ const POWER_BAR_HEIGHT := 56.0
 const POWER_BAR_HALF_WIDTH := 3.0
 const BALL_PIXEL_SCALE := Vector2(1, 1)
 const GOLFER_PIXEL_SCALE := Vector2(3, 3)
+const FLIGHT_ARC_MIN_PX := 24.0
+const FLIGHT_ARC_MAX_PX := 72.0
+const FLIGHT_APEX_SCALE_BOOST := 0.08
 const FLIGHT_TIME_MIN_SEC := 0.65
 const FLIGHT_TIME_RANGE_SEC := 0.95
 const LANDING_SCATTER_X := 28.0
-const LANDING_SCATTER_Y := 6.0
+const LANDING_Y_MARGIN := 8.0
 const RANGE_X_MIN := 24.0
 const RANGE_X_MAX := 456.0
 const FAIRWAY_VANISHING_POINT := Vector2(240.0, 100.0)
@@ -78,6 +81,7 @@ var _golfer_joy_active: bool = false
 var _ball_in_flight: bool = false
 var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
+var _flight_end_scale_factor: float = 1.0
 
 
 func _ready() -> void:
@@ -719,35 +723,70 @@ func _leave_litter_ball(land_position: Vector2, land_scale: Vector2) -> void:
 	littered_balls.add_child(litter)
 
 
-func _scatter_landing_target(base_target: Vector2, depth_t: float) -> Vector2:
-	var scatter := Vector2(
-		randf_range(-LANDING_SCATTER_X, LANDING_SCATTER_X),
-		randf_range(-LANDING_SCATTER_Y, LANDING_SCATTER_Y)
+func _ground_y_for_depth(t: float) -> float:
+	# Map shot depth to fairway ground plane: near tee y → far horizon line (never above VP).
+	return lerpf(_ball_home.y, FAIRWAY_TOP_Y + LANDING_Y_MARGIN, t)
+
+
+func _ground_centerline_x_at_y(y: float) -> float:
+	return _perspective_x_at_y(
+		FAIRWAY_VANISHING_POINT,
+		_ball_home.x,
+		_ball_home.y,
+		y
 	)
-	# Wider lateral spread on longer shots; keep mostly down-range.
-	scatter.x *= lerpf(0.65, 1.0, depth_t)
-	var landed := base_target + scatter
+
+
+func _landing_target_for_depth(t: float) -> Vector2:
+	var y := _ground_y_for_depth(t)
+	return Vector2(_ground_centerline_x_at_y(y), y)
+
+
+func _scatter_landing_target(base_target: Vector2, depth_t: float) -> Vector2:
+	var scatter_x := randf_range(-LANDING_SCATTER_X, LANDING_SCATTER_X) * lerpf(0.65, 1.0, depth_t)
+	var landed := base_target + Vector2(scatter_x, 0.0)
 	landed.x = clampf(landed.x, RANGE_X_MIN, RANGE_X_MAX)
 	landed.y = clampf(
 		landed.y,
-		horizon_position.y + 8.0,
-		tee_position.y + 4.0
+		FAIRWAY_TOP_Y + LANDING_Y_MARGIN,
+		_ball_home.y + 4.0
 	)
 	return landed
 
 
-func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
-	var tier_flight: float = Balance.TIER_MULTS.get(timing_tier, 0.1)
-	var t := clampf(yards / GameState.stats.max_yards, 0.08, 1.0)
-	t = maxf(t, tier_flight * 0.35)
-	var target := _scatter_landing_target(tee_position.lerp(horizon_position, t), t)
+func _flight_arc_height(depth_t: float) -> float:
+	return lerpf(FLIGHT_ARC_MIN_PX, FLIGHT_ARC_MAX_PX, depth_t)
+
+
+func _flight_position_at(progress: float, start: Vector2, end: Vector2, depth_t: float) -> void:
+	var ground := start.lerp(end, progress)
+	var arc_h := _flight_arc_height(depth_t)
+	# Parabola: 0 at takeoff/landing, peak = arc_h at progress 0.5
+	var lift := 4.0 * arc_h * progress * (1.0 - progress)
+	ball.position = Vector2(ground.x, ground.y - lift)
+
+	var depth_scale := lerpf(1.0, _flight_end_scale_factor, progress)
+	var apex_weight := 4.0 * progress * (1.0 - progress)
+	ball.scale = _base_ball_scale * depth_scale * (1.0 + FLIGHT_APEX_SCALE_BOOST * apex_weight)
+
+
+func _fly_ball(yards: float, feedback_tier: int, _timing_tier: int) -> void:
+	# Depth from continuous yards — max_yards is a payout cap, not visual scale.
+	var visual_max := maxf(
+		GameState.stats.base_yards * GameState.stats.yard_multiplier,
+		1.0
+	)
+	var t := clampf(yards / visual_max, 0.08, 1.0)
+	var target := _scatter_landing_target(_landing_target_for_depth(t), t)
 	var flight_time := FLIGHT_TIME_MIN_SEC + t * FLIGHT_TIME_RANGE_SEC
 	var end_scale_factor := lerpf(0.4, 0.12, t)
+	var start_pos := _ball_home
+	_flight_end_scale_factor = end_scale_factor
 
 	_ball_in_flight = true
 	_ball_at_tee = false
 	ball.visible = true
-	ball.position = _ball_home
+	ball.position = start_pos
 	ball.scale = _base_ball_scale
 	ball.play(&"roll")
 	ball.sprite_frames.set_animation_speed(
@@ -755,15 +794,13 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 		float(DinkySpriteFrames.BALL_ROLL_FRAME_COUNT) / flight_time
 	)
 
-	var tween := create_tween().set_parallel(true)
-	tween.tween_property(ball, "position", target, flight_time)\
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(
-		ball,
-		"scale",
-		_base_ball_scale * end_scale_factor,
+	var tween := create_tween()
+	tween.tween_method(
+		_flight_position_at.bind(start_pos, target, t),
+		0.0,
+		1.0,
 		flight_time
-	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	).set_trans(Tween.TRANS_LINEAR)
 	tween.chain().tween_callback(func():
 		_ball_in_flight = false
 		_leave_litter_ball(ball.position, ball.scale)
