@@ -13,17 +13,18 @@ const LANDING_SCATTER_Y := 6.0
 const RANGE_X_MIN := 24.0
 const RANGE_X_MAX := 456.0
 const FAIRWAY_VANISHING_POINT := Vector2(240.0, 100.0)
-const FAIRWAY_TOP_Y := 120.0
+# Fairway top must stay below vanishing point Y (y > 100) or stripe wedges overlap into solid green.
+const FAIRWAY_TOP_Y := 105.0
 const FAIRWAY_BOTTOM_Y := 270.0
 const FAIRWAY_BOTTOM_LEFT := -800.0
 const FAIRWAY_BOTTOM_RIGHT := 1280.0
 const FAIRWAY_VIEWPORT_PAD := 120.0
 const FAIRWAY_STRIPE_COUNT := 24
-const FAIRWAY_BASE_COLOR := Color(0.42, 0.62, 0.35)
-const FAIRWAY_STRIPE_LIGHT := Color(0.50, 0.70, 0.40)
-const FAIRWAY_STRIPE_DARK := Color(0.40, 0.58, 0.32)
-const MAT_Y_FRONT := 232.0
-const MAT_Y_BACK := 206.0
+const FAIRWAY_BASE_COLOR := Color(0.40, 0.58, 0.32)
+const FAIRWAY_STRIPE_LIGHT := Color(0.54, 0.76, 0.44)
+const FAIRWAY_STRIPE_DARK := Color(0.36, 0.52, 0.28)
+const MAT_Y_FRONT := 225.0
+const MAT_Y_BACK := 195.0
 const MAT_X_LEFT := 158.0
 const MAT_X_RIGHT := 292.0
 const MAT_BORDER_OUTSET := 3.0
@@ -129,22 +130,6 @@ func _setup_fairway_stripes() -> void:
 		Vector2(-FAIRWAY_VIEWPORT_PAD, FAIRWAY_TOP_Y),
 	])
 	container.add_child(viewport_base)
-
-	var base_top_left := _perspective_x_at_y(
-		FAIRWAY_VANISHING_POINT, FAIRWAY_BOTTOM_LEFT, FAIRWAY_BOTTOM_Y, FAIRWAY_TOP_Y
-	)
-	var base_top_right := _perspective_x_at_y(
-		FAIRWAY_VANISHING_POINT, FAIRWAY_BOTTOM_RIGHT, FAIRWAY_BOTTOM_Y, FAIRWAY_TOP_Y
-	)
-	var base := Polygon2D.new()
-	base.color = FAIRWAY_BASE_COLOR
-	base.polygon = PackedVector2Array([
-		Vector2(FAIRWAY_BOTTOM_LEFT, FAIRWAY_BOTTOM_Y),
-		Vector2(FAIRWAY_BOTTOM_RIGHT, FAIRWAY_BOTTOM_Y),
-		Vector2(base_top_right, FAIRWAY_TOP_Y),
-		Vector2(base_top_left, FAIRWAY_TOP_Y),
-	])
-	container.add_child(base)
 
 	var colors: Array[Color] = [FAIRWAY_STRIPE_LIGHT, FAIRWAY_STRIPE_DARK]
 	var span := FAIRWAY_BOTTOM_RIGHT - FAIRWAY_BOTTOM_LEFT
