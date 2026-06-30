@@ -5,7 +5,7 @@ const CHARGE_METER_POSITION := Vector2(300, 182)
 const POWER_BAR_HEIGHT := 56.0
 const POWER_BAR_HALF_WIDTH := 3.0
 const BALL_PIXEL_SCALE := Vector2(0.5, 0.5)
-const GOLFER_PIXEL_SCALE := Vector2(1.25, 1.25)
+const GOLFER_PIXEL_SCALE := Vector2(1.375, 1.375)
 const FLIGHT_ARC_MIN_PX := 12.0
 const FLIGHT_ARC_MAX_PX := 40.0
 const FLIGHT_TIME_MIN_SEC := 0.65
@@ -108,7 +108,7 @@ func _ready() -> void:
 	if camera:
 		camera.make_current()
 	_set_idle_ring()
-	apply_atmosphere(0.0)
+	apply_atmosphere(18.0)
 
 
 func _setup_dinky_sprites() -> void:
@@ -168,48 +168,35 @@ func _setup_range_mat() -> void:
 	range_mat.add_child(_mat_highlight)
 
 
-func apply_atmosphere(night_blend: float) -> void:
-	var t := clampf(night_blend, 0.0, 1.0)
+func apply_atmosphere(cycle_time: float) -> void:
+	var snap := DayNightPalette.sample_at(cycle_time)
 	if sky_polygon:
-		sky_polygon.color = DayNightPalette.lerp_color(
-			DayNightPalette.SKY_DAY, DayNightPalette.SKY_NIGHT, t
-		)
+		sky_polygon.color = snap.sky
 	if hills_polygon:
-		hills_polygon.color = DayNightPalette.lerp_color(
-			DayNightPalette.HILLS_DAY, DayNightPalette.HILLS_NIGHT, t
-		)
+		hills_polygon.color = snap.hills
 	FairwayStripes.apply_palette(
-		_fairway_stripes,
-		DayNightPalette.lerp_color(
-			DayNightPalette.FAIRWAY_BASE_DAY, DayNightPalette.FAIRWAY_BASE_NIGHT, t
-		),
-		DayNightPalette.lerp_color(
-			DayNightPalette.FAIRWAY_LIGHT_DAY, DayNightPalette.FAIRWAY_LIGHT_NIGHT, t
-		),
-		DayNightPalette.lerp_color(
-			DayNightPalette.FAIRWAY_DARK_DAY, DayNightPalette.FAIRWAY_DARK_NIGHT, t
-		)
+		_fairway_stripes, snap.fairway_base, snap.fairway_light, snap.fairway_dark
 	)
 	if _mat_border:
-		_mat_border.color = DayNightPalette.lerp_color(
-			DayNightPalette.MAT_BORDER_DAY, DayNightPalette.MAT_BORDER_NIGHT, t
-		)
+		_mat_border.color = snap.mat_border
 	if _mat_fill:
-		_mat_fill.color = DayNightPalette.lerp_color(
-			DayNightPalette.MAT_FILL_DAY, DayNightPalette.MAT_FILL_NIGHT, t
-		)
+		_mat_fill.color = snap.mat_fill
 	if _mat_highlight:
-		_mat_highlight.color = DayNightPalette.lerp_color(
-			DayNightPalette.MAT_HIGHLIGHT_DAY, DayNightPalette.MAT_HIGHLIGHT_NIGHT, t
-		)
+		_mat_highlight.color = snap.mat_highlight
 	if canvas_modulate:
-		canvas_modulate.color = DayNightPalette.lerp_color(
-			DayNightPalette.CANVAS_MODULATE_DAY, DayNightPalette.CANVAS_MODULATE_NIGHT, t
+		canvas_modulate.color = snap.canvas_modulate
+	if sun and sun.has_method(&"apply_celestial"):
+		sun.apply_celestial(
+			DayNightPalette.celestial_position(cycle_time, false),
+			DayNightPalette.celestial_alpha(cycle_time, false),
+			snap.moon_sky_cutout
 		)
-	if sun and sun.has_method(&"apply_night_blend"):
-		sun.apply_night_blend(t)
-	if moon and moon.has_method(&"apply_night_blend"):
-		moon.apply_night_blend(t)
+	if moon and moon.has_method(&"apply_celestial"):
+		moon.apply_celestial(
+			DayNightPalette.celestial_position(cycle_time, true),
+			DayNightPalette.celestial_alpha(cycle_time, true),
+			snap.moon_sky_cutout
+		)
 
 
 func _configure_draw_layers() -> void:

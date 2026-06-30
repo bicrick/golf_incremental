@@ -24,11 +24,9 @@ color = Color(0.55, 0.75, 0.92, 1)
 polygon = PackedVector2Array(0, 0, 480, 0, 480, 140, 0, 140)
 
 [node name="Sun" type="Node2D" parent="ParallaxSky"]
-position = Vector2(380, 28)
 script = ExtResource("3_celestial")
 
 [node name="Moon" type="Node2D" parent="ParallaxSky"]
-position = Vector2(380, 28)
 script = ExtResource("3_celestial")
 kind = 1
 
@@ -52,8 +50,8 @@ scroll_scale = Vector2(0.8, 0.8)
 y_sort_enabled = true
 
 [node name="Golfer" type="AnimatedSprite2D" parent="Foreground"]
-position = Vector2(210, 214)
-scale = Vector2(1.25, 1.25)
+position = Vector2(218, 214)
+scale = Vector2(1.375, 1.375)
 
 [node name="Ball" type="AnimatedSprite2D" parent="Foreground"]
 position = Vector2(248, 206)

@@ -9,47 +9,112 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var ok := true
-	ok = _check_phase_durations() and ok
-	ok = _check_night_blend_curve() and ok
+	ok = _check_cycle_duration() and ok
+	ok = _check_phase_sampling() and ok
+	ok = _check_smooth_transitions() and ok
+	ok = _check_celestial_arc() and ok
 	ok = await _check_atmosphere_application() and ok
-	ok = await _check_celestial_crossfade() and ok
+	ok = await _check_celestial_scene() and ok
 	print("day_night_ok=", ok)
 	quit(0 if ok else 1)
 
 
-func _check_phase_durations() -> bool:
-	if DayNightPalette.DAY_SEC != 60.0:
-		print("FAIL: DAY_SEC expected 60, got ", DayNightPalette.DAY_SEC)
+func _check_cycle_duration() -> bool:
+	if DayNightPalette.CYCLE_SEC != 90.0:
+		print("FAIL: CYCLE_SEC expected 90, got ", DayNightPalette.CYCLE_SEC)
 		return false
-	if DayNightPalette.NIGHT_SEC != 30.0:
-		print("FAIL: NIGHT_SEC expected 30, got ", DayNightPalette.NIGHT_SEC)
-		return false
-	print("OK: phase durations 60s day / 30s night")
+	print("OK: 90s multi-phase cycle")
 	return true
 
 
-func _check_night_blend_curve() -> bool:
-	var day_steady := DayNightPalette.compute_night_blend(true, 10.0)
-	if absf(day_steady) > 0.001:
-		print("FAIL: mid-day night_blend expected 0, got ", day_steady)
+func _check_phase_sampling() -> bool:
+	var day_snap := DayNightPalette.sample_at(30.0)
+	if not day_snap.sky.is_equal_approx(DayNightPalette.SKY_DAY):
+		print("FAIL: mid-day sky mismatch at t=30")
 		return false
 
-	var night_steady := DayNightPalette.compute_night_blend(false, 10.0)
-	if absf(night_steady - 1.0) > 0.001:
-		print("FAIL: mid-night night_blend expected 1, got ", night_steady)
+	var midnight_snap := DayNightPalette.sample_at(0.0)
+	var midnight_moon_alpha := DayNightPalette.celestial_alpha(0.0, true)
+	var midnight_sun_alpha := DayNightPalette.celestial_alpha(0.0, false)
+	if midnight_sun_alpha > 0.15:
+		print("FAIL: sun should be near horizon at midnight, alpha=", midnight_sun_alpha)
+		return false
+	if midnight_moon_alpha < 0.7:
+		print("FAIL: moon should be high at midnight, alpha=", midnight_moon_alpha)
 		return false
 
-	var dusk := DayNightPalette.compute_night_blend(true, DayNightPalette.DAY_SEC - 1.5)
-	if dusk <= 0.2 or dusk >= 0.9:
-		print("FAIL: dusk night_blend out of range, got ", dusk)
+	var dusk_snap := DayNightPalette.sample_at(63.0)
+	if dusk_snap.sky.r <= day_snap.sky.r:
+		print("FAIL: dusk sky should be warmer/brighter red than day")
 		return false
 
-	var dawn := DayNightPalette.compute_night_blend(false, DayNightPalette.NIGHT_SEC - 1.5)
-	if dawn <= 0.1 or dawn >= 0.8:
-		print("FAIL: dawn night_blend out of range, got ", dawn)
+	if DayNightPalette.phase_name_at(35.0) != "day":
+		print("FAIL: phase_name_at(35) expected day")
+		return false
+	if DayNightPalette.phase_name_at(73.0) != "night":
+		print("FAIL: phase_name_at(73) expected night")
 		return false
 
-	print("OK: night_blend curve at day/night/dusk/dawn")
+	print("OK: phase sampling at day/dusk/midnight")
+	return true
+
+
+func _check_smooth_transitions() -> bool:
+	var prev := DayNightPalette.sample_at(0.0)
+	var max_step := 0.0
+	for i in range(1, 91):
+		var snap := DayNightPalette.sample_at(float(i))
+		var step := prev.sky.r - snap.sky.r
+		step *= step
+		step += (prev.sky.g - snap.sky.g) * (prev.sky.g - snap.sky.g)
+		step += (prev.sky.b - snap.sky.b) * (prev.sky.b - snap.sky.b)
+		step = sqrt(step)
+		max_step = maxf(max_step, step)
+		prev = snap
+	if max_step > 0.25:
+		print("FAIL: per-second sky jump too large (", max_step, ")")
+		return false
+
+	var dawn_mid := DayNightPalette.sample_at(5.0)
+	var midnight := DayNightPalette.sample_at(0.0)
+	var day := DayNightPalette.sample_at(30.0)
+	if dawn_mid.sky.g <= midnight.sky.g or dawn_mid.sky.g >= day.sky.g:
+		print("FAIL: dawn midpoint not between midnight and day")
+		return false
+
+	print("OK: smooth transitions between phases")
+	return true
+
+
+func _check_celestial_arc() -> bool:
+	var dawn_pos := DayNightPalette.celestial_position(8.0, false)
+	var noon_pos := DayNightPalette.celestial_position(22.5, false)
+	var dusk_pos := DayNightPalette.celestial_position(44.0, false)
+
+	if dawn_pos.x >= noon_pos.x:
+		print("FAIL: sun should move right from dawn to noon")
+		return false
+	if noon_pos.y >= dawn_pos.y:
+		print("FAIL: sun should be higher at noon than dawn")
+		return false
+	if dusk_pos.x <= noon_pos.x:
+		print("FAIL: sun should continue right toward dusk")
+		return false
+	if dusk_pos.y <= noon_pos.y:
+		print("FAIL: sun should be lower at dusk than noon")
+		return false
+
+	var moon_at_day := DayNightPalette.celestial_alpha(38.0, true)
+	if moon_at_day > 0.2:
+		print("FAIL: moon should be below horizon during day, alpha=", moon_at_day)
+		return false
+
+	var sun_at_day := DayNightPalette.celestial_alpha(38.0, false)
+	if sun_at_day < 0.7:
+		print("FAIL: sun should be visible during day, alpha=", sun_at_day)
+		return false
+
+	print("OK: sun/moon arc across sky")
 	return true
 
 
@@ -69,34 +134,30 @@ func _check_atmosphere_application() -> bool:
 		range_view.queue_free()
 		return false
 
-	range_view.apply_atmosphere(0.0)
-	var sky_day: Polygon2D = range_view.get_node("ParallaxSky/Sky")
+	range_view.apply_atmosphere(30.0)
+	var sky: Polygon2D = range_view.get_node("ParallaxSky/Sky")
 	var canvas: CanvasModulate = range_view.get_node("CanvasModulate")
-	if sky_day.color.is_equal_approx(DayNightPalette.SKY_NIGHT):
-		print("FAIL: sky still night-colored at day blend")
+	if not sky.color.is_equal_approx(DayNightPalette.SKY_DAY):
+		print("FAIL: sky not day-colored at t=30")
 		range_view.queue_free()
 		return false
 	if not canvas.color.is_equal_approx(DayNightPalette.CANVAS_MODULATE_DAY):
-		print("FAIL: canvas modulate not day at blend 0")
+		print("FAIL: canvas modulate not day at t=30")
 		range_view.queue_free()
 		return false
 
-	range_view.apply_atmosphere(1.0)
-	if not sky_day.color.is_equal_approx(DayNightPalette.SKY_NIGHT):
-		print("FAIL: sky not night-colored at blend 1")
-		range_view.queue_free()
-		return false
-	if canvas.color.g > 0.7:
-		print("FAIL: canvas modulate not dimmed at night")
+	range_view.apply_atmosphere(0.0)
+	if sky.color.g > 0.2:
+		print("FAIL: sky not dark at midnight")
 		range_view.queue_free()
 		return false
 
 	range_view.queue_free()
-	print("OK: apply_atmosphere tints sky and canvas modulate")
+	print("OK: apply_atmosphere uses cycle time")
 	return true
 
 
-func _check_celestial_crossfade() -> bool:
+func _check_celestial_scene() -> bool:
 	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
 	var range_view: Node2D = scene.instantiate()
 	root.add_child(range_view)
@@ -106,18 +167,27 @@ func _check_celestial_crossfade() -> bool:
 	var sun: Node2D = range_view.get_node("ParallaxSky/Sun")
 	var moon: Node2D = range_view.get_node("ParallaxSky/Moon")
 
-	range_view.apply_atmosphere(0.0)
-	if sun.modulate.a <= moon.modulate.a:
-		print("FAIL: sun should dominate at day (sun=", sun.modulate.a, " moon=", moon.modulate.a, ")")
+	range_view.apply_atmosphere(12.0)
+	var sun_morning := sun.position
+	range_view.apply_atmosphere(35.0)
+	var sun_afternoon := sun.position
+	if sun_afternoon.x <= sun_morning.x:
+		print("FAIL: sun should travel right across the sky over time")
 		range_view.queue_free()
 		return false
 
-	range_view.apply_atmosphere(1.0)
+	range_view.apply_atmosphere(38.0)
+	if sun.modulate.a <= moon.modulate.a:
+		print("FAIL: sun should dominate during day")
+		range_view.queue_free()
+		return false
+
+	range_view.apply_atmosphere(0.0)
 	if moon.modulate.a <= sun.modulate.a:
-		print("FAIL: moon should dominate at night (sun=", sun.modulate.a, " moon=", moon.modulate.a, ")")
+		print("FAIL: moon should dominate at midnight")
 		range_view.queue_free()
 		return false
 
 	range_view.queue_free()
-	print("OK: sun/moon alpha crossfade")
+	print("OK: celestial nodes follow arc in scene")
 	return true
