@@ -1,11 +1,11 @@
 extends Node2D
-## Driving range view: parallax 2.5D layers, charge ring, ball flight, Dinky sprites.
+## Driving range view: parallax 2.5D layers, charge ring, ball flight, Range Rat + Dinky ball sprites.
 
 const CHARGE_METER_POSITION := Vector2(300, 182)
 const POWER_BAR_HEIGHT := 56.0
 const POWER_BAR_HALF_WIDTH := 3.0
 const BALL_PIXEL_SCALE := Vector2(0.5, 0.5)
-const GOLFER_PIXEL_SCALE := Vector2(3, 3)
+const GOLFER_PIXEL_SCALE := Vector2(1.25, 1.25)
 const FLIGHT_ARC_MIN_PX := 12.0
 const FLIGHT_ARC_MAX_PX := 40.0
 const FLIGHT_TIME_MIN_SEC := 0.65
@@ -44,19 +44,22 @@ const Z_LITTER := 1
 const Z_GOLFER := 2
 const Z_BALL := 3
 const Z_FLOAT_TEXT := 4
-const SWING_FRAME_COUNT := 5
 const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles/TEXT"
 
-# Swing wind-up maps charge_progress (0→1) to Swing01–05 frames over charge_duration_sec().
-# Normal charge: Balance.CHARGE_DURATION_SEC (0.5s).
-# Release holds Swing05 (frame 4) at impact; ball roll uses 11 frames at speed 11 / flight_time.
+# Range Rat swing: charge maps progress to wind-up frames 0–7; release hits frame 8 (contact);
+# follow-through auto-plays frames 9–16. Idle loops 5 frames from idle sheet.
 
+@onready var canvas_modulate: CanvasModulate = $CanvasModulate
 @onready var ball: AnimatedSprite2D = $Foreground/Ball
 @onready var golfer: AnimatedSprite2D = $Foreground/Golfer
 @onready var littered_balls: Node2D = $Foreground/LitteredBalls
 @onready var range_mat: Node2D = $RangeMat
 @onready var parallax_sky: Parallax2D = $ParallaxSky
+@onready var sky_polygon: Polygon2D = $ParallaxSky/Sky
+@onready var sun: Node2D = $ParallaxSky/Sun
+@onready var moon: Node2D = $ParallaxSky/Moon
 @onready var parallax_hills: Parallax2D = $ParallaxHills
+@onready var hills_polygon: Polygon2D = $ParallaxHills/Hills
 @onready var parallax_fairway: Parallax2D = $ParallaxFairway
 @onready var foreground: Node2D = $Foreground
 @onready var charge_meter: Node2D = $ChargeMeter
@@ -82,6 +85,10 @@ var _ball_in_flight: bool = false
 var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
 var _flight_config: BallFlightRenderer.FlightConfig
+var _fairway_stripes: Array[Polygon2D] = []
+var _mat_border: Polygon2D = null
+var _mat_fill: Polygon2D = null
+var _mat_highlight: Polygon2D = null
 
 
 func _ready() -> void:
@@ -101,6 +108,7 @@ func _ready() -> void:
 	if camera:
 		camera.make_current()
 	_set_idle_ring()
+	apply_atmosphere(0.0)
 
 
 func _setup_dinky_sprites() -> void:
@@ -110,15 +118,18 @@ func _setup_dinky_sprites() -> void:
 	_base_ball_scale = BALL_PIXEL_SCALE
 	ball.play(&"idle")
 
-	golfer.sprite_frames = DinkySpriteFrames.make_golfer_frames()
+	golfer.sprite_frames = RangeRatSpriteFrames.make_golfer_frames()
 	golfer.scale = GOLFER_PIXEL_SCALE
 	_base_golfer_scale = GOLFER_PIXEL_SCALE
+	golfer.offset = RangeRatSpriteFrames.FOOT_OFFSET
 	golfer.play(&"idle")
 	golfer.animation_finished.connect(_on_golfer_animation_finished)
 
 
 func _setup_fairway_stripes() -> void:
-	FairwayStripes.populate($ParallaxFairway/FairwayStripes, FAIRWAY_TOP_Y, FAIRWAY_BOTTOM_Y)
+	_fairway_stripes = FairwayStripes.populate(
+		$ParallaxFairway/FairwayStripes, FAIRWAY_TOP_Y, FAIRWAY_BOTTOM_Y
+	)
 
 
 func _setup_range_mat() -> void:
@@ -134,27 +145,71 @@ func _setup_range_mat() -> void:
 		MAT_Y_BACK - MAT_BORDER_OUTSET
 	)
 
-	var border := Polygon2D.new()
-	border.color = Color(0.08, 0.18, 0.08)
-	border.polygon = border_corners
-	range_mat.add_child(border)
+	_mat_border = Polygon2D.new()
+	_mat_border.color = DayNightPalette.MAT_BORDER_DAY
+	_mat_border.polygon = border_corners
+	range_mat.add_child(_mat_border)
 
-	var fill := Polygon2D.new()
-	fill.color = Color(0.15, 0.38, 0.15)
-	fill.polygon = fill_corners
-	range_mat.add_child(fill)
+	_mat_fill = Polygon2D.new()
+	_mat_fill.color = DayNightPalette.MAT_FILL_DAY
+	_mat_fill.polygon = fill_corners
+	range_mat.add_child(_mat_fill)
 
 	var back_left := fill_corners[3]
 	var back_right := fill_corners[2]
-	var highlight := Polygon2D.new()
-	highlight.color = Color(0.28, 0.55, 0.28)
-	highlight.polygon = PackedVector2Array([
+	_mat_highlight = Polygon2D.new()
+	_mat_highlight.color = DayNightPalette.MAT_HIGHLIGHT_DAY
+	_mat_highlight.polygon = PackedVector2Array([
 		back_left + Vector2(3.0, 3.0),
 		back_right + Vector2(-3.0, 3.0),
 		back_right + Vector2(-3.0, 7.0),
 		back_left + Vector2(3.0, 7.0),
 	])
-	range_mat.add_child(highlight)
+	range_mat.add_child(_mat_highlight)
+
+
+func apply_atmosphere(night_blend: float) -> void:
+	var t := clampf(night_blend, 0.0, 1.0)
+	if sky_polygon:
+		sky_polygon.color = DayNightPalette.lerp_color(
+			DayNightPalette.SKY_DAY, DayNightPalette.SKY_NIGHT, t
+		)
+	if hills_polygon:
+		hills_polygon.color = DayNightPalette.lerp_color(
+			DayNightPalette.HILLS_DAY, DayNightPalette.HILLS_NIGHT, t
+		)
+	FairwayStripes.apply_palette(
+		_fairway_stripes,
+		DayNightPalette.lerp_color(
+			DayNightPalette.FAIRWAY_BASE_DAY, DayNightPalette.FAIRWAY_BASE_NIGHT, t
+		),
+		DayNightPalette.lerp_color(
+			DayNightPalette.FAIRWAY_LIGHT_DAY, DayNightPalette.FAIRWAY_LIGHT_NIGHT, t
+		),
+		DayNightPalette.lerp_color(
+			DayNightPalette.FAIRWAY_DARK_DAY, DayNightPalette.FAIRWAY_DARK_NIGHT, t
+		)
+	)
+	if _mat_border:
+		_mat_border.color = DayNightPalette.lerp_color(
+			DayNightPalette.MAT_BORDER_DAY, DayNightPalette.MAT_BORDER_NIGHT, t
+		)
+	if _mat_fill:
+		_mat_fill.color = DayNightPalette.lerp_color(
+			DayNightPalette.MAT_FILL_DAY, DayNightPalette.MAT_FILL_NIGHT, t
+		)
+	if _mat_highlight:
+		_mat_highlight.color = DayNightPalette.lerp_color(
+			DayNightPalette.MAT_HIGHLIGHT_DAY, DayNightPalette.MAT_HIGHLIGHT_NIGHT, t
+		)
+	if canvas_modulate:
+		canvas_modulate.color = DayNightPalette.lerp_color(
+			DayNightPalette.CANVAS_MODULATE_DAY, DayNightPalette.CANVAS_MODULATE_NIGHT, t
+		)
+	if sun and sun.has_method(&"apply_night_blend"):
+		sun.apply_night_blend(t)
+	if moon and moon.has_method(&"apply_night_blend"):
+		moon.apply_night_blend(t)
 
 
 func _configure_draw_layers() -> void:
@@ -227,7 +282,9 @@ func _on_swing_charging_changed(charging: bool) -> void:
 		if _ball_at_tee:
 			ball.play(&"idle")
 	elif not _golfer_joy_active:
-		golfer.frame = SWING_FRAME_COUNT - 1
+		golfer.stop()
+		golfer.animation = &"swing"
+		golfer.frame = RangeRatSpriteFrames.CONTACT_FRAME
 
 
 func _on_swing_charge_updated(_power: float, _in_band: bool, _past_peak: bool) -> void:
@@ -236,9 +293,9 @@ func _on_swing_charge_updated(_power: float, _in_band: bool, _past_peak: bool) -
 	var elapsed := _swing.charge_elapsed_sec()
 	var progress := _swing.charge.charge_progress(elapsed)
 	var frame := clampi(
-		int(floor(progress * float(SWING_FRAME_COUNT - 1))),
+		int(floor(progress * float(RangeRatSpriteFrames.WINDUP_LAST))),
 		0,
-		SWING_FRAME_COUNT - 1
+		RangeRatSpriteFrames.WINDUP_LAST
 	)
 	if golfer.animation != &"swing":
 		golfer.animation = &"swing"
@@ -249,6 +306,9 @@ func _on_golfer_animation_finished() -> void:
 	if golfer.animation == &"joy":
 		_golfer_joy_active = false
 		if not _swing.is_charging():
+			golfer.play(&"idle")
+	elif golfer.animation == &"follow":
+		if not _swing.is_charging() and not _golfer_joy_active:
 			golfer.play(&"idle")
 
 
@@ -317,7 +377,12 @@ func _update_charge_visuals() -> void:
 			if ball.animation != &"roll":
 				ball.play(&"idle")
 			golfer.position = _golfer_home
-			if not _golfer_joy_active and golfer.animation != &"joy":
+			if (
+				not _golfer_joy_active
+				and golfer.animation != &"joy"
+				and golfer.animation != &"follow"
+				and golfer.animation != &"swing"
+			):
 				golfer.play(&"idle")
 			_set_idle_ring()
 		return
@@ -379,7 +444,7 @@ func _update_charge_visuals() -> void:
 	ball.scale = _base_ball_scale * Vector2(1.0 + compress * 0.5, 1.0 - compress)
 	ball.position = _ball_home + Vector2(0.0, compress * 6.0)
 
-	golfer.position = _golfer_home + Vector2(lerpf(0.0, -4.0, power), lerpf(0.0, 2.0, power))
+	golfer.position = _golfer_home + Vector2(lerpf(0.0, -2.0, power), lerpf(0.0, 1.0, power))
 
 
 func _flash_beat_ring(tier: int) -> void:
@@ -424,12 +489,18 @@ func _on_swing_resolved(
 	_show_tier_sprite(tier, feedback_tier)
 	if feedback_tier == Balance.FeedbackTier.JACKPOT:
 		_play_golfer_joy()
+	elif not _golfer_joy_active:
+		_play_swing_followthrough()
 	_fly_ball(yards, feedback_tier, tier)
 
 
 func _play_golfer_joy() -> void:
 	_golfer_joy_active = true
 	golfer.play(&"joy")
+
+
+func _play_swing_followthrough() -> void:
+	golfer.play(&"follow")
 
 
 func _show_tier_sprite(tier: int, feedback_tier: int) -> void:

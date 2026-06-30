@@ -55,15 +55,31 @@ static func populate(
 	container: Node,
 	top_y: float = DEFAULT_TOP_Y,
 	bottom_y: float = DEFAULT_BOTTOM_Y
-) -> void:
+) -> Array[Polygon2D]:
 	for child in container.get_children():
 		child.free()
 
+	var stripes: Array[Polygon2D] = []
 	for entry in build_polygons(top_y, bottom_y):
 		var stripe := Polygon2D.new()
 		stripe.color = entry["color"]
 		stripe.polygon = entry["polygon"]
 		container.add_child(stripe)
+		stripes.append(stripe)
+	return stripes
+
+
+static func apply_palette(
+	stripes: Array[Polygon2D],
+	base: Color,
+	light: Color,
+	dark: Color
+) -> void:
+	if stripes.is_empty():
+		return
+	stripes[0].color = base
+	for index in range(1, stripes.size()):
+		stripes[index].color = light if (index - 1) % 2 == 0 else dark
 
 
 static func perspective_x_at_y(

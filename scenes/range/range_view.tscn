@@ -1,9 +1,17 @@
-[gd_scene load_steps=2 format=3 uid="uid://range_view"]
+[gd_scene load_steps=4 format=3 uid="uid://range_view"]
 
 [ext_resource type="Script" path="res://scripts/range/range_view.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/range/day_night_cycle.gd" id="2_cycle"]
+[ext_resource type="Script" path="res://scripts/visual/pixel_celestial.gd" id="3_celestial"]
 
 [node name="RangeView" type="Node2D"]
 script = ExtResource("1_script")
+
+[node name="CanvasModulate" type="CanvasModulate" parent="."]
+color = Color(1, 1, 1, 1)
+
+[node name="DayNightCycle" type="Node" parent="."]
+script = ExtResource("2_cycle")
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(240, 135)
@@ -14,6 +22,15 @@ scroll_scale = Vector2(0.1, 0.1)
 [node name="Sky" type="Polygon2D" parent="ParallaxSky"]
 color = Color(0.55, 0.75, 0.92, 1)
 polygon = PackedVector2Array(0, 0, 480, 0, 480, 140, 0, 140)
+
+[node name="Sun" type="Node2D" parent="ParallaxSky"]
+position = Vector2(380, 28)
+script = ExtResource("3_celestial")
+
+[node name="Moon" type="Node2D" parent="ParallaxSky"]
+position = Vector2(380, 28)
+script = ExtResource("3_celestial")
+kind = 1
 
 [node name="ParallaxHills" type="Parallax2D" parent="."]
 scroll_scale = Vector2(0.2, 0.2)
@@ -35,8 +52,8 @@ scroll_scale = Vector2(0.8, 0.8)
 y_sort_enabled = true
 
 [node name="Golfer" type="AnimatedSprite2D" parent="Foreground"]
-position = Vector2(198, 188)
-scale = Vector2(3, 3)
+position = Vector2(210, 214)
+scale = Vector2(1.25, 1.25)
 
 [node name="Ball" type="AnimatedSprite2D" parent="Foreground"]
 position = Vector2(248, 206)
