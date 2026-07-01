@@ -39,7 +39,7 @@ func _check_pool_config() -> bool:
 	if GolfHitSfx.is_big_hit(Balance.TimingTier.GOOD, Balance.FeedbackTier.WHISPER):
 		print("FAIL: good timing alone should not be big hit")
 		return false
-	if not GolfHitSfx.is_big_hit(Balance.TimingTier.OK, Balance.FeedbackTier.JACKPOT):
+	if not GolfHitSfx.is_big_hit(Balance.TimingTier.OKAY, Balance.FeedbackTier.JACKPOT):
 		print("FAIL: jackpot feedback should count as big hit")
 		return false
 	print("OK: big hit routing rules")

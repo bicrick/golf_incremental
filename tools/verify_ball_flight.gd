@@ -167,29 +167,92 @@ func _check_flight_time_bounds() -> bool:
 	return ok
 
 
-func _check_landing_matches_visual_yards() -> bool:
+## Visual flight must always equal gameplay yards exactly — no floor or cap,
+## for any tier including Miss.
+func _check_landing_proportional_to_yards() -> bool:
 	var ok := true
 	var stats := _maxed_stats()
 
-	var miss_path := BallFlight3D.build_path(
-		2.0, Balance.TimingTier.MISS, stats, Balance.ContactFlavor.THIN
-	)
-	var miss_dist := miss_path.origin.distance_to(miss_path.landing)
-	if miss_dist > Balance.WHIFF_MAX_YARDS + 0.01:
-		print("FAIL: whiff distance %.2f exceeds cap %.2f" % [miss_dist, Balance.WHIFF_MAX_YARDS])
-		ok = false
-	else:
-		print("OK: whiff dribble capped near tee (dist=%.2fyd)" % miss_dist)
+	var cases: Array[Dictionary] = [
+		{"yards": 2.0, "tier": Balance.TimingTier.MISS, "flavor": Balance.ContactFlavor.THIN},
+		{"yards": 4.0, "tier": Balance.TimingTier.BAD, "flavor": Balance.ContactFlavor.SLIGHTLY_FAT},
+		{"yards": 10.0, "tier": Balance.TimingTier.OKAY, "flavor": Balance.ContactFlavor.SLIGHTLY_FAT},
+		{"yards": 20.0, "tier": Balance.TimingTier.GOOD, "flavor": Balance.ContactFlavor.PURE},
+		{"yards": 28.0, "tier": Balance.TimingTier.GREAT, "flavor": Balance.ContactFlavor.PURE},
+		{"yards": 30.0, "tier": Balance.TimingTier.PERFECT, "flavor": Balance.ContactFlavor.PURE},
+	]
+	for case in cases:
+		var path := BallFlight3D.build_path(case["yards"], case["tier"], stats, case["flavor"])
+		var dist := path.origin.distance_to(path.landing)
+		if absf(dist - case["yards"]) > 0.01:
+			print(
+				"FAIL: %s tier landing distance %.2f does not match yards %.2f"
+				% [Balance.TIER_NAMES[case["tier"]], dist, case["yards"]]
+			)
+			ok = false
+	if ok:
+		print("OK: visual landing distance matches gameplay yards exactly for every tier")
+	return ok
 
-	var ok_path := BallFlight3D.build_path(
-		20.0, Balance.TimingTier.OK, stats, Balance.ContactFlavor.SLIGHTLY_FAT
-	)
-	var ok_dist := ok_path.origin.distance_to(ok_path.landing)
-	if ok_dist < Balance.VISUAL_FLOOR_YARDS - 0.01:
-		print("FAIL: OK+ carry distance %.2f below floor %.2f" % [ok_dist, Balance.VISUAL_FLOOR_YARDS])
+
+## The distance ladder should visibly separate, not cluster around one value.
+## Samples sit at the midpoint of each tier's early-release window so the
+## comparison reflects a typical hit in that tier, not its worst edge.
+func _check_tier_ladder_distance_separation() -> bool:
+	var ok := true
+	var stats := Balance.default_stats()
+	var charge := ChargeSwing.new()
+	var contact := charge.contact_time_sec()
+
+	var samples := [
+		{"tier": Balance.TimingTier.MISS, "hold": Balance.MIN_HOLD_SEC * 0.5},
+		{
+			"tier": Balance.TimingTier.BAD,
+			"hold": contact - (stats.timing_window_okay_ms + stats.timing_window_bad_ms) * 0.5 / 1000.0,
+		},
+		{
+			"tier": Balance.TimingTier.OKAY,
+			"hold": contact - (stats.timing_window_good_ms + stats.timing_window_okay_ms) * 0.5 / 1000.0,
+		},
+		{
+			"tier": Balance.TimingTier.GOOD,
+			"hold": contact - (stats.timing_window_great_ms + stats.timing_window_good_ms) * 0.5 / 1000.0,
+		},
+		{
+			"tier": Balance.TimingTier.GREAT,
+			"hold": contact - (stats.timing_window_perfect_ms + stats.timing_window_great_ms) * 0.5 / 1000.0,
+		},
+		{"tier": Balance.TimingTier.PERFECT, "hold": contact},
+	]
+
+	var prev_dist := -1.0
+	var report: Array[String] = []
+	var distances: Array[float] = []
+	for sample in samples:
+		var hold: float = sample["hold"]
+		var quality := charge.timing_quality(hold, stats)
+		var yards := Economy.yards_from_quality(quality, stats)
+		var flavor := charge.contact_flavor(sample["tier"], hold, stats)
+		var path := BallFlight3D.build_path(yards, sample["tier"], stats, flavor)
+		var dist := path.origin.distance_to(path.landing)
+		distances.append(dist)
+		report.append("%s=%.1fyd" % [Balance.TIER_NAMES[sample["tier"]], dist])
+		if dist <= prev_dist:
+			print("FAIL: tier ladder distance not increasing (%s)" % ", ".join(report))
+			ok = false
+		prev_dist = dist
+
+	var miss_dist: float = distances[0]
+	var perfect_dist: float = distances[distances.size() - 1]
+	if perfect_dist < miss_dist * 5.0:
+		print(
+			"FAIL: Perfect (%.1fyd) should clearly outdistance Miss (%.1fyd), not just edge past it"
+			% [perfect_dist, miss_dist]
+		)
 		ok = false
-	else:
-		print("OK: OK+ meets visual carry floor (dist=%.2fyd)" % ok_dist)
+
+	if ok:
+		print("OK: tier ladder distance increases Miss < Bad < Okay < Good < Great < Perfect (%s)" % ", ".join(report))
 	return ok
 
 

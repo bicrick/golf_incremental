@@ -233,9 +233,10 @@ func _print_examples(stats: PlayerStats, charge: ChargeSwing, contact: float) ->
 	var cases: Array[Dictionary] = [
 		{"label": "perfect at contact (0ms)", "hold": contact},
 		{"label": "near-perfect early (10ms)", "hold": contact - 0.010},
-		{"label": "perfect edge (50ms)", "hold": contact - 0.050},
-		{"label": "good edge (100ms)", "hold": contact - 0.100},
-		{"label": "late good edge (+35ms)", "hold": contact + 0.035},
+		{"label": "great edge (40ms)", "hold": contact - 0.040},
+		{"label": "good edge (80ms)", "hold": contact - 0.080},
+		{"label": "okay edge (140ms)", "hold": contact - 0.140},
+		{"label": "late great edge (+15ms)", "hold": contact + 0.015},
 	]
 
 	for case in cases:

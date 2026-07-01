@@ -67,14 +67,24 @@ func _check_contact_flavors() -> bool:
 		print("FAIL: late miss expected CHUNK flavor, got %d" % late_flavor)
 		return false
 
-	var ok_hold := contact - stats.timing_window_good_ms * 1.2 / 1000.0
-	var ok_tier := swing.evaluate_timing(ok_hold, stats)
-	var ok_flavor := swing.contact_flavor(ok_tier, ok_hold, stats)
-	if ok_tier != Balance.TimingTier.OK:
-		print("FAIL: OK tier sample got %s" % Balance.TIER_NAMES[ok_tier])
+	var okay_hold := contact - (stats.timing_window_good_ms + stats.timing_window_okay_ms) * 0.5 / 1000.0
+	var okay_tier := swing.evaluate_timing(okay_hold, stats)
+	var okay_flavor := swing.contact_flavor(okay_tier, okay_hold, stats)
+	if okay_tier != Balance.TimingTier.OKAY:
+		print("FAIL: Okay tier sample got %s" % Balance.TIER_NAMES[okay_tier])
 		return false
-	if ok_flavor != Balance.ContactFlavor.SLIGHTLY_FAT:
-		print("FAIL: OK tier expected SLIGHTLY_FAT flavor, got %d" % ok_flavor)
+	if okay_flavor != Balance.ContactFlavor.SLIGHTLY_FAT:
+		print("FAIL: Okay tier expected SLIGHTLY_FAT flavor, got %d" % okay_flavor)
+		return false
+
+	var bad_hold := contact - (stats.timing_window_okay_ms + stats.timing_window_bad_ms) * 0.5 / 1000.0
+	var bad_tier := swing.evaluate_timing(bad_hold, stats)
+	var bad_flavor := swing.contact_flavor(bad_tier, bad_hold, stats)
+	if bad_tier != Balance.TimingTier.BAD:
+		print("FAIL: Bad tier sample got %s" % Balance.TIER_NAMES[bad_tier])
+		return false
+	if bad_flavor != Balance.ContactFlavor.SLIGHTLY_FAT:
+		print("FAIL: Bad tier expected SLIGHTLY_FAT flavor, got %d" % bad_flavor)
 		return false
 
 	var good_flavor := swing.contact_flavor(
@@ -93,16 +103,28 @@ func _check_late_hold_decay() -> bool:
 	var stats := Balance.default_stats()
 	var contact := swing.contact_time_sec()
 
-	var good_late := swing.evaluate_timing(contact + 0.030, stats)
-	if good_late != Balance.TimingTier.GOOD:
-		print("FAIL: just past contact expected Good, got %s" % Balance.TIER_NAMES[good_late])
+	var great_late := swing.evaluate_timing(contact + 0.005, stats)
+	if great_late != Balance.TimingTier.GREAT:
+		print("FAIL: just past contact expected Great, got %s" % Balance.TIER_NAMES[great_late])
 		return false
 
-	var ok_late := swing.evaluate_timing(
-		contact + swing.contact_decay_sec() * 0.25, stats
+	var good_late := swing.evaluate_timing(contact + 0.030, stats)
+	if good_late != Balance.TimingTier.GOOD:
+		print("FAIL: past post-peak-great window expected Good, got %s" % Balance.TIER_NAMES[good_late])
+		return false
+
+	var okay_late := swing.evaluate_timing(
+		contact + Balance.POST_PEAK_OKAY_MS * 0.75 / 1000.0, stats
 	)
-	if ok_late != Balance.TimingTier.OK:
-		print("FAIL: late hold decay expected OK, got %s" % Balance.TIER_NAMES[ok_late])
+	if okay_late != Balance.TimingTier.OKAY:
+		print("FAIL: late hold decay expected Okay, got %s" % Balance.TIER_NAMES[okay_late])
+		return false
+
+	var bad_late := swing.evaluate_timing(
+		contact + swing.contact_decay_sec() * 0.4, stats
+	)
+	if bad_late != Balance.TimingTier.BAD:
+		print("FAIL: late hold decay expected Bad, got %s" % Balance.TIER_NAMES[bad_late])
 		return false
 
 	var miss_late := swing.evaluate_timing(contact + swing.contact_decay_sec() * 0.75, stats)
@@ -110,7 +132,7 @@ func _check_late_hold_decay() -> bool:
 		print("FAIL: long late hold expected Miss, got %s" % Balance.TIER_NAMES[miss_late])
 		return false
 
-	print("OK: late hold tier decay Good → OK → Miss")
+	print("OK: late hold tier decay Great → Good → Okay → Bad → Miss")
 	return true
 
 
@@ -150,7 +172,7 @@ func _check_flavor_arc() -> bool:
 		30.0, Balance.TimingTier.PERFECT, stats, Balance.ContactFlavor.PURE
 	)
 	var fat_path := BallFlight3D.build_path(
-		20.0, Balance.TimingTier.OK, stats, Balance.ContactFlavor.SLIGHTLY_FAT
+		20.0, Balance.TimingTier.OKAY, stats, Balance.ContactFlavor.SLIGHTLY_FAT
 	)
 
 	if thin_path.apex_height >= pure_path.apex_height:
