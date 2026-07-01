@@ -2,7 +2,10 @@
 
 Phased checklist. Economy rebalance is **v3.0**; crew and amenities follow.
 
-## v3.0 — Economy rebalance
+## v3.0 — Economy rebalance + carry cap
+
+- [ ] Soft carry cap ~400 yd in `Economy.yards_from_quality` or flight path
+- [ ] Full tree max achievable in **~90–150 min** playtest (target 120)
 
 - [ ] All 14 upgrade nodes use per-branch rates from [findings/economy-progression-findings.md](../findings/economy-progression-findings.md) (not global ×2)
 - [ ] `costRate / effectRate > 1.0` for every multiply node
@@ -13,7 +16,14 @@ Phased checklist. Economy rebalance is **v3.0**; crew and amenities follow.
 - [ ] `verify_pickup.gd` passes
 - [ ] Headless smoke passes
 
-## v3.1 — Milestones UI
+## v3.0b — Club shop (stats-only, no new swing art)
+
+- [ ] At least 2 purchasable clubs with opposing tradeoffs (forgiveness vs carry)
+- [ ] Equip applies to `PlayerStats` without new sprite sheets
+- [ ] HUD shows equipped club name
+- [ ] Payout uses capped/effective yards for Distance Pay
+
+See [03-clubs-and-shop.md](../03-clubs-and-shop.md).
 
 - [ ] Lifetime earnings tracked in save (already in model)
 - [ ] HUD or panel shows **next milestone** with $ remaining

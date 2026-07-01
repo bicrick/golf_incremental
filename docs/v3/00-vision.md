@@ -32,12 +32,16 @@ The range **works** — bucket, contact, pickup, upgrades. v3 makes it **last**:
 
 ## Player journey (target)
 
-| Session | Feel |
-|---------|------|
-| **First 15 min** | Learn contact, unlock tree, pick first branch, numbers move |
-| **30–60 min** | Stack 2–3 branches, combo harvest, see fairway depth grow |
-| **Session 2+** | Afford crew, range looks busier, passive supplements active play |
-| **Long tail** | Deep tree, new zones, jackpot spikes still rare and earned |
+**~2 hours** to max the upgrade tree (178 level purchases). Clubs and crew sit on top — optional identity and passive layer.
+
+| Time | Feel |
+|------|------|
+| **0–20 min** | Learn contact, unlock tree, first branch |
+| **20–60 min** | Stack branches, combo harvest, maybe first shop club |
+| **60–120 min** | Deep tree, `$`/yard is main growth; carry approaches **~400 yd cap** |
+| **Session 2+** (optional) | Crew hire, range amenities, second club |
+
+**Distance fantasy:** fly farther through the session, but **taper near 400 yards** — not gazillion carry. Money comes from **`pay_per_yard` and `$` upgrades**; clubs trade **forgiveness vs rip**.
 
 ## Related docs
 

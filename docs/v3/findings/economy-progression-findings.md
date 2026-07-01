@@ -181,14 +181,27 @@ costRate / effectRate  >  1.0   (target 1.04 – 1.08)
 
 ## Session arc targets
 
-| Phase | Buckets | Player state |
-|-------|---------|--------------|
-| Opening | 1–3 | Tree unlock + Base Pay 1–2 |
-| Branching | 4–8 | Pick Power / Quality / Pickup |
-| Stacking | 9–20 | Depth in 2–3 branches |
-| Mid-game | 20–60 | Iron Set, combo, quality depth |
-| Crew gate | ~$250k lifetime | Rat friend hire |
-| Late | 60+ | Deep tree + passive crew |
+**Product target (July 2026):** ~**2 hours** to max entire upgrade tree (177 level purchases + $1.50 unlock ≈ **178 buys**). At ~16 s/bucket, that requires **~2.5 buckets average payback** over the full run (early ~1–2, late ~4–8).
+
+| Phase | Time | Player state |
+|-------|------|--------------|
+| Opening | 0–15 min | Tree unlock + Base Pay 1–2 |
+| Branching | 15–30 min | Pick Power / Quality / Pickup |
+| Stacking | 30–60 min | Depth in 2–3 branches, first shop club optional |
+| Mid-game | 60–90 min | `$`/yard is main income; carry approaches cap |
+| Tree complete | **~120 min** | All 14 nodes maxed |
+| Crew gate | ~$250k lifetime (post-tree or late tree) | Rat friend hire |
+| Long tail | Session 2+ | Crew, amenities, zones |
+
+### Carry cap (~400 yards)
+
+Endgame should not exceed **~400 effective yards** on Perfect contact. Use soft cap:
+
+```
+effective_yards = carry_cap × (1 − exp(−raw_yards / carry_cap))
+```
+
+Power tree upgrades raise `raw_yards` slowly; **clubs** (shop) supply high-risk/high-reward carry; **Distance Pay** converts capped yards to `$`. See [03-clubs-and-shop.md](../03-clubs-and-shop.md).
 
 With ×2 curves, **$250k lifetime** arrives in minutes — breaking crew as a long-tail hook. With engagement curves, crew lands around **session 2 (~60–90 min)**.
 

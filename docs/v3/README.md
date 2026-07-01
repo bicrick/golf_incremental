@@ -26,6 +26,7 @@ v2 implementation docs remain authoritative for **what exists in code today**. v
 | [findings/economy-progression-findings.md](findings/economy-progression-findings.md) | **Economy audit, research, simulations, recommended curves** |
 | [01-economy-and-progression.md](01-economy-and-progression.md) | High-level v3 direction (summary pointer to findings) |
 | [02-long-tail-content.md](02-long-tail-content.md) | Crew, range amenities, zones, milestones |
+| [03-clubs-and-shop.md](03-clubs-and-shop.md) | Club shop, 400 yd cap, stats-only equip (no new anims required) |
 | [specs/v3-acceptance.md](specs/v3-acceptance.md) | Testable done criteria for v3 phases |
 
 ## Reading order
