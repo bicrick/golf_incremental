@@ -101,7 +101,7 @@ func _configure_billboard(sprite: SpriteBase3D, pixel_size: float) -> void:
 
 func _setup_ground() -> void:
 	var snap := DayNightPalette.sample_at(24.0)
-	FairwayGround3D.apply_palette(
+	FairwayGrassTiles3D.apply_palette(
 		ground, Balance.FAIRWAY_HALF_WIDTH_YARDS, snap.fairway_light, snap.fairway_dark
 	)
 
@@ -157,7 +157,7 @@ func apply_atmosphere(cycle_time: float) -> void:
 		var env := world_environment.environment
 		env.background_color = snap.sky
 		env.ambient_light_color = snap.sky
-	FairwayGround3D.apply_palette(
+	FairwayGrassTiles3D.apply_palette(
 		ground, Balance.FAIRWAY_HALF_WIDTH_YARDS, snap.fairway_light, snap.fairway_dark
 	)
 	if sun_light:
