@@ -3,8 +3,8 @@ extends Node2D
 ## Concentric rhombus charge UI — inner expands into upgrade-scaled outer target.
 
 const FROZEN_FADE_DURATION: float = 1.0
-const CHARGE_OUTER_COLOR := Color(0.98, 0.95, 0.78, 0.92)
-const CHARGE_INNER_COLOR := Color(0.98, 0.95, 0.78, 0.85)
+const CHARGE_OUTER_COLOR := Color(0.18, 0.28, 0.12, 0.72)
+const CHARGE_INNER_COLOR := Color(1.0, 0.93, 0.48, 1.0)
 
 signal frozen_fade_completed
 

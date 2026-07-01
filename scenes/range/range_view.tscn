@@ -72,11 +72,12 @@ position = Vector2(270, 182)
 script = ExtResource("6_charge_ring")
 
 [node name="RingOuter" type="Polygon2D" parent="ChargeMeter/BeatRing"]
-color = Color(0.98, 0.95, 0.78, 0.92)
+color = Color(0.18, 0.28, 0.12, 0.72)
 polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
 
 [node name="RingInner" type="Polygon2D" parent="ChargeMeter/BeatRing"]
-color = Color(0.98, 0.95, 0.78, 0.85)
+z_index = 1
+color = Color(1, 0.93, 0.48, 1)
 polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
 
 [node name="JackpotFeedback" type="CanvasLayer" parent="."]
