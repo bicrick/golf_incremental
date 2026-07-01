@@ -73,20 +73,16 @@ func _resolve_swing(tier: int, timing_quality: float) -> void:
 
 	var result := Economy.resolve_payout(tier, GameState.stats, timing_quality)
 	var yards: float = result.yards
-	var payout: float = result.payout
 
-	GameState.add_currency(payout)
 	GameState.lifetime["total_swings"] = GameState.lifetime.get("total_swings", 0) + 1
 	GameState.lifetime["lifetime_yards"] = GameState.lifetime.get("lifetime_yards", 0.0) + yards
 
-	var feedback := _feedback_for(tier, payout)
-	EventBus.swing_resolved.emit(yards, tier, payout, feedback)
+	var feedback := _feedback_for(tier)
+	EventBus.swing_resolved.emit(yards, tier, 0.0, feedback)
 	GameState.consume_bucket_ball()
 
 
-static func _feedback_for(tier: int, payout: float) -> int:
-	if payout >= Balance.JACKPOT_PAYOUT_THRESHOLD:
-		return Balance.FeedbackTier.JACKPOT
+static func _feedback_for(tier: int) -> int:
 	if tier == Balance.TimingTier.PERFECT:
 		return Balance.FeedbackTier.WARM
 	return Balance.FeedbackTier.WHISPER

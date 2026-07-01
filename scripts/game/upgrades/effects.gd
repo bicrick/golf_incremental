@@ -44,8 +44,16 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 			return stats.timing_window_good_ms
 		"swing_cooldown_ms":
 			return stats.swing_cooldown_ms
-		"perfect_payout_bonus":
-			return stats.perfect_payout_bonus
+		"base_amount":
+			return stats.base_amount
+		"yardage_multiplier":
+			return stats.yardage_multiplier
+		"quality_multiplier":
+			return stats.quality_multiplier
+		"yardage_term_unlocked":
+			return stats.yardage_term_unlocked
+		"quality_term_unlocked":
+			return stats.quality_term_unlocked
 		"base_yards":
 			return stats.base_yards
 		"yard_multiplier":
@@ -62,20 +70,12 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 			return stats.target_zone_multiplier
 		"outfit_multiplier":
 			return stats.outfit_multiplier
-		"dollars_per_yard":
-			return stats.dollars_per_yard
 		"global_multiplier":
 			return stats.global_multiplier
 		"flat_bonus_per_swing":
 			return stats.flat_bonus_per_swing
-		"pickup_bonus_mult":
-			return stats.pickup_bonus_mult
 		"bucket_capacity_bonus":
 			return stats.bucket_capacity_bonus
-		"crit_chance":
-			return stats.crit_chance
-		"crit_multiplier":
-			return stats.crit_multiplier
 		"passive_swings_per_second":
 			return stats.passive_swings_per_second
 		"passive_payout_multiplier":
@@ -93,8 +93,16 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 			stats.timing_window_good_ms = value
 		"swing_cooldown_ms":
 			stats.swing_cooldown_ms = value
-		"perfect_payout_bonus":
-			stats.perfect_payout_bonus = value
+		"base_amount":
+			stats.base_amount = value
+		"yardage_multiplier":
+			stats.yardage_multiplier = value
+		"quality_multiplier":
+			stats.quality_multiplier = value
+		"yardage_term_unlocked":
+			stats.yardage_term_unlocked = value
+		"quality_term_unlocked":
+			stats.quality_term_unlocked = value
 		"base_yards":
 			stats.base_yards = value
 		"yard_multiplier":
@@ -111,20 +119,12 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 			stats.target_zone_multiplier = value
 		"outfit_multiplier":
 			stats.outfit_multiplier = value
-		"dollars_per_yard":
-			stats.dollars_per_yard = value
 		"global_multiplier":
 			stats.global_multiplier = value
 		"flat_bonus_per_swing":
 			stats.flat_bonus_per_swing = value
-		"pickup_bonus_mult":
-			stats.pickup_bonus_mult = value
 		"bucket_capacity_bonus":
 			stats.bucket_capacity_bonus = value
-		"crit_chance":
-			stats.crit_chance = value
-		"crit_multiplier":
-			stats.crit_multiplier = value
 		"passive_swings_per_second":
 			stats.passive_swings_per_second = value
 		"passive_payout_multiplier":

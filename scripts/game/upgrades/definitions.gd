@@ -1,8 +1,9 @@
 class_name UpgradeDefinitions
 extends RefCounted
-## v1 upgrade content — Power root branching to Distance, Rhythm, Economy.
+## v3 formula-unlock upgrade tree — barebones placeholder layout.
 
 const DINKY_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles"
+const ICON := DINKY_BASE + "/HUD/PowerBar.png"
 
 static var _by_id: Dictionary = {}
 static var _tree_order: Array[String] = []
@@ -13,92 +14,81 @@ static func _init_defs() -> void:
 		return
 	var defs: Array[Dictionary] = [
 		_def(
-			"power", Balance.UpgradeBranch.DISTANCE, "Power", "Base swing strength.",
-			5, 15.0, 1.45,
-			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.13},
+			"base_pay", Balance.UpgradeBranch.BASE_PAY, "Base Pay", "+$ per ball.",
+			100, 5.0, 1.05,
+			{"type": "add", "stat": "base_amount", "value_per_level": 0.02},
 			"", {}, Vector2(213, 6),
-			DINKY_BASE + "/HUD/PowerBar.png"
+			ICON
 		),
-		# Distance branch
 		_def(
-			"leg_day", Balance.UpgradeBranch.DISTANCE, "Leg Day", "+base yards.",
+			"bucket_size", Balance.UpgradeBranch.BUCKET, "Big Bucket", "+2 capacity.",
+			5, 35.0, 1.5,
+			{"type": "add", "stat": "bucket_capacity_bonus", "value_per_level": 2.0},
+			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(120, 62),
+			DINKY_BASE + "/Ball/Ball-Sprites_0005.png"
+		),
+		_def(
+			"yardage_markers", Balance.UpgradeBranch.YARDAGE, "Yardage Markers", "Unlock yardage payout.",
+			1, 50.0, 1.0,
+			{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
+			"base_pay", {"upgrade_id": "base_pay", "level": 15}, Vector2(213, 62),
+			DINKY_BASE + "/HUD/Distance Box.png"
+		),
+		_def(
+			"yardage", Balance.UpgradeBranch.YARDAGE, "Leg Day", "+base yards.",
 			10, 25.0, 1.5,
 			{"type": "multiply", "stat": "base_yards", "value_per_level": 1.112},
-			"power", {"upgrade_id": "power", "level": 1}, Vector2(48, 62),
+			"yardage_markers", {"upgrade_id": "yardage_markers", "level": 1}, Vector2(48, 114),
 			DINKY_BASE + "/Player/Swing03.png"
 		),
 		_def(
-			"followthrough_form", Balance.UpgradeBranch.DISTANCE, "Form", "+distance %.",
+			"carry_form", Balance.UpgradeBranch.YARDAGE, "Form", "+distance %.",
 			10, 40.0, 1.55,
 			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.065},
-			"leg_day", {"upgrade_id": "leg_day", "level": 1}, Vector2(16, 114),
+			"yardage", {"upgrade_id": "yardage", "level": 1}, Vector2(16, 166),
 			DINKY_BASE + "/Ball/Ball-Sprites_0005.png"
 		),
 		_def(
-			"core_strength", Balance.UpgradeBranch.DISTANCE, "Core", "Raise max yards.",
+			"yardage_cap", Balance.UpgradeBranch.YARDAGE, "Core", "Raise max yards.",
 			8, 75.0, 1.6,
 			{"type": "add", "stat": "max_yards", "value_per_level": 32.0},
-			"followthrough_form", {"upgrade_id": "followthrough_form", "level": 1}, Vector2(48, 166),
+			"carry_form", {"upgrade_id": "carry_form", "level": 1}, Vector2(48, 218),
 			DINKY_BASE + "/Player/Swing05.png"
 		),
-		# Rhythm branch
 		_def(
-			"metronome", Balance.UpgradeBranch.RHYTHM, "Metronome", "Wider perfect window.",
-			10, 25.0, 1.5,
-			{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 4.0},
-			"power", {"upgrade_id": "power", "level": 1}, Vector2(213, 62),
-			DINKY_BASE + "/Star.png"
+			"carry_power", Balance.UpgradeBranch.YARDAGE, "Power", "+carry strength.",
+			5, 15.0, 1.45,
+			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.13},
+			"yardage_markers", {"upgrade_id": "yardage_markers", "level": 1}, Vector2(48, 62),
+			ICON
 		),
 		_def(
-			"faster_followthrough", Balance.UpgradeBranch.RHYTHM, "Tempo", "Faster swings.",
-			10, 40.0, 1.55,
-			{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.94},
-			"metronome", {"upgrade_id": "metronome", "level": 1}, Vector2(213, 114),
-			DINKY_BASE + "/Player/Walk01.png"
-		),
-		_def(
-			"perfect_bonus", Balance.UpgradeBranch.RHYTHM, "Precision", "+Perfect payout.",
-			8, 75.0, 1.6,
-			{"type": "add", "stat": "perfect_payout_bonus", "value_per_level": 0.08},
-			"faster_followthrough", {"upgrade_id": "faster_followthrough", "level": 1}, Vector2(213, 166),
-			DINKY_BASE + "/TEXT/TXT_BIRDIE.png"
-		),
-		# Economy branch
-		_def(
-			"dollars_per_yard", Balance.UpgradeBranch.ECONOMY, "$/Yard", "More $ per yard.",
-			10, 25.0, 1.5,
-			{"type": "multiply", "stat": "dollars_per_yard", "value_per_level": 1.12},
-			"power", {"upgrade_id": "power", "level": 1}, Vector2(378, 62),
+			"yardage_mult", Balance.UpgradeBranch.YARDAGE_MULT, "Yd Mult", "+yardage rate.",
+			100, 20.0, 1.06,
+			{"type": "multiply", "stat": "yardage_multiplier", "value_per_level": 1.03},
+			"yardage_markers", {"upgrade_id": "yardage_markers", "level": 1}, Vector2(378, 114),
 			DINKY_BASE + "/TEXT/TXT_PAR.png"
 		),
 		_def(
-			"tip_jar", Balance.UpgradeBranch.ECONOMY, "Tip Jar", "Flat $ per swing.",
-			10, 40.0, 1.55,
-			{"type": "add", "stat": "flat_bonus_per_swing", "value_per_level": 0.5},
-			"dollars_per_yard", {"upgrade_id": "dollars_per_yard", "level": 1}, Vector2(410, 114),
-			DINKY_BASE + "/HUD/Distance Box.png"
+			"contact_awareness", Balance.UpgradeBranch.CONTACT, "Contact Aware", "Unlock quality payout.",
+			1, 100.0, 1.0,
+			{"type": "binary", "stat": "quality_term_unlocked", "value": 1},
+			"yardage_mult", {"upgrade_id": "yardage_mult", "level": 15}, Vector2(378, 166),
+			DINKY_BASE + "/Star.png"
 		),
 		_def(
-			"sponsorship", Balance.UpgradeBranch.ECONOMY, "Sponsor", "Global income mult.",
-			8, 75.0, 1.6,
-			{"type": "multiply", "stat": "global_multiplier", "value_per_level": 1.08},
-			"tip_jar", {"upgrade_id": "tip_jar", "level": 1}, Vector2(378, 166),
-			DINKY_BASE + "/TEXT/TXT_EAGLE.png"
-		),
-		# Pickup branch (v2 Phase D stubs)
-		_def(
-			"bucket_size_1", Balance.UpgradeBranch.BALLS, "Big Bucket", "+2 bucket capacity.",
-			5, 35.0, 1.5,
-			{"type": "add", "stat": "bucket_capacity_bonus", "value_per_level": 2.0},
-			"power", {"upgrade_id": "power", "level": 1}, Vector2(120, 62),
-			DINKY_BASE + "/Ball/Ball-Sprites_0005.png"
+			"contact_training", Balance.UpgradeBranch.CONTACT, "Metronome", "Wider perfect window.",
+			10, 25.0, 1.5,
+			{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 4.0},
+			"contact_awareness", {"upgrade_id": "contact_awareness", "level": 1}, Vector2(213, 218),
+			DINKY_BASE + "/Player/Walk01.png"
 		),
 		_def(
-			"pickup_bonus", Balance.UpgradeBranch.BALLS, "Pickup Bonus", "+10% pickup $.",
-			8, 40.0, 1.55,
-			{"type": "multiply", "stat": "pickup_bonus_mult", "value_per_level": 1.10},
-			"bucket_size_1", {"upgrade_id": "bucket_size_1", "level": 1}, Vector2(120, 114),
-			DINKY_BASE + "/HUD/Distance Box.png"
+			"quality_mult", Balance.UpgradeBranch.QUALITY_MULT, "Qlty Mult", "+quality bonus.",
+			100, 20.0, 1.06,
+			{"type": "multiply", "stat": "quality_multiplier", "value_per_level": 1.05},
+			"contact_awareness", {"upgrade_id": "contact_awareness", "level": 1}, Vector2(378, 218),
+			DINKY_BASE + "/TEXT/TXT_BIRDIE.png"
 		),
 	]
 	for d in defs:

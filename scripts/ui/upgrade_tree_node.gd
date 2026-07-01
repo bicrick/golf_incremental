@@ -14,16 +14,17 @@ const TOOLTIP_GAP := 5
 const TOOLTIP_EDGE_MARGIN := 4
 
 const SHORT_NAMES: Dictionary = {
-	"power": "PWR",
-	"leg_day": "LEG",
-	"followthrough_form": "FRM",
-	"core_strength": "COR",
-	"metronome": "MET",
-	"faster_followthrough": "TMP",
-	"perfect_bonus": "PRC",
-	"dollars_per_yard": "$/Y",
-	"tip_jar": "TIP",
-	"sponsorship": "SPN",
+	"base_pay": "PAY",
+	"bucket_size": "BKT",
+	"yardage_markers": "MKR",
+	"yardage": "YDS",
+	"carry_form": "FRM",
+	"yardage_cap": "CAP",
+	"carry_power": "PWR",
+	"yardage_mult": "YDM",
+	"contact_awareness": "AWA",
+	"contact_training": "MET",
+	"quality_mult": "QLM",
 }
 
 const COLOR_BG := Color(0.18, 0.15, 0.12, 0.92)

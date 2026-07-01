@@ -1,6 +1,6 @@
 class_name Economy
 extends RefCounted
-## Payout and purchase logic — Workstream B implements fully.
+## Payout and purchase logic.
 
 
 static func upgrade_cost(base: float, growth: float, level: int) -> float:
@@ -8,22 +8,12 @@ static func upgrade_cost(base: float, growth: float, level: int) -> float:
 
 
 static func resolve_payout(
-	timing_tier: int,
+	_timing_tier: int,
 	stats: PlayerStats,
 	timing_quality: float = 1.0
 ) -> Dictionary:
-	var tier_mult: float = Balance.TIER_MULTS.get(timing_tier, 0.1)
 	var yards: float = yards_from_quality(timing_quality, stats)
-
-	var payout: float = (
-		yards * tier_mult * stats.club_multiplier * stats.ball_multiplier
-		* stats.target_zone_multiplier * stats.outfit_multiplier
-		* stats.global_multiplier * stats.dollars_per_yard
-		+ stats.flat_bonus_per_swing
-	)
-	if timing_tier == Balance.TimingTier.PERFECT and stats.perfect_payout_bonus > 0.0:
-		payout *= 1.0 + stats.perfect_payout_bonus
-	return { "payout": payout, "yards": yards }
+	return { "yards": yards }
 
 
 static func yards_from_quality(timing_quality: float, stats: PlayerStats) -> float:
@@ -39,9 +29,27 @@ static func yards_from_tier(timing_tier: int, stats: PlayerStats) -> float:
 	return minf(stats.base_yards * stats.yard_multiplier * tier_mult, stats.max_yards)
 
 
+static func quality_for_tier(timing_tier: int) -> int:
+	if timing_tier < 0 or timing_tier >= Balance.QUALITY_FOR_TIER.size():
+		return 1
+	return Balance.QUALITY_FOR_TIER[timing_tier]
+
+
+static func resolve_pickup_ball_payout(
+	quality: int,
+	yardage: float,
+	combo_tier: int,
+	stats: PlayerStats
+) -> float:
+	var payout := stats.base_amount
+	if stats.yardage_term_unlocked > 0.0:
+		payout *= maxf(yardage, 0.0) * stats.yardage_multiplier
+	if stats.quality_term_unlocked > 0.0:
+		payout *= float(maxi(quality, 1)) * stats.quality_multiplier
+	return payout * combo_multiplier(combo_tier)
+
+
 ## Ball flight depth on the range fairway (0 at tee → 1.0 at VISUAL_MAX_YARDS).
-## Non-linear: equal yard steps shrink on screen toward the horizon (parallax).
-## Gameplay max_yards caps payout yards only — not screen placement.
 static func visual_depth_t(yards: float, _stats: PlayerStats) -> float:
 	var y := maxf(yards, 0.0)
 	var scale := Balance.PERSPECTIVE_DEPTH_SCALE
@@ -62,10 +70,6 @@ static func visual_landing_y(
 	return lerpf(tee_y, horizon_y, visual_depth_t(yards, stats))
 
 
-static func pickup_per_ball_value(stats: PlayerStats) -> float:
-	return Balance.PICKUP_PER_BALL * stats.pickup_bonus_mult * stats.global_multiplier
-
-
 static func combo_multiplier(combo_tier: int) -> float:
 	var tier := maxi(combo_tier, 1)
 	return 1.0 + Balance.COMBO_MULT_PER_TIER * float(tier - 1)
@@ -73,7 +77,3 @@ static func combo_multiplier(combo_tier: int) -> float:
 
 static func bucket_complete_bonus_value(stats: PlayerStats) -> float:
 	return Balance.BUCKET_COMPLETE_BONUS * stats.global_multiplier
-
-
-static func resolve_pickup_ball_payout(combo_tier: int, stats: PlayerStats) -> float:
-	return pickup_per_ball_value(stats) * combo_multiplier(combo_tier)

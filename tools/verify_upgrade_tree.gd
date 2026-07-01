@@ -10,26 +10,24 @@ func _initialize() -> void:
 func _run() -> void:
 	var ok := true
 
-	# Definitions (no autoload required)
 	var defs := UpgradeDefinitions.all()
-	if defs.size() != 10:
-		print("FAIL: expected 10 upgrades, got ", defs.size())
+	if defs.size() != 11:
+		print("FAIL: expected 11 upgrades, got ", defs.size())
 		ok = false
-	var power := UpgradeDefinitions.get_def("power")
-	if power.is_empty() or power.get("parent_id", "x") != "":
-		print("FAIL: power root missing or has parent")
+	var base_pay := UpgradeDefinitions.get_def("base_pay")
+	if base_pay.is_empty() or base_pay.get("parent_id", "x") != "":
+		print("FAIL: base_pay root missing or has parent")
 		ok = false
-	var branch_heads := ["leg_day", "metronome", "dollars_per_yard"]
+	var branch_heads := ["bucket_size", "yardage_markers"]
 	for head in branch_heads:
 		var def := UpgradeDefinitions.get_def(head)
-		if def.get("parent_id", "") != "power":
-			print("FAIL: %s should branch from power" % head)
+		if def.get("parent_id", "") != "base_pay":
+			print("FAIL: %s should branch from base_pay" % head)
 			ok = false
-	if UpgradeDefinitions.connections().size() != 9:
-		print("FAIL: expected 9 tree connections")
+	if UpgradeDefinitions.connections().size() != 10:
+		print("FAIL: expected 10 tree connections")
 		ok = false
 
-	# Boot main scene so autoloads initialize
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
@@ -46,36 +44,45 @@ func _run() -> void:
 	gs.currency = 500.0
 	gs.upgrade_levels = {}
 	gs._recompute_stats()
-	var before_yard: float = gs.stats.base_yards
-	if not gs.purchase_upgrade("power"):
-		print("FAIL: could not purchase power")
+	var before_base: float = gs.stats.base_amount
+	if not gs.purchase_upgrade("base_pay"):
+		print("FAIL: could not purchase base_pay")
 		ok = false
-	if gs.get_upgrade_level("power") != 1:
-		print("FAIL: power level not incremented")
+	if gs.get_upgrade_level("base_pay") != 1:
+		print("FAIL: base_pay level not incremented")
 		ok = false
-	if gs.stats.yard_multiplier <= 1.0:
-		print("FAIL: power did not affect yard_multiplier")
+	if gs.stats.base_amount <= before_base:
+		print("FAIL: base_pay did not affect base_amount")
 		ok = false
-	if gs.purchase_upgrade("leg_day"):
-		if gs.stats.base_yards <= before_yard:
-			print("FAIL: leg_day did not increase base_yards")
+	if gs.purchase_upgrade("bucket_size"):
+		if gs.stats.bucket_capacity_bonus <= 0.0:
+			print("FAIL: bucket_size did not increase capacity bonus")
 			ok = false
 	else:
-		print("FAIL: could not purchase leg_day after power")
+		print("FAIL: could not purchase bucket_size after base_pay")
 		ok = false
-	if gs.purchase_upgrade("metronome"):
-		if gs.stats.timing_window_perfect_ms <= Balance.default_stats().timing_window_perfect_ms:
-			print("FAIL: metronome did not widen timing window")
+
+	gs.upgrade_levels["base_pay"] = 15
+	gs._recompute_stats()
+	if not gs.purchase_upgrade("yardage_markers"):
+		print("FAIL: could not purchase yardage_markers at base_pay 15")
+		ok = false
+	if gs.stats.yardage_term_unlocked <= 0.0:
+		print("FAIL: yardage_markers did not unlock yardage term")
+		ok = false
+	if gs.purchase_upgrade("yardage"):
+		if gs.stats.base_yards <= Balance.default_stats().base_yards:
+			print("FAIL: yardage did not increase base_yards")
 			ok = false
 	else:
-		print("FAIL: could not purchase metronome")
+		print("FAIL: could not purchase yardage")
 		ok = false
-	if gs.purchase_upgrade("dollars_per_yard"):
-		if gs.stats.dollars_per_yard <= Balance.default_stats().dollars_per_yard:
-			print("FAIL: dollars_per_yard did not increase stat")
+	if gs.purchase_upgrade("yardage_mult"):
+		if gs.stats.yardage_multiplier <= Balance.default_stats().yardage_multiplier:
+			print("FAIL: yardage_mult did not increase yardage_multiplier")
 			ok = false
 	else:
-		print("FAIL: could not purchase dollars_per_yard")
+		print("FAIL: could not purchase yardage_mult")
 		ok = false
 
 	var range_view: Node3D = main.get_node("RangeView")
@@ -84,7 +91,6 @@ func _run() -> void:
 	var icon_bar: Control = main.get_node("UI/UIRoot/IconBar")
 	var panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
 
-	# Enter gameplay so main wires upgrade view navigation.
 	main.get_node("TitleScreen").visible = false
 	range_view.visible = true
 	ui.visible = true
@@ -126,18 +132,18 @@ func _run() -> void:
 		gs.currency = 500.0
 		panel._refresh_all()
 		await process_frame
-		if not gs.purchase_upgrade("power"):
-			print("FAIL: could not purchase power from upgrade view")
+		if not gs.purchase_upgrade("base_pay"):
+			print("FAIL: could not purchase base_pay from upgrade view")
 			ok = false
 		panel._refresh_all()
 		await process_frame
-		var visible_after_power := _count_visible_nodes(nodes_root)
-		if visible_after_power != 4:
-			print("FAIL: expected 4 revealed nodes after power, got ", visible_after_power)
+		var visible_after_base := _count_visible_nodes(nodes_root)
+		if visible_after_base != 2:
+			print("FAIL: expected 2 revealed nodes after base_pay, got ", visible_after_base)
 			ok = false
 
-		if nodes_root.get_child_count() != 10:
-			print("FAIL: expected 10 tree nodes built, got ", nodes_root.get_child_count())
+		if nodes_root.get_child_count() != 11:
+			print("FAIL: expected 11 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
 		panel.close()

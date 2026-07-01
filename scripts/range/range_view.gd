@@ -413,7 +413,7 @@ func _flash_beat_ring(tier: int) -> void:
 func _on_swing_resolved(
 	yards: float,
 	tier: int,
-	payout: float,
+	_payout: float,
 	feedback_tier: int
 ) -> void:
 	_flash_beat_ring(tier)
@@ -424,12 +424,13 @@ func _on_swing_resolved(
 		tier,
 		feedback_tier
 	)
-	_spawn_float_text(tier, yards, payout)
+	var quality := Economy.quality_for_tier(tier)
+	_spawn_float_text(tier, yards)
 	if feedback_tier == Balance.FeedbackTier.JACKPOT:
 		_play_golfer_joy()
 	elif not _golfer_joy_active:
 		_play_swing_followthrough()
-	_fly_ball(yards, feedback_tier, tier)
+	_fly_ball(yards, feedback_tier, tier, quality)
 
 
 func _play_golfer_joy() -> void:
@@ -509,12 +510,12 @@ func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:
 		icon.queue_free()
 
 
-func _spawn_float_text(tier: int, yards: float, payout: float) -> void:
+func _spawn_float_text(tier: int, yards: float) -> void:
 	if charge_meter == null:
 		return
 	var tier_name := Balance.TIER_NAMES[tier]
 	var label := Label.new()
-	label.text = "%s\n%d yds\n+$%s" % [tier_name, int(yards), FloatCashTextScript.format_amount(payout)]
+	label.text = "%s\n%d yds" % [tier_name, int(yards)]
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.z_index = 2
 	PixelFont.apply_label(label, 8)
@@ -601,7 +602,7 @@ func _respawn_ball_at_tee() -> void:
 	_sync_golfer_idle_from_bucket()
 
 
-func _leave_litter_ball(land_position: Vector3, land_scale: Vector3) -> void:
+func _leave_litter_ball(land_position: Vector3, land_scale: Vector3, quality: int, yardage: float) -> void:
 	var litter := Sprite3D.new()
 	litter.texture = _ball_lay_texture
 	litter.position = land_position
@@ -609,6 +610,8 @@ func _leave_litter_ball(land_position: Vector3, land_scale: Vector3) -> void:
 	_configure_billboard(litter, BALL_PIXEL_SIZE)
 	litter.modulate = _sprite_atmosphere_tint
 	litter.set_meta("collectible", true)
+	litter.set_meta("ball_quality", quality)
+	litter.set_meta("ball_yardage", yardage)
 	littered_balls.add_child(litter)
 
 
@@ -618,7 +621,7 @@ func _apply_flight_sample(progress: float, path: BallFlight3D.FlightPath) -> voi
 		_flight_trail.track(ball.global_position)
 
 
-func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
+func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int) -> void:
 	var path := BallFlight3D.build_path(
 		yards,
 		timing_tier,
@@ -655,7 +658,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 			_flight_trail.finish()
 			_flight_trail = null
 		if path.visual_yards <= VANISH_DISTANCE_YARDS:
-			_leave_litter_ball(landing, _base_ball_scale)
+			_leave_litter_ball(landing, _base_ball_scale, quality, yards)
 		else:
 			DistanceTwinkle.spawn(fx_layer, _project_to_screen(landing))
 		ball.visible = false

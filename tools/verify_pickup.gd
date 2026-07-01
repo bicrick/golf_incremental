@@ -95,9 +95,9 @@ func _check_economy_grants(gs: Node) -> bool:
 	_reset(gs)
 	_enter_harvest(gs)
 	var start_currency: float = gs.currency
-	var per_ball := Economy.pickup_per_ball_value(gs.stats)
-	var combo2 := Economy.resolve_pickup_ball_payout(2, gs.stats)
-	gs.collect_harvest_ball(Vector3.ZERO, 1)
+	var per_ball := Economy.resolve_pickup_ball_payout(1, gs.stats.base_yards, 1, gs.stats)
+	var combo2 := Economy.resolve_pickup_ball_payout(1, gs.stats.base_yards, 2, gs.stats)
+	gs.collect_harvest_ball(Vector3.ZERO, 1, 1, gs.stats.base_yards)
 	var after_one: float = gs.currency
 	if not is_equal_approx(after_one - start_currency, per_ball):
 		print(
@@ -105,7 +105,7 @@ func _check_economy_grants(gs: Node) -> bool:
 			% [per_ball, after_one - start_currency]
 		)
 		return false
-	gs.collect_harvest_ball(Vector3.ZERO, 2)
+	gs.collect_harvest_ball(Vector3.ZERO, 2, 1, gs.stats.base_yards)
 	if not is_equal_approx(gs.currency - after_one, combo2):
 		print("FAIL: combo payout mismatch for tier 2")
 		return false
@@ -242,7 +242,7 @@ func _check_phase_integration(main: Node, gs: Node) -> bool:
 	var range_view: Node3D = main.get_node("RangeView")
 	var litter_parent: Node3D = range_view.get_node("Foreground/LitteredBalls")
 
-	range_view._leave_litter_ball(Vector3(0.3, 0.0, -8.0), Vector3(1.0, 1.0, 1.0))
+	range_view._leave_litter_ball(Vector3(0.3, 0.0, -8.0), Vector3(1.0, 1.0, 1.0), 3, 10.0)
 	if litter_parent.get_child_count() != 1:
 		print("FAIL: litter spawn failed")
 		return false

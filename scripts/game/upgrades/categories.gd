@@ -2,7 +2,10 @@ class_name UpgradeCategories
 extends RefCounted
 
 const BRANCH_NAMES: Dictionary = {
-	Balance.UpgradeBranch.RHYTHM: "Rhythm",
-	Balance.UpgradeBranch.DISTANCE: "Distance",
-	Balance.UpgradeBranch.ECONOMY: "Economy",
+	Balance.UpgradeBranch.BASE_PAY: "Base Pay",
+	Balance.UpgradeBranch.YARDAGE: "Yardage",
+	Balance.UpgradeBranch.YARDAGE_MULT: "Yardage Mult",
+	Balance.UpgradeBranch.CONTACT: "Contact",
+	Balance.UpgradeBranch.QUALITY_MULT: "Quality Mult",
+	Balance.UpgradeBranch.BUCKET: "Bucket",
 }

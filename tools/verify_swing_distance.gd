@@ -67,10 +67,10 @@ func _check_balance_targets() -> bool:
 
 	var maxed := Balance.default_stats()
 	var max_levels := {
-		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
-		"leg_day": UpgradeDefinitions.get_def("leg_day").get("max_level", 0),
-		"followthrough_form": UpgradeDefinitions.get_def("followthrough_form").get("max_level", 0),
-		"core_strength": UpgradeDefinitions.get_def("core_strength").get("max_level", 0),
+		"yardage": UpgradeDefinitions.get_def("yardage").get("max_level", 0),
+		"carry_form": UpgradeDefinitions.get_def("carry_form").get("max_level", 0),
+		"yardage_cap": UpgradeDefinitions.get_def("yardage_cap").get("max_level", 0),
+		"carry_power": UpgradeDefinitions.get_def("carry_power").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 	var end_yards := Economy.yards_from_quality(1.0, maxed)
@@ -101,10 +101,10 @@ func _check_visual_depth() -> bool:
 	var default_stats := Balance.default_stats()
 	var maxed := Balance.default_stats()
 	var max_levels := {
-		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
-		"leg_day": UpgradeDefinitions.get_def("leg_day").get("max_level", 0),
-		"followthrough_form": UpgradeDefinitions.get_def("followthrough_form").get("max_level", 0),
-		"core_strength": UpgradeDefinitions.get_def("core_strength").get("max_level", 0),
+		"yardage": UpgradeDefinitions.get_def("yardage").get("max_level", 0),
+		"carry_form": UpgradeDefinitions.get_def("carry_form").get("max_level", 0),
+		"yardage_cap": UpgradeDefinitions.get_def("yardage_cap").get("max_level", 0),
+		"carry_power": UpgradeDefinitions.get_def("carry_power").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 

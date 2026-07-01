@@ -9,7 +9,6 @@ const AUTOSAVE_INTERVAL_SEC: float = 30.0
 const BUCKET_CAPACITY_DEFAULT: int = 6
 
 ## v2 Phase D — pickup mini-game economy.
-const PICKUP_PER_BALL: float = 0.50
 const BUCKET_COMPLETE_BONUS: float = 5.0
 const COMBO_WINDOW_SEC: float = 0.8
 const COMBO_MULT_PER_TIER: float = 0.10
@@ -50,6 +49,9 @@ const YARD_QUALITY_FLOOR: float = 0.08
 const YARD_QUALITY_LATE_PEAK: float = 0.92
 
 const TIER_NAMES: Array[String] = ["Perfect!", "Great!", "Good", "Okay", "Bad", "Miss"]
+
+## Timing tier (PERFECT..MISS) -> payout quality integer (6..1).
+const QUALITY_FOR_TIER: Array[int] = [6, 5, 4, 3, 2, 1]
 
 const TIER_COLORS: Array[Color] = [
 	Color(0.35, 0.85, 0.42),  # PERFECT — green
@@ -111,7 +113,7 @@ const FLIGHT_TRAIL_HEAD_ALPHA := 0.35
 enum TimingTier { PERFECT, GREAT, GOOD, OKAY, BAD, MISS }
 enum ContactFlavor { PURE, SLIGHTLY_FAT, THIN, CHUNK }
 enum FeedbackTier { WHISPER, WARM, JACKPOT, MILESTONE }
-enum UpgradeBranch { RHYTHM, DISTANCE, CLUBS, BALLS, RANGE, OUTFITS, ECONOMY, FRIENDS }
+enum UpgradeBranch { BASE_PAY, YARDAGE, YARDAGE_MULT, CONTACT, QUALITY_MULT, BUCKET }
 
 
 static func default_stats() -> PlayerStats:
@@ -124,5 +126,9 @@ static func default_stats() -> PlayerStats:
 	stats.swing_cooldown_ms = 1800.0
 	stats.base_yards = 30.0
 	stats.max_yards = 45.0
-	stats.dollars_per_yard = 1.0
+	stats.base_amount = 0.25
+	stats.yardage_multiplier = 0.02
+	stats.quality_multiplier = 1.0
+	stats.yardage_term_unlocked = 0.0
+	stats.quality_term_unlocked = 0.0
 	return stats

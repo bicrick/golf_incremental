@@ -1,5 +1,7 @@
 # Economy
 
+> **v2 overhaul:** Pickup-time progressive formula and new upgrade tree are authoritative in [v2/03-economy.md](../v2/03-economy.md). This doc retains v1 reference material.
+
 ## Currency
 
 **Working name: Range Bucks (`$`)** — display with `$` prefix. Rename later if desired (Par Points, etc.); keep internal key as `currency: number`.

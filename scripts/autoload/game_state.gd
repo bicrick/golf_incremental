@@ -135,12 +135,20 @@ func consume_bucket_ball() -> bool:
 	return true
 
 
-func collect_harvest_ball(world_pos: Vector3, combo_tier: int) -> float:
+func collect_harvest_ball(
+	world_pos: Vector3,
+	combo_tier: int,
+	quality: int = 1,
+	yardage: float = 0.0
+) -> float:
 	if current_phase != "harvest":
 		return 0.0
 	if harvest_collected >= bucket_capacity:
 		return 0.0
-	var payout := Economy.resolve_pickup_ball_payout(combo_tier, stats)
+	var effective_yardage := yardage if yardage > 0.0 else stats.base_yards
+	var payout := Economy.resolve_pickup_ball_payout(
+		quality, effective_yardage, combo_tier, stats
+	)
 	add_currency(payout)
 	harvest_collected += 1
 	EventBus.ball_collected.emit(world_pos, combo_tier)
