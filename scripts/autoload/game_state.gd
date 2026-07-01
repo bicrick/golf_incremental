@@ -169,15 +169,11 @@ func collect_harvest_ball(
 	return payout
 
 
-func complete_harvest(best_combo: int) -> float:
+func complete_harvest(_best_combo: int) -> float:
 	if current_phase != "harvest":
 		return 0.0
-	var bonus := Economy.bucket_complete_bonus_value(stats)
-	if best_combo >= 4:
-		bonus *= 1.0 + Balance.COMBO_MULT_PER_TIER * float(best_combo - 1)
-	add_currency(bonus)
-	_exit_harvest_to_strike(bonus)
-	return bonus
+	_exit_harvest_to_strike(0.0)
+	return 0.0
 
 
 func skip_harvest() -> void:

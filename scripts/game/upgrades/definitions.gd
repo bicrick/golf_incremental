@@ -1,6 +1,6 @@
 class_name UpgradeDefinitions
 extends RefCounted
-## v3 formula-unlock upgrade tree — barebones fan-out from Base Pay.
+## v4 deep upgrade tree — fan-out from Base Pay.
 
 static var _by_id: Dictionary = {}
 static var _tree_order: Array[String] = []
@@ -11,52 +11,111 @@ static func _init_defs() -> void:
 		return
 	var defs: Array[Dictionary] = [
 		_def(
-			"base_pay", Balance.UpgradeBranch.BASE_PAY, "Base Pay", "+$ per ball.",
-			100, 5.0, 1.05,
-			[{"type": "add", "stat": "base_amount", "value_per_level": 0.02}],
+			"base_pay", Balance.UpgradeBranch.BASE_PAY, "Base Pay",
+			"Flat cash per ball picked up. Does not change how far you hit.",
+			25, 1.50, 2.0,
+			[{"type": "multiply", "stat": "base_amount", "value_per_level": 2.0}],
 			"", {}, Vector2(213, 6)
 		),
 		_def(
-			"yardage", Balance.UpgradeBranch.YARDAGE, "Yardage", "Unlock yardage payout + rate.",
-			100, 10.0, 1.055,
-			[
-				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
-				{"type": "multiply", "stat": "yardage_multiplier", "value_per_level": 1.03},
-			],
-			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(48, 62)
+			"power", Balance.UpgradeBranch.POWER, "Power",
+			"Carry power — ball flies farther on every swing tier.",
+			8, 6.0, 2.0,
+			[{"type": "multiply", "stat": "carry_multiplier", "value_per_level": 2.0}],
+			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(120, 62)
 		),
 		_def(
-			"quality", Balance.UpgradeBranch.QUALITY, "Quality", "Unlock quality payout + bonus.",
-			100, 15.0, 1.055,
+			"quality", Balance.UpgradeBranch.QUALITY, "Quality",
+			"Unlock payout bonus from contact tier (Perfect pays more than Miss).",
+			20, 6.0, 2.0,
 			[
 				{"type": "binary", "stat": "quality_term_unlocked", "value": 1},
-				{"type": "multiply", "stat": "quality_multiplier", "value_per_level": 1.05},
+				{"type": "multiply", "stat": "quality_multiplier", "value_per_level": 2.0},
 			],
 			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(213, 62)
 		),
 		_def(
-			"power", Balance.UpgradeBranch.POWER, "Power", "+carry strength.",
-			5, 15.0, 1.45,
-			[{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.13}],
-			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(378, 62)
+			"pickup", Balance.UpgradeBranch.PICKUP, "Pickup",
+			"Unlock pickup bonuses on collected balls.",
+			20, 6.0, 2.0,
+			[
+				{"type": "binary", "stat": "pickup_bonus_unlocked", "value": 1},
+				{"type": "multiply", "stat": "pickup_multiplier", "value_per_level": 2.0},
+			],
+			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(306, 62)
 		),
 		_def(
-			"leg_day", Balance.UpgradeBranch.POWER, "Leg Day", "+base yards.",
-			10, 25.0, 1.5,
-			[{"type": "multiply", "stat": "base_yards", "value_per_level": 1.112}],
-			"power", {"upgrade_id": "power", "level": 1}, Vector2(378, 114)
+			"distance_pay", Balance.UpgradeBranch.POWER, "Distance Pay",
+			"Unlock pay per yard. Keep base $; each yard flown adds bonus cash at pickup.",
+			20, 12.0, 2.0,
+			[
+				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
+				{"type": "multiply", "stat": "pay_per_yard", "value_per_level": 2.0},
+			],
+			"power", {"upgrade_id": "power", "level": 1}, Vector2(120, 114)
 		),
 		_def(
-			"core_strength", Balance.UpgradeBranch.POWER, "Core", "Raise max yards.",
-			8, 75.0, 1.6,
-			[{"type": "add", "stat": "max_yards", "value_per_level": 32.0}],
-			"leg_day", {"upgrade_id": "leg_day", "level": 1}, Vector2(378, 166)
+			"iron_set", Balance.UpgradeBranch.POWER, "Iron Set",
+			"Raise baseline carry distance on clean contact.",
+			10, 24.0, 2.0,
+			[{"type": "multiply", "stat": "base_yards", "value_per_level": 2.0}],
+			"distance_pay", {"upgrade_id": "distance_pay", "level": 1}, Vector2(72, 166)
 		),
 		_def(
-			"contact_training", Balance.UpgradeBranch.QUALITY, "Metronome", "Wider perfect window.",
-			10, 25.0, 1.5,
-			[{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 4.0}],
+			"power_surge", Balance.UpgradeBranch.POWER, "Power Surge",
+			"Extra carry multiplier — stacks with Power.",
+			8, 24.0, 2.0,
+			[{"type": "multiply", "stat": "carry_multiplier", "value_per_level": 2.0}],
+			"distance_pay", {"upgrade_id": "distance_pay", "level": 1}, Vector2(168, 166)
+		),
+		_def(
+			"metronome", Balance.UpgradeBranch.QUALITY, "Metronome",
+			"Widen the Perfect timing window — easier clean strikes.",
+			10, 12.0, 2.0,
+			[{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 8.0}],
 			"quality", {"upgrade_id": "quality", "level": 1}, Vector2(213, 114)
+		),
+		_def(
+			"great_eye", Balance.UpgradeBranch.QUALITY, "Great Eye",
+			"Widen the Great timing band — more high-tier hits.",
+			10, 24.0, 2.0,
+			[{"type": "add", "stat": "timing_window_great_ms", "value_per_level": 10.0}],
+			"metronome", {"upgrade_id": "metronome", "level": 1}, Vector2(165, 166)
+		),
+		_def(
+			"quick_reset", Balance.UpgradeBranch.QUALITY, "Quick Reset",
+			"Shorten swing cooldown — more strikes per bucket.",
+			10, 24.0, 2.0,
+			[{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.5}],
+			"metronome", {"upgrade_id": "metronome", "level": 1}, Vector2(261, 166)
+		),
+		_def(
+			"tip_jar", Balance.UpgradeBranch.PICKUP, "Tip Jar",
+			"Flat extra cash added every time you pick up a ball.",
+			15, 12.0, 2.0,
+			[{"type": "add", "stat": "pickup_flat_bonus", "value_per_level": 0.25}],
+			"pickup", {"upgrade_id": "pickup", "level": 1}, Vector2(270, 114)
+		),
+		_def(
+			"combo_bonus", Balance.UpgradeBranch.PICKUP, "Combo Bonus",
+			"Fast harvest clicks multiply pickup payout.",
+			10, 12.0, 2.0,
+			[{"type": "add", "stat": "combo_mult_per_tier", "value_per_level": 0.10}],
+			"pickup", {"upgrade_id": "pickup", "level": 1}, Vector2(306, 114)
+		),
+		_def(
+			"quick_hands", Balance.UpgradeBranch.PICKUP, "Quick Hands",
+			"Longer combo window between harvest clicks.",
+			10, 12.0, 2.0,
+			[{"type": "add", "stat": "combo_window_bonus_sec", "value_per_level": 0.15}],
+			"pickup", {"upgrade_id": "pickup", "level": 1}, Vector2(342, 114)
+		),
+		_def(
+			"magnetic_glove", Balance.UpgradeBranch.PICKUP, "Magnetic Glove",
+			"Future — balls pull toward cursor. (Stub)",
+			1, 48.0, 2.0,
+			[{"type": "binary", "stat": "magnetic_glove", "value": 1}],
+			"quick_hands", {"upgrade_id": "quick_hands", "level": 1}, Vector2(342, 166)
 		),
 	]
 	for d in defs:

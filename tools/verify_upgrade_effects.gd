@@ -27,12 +27,13 @@ func _run() -> void:
 
 	var cases: Array[Dictionary] = [
 		{"id": "base_pay", "prereq_levels": {}},
-		{"id": "yardage", "prereq_levels": {"base_pay": 1}},
-		{"id": "quality", "prereq_levels": {"base_pay": 1}},
 		{"id": "power", "prereq_levels": {"base_pay": 1}},
-		{"id": "leg_day", "prereq_levels": {"base_pay": 1, "power": 1}},
-		{"id": "core_strength", "prereq_levels": {"base_pay": 1, "power": 1, "leg_day": 1}},
-		{"id": "contact_training", "prereq_levels": {"base_pay": 1, "quality": 1}},
+		{"id": "distance_pay", "prereq_levels": {"base_pay": 1, "power": 1}},
+		{"id": "quality", "prereq_levels": {"base_pay": 1}},
+		{"id": "iron_set", "prereq_levels": {"base_pay": 1, "power": 1, "distance_pay": 1}},
+		{"id": "power_surge", "prereq_levels": {"base_pay": 1, "power": 1, "distance_pay": 1}},
+		{"id": "metronome", "prereq_levels": {"base_pay": 1, "quality": 1}},
+		{"id": "pickup", "prereq_levels": {"base_pay": 1}},
 	]
 
 	for case in cases:
@@ -77,33 +78,44 @@ func _check_pickup_formula(gs: Node) -> bool:
 	if not is_equal_approx(flat, 0.25):
 		print("FAIL: fresh pickup expected $0.25, got %.4f" % flat)
 		return false
-	gs.upgrade_levels = {"base_pay": 1, "yardage": 1}
+
+	gs.upgrade_levels = {"base_pay": 1, "power": 1, "distance_pay": 1}
 	gs._recompute_stats()
 	var with_yardage := Economy.resolve_pickup_ball_payout(
 		SAMPLE_QUALITY, SAMPLE_YARDAGE, 1, gs.stats
 	)
 	var expected_yardage: float = (
-		gs.stats.base_amount * SAMPLE_YARDAGE * gs.stats.yardage_multiplier
+		gs.stats.base_amount + gs.stats.base_amount * gs.stats.pay_per_yard * SAMPLE_YARDAGE
 	)
 	if not is_equal_approx(with_yardage, expected_yardage):
 		print(
-			"FAIL: yardage pickup expected %.4f, got %.4f"
+			"FAIL: additive yardage pickup expected %.4f, got %.4f"
 			% [expected_yardage, with_yardage]
 		)
 		return false
-	gs.upgrade_levels = {"base_pay": 1, "yardage": 1, "quality": 1}
+
+	var short := Economy.resolve_pickup_ball_payout(1, 15.0, 1, gs.stats)
+	if short < gs.stats.base_amount:
+		print("FAIL: short-yard pickup %.4f below base %.4f" % [short, gs.stats.base_amount])
+		return false
+
+	gs.upgrade_levels = {"base_pay": 1, "power": 1, "distance_pay": 1, "quality": 1}
 	gs._recompute_stats()
 	var full := Economy.resolve_pickup_ball_payout(SAMPLE_QUALITY, SAMPLE_YARDAGE, 1, gs.stats)
-	var expected_full: float = (
-		gs.stats.base_amount
-		* SAMPLE_YARDAGE
-		* gs.stats.yardage_multiplier
-		* float(SAMPLE_QUALITY)
-		* gs.stats.quality_multiplier
-	)
+	var shot: float = gs.stats.base_amount + gs.stats.base_amount * gs.stats.pay_per_yard * SAMPLE_YARDAGE
+	var expected_full: float = shot * float(SAMPLE_QUALITY) * gs.stats.quality_multiplier
 	if not is_equal_approx(full, expected_full):
 		print("FAIL: full pickup expected %.4f, got %.4f" % [expected_full, full])
 		return false
+
+	gs.upgrade_levels = {"base_pay": 1, "pickup": 1, "combo_bonus": 1}
+	gs._recompute_stats()
+	var combo2 := Economy.resolve_pickup_ball_payout(1, SAMPLE_YARDAGE, 2, gs.stats)
+	var combo1 := Economy.resolve_pickup_ball_payout(1, SAMPLE_YARDAGE, 1, gs.stats)
+	if not is_equal_approx(combo2, combo1 * 1.10):
+		print("FAIL: combo tier 2 expected 1.10x, got %.4f vs %.4f" % [combo2, combo1])
+		return false
+
 	print("OK: pickup formula unlock stages")
 	return true
 
@@ -120,21 +132,21 @@ func _check_distance_curve(gs: Node) -> bool:
 		print("OK: fresh save perfect yards=%.2f" % start_yards)
 
 	var max_levels := {}
-	for id in ["power", "leg_day", "core_strength"]:
+	for id in ["power", "distance_pay", "iron_set", "power_surge"]:
 		max_levels[id] = UpgradeDefinitions.get_def(id).get("max_level", 0)
 	gs.upgrade_levels = max_levels
 	gs._recompute_stats()
 	var end_yards := Economy.yards_from_quality(1.0, gs.stats)
-	if end_yards < 150.0:
-		print("FAIL: maxed distance perfect yards expected ~160+, got %.2f" % end_yards)
-		ok = false
-	elif end_yards > 170.0:
-		print("FAIL: maxed distance perfect yards unexpectedly high %.2f" % end_yards)
+	if end_yards < start_yards * 3.0:
+		print(
+			"FAIL: maxed distance perfect yards expected well above start, got %.2f"
+			% end_yards
+		)
 		ok = false
 	else:
 		print(
-			"OK: maxed distance perfect yards=%.2f (base=%.2f mult=%.3f cap=%.0f)"
-			% [end_yards, gs.stats.base_yards, gs.stats.yard_multiplier, gs.stats.max_yards]
+			"OK: maxed distance perfect yards=%.2f (base=%.2f carry=%.3f)"
+			% [end_yards, gs.stats.base_yards, gs.stats.carry_multiplier]
 		)
 	return ok
 
@@ -162,34 +174,36 @@ func _check_upgrade(id: String, before: Dictionary, after: Dictionary) -> String
 	var a_stats: PlayerStats = after.stats
 	match id:
 		"base_pay":
+			if not is_equal_approx(a_stats.base_amount, 0.50):
+				return "base_amount expected $0.50 at Lv.1, got %.2f" % a_stats.base_amount
 			if a_stats.base_amount <= b_stats.base_amount:
 				return "base_amount did not increase"
 			if after.pickup_payout <= before.pickup_payout:
 				return "pickup payout did not increase"
-		"yardage":
+		"distance_pay":
 			if a_stats.yardage_term_unlocked <= b_stats.yardage_term_unlocked:
 				return "yardage_term_unlocked did not flip on"
-			if a_stats.yardage_multiplier <= b_stats.yardage_multiplier:
-				return "yardage_multiplier did not increase"
+			if a_stats.pay_per_yard <= b_stats.pay_per_yard:
+				return "pay_per_yard did not increase"
 		"quality":
 			if a_stats.quality_term_unlocked <= b_stats.quality_term_unlocked:
 				return "quality_term_unlocked did not flip on"
 			if a_stats.quality_multiplier <= b_stats.quality_multiplier:
 				return "quality_multiplier did not increase"
-		"power":
-			if a_stats.yard_multiplier <= b_stats.yard_multiplier:
-				return "yard_multiplier did not increase"
+		"power", "power_surge":
+			if a_stats.carry_multiplier <= b_stats.carry_multiplier:
+				return "carry_multiplier did not increase"
 			if after.perfect_yards <= before.perfect_yards:
 				return "perfect yards did not increase"
-		"leg_day":
+		"iron_set":
 			if a_stats.base_yards <= b_stats.base_yards:
 				return "base_yards did not increase"
 			if after.perfect_yards <= before.perfect_yards:
 				return "perfect yards did not increase"
-		"core_strength":
-			if a_stats.max_yards <= b_stats.max_yards:
-				return "max_yards did not increase"
-		"contact_training":
+		"metronome":
 			if a_stats.timing_window_perfect_ms <= b_stats.timing_window_perfect_ms:
 				return "timing_window_perfect_ms did not increase"
+		"pickup":
+			if a_stats.pickup_bonus_unlocked <= b_stats.pickup_bonus_unlocked:
+				return "pickup_bonus_unlocked did not flip on"
 	return ""

@@ -4,7 +4,7 @@ extends RefCounted
 
 
 static func upgrade_cost(base: float, growth: float, level: int) -> float:
-	return floor(base * pow(growth, level))
+	return floor(base * pow(growth, level) * 100.0 + 0.0001) / 100.0
 
 
 static func resolve_payout(
@@ -16,17 +16,10 @@ static func resolve_payout(
 	return { "yards": yards }
 
 
-static func yards_from_quality(timing_quality: float, stats: PlayerStats) -> float:
-	return minf(
-		stats.base_yards * stats.yard_multiplier * clampf(timing_quality, 0.0, 1.0),
-		stats.max_yards
-	)
-
-
-## Legacy discrete-tier yard formula (pre-continuous quality).
-static func yards_from_tier(timing_tier: int, stats: PlayerStats) -> float:
-	var tier_mult: float = Balance.TIER_MULTS.get(timing_tier, 0.1)
-	return minf(stats.base_yards * stats.yard_multiplier * tier_mult, stats.max_yards)
+## Gameplay carry — stats + strike quality only (no cap, no pay stats).
+static func yards_from_quality(strike_quality: float, stats: PlayerStats) -> float:
+	var q := clampf(strike_quality, stats.yard_quality_floor, 1.0)
+	return stats.base_yards * stats.carry_multiplier * q
 
 
 static func quality_for_tier(timing_tier: int) -> int:
@@ -41,12 +34,24 @@ static func resolve_pickup_ball_payout(
 	combo_tier: int,
 	stats: PlayerStats
 ) -> float:
+	var shot_value := _shot_value(quality, yardage, stats)
+	shot_value = _apply_pickup_layer(shot_value, stats)
+	return shot_value * combo_multiplier(combo_tier, stats)
+
+
+static func _shot_value(quality: int, yardage: float, stats: PlayerStats) -> float:
 	var payout := stats.base_amount
 	if stats.yardage_term_unlocked > 0.0:
-		payout *= maxf(yardage, 0.0) * stats.yardage_multiplier
+		payout += stats.base_amount * stats.pay_per_yard * maxf(yardage, 0.0)
 	if stats.quality_term_unlocked > 0.0:
 		payout *= float(maxi(quality, 1)) * stats.quality_multiplier
-	return payout * combo_multiplier(combo_tier)
+	return payout
+
+
+static func _apply_pickup_layer(shot_value: float, stats: PlayerStats) -> float:
+	if stats.pickup_bonus_unlocked <= 0.0:
+		return shot_value
+	return shot_value * stats.pickup_multiplier + stats.pickup_flat_bonus
 
 
 ## Ball flight depth on the range fairway (0 at tee → 1.0 at VISUAL_MAX_YARDS).
@@ -70,10 +75,12 @@ static func visual_landing_y(
 	return lerpf(tee_y, horizon_y, visual_depth_t(yards, stats))
 
 
-static func combo_multiplier(combo_tier: int) -> float:
+static func combo_multiplier(combo_tier: int, stats: PlayerStats) -> float:
+	if stats.combo_mult_per_tier <= 0.0:
+		return 1.0
 	var tier := maxi(combo_tier, 1)
-	return 1.0 + Balance.COMBO_MULT_PER_TIER * float(tier - 1)
+	return 1.0 + stats.combo_mult_per_tier * float(tier - 1)
 
 
-static func bucket_complete_bonus_value(stats: PlayerStats) -> float:
-	return Balance.BUCKET_COMPLETE_BONUS * stats.global_multiplier
+static func combo_window_sec(stats: PlayerStats) -> float:
+	return Balance.COMBO_WINDOW_SEC + stats.combo_window_bonus_sec

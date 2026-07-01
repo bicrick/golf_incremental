@@ -159,9 +159,9 @@ static func charge_outer_color(inner: Color) -> Color:
 
 static func outer_scale_for_stats(stats: PlayerStats) -> float:
 	var default := Balance.default_stats()
-	var min_metric := default.max_yards * default.yard_multiplier
+	var min_metric := Economy.yards_from_quality(1.0, default)
 	var max_metric := _max_distance_power_metric()
-	var metric := stats.max_yards * stats.yard_multiplier
+	var metric := Economy.yards_from_quality(1.0, stats)
 	var t := inverse_lerp(min_metric, max_metric, metric)
 	return lerpf(
 		Balance.RING_OUTER_MIN_SCALE,
@@ -171,15 +171,11 @@ static func outer_scale_for_stats(stats: PlayerStats) -> float:
 
 
 static func _max_distance_power_metric() -> float:
-	var stats := Balance.default_stats()
-	var levels := {
-		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
-		"leg_day": UpgradeDefinitions.get_def("leg_day").get("max_level", 0),
-		"followthrough_form": UpgradeDefinitions.get_def("followthrough_form").get("max_level", 0),
-		"core_strength": UpgradeDefinitions.get_def("core_strength").get("max_level", 0),
-	}
-	UpgradeEffects.apply_all(stats, levels)
-	return stats.max_yards * stats.yard_multiplier
+	var levels := {}
+	for id in ["power", "distance_pay", "iron_set", "power_surge"]:
+		levels[id] = UpgradeDefinitions.get_def(id).get("max_level", 0)
+	var stats := UpgradeEffects.preview_stats(levels)
+	return Economy.yards_from_quality(1.0, stats)
 
 
 func show_charging(stats: PlayerStats) -> void:

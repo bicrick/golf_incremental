@@ -13,6 +13,12 @@ static func apply_all(stats: PlayerStats, levels: Dictionary) -> void:
 			_apply_effect(stats, effect, level)
 
 
+static func preview_stats(levels: Dictionary) -> PlayerStats:
+	var stats := Balance.default_stats()
+	apply_all(stats, levels)
+	return stats
+
+
 static func _apply_effect(stats: PlayerStats, effect: Dictionary, level: int) -> void:
 	match effect.get("type", ""):
 		"multiply":
@@ -41,26 +47,46 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 	match stat_name:
 		"timing_window_perfect_ms":
 			return stats.timing_window_perfect_ms
+		"timing_window_great_ms":
+			return stats.timing_window_great_ms
 		"timing_window_good_ms":
 			return stats.timing_window_good_ms
+		"timing_window_okay_ms":
+			return stats.timing_window_okay_ms
+		"timing_window_bad_ms":
+			return stats.timing_window_bad_ms
 		"swing_cooldown_ms":
 			return stats.swing_cooldown_ms
+		"yard_quality_floor":
+			return stats.yard_quality_floor
+		"yard_quality_late_peak":
+			return stats.yard_quality_late_peak
 		"base_amount":
 			return stats.base_amount
-		"yardage_multiplier":
-			return stats.yardage_multiplier
+		"pay_per_yard":
+			return stats.pay_per_yard
 		"quality_multiplier":
 			return stats.quality_multiplier
 		"yardage_term_unlocked":
 			return stats.yardage_term_unlocked
 		"quality_term_unlocked":
 			return stats.quality_term_unlocked
+		"pickup_bonus_unlocked":
+			return stats.pickup_bonus_unlocked
+		"pickup_multiplier":
+			return stats.pickup_multiplier
+		"pickup_flat_bonus":
+			return stats.pickup_flat_bonus
+		"combo_mult_per_tier":
+			return stats.combo_mult_per_tier
+		"combo_window_bonus_sec":
+			return stats.combo_window_bonus_sec
+		"magnetic_glove":
+			return stats.magnetic_glove
 		"base_yards":
 			return stats.base_yards
-		"yard_multiplier":
-			return stats.yard_multiplier
-		"max_yards":
-			return stats.max_yards
+		"carry_multiplier":
+			return stats.carry_multiplier
 		"yard_variance":
 			return stats.yard_variance
 		"club_multiplier":
@@ -90,26 +116,46 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 	match stat_name:
 		"timing_window_perfect_ms":
 			stats.timing_window_perfect_ms = value
+		"timing_window_great_ms":
+			stats.timing_window_great_ms = value
 		"timing_window_good_ms":
 			stats.timing_window_good_ms = value
+		"timing_window_okay_ms":
+			stats.timing_window_okay_ms = value
+		"timing_window_bad_ms":
+			stats.timing_window_bad_ms = value
 		"swing_cooldown_ms":
 			stats.swing_cooldown_ms = value
+		"yard_quality_floor":
+			stats.yard_quality_floor = value
+		"yard_quality_late_peak":
+			stats.yard_quality_late_peak = value
 		"base_amount":
 			stats.base_amount = value
-		"yardage_multiplier":
-			stats.yardage_multiplier = value
+		"pay_per_yard":
+			stats.pay_per_yard = value
 		"quality_multiplier":
 			stats.quality_multiplier = value
 		"yardage_term_unlocked":
 			stats.yardage_term_unlocked = value
 		"quality_term_unlocked":
 			stats.quality_term_unlocked = value
+		"pickup_bonus_unlocked":
+			stats.pickup_bonus_unlocked = value
+		"pickup_multiplier":
+			stats.pickup_multiplier = value
+		"pickup_flat_bonus":
+			stats.pickup_flat_bonus = value
+		"combo_mult_per_tier":
+			stats.combo_mult_per_tier = value
+		"combo_window_bonus_sec":
+			stats.combo_window_bonus_sec = value
+		"magnetic_glove":
+			stats.magnetic_glove = value
 		"base_yards":
 			stats.base_yards = value
-		"yard_multiplier":
-			stats.yard_multiplier = value
-		"max_yards":
-			stats.max_yards = value
+		"carry_multiplier":
+			stats.carry_multiplier = value
 		"yard_variance":
 			stats.yard_variance = value
 		"club_multiplier":

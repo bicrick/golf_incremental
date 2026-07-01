@@ -11,21 +11,21 @@ func _run() -> void:
 	var ok := true
 
 	var defs := UpgradeDefinitions.all()
-	if defs.size() != 7:
-		print("FAIL: expected 7 upgrades, got ", defs.size())
+	if defs.size() != 14:
+		print("FAIL: expected 14 upgrades, got ", defs.size())
 		ok = false
 	var base_pay := UpgradeDefinitions.get_def("base_pay")
 	if base_pay.is_empty() or base_pay.get("parent_id", "x") != "":
 		print("FAIL: base_pay root missing or has parent")
 		ok = false
-	var branch_heads := ["yardage", "quality", "power"]
+	var branch_heads := ["power", "quality", "pickup"]
 	for head in branch_heads:
 		var def := UpgradeDefinitions.get_def(head)
 		if def.get("parent_id", "") != "base_pay":
 			print("FAIL: %s should branch from base_pay" % head)
 			ok = false
-	if UpgradeDefinitions.connections().size() != 6:
-		print("FAIL: expected 6 tree connections")
+	if UpgradeDefinitions.connections().size() != 13:
+		print("FAIL: expected 13 tree connections, got ", UpgradeDefinitions.connections().size())
 		ok = false
 
 	var main: Node = load("res://scenes/main.tscn").instantiate()
@@ -45,6 +45,9 @@ func _run() -> void:
 	gs.upgrades_unlocked = true
 	gs.upgrade_levels = {}
 	gs._recompute_stats()
+	if not is_equal_approx(gs.get_upgrade_cost("base_pay"), 1.50):
+		print("FAIL: base_pay Lv.0 cost expected $1.50, got %.2f" % gs.get_upgrade_cost("base_pay"))
+		ok = false
 	var before_base: float = gs.stats.base_amount
 	if not gs.purchase_upgrade("base_pay"):
 		print("FAIL: could not purchase base_pay")
@@ -55,34 +58,32 @@ func _run() -> void:
 	if gs.stats.base_amount <= before_base:
 		print("FAIL: base_pay did not affect base_amount")
 		ok = false
-
-	if not UpgradeDefinitions.is_unlocked("yardage", gs.upgrade_levels):
-		print("FAIL: yardage should unlock at base_pay Lv.1")
-		ok = false
-	if not UpgradeDefinitions.is_unlocked("quality", gs.upgrade_levels):
-		print("FAIL: quality should unlock at base_pay Lv.1")
-		ok = false
-	if not UpgradeDefinitions.is_unlocked("power", gs.upgrade_levels):
-		print("FAIL: power should unlock at base_pay Lv.1")
+	if not is_equal_approx(gs.stats.base_amount, 0.50):
+		print("FAIL: base_pay Lv.1 expected base_amount $0.50, got %.2f" % gs.stats.base_amount)
 		ok = false
 
-	if gs.purchase_upgrade("yardage"):
-		if gs.stats.yardage_term_unlocked <= 0.0:
-			print("FAIL: yardage did not unlock yardage term")
+	for head in branch_heads:
+		if not UpgradeDefinitions.is_unlocked(head, gs.upgrade_levels):
+			print("FAIL: %s should unlock at base_pay Lv.1" % head)
 			ok = false
-		if gs.stats.yardage_multiplier <= Balance.default_stats().yardage_multiplier:
-			print("FAIL: yardage did not increase yardage_multiplier")
-			ok = false
-	else:
-		print("FAIL: could not purchase yardage")
-		ok = false
 
 	if gs.purchase_upgrade("power"):
-		if gs.stats.yard_multiplier <= 1.0:
-			print("FAIL: power did not increase yard_multiplier")
+		if gs.stats.carry_multiplier <= 1.0:
+			print("FAIL: power did not increase carry_multiplier")
 			ok = false
 	else:
 		print("FAIL: could not purchase power")
+		ok = false
+
+	if gs.purchase_upgrade("distance_pay"):
+		if gs.stats.yardage_term_unlocked <= 0.0:
+			print("FAIL: distance_pay did not unlock yardage term")
+			ok = false
+		if gs.stats.pay_per_yard <= Balance.default_stats().pay_per_yard:
+			print("FAIL: distance_pay did not increase pay_per_yard")
+			ok = false
+	else:
+		print("FAIL: could not purchase distance_pay")
 		ok = false
 
 	if gs.purchase_upgrade("quality"):
@@ -95,8 +96,6 @@ func _run() -> void:
 
 	var range_view: Node3D = main.get_node("RangeView")
 	var ui: CanvasLayer = main.get_node("UI")
-	var hud: Control = main.get_node("UI/UIRoot/HUD")
-	var icon_bar: Control = main.get_node("UI/UIRoot/IconBar")
 	var panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
 
 	main.get_node("TitleScreen").visible = false
@@ -135,8 +134,8 @@ func _run() -> void:
 			print("FAIL: expected 4 revealed nodes after base_pay, got ", visible_after_base)
 			ok = false
 
-		if nodes_root.get_child_count() != 7:
-			print("FAIL: expected 7 tree nodes built, got ", nodes_root.get_child_count())
+		if nodes_root.get_child_count() != 14:
+			print("FAIL: expected 14 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
 		panel.close()
@@ -145,7 +144,6 @@ func _run() -> void:
 			print("FAIL: range view should restore after closing upgrade view")
 			ok = false
 
-	# Icon bar unlock gate
 	gs.reset_to_fresh()
 	await process_frame
 	var icon_bar_node: Node = main.get_node("UI/UIRoot/IconBar")

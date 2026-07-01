@@ -33,18 +33,18 @@ Litter sprites cluster **up-screen** along fairway stripes (see screenshot refer
 
 | Rule | Value |
 |------|-------|
-| Combo window | 0.8s between collects |
-| Mult | +10% pickup $ per combo tier (×2, ×3, …) |
+| Combo window | 0.8s + Quick Hands upgrades |
+| Mult | Off until **Combo Bonus** purchased |
 | Display | Golden number near bucket |
 
 ## Economy (starter tune)
 
 | Source | Example $ |
 |--------|-----------|
-| Per hit (OK) | $1–2 |
-| Per ball picked up | $0.50 |
-| Bucket complete | $5 |
-| Combo | +10% per tier on total pickup portion |
+| Per ball (start) | $0.25 flat |
+| + Distance Pay @ 30yd | $0.25 + distance bonus |
+| Bucket complete | $0 (no default bonus) |
+| Combo | Gated behind Pickup branch |
 
 Adjust so first upgrade affordable after **2–4 full cycles**.
 

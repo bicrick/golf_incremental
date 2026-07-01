@@ -2,51 +2,59 @@
 
 ## Design goal
 
-Slow-start formula progression. Only **mechanical/formula** upgrades live in the tree. Equipment (balls, bucket capacity, clubs, clothing), crew (Ratina), and range tycoon items are deferred to a separate **Shop**.
+**Hot exponential start** — Base Pay doubles income each level; branch stats double per level too. Costs double in parallel so progress feels nuclear but purchases still require saving.
 
-Barebones **colored polygon nodes** (square/circle/triangle/diamond per branch) — no sprite icons.
+Mechanical/formula upgrades in the tree; equipment and shop deferred.
+
+Barebones **colored polygon nodes** per branch.
 
 ## Fan-out structure
 
-As soon as **Base Pay** reaches level 1, three branch heads reveal simultaneously:
+At **Base Pay Lv.1**, three branch heads reveal: **Power**, **Quality**, **Pickup**.
 
 ```mermaid
 flowchart TB
-  basePay[Base Pay] -->|"Lv 1"| yardage[Yardage]
-  basePay -->|"Lv 1"| quality[Quality]
-  basePay -->|"Lv 1"| power[Power]
-  power -->|"Lv 1"| legDay[Leg Day]
-  legDay -->|"Lv 1"| coreStrength[Core Strength]
-  quality -->|"Lv 1"| contactTraining[Contact Training]
+  basePay[Base Pay] --> power[Power]
+  basePay --> quality[Quality]
+  basePay --> pickup[Pickup]
+  power --> distancePay[Distance Pay]
+  distancePay --> ironSet[Iron Set]
+  distancePay --> powerSurge[Power Surge]
+  quality --> metronome[Metronome]
+  metronome --> greatEye[Great Eye]
+  metronome --> quickReset[Quick Reset]
+  pickup --> tipJar[Tip Jar]
+  pickup --> comboBonus[Combo Bonus]
+  pickup --> quickHands[Quick Hands]
+  quickHands --> magneticGlove[Magnetic Glove]
 ```
 
-## Nodes (7 total)
+## Nodes (14 total)
 
-| Node | Branch | Shape | Effect |
-|------|--------|-------|--------|
-| `base_pay` | Base Pay | square | +`base_amount` |
-| `yardage` | Yardage | circle | unlock yardage term + `yardage_multiplier` |
-| `quality` | Quality | triangle | unlock quality term + `quality_multiplier` |
-| `power` | Power | diamond | +`yard_multiplier` |
-| `leg_day` | Power | diamond | +`base_yards` |
-| `core_strength` | Power | diamond | +`max_yards` |
-| `contact_training` | Quality | triangle | widen Perfect window |
+| Node | Branch | Effect |
+|------|--------|--------|
+| `base_pay` | Base Pay | **×2 `base_amount` per level** ($0.25 → $0.50 → $1.00 …) |
+| `power` | Power | **×2 `carry_multiplier`** (flight) |
+| `distance_pay` | Power | unlock yardage pay + **×2 `pay_per_yard`** |
+| `iron_set` | Power | **×2 `base_yards`** |
+| `power_surge` | Power | **×2 `carry_multiplier`** |
+| `quality` | Quality | unlock tier pay + **×2 `quality_multiplier`** |
+| `metronome` | Quality | widen Perfect window (+8 ms/level) |
+| `great_eye` | Quality | widen Great window (+10 ms/level) |
+| `quick_reset` | Quality | **×0.5 swing cooldown** (~2× swings/bucket) |
+| `pickup` | Pickup | unlock pickup bonuses + **×2 `pickup_multiplier`** |
+| `tip_jar` | Pickup | +$0.25 `pickup_flat_bonus`/level |
+| `combo_bonus` | Pickup | +10% `combo_mult_per_tier`/level |
+| `quick_hands` | Pickup | +0.15 s combo window/level |
+| `magnetic_glove` | Pickup | stub |
 
-Each branch **head** (`yardage`, `quality`) is both the formula-unlock key and the first level of that branch's stat growth.
+All nodes use **×2 cost growth** (`growthRate = 2.0`). Base Pay: `baseCost $1.50`, max 25 levels. Branch heads: `baseCost $6.00`.
+
+Tooltips show descriptive text plus quantitative **Now → Next** stat previews.
 
 ## Tree access
 
-Icon-bar Upgrade Tree button: one-time **$1.50** unlock (see [03-economy.md](03-economy.md)).
-
-## Cut / deferred
-
-| Item | Fate |
-|------|------|
-| Bucket size | **Shop** (removed from tree) |
-| Old 11-node v1 tree | **Removed** |
-| Clubs, Balls, Outfits | **Shop** |
-| Range tycoon, Crew/Ratina | **Shop** |
-| Crit / target zones | **Cut / deferred** |
+Icon-bar Upgrade Tree: one-time **$1.50** unlock (see [03-economy.md](03-economy.md)).
 
 ## Related docs
 

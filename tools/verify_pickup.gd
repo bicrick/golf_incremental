@@ -105,32 +105,33 @@ func _check_economy_grants(gs: Node) -> bool:
 			% [per_ball, after_one - start_currency]
 		)
 		return false
-	gs.collect_harvest_ball(Vector3.ZERO, 2, 1, gs.stats.base_yards)
-	if not is_equal_approx(gs.currency - after_one, combo2):
-		print("FAIL: combo payout mismatch for tier 2")
+	if not is_equal_approx(combo2, per_ball):
+		print("FAIL: default combo tier 2 should match tier 1 (no combo upgrade)")
 		return false
-	var bonus := Economy.bucket_complete_bonus_value(gs.stats)
 	gs.harvest_collected = gs.bucket_capacity - 1
 	var before_complete: float = gs.currency
 	gs.complete_harvest(1)
-	if not is_equal_approx(gs.currency - before_complete, bonus):
-		print("FAIL: bucket complete bonus expected %.2f" % bonus)
+	if not is_equal_approx(gs.currency, before_complete):
+		print("FAIL: bucket complete should grant no bonus by default")
 		return false
-	print("OK: pickup and bucket bonus economy grants")
+	print("OK: pickup economy grants (no default combo/bucket bonus)")
 	return true
 
 
 func _check_combo_logic() -> bool:
-	if not is_equal_approx(Economy.combo_multiplier(1), 1.0):
+	var stats := Balance.default_stats()
+	if not is_equal_approx(Economy.combo_multiplier(1, stats), 1.0):
 		print("FAIL: combo tier 1 mult should be 1.0")
 		return false
-	if not is_equal_approx(Economy.combo_multiplier(2), 1.1):
-		print("FAIL: combo tier 2 mult should be 1.1")
+	if not is_equal_approx(Economy.combo_multiplier(4, stats), 1.0):
+		print("FAIL: default combo tier 4 mult should be 1.0 without upgrade")
 		return false
-	if not is_equal_approx(Economy.combo_multiplier(4), 1.3):
-		print("FAIL: combo tier 4 mult should be 1.3")
+	var levels := {"base_pay": 1, "pickup": 1, "combo_bonus": 1}
+	stats = UpgradeEffects.preview_stats(levels)
+	if not is_equal_approx(Economy.combo_multiplier(2, stats), 1.10):
+		print("FAIL: combo tier 2 mult should be 1.10 with combo_bonus Lv.1")
 		return false
-	print("OK: combo multiplier tiers")
+	print("OK: combo multiplier gated by upgrade")
 	return true
 
 
@@ -138,10 +139,7 @@ func _check_bucket_refill_and_strike(gs: Node) -> bool:
 	_reset(gs)
 	_enter_harvest(gs)
 	gs.harvest_collected = gs.bucket_capacity
-	var bonus: float = gs.complete_harvest(2)
-	if bonus <= 0.0:
-		print("FAIL: complete_harvest bonus should be positive")
-		return false
+	gs.complete_harvest(2)
 	if gs.current_phase != "strike":
 		print("FAIL: expected strike phase after harvest complete")
 		return false
@@ -223,9 +221,6 @@ func _check_event_bus_signals(gs: Node) -> bool:
 
 	if collected.is_empty():
 		print("FAIL: ball_collected not emitted")
-		return false
-	if completed.is_empty():
-		print("FAIL: bucket_completed not emitted")
 		return false
 	if not phases.has("strike"):
 		print("FAIL: phase_changed strike not emitted after harvest")

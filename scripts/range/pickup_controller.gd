@@ -144,7 +144,7 @@ func _collect_litter(litter: Sprite3D) -> void:
 
 func _advance_combo() -> int:
 	var now := Time.get_ticks_msec()
-	if now - _last_collect_msec <= int(Balance.COMBO_WINDOW_SEC * 1000.0):
+	if now - _last_collect_msec <= int(Economy.combo_window_sec(GameState.stats) * 1000.0):
 		_combo += 1
 	else:
 		_combo = 1

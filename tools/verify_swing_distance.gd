@@ -68,21 +68,22 @@ func _check_balance_targets() -> bool:
 	var maxed := Balance.default_stats()
 	var max_levels := {
 		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
-		"leg_day": UpgradeDefinitions.get_def("leg_day").get("max_level", 0),
-		"core_strength": UpgradeDefinitions.get_def("core_strength").get("max_level", 0),
+		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
+		"iron_set": UpgradeDefinitions.get_def("iron_set").get("max_level", 0),
+		"power_surge": UpgradeDefinitions.get_def("power_surge").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 	var end_yards := Economy.yards_from_quality(1.0, maxed)
-	if end_yards < 150.0 or end_yards > 170.0:
+	if end_yards < start_yards * 3.0:
 		print(
-			"FAIL: maxed perfect yards expected ~160, got %.2f (cap=%.0f)"
-			% [end_yards, maxed.max_yards]
+			"FAIL: maxed perfect yards expected well above start, got %.2f (start=%.2f)"
+			% [end_yards, start_yards]
 		)
 		ok = false
 	else:
 		print(
-			"OK: maxed distance perfect yards=%.2f (base=%.2f mult=%.3f cap=%.0f)"
-			% [end_yards, maxed.base_yards, maxed.yard_multiplier, maxed.max_yards]
+			"OK: maxed distance perfect yards=%.2f (base=%.2f carry=%.3f)"
+			% [end_yards, maxed.base_yards, maxed.carry_multiplier]
 		)
 	return ok
 
@@ -101,8 +102,9 @@ func _check_visual_depth() -> bool:
 	var maxed := Balance.default_stats()
 	var max_levels := {
 		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
-		"leg_day": UpgradeDefinitions.get_def("leg_day").get("max_level", 0),
-		"core_strength": UpgradeDefinitions.get_def("core_strength").get("max_level", 0),
+		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
+		"iron_set": UpgradeDefinitions.get_def("iron_set").get("max_level", 0),
+		"power_surge": UpgradeDefinitions.get_def("power_surge").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 
@@ -139,8 +141,8 @@ func _check_visual_depth() -> bool:
 			% [short_t, mid_yards, mid_t, long_t]
 		)
 		print(
-			"OK: mid depth t=%.3f landing_y=%.1f (max_yards=%.0f)"
-			% [mid_t, mid_y, maxed.max_yards]
+			"OK: mid depth t=%.3f landing_y=%.1f (yards=%.0f)"
+			% [mid_t, mid_y, mid_yards]
 		)
 
 	var end_t := Economy.visual_depth_t(end_yards, maxed)
@@ -150,8 +152,8 @@ func _check_visual_depth() -> bool:
 		ok = false
 	else:
 		print(
-			"OK: maxed perfect depth t=%.3f landing_y=%.1f (yards=%.1f max=%.0f)"
-			% [end_t, end_y, end_yards, maxed.max_yards]
+			"OK: maxed perfect depth t=%.3f landing_y=%.1f (yards=%.1f)"
+			% [end_t, end_y, end_yards]
 		)
 
 	# Tier must not inflate depth — same yards, different tiers → same t.
@@ -225,8 +227,7 @@ func _check_visual_depth() -> bool:
 
 func _print_examples(stats: PlayerStats, charge: ChargeSwing, contact: float) -> void:
 	print("--- contact swing yard examples (default stats) ---")
-	print("OLD: min(base_yards * yard_mult * TIER_MULT[tier], max_yards)")
-	print("NEW: min(base_yards * yard_mult * timing_quality, max_yards); tier mult on payout only")
+	print("CARRY: base_yards * carry_multiplier * strike_quality (no cap)")
 
 	var cases: Array[Dictionary] = [
 		{"label": "perfect at contact (0ms)", "hold": contact},
@@ -242,8 +243,7 @@ func _print_examples(stats: PlayerStats, charge: ChargeSwing, contact: float) ->
 		var tier := charge.evaluate_timing(hold, stats)
 		var quality := charge.timing_quality(hold, stats)
 		var new_yards := Economy.yards_from_quality(quality, stats)
-		var old_yards := Economy.yards_from_tier(tier, stats)
 		print(
-			"%s | tier=%s quality=%.3f | old=%.2f yds new=%.2f yds"
-			% [case["label"], Balance.TIER_NAMES[tier], quality, old_yards, new_yards]
+			"%s | tier=%s quality=%.3f | carry=%.2f yds"
+			% [case["label"], Balance.TIER_NAMES[tier], quality, new_yards]
 		)

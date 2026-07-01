@@ -9,81 +9,71 @@
 | Stream | Phase | Description |
 |--------|-------|-------------|
 | `pickup` | v2.0 | **Primary income** — per-ball collected at harvest using formula below |
-| `bucket_complete` | v2.0 | Flat bonus when harvest finishes |
+| `bucket_complete` | deferred | Removed by default; optional late Pickup upgrade later |
 | `passive_range` | deferred | Range amenities — Shop (later) |
 | `passive_crew` | deferred | Ratina / crew — Shop (later) |
 | `target_bonus` | deferred | Zone mult (later) |
 
 **Money is earned at pickup, not at contact.** Swings capture `quality` (1–6) and `yardage` on each litter ball; payout is computed when the ball is collected, using **live stats at pickup time**.
 
-Early game is intentionally slow: `base_amount` starts at **$0.25** per ball with no yardage or quality terms active.
+Early game: flat **`$0.25`** per ball (6 balls = **$1.50** per bucket) until branch upgrades stack on top.
 
 ## Upgrade tree access gate
 
-The icon-bar **Upgrade Tree** button costs **$1.50** once to unlock permanently. Until then the button is disabled/greyscale with a `$1.50` tooltip. After unlock, the tree opens normally.
+The icon-bar **Upgrade Tree** button costs **$1.50** once to unlock permanently — exactly one full bucket at start.
 
-## Flight yards (display only at swing)
+**Base Pay Lv.1** also costs **$1.50** and **doubles** flat pay ($0.25 → $0.50). Each further Base Pay level doubles again ($1.00, $2.00, …) with cost doubling in lockstep (~one bucket per level on the spine).
 
-```
-yards = min(base_yards × yard_multiplier × timing_quality(release_delta_ms), max_yards)
-```
-
-Yards drive ball flight and the litter metadata stored on each ball. They do not grant currency at swing time.
-
-## Pickup payout formula (progressive unlock)
-
-Formula terms unlock when the player buys the matching **branch head** node (each head is level 1 of that branch):
+## Flight yards (carry — stats + strike quality only)
 
 ```
-Era 0 (start):     payout = base_amount × combo_mult
-
-+ Yardage head:    payout = base_amount × yardage × yardage_multiplier × combo_mult
-
-+ Quality head:    payout = base_amount × yardage × yardage_multiplier
-                          × quality × quality_multiplier × combo_mult
+carry_yards = base_yards × carry_multiplier × strike_quality
 ```
 
-Evaluated at **pickup time** using the ball's stored `quality`/`yardage` and the player's **current** stats.
+No gameplay cap. `pay_per_yard` and `base_amount` do **not** affect flight.
 
-| Variable | Default | Type | Notes |
-|----------|---------|------|-------|
-| `base_amount` | $0.25 | anchor | Leveled by Base Pay branch |
-| `yardage` | from swing | per-ball | Stored on litter at landing |
-| `yardage_multiplier` | 0.02 | rate constant | Not a 1.0-start bonus mult |
-| `quality` | 1–6 | per-ball | Miss=1 … Perfect=6 |
-| `quality_multiplier` | 1.0 | bonus mult | Type-1 multiplier |
-| `combo_mult` | 1.0 + 0.1×(tier−1) | pickup streak | Unchanged combo window |
+## Pickup payout formula
 
-Power branch affects **flight distance only** (`yard_multiplier`, `base_yards`, `max_yards`) — not pickup formula directly.
+**Era 0:** `payout = base_amount`
 
-## Bucket complete bonus
+**+ Distance Pay:** `payout = base_amount + base_amount × pay_per_yard × stored_yards`
 
-```
-bucket_complete_bonus = BUCKET_COMPLETE_BONUS × global_multiplier
-```
+**+ Quality:** multiply shot value by `quality × quality_multiplier`
+
+**+ Pickup branch:** apply `pickup_multiplier` and `pickup_flat_bonus` when unlocked
+
+**+ Combo Bonus:** `× (1 + combo_mult_per_tier × (tier − 1))` — off until upgraded
+
+| Stat | Default | Axis |
+|------|---------|------|
+| `base_amount` | $0.25 | flat pay |
+| `pay_per_yard` | 0.02 | $ bonus per yard (not carry) |
+| `carry_multiplier` | 1.0 | flight only |
+| `quality_multiplier` | 1.0 | tier pay bonus |
+
+## Branch unlock (fan-out at Base Pay Lv.1)
+
+| Branch head | Role |
+|-------------|------|
+| Power | Carry (`carry_multiplier`); chain includes Distance Pay (`pay_per_yard`) |
+| Quality | Timing windows + tier pay |
+| Pickup | Harvest bonuses + combo |
 
 ## Cost curve
 
 ```
-cost(level) = floor(baseCost × growthRate^level)
+cost(level) = floor(baseCost × growthRate^level × 100) / 100
 ```
 
-## Branch unlock (fan-out at Base Pay Lv.1)
+**Paired doubling:** most nodes use `growthRate = 2.0` and stat effects that **×2 per level**. Early pacing:
 
-| Branch head | Unlocks | Prerequisite |
-|-------------|---------|--------------|
-| *(none)* | Base Pay only | game start |
-| Yardage | yardage payout term + `yardage_multiplier` levels | Base Pay Lv.1 |
-| Quality | quality payout term + `quality_multiplier` levels | Base Pay Lv.1 |
-| Power | flight distance chain | Base Pay Lv.1 |
+| Milestone | Cost | Income per bucket (flat era) |
+|-----------|------|------------------------------|
+| Tree unlock | $1.50 | $1.50 (6 × $0.25) |
+| Base Pay Lv.1 | $1.50 | $3.00 (6 × $0.50) |
+| Base Pay Lv.2 | $3.00 | $6.00 |
+| Branch head Lv.1 (Power / Quality / Pickup) | $6.00 | $3.00 after Base Pay Lv.1 |
 
-## Deferred (Shop — not upgrade tree)
+Branch heads cost ~**2 buckets** after the first Base Pay buy — hot start, but you cannot buy all three branches instantly.
 
-- Bucket capacity, balls, clubs, clothing/outfits
-- Ratina / crew hire
-- Range tycoon visual upgrades
-
-## Related docs
-
-- Upgrade branches: [04-upgrade-tree.md](04-upgrade-tree.md)
-- Pickup flow: [06-pickup-minigame.md](06-pickup-minigame.md)
+Multiplicative stat gains + multiplicative costs → fast early progress with escalating payback as branches stack.

@@ -5,22 +5,31 @@ signal purchase_requested(upgrade_id: String)
 
 enum NodeState { LOCKED, UNAFFORDABLE, PURCHASABLE, MAXED }
 
+const TooltipText := preload("res://scripts/ui/upgrade_tooltip_text.gd")
+
 const NODE_SIZE := Vector2(38, 38)
 const ICON_SIZE := Vector2(12, 12)
 const FONT_SIZE := 6
 const TOOLTIP_DELAY_SEC := 0.08
-const TOOLTIP_MAX_WIDTH := 96
+const TOOLTIP_MAX_WIDTH := 150
 const TOOLTIP_GAP := 5
 const TOOLTIP_EDGE_MARGIN := 4
 
 const SHORT_NAMES: Dictionary = {
 	"base_pay": "PAY",
-	"yardage": "YDS",
-	"quality": "QLT",
 	"power": "PWR",
-	"leg_day": "LEG",
-	"core_strength": "COR",
-	"contact_training": "MET",
+	"quality": "QLT",
+	"pickup": "PKP",
+	"distance_pay": "DST",
+	"iron_set": "IRN",
+	"power_surge": "SRG",
+	"metronome": "MET",
+	"great_eye": "EYE",
+	"quick_reset": "RST",
+	"tip_jar": "TIP",
+	"combo_bonus": "CMB",
+	"quick_hands": "HND",
+	"magnetic_glove": "MAG",
 }
 
 const COLOR_BG := Color(0.18, 0.15, 0.12, 0.92)
@@ -118,7 +127,7 @@ func refresh() -> void:
 	else:
 		_state = NodeState.UNAFFORDABLE
 
-	_base_footer_text = "L%d" % level if unlocked or maxed else short_name
+	_base_footer_text = _footer_text(def, level, maxed, unlocked, short_name)
 
 	_tooltip_def = def
 	_tooltip_level = level
@@ -171,9 +180,28 @@ func _on_pressed() -> void:
 	purchase_requested.emit(upgrade_id)
 
 
+func _footer_text(def: Dictionary, level: int, maxed: bool, unlocked: bool, short_name: String) -> String:
+	if not unlocked and level <= 0:
+		return short_name
+	var compact: String = TooltipText.compact_stat(def, level, GameState.upgrade_levels)
+	if maxed:
+		return "MAX" if compact.is_empty() else "MAX·%s" % compact
+	if level <= 0:
+		return short_name
+	if compact.is_empty():
+		return "L%d" % level
+	return "L%d·%s" % [level, compact]
+
+
 func _update_tooltip_content() -> void:
 	_tooltip_name.text = _tooltip_def.get("display_name", "")
-	_tooltip_desc.text = _tooltip_def.get("description", "")
+	var desc: String = _tooltip_def.get("description", "")
+	var preview: String = TooltipText.effect_preview(
+		_tooltip_def, _tooltip_level, GameState.upgrade_levels, _tooltip_maxed
+	)
+	if not preview.is_empty():
+		desc = "%s\n%s" % [desc, preview]
+	_tooltip_desc.text = desc
 	var max_level := int(_tooltip_def.get("max_level", 0))
 	if _tooltip_maxed:
 		_tooltip_level_label.text = "Lv %d/%d  MAX" % [_tooltip_level, max_level]

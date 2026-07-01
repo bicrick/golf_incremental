@@ -64,7 +64,7 @@ const TIER_COLORS: Array[Color] = [
 
 const JACKPOT_PAYOUT_THRESHOLD: float = 500.0
 
-## Fixed world-to-screen range — visual depth ignores gameplay max_yards cap.
+## Fixed world-to-screen range — perspective mapping only (not gameplay carry).
 const VISUAL_MAX_YARDS: float = 300.0
 ## Exponential depth scale — larger = nearer shots stay closer to tee before compressing.
 const PERSPECTIVE_DEPTH_SCALE: float = 180.0
@@ -113,7 +113,7 @@ const FLIGHT_TRAIL_HEAD_ALPHA := 0.35
 enum TimingTier { PERFECT, GREAT, GOOD, OKAY, BAD, MISS }
 enum ContactFlavor { PURE, SLIGHTLY_FAT, THIN, CHUNK }
 enum FeedbackTier { WHISPER, WARM, JACKPOT, MILESTONE }
-enum UpgradeBranch { BASE_PAY, YARDAGE, QUALITY, POWER }
+enum UpgradeBranch { BASE_PAY, POWER, QUALITY, PICKUP }
 
 ## One-time cost to unlock the upgrade tree from the icon bar.
 const UPGRADES_UNLOCK_COST: float = 1.50
@@ -126,12 +126,24 @@ static func default_stats() -> PlayerStats:
 	stats.timing_window_good_ms = 80.0
 	stats.timing_window_okay_ms = 140.0
 	stats.timing_window_bad_ms = 220.0
+	stats.timing_window_late_great_ms = POST_PEAK_GREAT_MS
+	stats.timing_window_late_good_ms = POST_PEAK_GOOD_MS
+	stats.timing_window_late_okay_ms = POST_PEAK_OKAY_MS
+	stats.timing_window_late_bad_max_sec = POST_PEAK_BAD_MAX_SEC
 	stats.swing_cooldown_ms = 1800.0
+	stats.yard_quality_floor = YARD_QUALITY_FLOOR
+	stats.yard_quality_late_peak = YARD_QUALITY_LATE_PEAK
 	stats.base_yards = 30.0
-	stats.max_yards = 45.0
+	stats.carry_multiplier = 1.0
 	stats.base_amount = 0.25
-	stats.yardage_multiplier = 0.02
+	stats.pay_per_yard = 0.02
 	stats.quality_multiplier = 1.0
 	stats.yardage_term_unlocked = 0.0
 	stats.quality_term_unlocked = 0.0
+	stats.pickup_bonus_unlocked = 0.0
+	stats.pickup_multiplier = 1.0
+	stats.pickup_flat_bonus = 0.0
+	stats.combo_mult_per_tier = 0.0
+	stats.combo_window_bonus_sec = 0.0
+	stats.magnetic_glove = 0.0
 	return stats
