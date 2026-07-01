@@ -183,15 +183,23 @@ func _check_landing_proportional_to_yards() -> bool:
 	]
 	for case in cases:
 		var path := BallFlight3D.build_path(case["yards"], case["tier"], stats, case["flavor"])
-		var dist := path.origin.distance_to(path.landing)
-		if absf(dist - case["yards"]) > 0.01:
+		if absf(path.visual_yards - case["yards"]) > 0.001:
 			print(
-				"FAIL: %s tier landing distance %.2f does not match yards %.2f"
+				"FAIL: %s tier visual_yards %.2f does not match gameplay yards %.2f"
+				% [Balance.TIER_NAMES[case["tier"]], path.visual_yards, case["yards"]]
+			)
+			ok = false
+		# Landing is a real Vector3 — lateral scatter means Euclidean distance
+		# is >= the forward carry, never less, and stays close for small scatter.
+		var dist := path.origin.distance_to(path.landing)
+		if dist < case["yards"] - 0.001:
+			print(
+				"FAIL: %s tier landing distance %.2f should be >= carry yards %.2f"
 				% [Balance.TIER_NAMES[case["tier"]], dist, case["yards"]]
 			)
 			ok = false
 	if ok:
-		print("OK: visual landing distance matches gameplay yards exactly for every tier")
+		print("OK: visual carry (visual_yards) matches gameplay yards exactly for every tier")
 	return ok
 
 
@@ -234,7 +242,7 @@ func _check_tier_ladder_distance_separation() -> bool:
 		var yards := Economy.yards_from_quality(quality, stats)
 		var flavor := charge.contact_flavor(sample["tier"], hold, stats)
 		var path := BallFlight3D.build_path(yards, sample["tier"], stats, flavor)
-		var dist := path.origin.distance_to(path.landing)
+		var dist := path.visual_yards
 		distances.append(dist)
 		report.append("%s=%.1fyd" % [Balance.TIER_NAMES[sample["tier"]], dist])
 		if dist <= prev_dist:

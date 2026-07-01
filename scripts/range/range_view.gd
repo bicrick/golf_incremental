@@ -393,12 +393,10 @@ func _update_charge_visuals() -> void:
 			windup, in_band, past_contact, past_contact_frac, elapsed, GameState.stats
 		)
 
-	if not _ball_at_tee:
-		return
+	if _ball_at_tee:
+		ball.position = _ball_home
+		ball.scale = _base_ball_scale
 
-	var compress := windup * 0.14
-	ball.scale = _base_ball_scale * Vector3(1.0 + compress * 0.5, 1.0 - compress, 1.0 + compress * 0.5)
-	ball.position = _ball_home + Vector3(0.0, compress * 0.08, 0.0)
 	golfer.position = _golfer_home + Vector3(0.0, lerpf(0.0, 0.03, windup), lerpf(0.0, -0.03, windup))
 
 
@@ -419,7 +417,13 @@ func _on_swing_resolved(
 	feedback_tier: int
 ) -> void:
 	_flash_beat_ring(tier)
-	HitPoof.spawn(fx_layer, _project_to_screen(ball.global_position), tier, feedback_tier)
+	HitPoof.spawn(
+		fx_layer,
+		_project_to_screen(ball.global_position),
+		_fairway_screen_dir(ball.global_position),
+		tier,
+		feedback_tier
+	)
 	_spawn_float_text(tier, yards, payout)
 	if feedback_tier == Balance.FeedbackTier.JACKPOT:
 		_play_golfer_joy()
@@ -459,6 +463,15 @@ func _project_to_screen(world_pos: Vector3) -> Vector2:
 	if camera == null:
 		return Vector2.ZERO
 	return camera.unproject_position(world_pos)
+
+
+func _fairway_screen_dir(from_world: Vector3) -> Vector2:
+	var origin := _project_to_screen(from_world)
+	var down_line := _project_to_screen(from_world + Vector3(0.0, 0.0, -12.0))
+	var dir := down_line - origin
+	if dir.length_squared() < 1.0:
+		return Vector2(0.0, -1.0)
+	return dir.normalized()
 
 
 func show_pickup_cash_float(world_pos: Vector3, payout: float, combo_tier: int) -> void:

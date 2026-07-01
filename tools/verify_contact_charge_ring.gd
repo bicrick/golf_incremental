@@ -121,10 +121,12 @@ func _check_perfect_zone_matches_timing() -> bool:
 	var stats := Balance.default_stats()
 	var contact := charge.contact_time_sec()
 
+	# Sample just inside (not exactly on) the perfect-window edge to avoid
+	# float rounding flipping the strict evaluate_timing boundary check.
 	var samples := [
 		contact,
 		contact - stats.timing_window_perfect_ms * 0.5 / 1000.0,
-		contact - stats.timing_window_perfect_ms / 1000.0,
+		contact - stats.timing_window_perfect_ms * 0.999 / 1000.0,
 		contact + stats.timing_window_perfect_ms * 0.5 / 1000.0,
 		contact - stats.timing_window_perfect_ms * 1.5 / 1000.0,
 	]
