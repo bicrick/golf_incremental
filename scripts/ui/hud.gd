@@ -13,6 +13,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	UiTheme.apply_wood_panel(_currency_panel)
 	PixelFont.apply_label(currency_label, 12)
+	UiTheme.apply_panel_label(currency_label)
 	call_deferred("_layout_top_left")
 	EventBus.stats_changed.connect(_on_stats_changed)
 	_update_currency(GameState.currency)

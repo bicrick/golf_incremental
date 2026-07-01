@@ -1,7 +1,7 @@
 extends PanelContainer
 ## Bottom-right ball bucket count — wood panel, Dinky ball icon + current/max fraction.
 
-const COLOR_NORMAL := Color(0.85, 0.92, 0.98, 1.0)
+const COLOR_NORMAL := UiTheme.COLOR_PANEL_TEXT
 const COLOR_EMPTY := Color(0.95, 0.55, 0.45, 0.85)
 
 @onready var _ball_icon: TextureRect = $Row/BallIcon
@@ -14,6 +14,7 @@ func _ready() -> void:
 	_ball_icon.texture = DinkySpriteFrames.ball_lay_texture()
 	_ball_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	PixelFont.apply_label(_count_label, 10)
+	UiTheme.apply_panel_label(_count_label)
 	EventBus.bucket_changed.connect(_on_bucket_changed)
 	EventBus.phase_changed.connect(_on_phase_changed)
 	_update_count(GameState._bucket_display_count(), GameState.bucket_capacity)

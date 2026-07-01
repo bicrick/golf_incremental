@@ -4,6 +4,8 @@ extends RefCounted
 
 const COLOR_PARCHMENT := Color(0.82, 0.72, 0.48, 0.92)
 const COLOR_BORDER := Color(0.18, 0.52, 0.48, 1.0)
+const COLOR_PANEL_TEXT := Color(0.85, 0.92, 0.98, 1.0)
+const COLOR_PANEL_TEXT_OUTLINE := Color(0.2, 0.15, 0.1, 0.8)
 
 
 static func make_wood_panel() -> StyleBoxFlat:
@@ -27,3 +29,8 @@ static func make_wood_panel() -> StyleBoxFlat:
 
 static func apply_wood_panel(panel: PanelContainer) -> void:
 	panel.add_theme_stylebox_override(&"panel", make_wood_panel())
+
+
+static func apply_panel_label(label: Label) -> void:
+	label.add_theme_color_override(&"font_color", COLOR_PANEL_TEXT)
+	label.add_theme_color_override(&"font_outline_color", COLOR_PANEL_TEXT_OUTLINE)
