@@ -39,10 +39,14 @@ static func volume_db_for(timing_tier: int, is_big: bool) -> float:
 			return -1.0
 		return -2.0
 	match timing_tier:
+		Balance.TimingTier.GREAT:
+			return -2.5
 		Balance.TimingTier.GOOD:
 			return -3.0
-		Balance.TimingTier.OK:
+		Balance.TimingTier.OKAY:
 			return -4.0
+		Balance.TimingTier.BAD:
+			return -4.5
 		_:
 			return -5.0
 

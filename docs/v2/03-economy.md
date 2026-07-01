@@ -19,13 +19,15 @@ Early game **pickup share target:** 40–60% of bucket cycle income. Hits feel m
 ## Payout formula (per swing)
 
 ```
-yards = contact_quality_curve(timing) × carry_tier_cap(stats)
-       (NOT raw base_yards × hold_power)
+yards = min(base_yards × yard_multiplier × timing_quality(release_delta_ms), max_yards)
+       (timing_quality is continuous 0..1; NOT raw base_yards × hold_power)
 
 payout = yards × tier_mult × club_mult × ball_mult × target_zone_mult
        × outfit_mult × global_mult × dollars_per_yard
        + flat_bonus_per_swing
 ```
+
+`tier_mult` comes from the discrete 6-tier ladder (Perfect/Great/Good/Okay/Bad/Miss, see [01-core-loop.md](01-core-loop.md#timing-tiers-and-contact-flavor)) and scales **payout only** — `yards` is driven entirely by the continuous `timing_quality` curve, so distance and payout both widen together as timing gets worse.
 
 ### v2 changes from v1
 
@@ -71,7 +73,7 @@ Unchanged enum; triggers add:
 
 | FeedbackTier | v2 trigger |
 |--------------|------------|
-| `whisper` | OK hit, small pickup |
+| `whisper` | Okay/Bad hit, small pickup |
 | `warm` | Perfect contact |
 | `jackpot` | Bucket combo ≥4, bullseye, absurd carry tier |
 | `milestone` | Range tier unlock, zone unlock |

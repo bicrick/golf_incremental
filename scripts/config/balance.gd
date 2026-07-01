@@ -21,9 +21,11 @@ const MIN_HOLD_SEC: float = 0.05
 ## Legacy aliases — same values as contact timing.
 const CHARGE_DURATION_SEC: float = CONTACT_WINDUP_SEC
 const CHARGE_DECAY_SEC: float = CONTACT_DECAY_SEC
-## Past peak: no Perfect; OK caps here, then Miss (half decay window).
-const POST_PEAK_OK_MAX_SEC: float = CHARGE_DECAY_SEC * 0.5
+## Past peak: no Perfect; ladder degrades Great → Good → Okay → Bad, then Miss (half decay window).
+const POST_PEAK_GREAT_MS: float = 15.0
 const POST_PEAK_GOOD_MS: float = 35.0
+const POST_PEAK_OKAY_MS: float = 90.0
+const POST_PEAK_BAD_MAX_SEC: float = CHARGE_DECAY_SEC * 0.5
 
 # Concentric ring visuals — inner rhombus expands into outer target (shared base polygon)
 const RING_INNER_START_FRAC: float = 0.20
@@ -35,23 +37,27 @@ const RING_OUTER_MAX_SCALE: float = 1.35
 
 const TIER_MULTS: Dictionary = {
 	0: 1.0,   # PERFECT
-	1: 0.7,   # GOOD
-	2: 0.4,   # OK
-	3: 0.1,   # MISS pity
+	1: 0.8,   # GREAT
+	2: 0.6,   # GOOD
+	3: 0.4,   # OKAY
+	4: 0.2,   # BAD
+	5: 0.1,   # MISS pity
 }
 
 # Continuous yard curve — tiers stay discrete for labels / payout mult only.
-const YARD_QUALITY_FLOOR: float = 0.1
+const YARD_QUALITY_FLOOR: float = 0.08
 ## Late release cannot reach dead-center quality (no Perfect tier past peak).
 const YARD_QUALITY_LATE_PEAK: float = 0.92
 
-const TIER_NAMES: Array[String] = ["Perfect!", "Good", "OK", "Miss"]
+const TIER_NAMES: Array[String] = ["Perfect!", "Great!", "Good", "Okay", "Bad", "Miss"]
 
 const TIER_COLORS: Array[Color] = [
 	Color(0.35, 0.85, 0.42),  # PERFECT — green
+	Color(0.62, 0.85, 0.30),  # GREAT — yellow-green
 	Color(1.0, 0.88, 0.25),   # GOOD — yellow
-	Color(0.95, 0.58, 0.22),  # OK — orange (between good and miss)
-	Color(0.92, 0.32, 0.28),  # MISS — red
+	Color(0.95, 0.58, 0.22),  # OKAY — orange
+	Color(0.92, 0.42, 0.24),  # BAD — red-orange
+	Color(0.78, 0.22, 0.22),  # MISS — deep red
 ]
 
 const JACKPOT_PAYOUT_THRESHOLD: float = 500.0
@@ -88,9 +94,6 @@ const FLIGHT_APEX_RATIO: Dictionary = {
 	3: 0.07,  # CHUNK — short fat hop
 }
 const FLIGHT_MIN_APEX_YARDS: float = 0.15
-## Visual carry floor / whiff cap, now expressed directly in world-space yards.
-const VISUAL_FLOOR_YARDS: float = 50.0
-const WHIFF_MAX_YARDS: float = 4.0
 ## Lateral scatter on landing (world yards), scaled by depth fraction of VISUAL_MAX_YARDS.
 const LANDING_SCATTER_YARDS: float = 3.0
 ## Fairway corridor half-width in yards — used for ground stripes, fence placement, bounds.
@@ -105,7 +108,7 @@ const FLIGHT_TRAIL_MIN_SAMPLE_PX := 3.0
 const FLIGHT_TRAIL_WIDTH := 1.5
 const FLIGHT_TRAIL_HEAD_ALPHA := 0.35
 
-enum TimingTier { PERFECT, GOOD, OK, MISS }
+enum TimingTier { PERFECT, GREAT, GOOD, OKAY, BAD, MISS }
 enum ContactFlavor { PURE, SLIGHTLY_FAT, THIN, CHUNK }
 enum FeedbackTier { WHISPER, WARM, JACKPOT, MILESTONE }
 enum UpgradeBranch { RHYTHM, DISTANCE, CLUBS, BALLS, RANGE, OUTFITS, ECONOMY, FRIENDS }
@@ -113,8 +116,11 @@ enum UpgradeBranch { RHYTHM, DISTANCE, CLUBS, BALLS, RANGE, OUTFITS, ECONOMY, FR
 
 static func default_stats() -> PlayerStats:
 	var stats := PlayerStats.new()
-	stats.timing_window_perfect_ms = 50.0
-	stats.timing_window_good_ms = 100.0
+	stats.timing_window_perfect_ms = 15.0
+	stats.timing_window_great_ms = 40.0
+	stats.timing_window_good_ms = 80.0
+	stats.timing_window_okay_ms = 140.0
+	stats.timing_window_bad_ms = 220.0
 	stats.swing_cooldown_ms = 1800.0
 	stats.base_yards = 30.0
 	stats.max_yards = 45.0

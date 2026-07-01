@@ -18,7 +18,8 @@ func _run() -> void:
 	ok = _check_apex_scales_with_contact_flavor() and ok
 	ok = _check_flight_time_monotonic() and ok
 	ok = _check_flight_time_bounds() and ok
-	ok = _check_landing_matches_visual_yards() and ok
+	ok = _check_landing_proportional_to_yards() and ok
+	ok = _check_tier_ladder_distance_separation() and ok
 	ok = await _check_flight_trail() and ok
 	print("ball_flight_ok=", ok)
 	quit(0 if ok else 1)
@@ -98,8 +99,8 @@ func _check_apex_scales_with_contact_flavor() -> bool:
 	var ok := true
 	var stats := _maxed_stats()
 	var yards := 150.0
-	var pure := BallFlight3D.build_path(yards, Balance.TimingTier.OK, stats, Balance.ContactFlavor.PURE)
-	var fat := BallFlight3D.build_path(yards, Balance.TimingTier.OK, stats, Balance.ContactFlavor.SLIGHTLY_FAT)
+	var pure := BallFlight3D.build_path(yards, Balance.TimingTier.OKAY, stats, Balance.ContactFlavor.PURE)
+	var fat := BallFlight3D.build_path(yards, Balance.TimingTier.OKAY, stats, Balance.ContactFlavor.SLIGHTLY_FAT)
 	var thin := BallFlight3D.build_path(yards, Balance.TimingTier.MISS, stats, Balance.ContactFlavor.THIN)
 	if pure.apex_height <= fat.apex_height:
 		print(

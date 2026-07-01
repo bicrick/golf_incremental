@@ -2,9 +2,12 @@ class_name PlayerStats
 extends Resource
 ## Aggregated stat sheet — recomputed when upgrades change.
 
-# Rhythm
-@export var timing_window_perfect_ms: float = 50.0
-@export var timing_window_good_ms: float = 100.0
+# Rhythm — 6-tier ladder (Perfect/Great/Good/Okay/Bad/Miss), Perfect kept tight/rare by default.
+@export var timing_window_perfect_ms: float = 15.0
+@export var timing_window_great_ms: float = 40.0
+@export var timing_window_good_ms: float = 80.0
+@export var timing_window_okay_ms: float = 140.0
+@export var timing_window_bad_ms: float = 220.0
 @export var swing_cooldown_ms: float = 800.0
 @export var perfect_payout_bonus: float = 0.0
 
@@ -41,7 +44,10 @@ extends Resource
 static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	var copy := PlayerStats.new()
 	copy.timing_window_perfect_ms = from.timing_window_perfect_ms
+	copy.timing_window_great_ms = from.timing_window_great_ms
 	copy.timing_window_good_ms = from.timing_window_good_ms
+	copy.timing_window_okay_ms = from.timing_window_okay_ms
+	copy.timing_window_bad_ms = from.timing_window_bad_ms
 	copy.swing_cooldown_ms = from.swing_cooldown_ms
 	copy.perfect_payout_bonus = from.perfect_payout_bonus
 	copy.base_yards = from.base_yards

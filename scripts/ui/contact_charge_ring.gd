@@ -3,9 +3,6 @@ extends Node2D
 ## Concentric rhombus charge UI — inner expands into upgrade-scaled outer target.
 
 const FROZEN_FADE_DURATION: float = 1.0
-const COLOR_PERFECT := Color(0.35, 0.85, 0.42)
-const COLOR_GOOD := Color(1.0, 0.88, 0.25)
-const COLOR_BAD := Color(0.92, 0.32, 0.28)
 
 signal frozen_fade_completed
 
@@ -103,39 +100,51 @@ static func is_hold_in_perfect_zone(hold_sec: float, stats: PlayerStats) -> bool
 	return charge.evaluate_timing(hold_sec, stats) == Balance.TimingTier.PERFECT
 
 
-## Piecewise green → yellow → red blend keyed to the same ms windows as evaluate_timing.
+## Piecewise blend across Balance.TIER_COLORS keyed to the same ms windows as evaluate_timing.
 static func charge_timing_color(elapsed_sec: float, stats: PlayerStats) -> Color:
 	if elapsed_sec < Balance.MIN_HOLD_SEC:
-		return COLOR_BAD
+		return Balance.TIER_COLORS[Balance.TimingTier.MISS]
 
 	var contact := Balance.CONTACT_WINDUP_SEC
 	var delta_sec := elapsed_sec - contact
-	var perfect_ms := stats.timing_window_perfect_ms
-	var good_ms := stats.timing_window_good_ms
-	var ok_ms := good_ms * 1.5
 
 	if delta_sec <= 0.0:
 		var early_ms := absf(delta_sec) * 1000.0
-		if early_ms <= perfect_ms:
-			return COLOR_PERFECT
-		if early_ms <= good_ms:
-			var t := (early_ms - perfect_ms) / maxf(good_ms - perfect_ms, 0.001)
-			return COLOR_PERFECT.lerp(COLOR_GOOD, t)
-		if early_ms <= ok_ms:
-			var t := (early_ms - good_ms) / maxf(ok_ms - good_ms, 0.001)
-			return COLOR_GOOD.lerp(COLOR_BAD, t)
-		return COLOR_BAD
+		var early_stops: Array = [
+			[stats.timing_window_perfect_ms, Balance.TimingTier.PERFECT],
+			[stats.timing_window_great_ms, Balance.TimingTier.GREAT],
+			[stats.timing_window_good_ms, Balance.TimingTier.GOOD],
+			[stats.timing_window_okay_ms, Balance.TimingTier.OKAY],
+			[stats.timing_window_bad_ms, Balance.TimingTier.BAD],
+		]
+		return _ladder_color(early_ms, Balance.TimingTier.PERFECT, early_stops)
 
 	var late_ms := delta_sec * 1000.0
-	var good_late_ms := Balance.POST_PEAK_GOOD_MS
-	var ok_max_ms := Balance.CONTACT_DECAY_SEC * 0.5 * 1000.0
-	if late_ms <= good_late_ms:
-		var t := late_ms / maxf(good_late_ms, 0.001)
-		return COLOR_PERFECT.lerp(COLOR_GOOD, t)
-	if late_ms <= ok_max_ms:
-		var t := (late_ms - good_late_ms) / maxf(ok_max_ms - good_late_ms, 0.001)
-		return COLOR_GOOD.lerp(COLOR_BAD, t)
-	return COLOR_BAD
+	var late_stops: Array = [
+		[Balance.POST_PEAK_GREAT_MS, Balance.TimingTier.GREAT],
+		[Balance.POST_PEAK_GOOD_MS, Balance.TimingTier.GOOD],
+		[Balance.POST_PEAK_OKAY_MS, Balance.TimingTier.OKAY],
+		[Balance.POST_PEAK_BAD_MAX_SEC * 1000.0, Balance.TimingTier.BAD],
+	]
+	return _ladder_color(late_ms, Balance.TimingTier.GREAT, late_stops)
+
+
+## Blends between consecutive tier colors as `value_ms` crosses each stop's
+## threshold. `start_tier` supplies the color for the 0..first-stop range.
+## Past the final stop, falls through to the Miss color (matches evaluate_timing).
+static func _ladder_color(value_ms: float, start_tier: int, stops: Array) -> Color:
+	var prev_ms := 0.0
+	var prev_color: Color = Balance.TIER_COLORS[start_tier]
+	for stop in stops:
+		var threshold_ms: float = stop[0]
+		var tier: int = stop[1]
+		var color: Color = Balance.TIER_COLORS[tier]
+		if value_ms <= threshold_ms:
+			var t := inverse_lerp(prev_ms, maxf(threshold_ms, prev_ms + 0.001), value_ms)
+			return prev_color.lerp(color, clampf(t, 0.0, 1.0))
+		prev_ms = threshold_ms
+		prev_color = color
+	return Balance.TIER_COLORS[Balance.TimingTier.MISS]
 
 
 static func charge_outer_color(inner: Color) -> Color:

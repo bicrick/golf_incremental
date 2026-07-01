@@ -2,12 +2,12 @@
 
 Testable done gates per implementation phase. See [07-implementation-phases.md](../07-implementation-phases.md).
 
-## Phase B — Visual carry floor
+## Phase B — Proportional flight (visual carry floor removed)
 
-- [ ] Default stats, OK tier contact: ball landing Y ≥ configured floor (not near tee hop)
-- [ ] Perfect contact: landing at or above first fairway depth band
-- [ ] Miss/whiff: landing within dribble radius of tee
-- [ ] `verify_ball_flight.gd` extended or `verify_v2_visual_floor.gd` passes headless
+- [ ] Visual landing distance equals gameplay yards exactly for every tier (no floor, no cap)
+- [ ] Miss/whiff: landing distance proportional to its (low) computed yards, near tee
+- [ ] Distance visibly increases across the ladder: Miss < Bad < Okay < Good < Great < Perfect
+- [ ] `verify_ball_flight.gd` passes headless
 
 ## Phase C — Bucket strike gate
 

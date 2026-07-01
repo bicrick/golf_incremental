@@ -68,13 +68,15 @@ Early and late are the same axis as pure — not a parallel mechanic.
 
 ### Timing tiers and contact flavor
 
-Tier labels stay **Perfect / Good / OK / Miss** for HUD and payout. **Flavor** names describe what the player *sees* on the fairway.
+Tier labels are **Perfect / Great / Good / Okay / Bad / Miss** for HUD and payout — a six-rung ladder so distance and payout visibly separate between a weak real hit and a clean one. **Perfect is intentionally rare** (tight ms window by default); the Rhythm branch's Metronome upgrade widens it over time. **Flavor** names describe what the player *sees* on the fairway.
 
 | Tier | Timing | Contact flavor | Feel | Payout mult |
 |------|--------|----------------|------|-------------|
-| Perfect | Pure (tight window) | **Pure** | Clean strike, satisfying arc | 1.0× |
-| Good | Pure (wider window) | **Pure** | Solid contact, slightly softer arc | ~0.7× |
-| OK | Pure edge or slightly late, still contacted | **Slightly fat** | Chunky but forward; hits visual carry floor | ~0.4× |
+| Perfect | Pure (very tight window, rare) | **Pure** | Clean strike, satisfying arc | 1.0× |
+| Great | Pure (wider window) | **Pure** | Crisp contact, high arc | ~0.8× |
+| Good | Pure (wider still) | **Pure** | Solid contact, normal arc | ~0.6× |
+| Okay | Pure edge or slightly late, still contacted | **Slightly fat** | Chunky but forward | ~0.4× |
+| Bad | Weak real contact, near the edge of the timing window | **Slightly fat** | Barely got there, short and low | ~0.2× |
 | Miss (early) | Too early | **Thin** | Skid, low dribble near tee | ~0.1× pity |
 | Miss (late) | Too late | **Chunk** | Fat hop off turf, comedic short hop | ~0.1× pity |
 
@@ -82,17 +84,11 @@ Tier labels stay **Perfect / Good / OK / Miss** for HUD and payout. **Flavor** n
 
 **Do not implement:** a full early/late × thin/fat grid, or chunk/fat as a separate subsystem. Flavor follows tier + timing side (early vs late miss only).
 
-### Depth rule (carry vs visual)
+### Depth rule (carry is always real)
 
-Gameplay yards and screen depth follow different rules by tier:
+Visual flight distance is **always exactly the gameplay yards** for every tier — no artificial floor or cap. A weak Bad/Okay hit visibly travels less than a Great or Perfect hit, and a whiff dribbles near the tee. This makes the ball's flight an honest readout of contact quality instead of a fixed "look" that's the same across most tiers.
 
-| Tier / flavor | Visual depth (early game) | Extra depth |
-|---------------|----------------------------|-------------|
-| OK+ (incl. slightly fat) | **Visual carry floor** — at least first depth band (~50yd marker). See Phase B in [07-implementation-phases.md](07-implementation-phases.md). | No |
-| Pure (Perfect / Good) | Same floor early; arc reads cleaner / slightly higher | Only via **carry tier** upgrades on pure contact (late game) |
-| Thin / chunk (Miss) | Near tee — skid or hop; capped low `p` | No |
-
-**Perfect does not go stupid deep early.** Absurd horizon carry unlocks only with sweet-spot **carry tier** upgrades on pure contact, not from Perfect alone at game start.
+**Perfect does not go stupid deep early.** Long carry unlocks through distance/power upgrades (`base_yards`, `max_yards`), not from Perfect timing alone at game start.
 
 ### Sweet spot upgrades (progression)
 
@@ -130,7 +126,7 @@ Extend `EventBus` when implementing:
 - ~~Hold begins charge and power curve~~ → contact release at frame 9
 - ~~Infinite tee reload~~ → bucket + pickup refill
 - Add: bucket empty triggers harvest
-- Add: visual carry floor on OK+ contacts
+- ~~Visual carry floor on OK+ contacts~~ → removed; flight is always proportional to actual yards
 
 ## Related docs
 

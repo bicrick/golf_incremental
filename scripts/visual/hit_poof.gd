@@ -71,12 +71,16 @@ static func _scale_for_tier(timing_tier: int, feedback_tier: int) -> float:
 	match timing_tier:
 		Balance.TimingTier.PERFECT:
 			scale = 1.15
+		Balance.TimingTier.GREAT:
+			scale = 1.05
 		Balance.TimingTier.GOOD:
-			scale = 1.0
-		Balance.TimingTier.OK:
+			scale = 0.96
+		Balance.TimingTier.OKAY:
 			scale = 0.88
+		Balance.TimingTier.BAD:
+			scale = 0.78
 		_:
-			scale = 0.72
+			scale = 0.7
 	if feedback_tier == Balance.FeedbackTier.JACKPOT:
 		scale *= 1.18
 	elif feedback_tier == Balance.FeedbackTier.WARM:

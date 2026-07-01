@@ -7,18 +7,13 @@ Build in order. Each phase should be playable before starting the next.
 - [x] v2 docs in `docs/v2/`
 - [ ] Team agrees v2.0 scope = bucket + pickup MVP + contact swing retune
 
-## Phase B — Visual carry floor (no bucket yet)
+## Phase B — Visual carry floor (superseded — see below)
 
-**Goal:** OK+ hits look like golf down-the-line.
+**Original goal:** OK+ hits look like golf down-the-line via a minimum landing-depth floor.
 
-| Task | Files (likely) |
-|------|----------------|
-| Minimum landing depth for non-whiff | `ball_flight_renderer.gd`, `balance.gd` |
-| Whiff dribble near tee | `range_view.gd`, flight path |
-| Retune arc minimum | `BallFlightRenderer.FlightConfig` |
-| Verify | `verify_ball_flight.gd`, new asserts for floor |
+**Superseded:** the floor made every non-whiff tier (then just OK/Good/Perfect) fly to roughly the same visual distance, which reads as a bug once more tiers exist. Visual flight now always equals gameplay yards exactly for every tier — see [02-ball-flight-and-camera.md](02-ball-flight-and-camera.md#proportional-flight-no-visual-floor) and the 6-tier ladder in [01-core-loop.md](01-core-loop.md#timing-tiers-and-contact-flavor).
 
-**Exit:** Perfect shot at default stats reaches first depth band visually.
+**Exit:** Distance visibly separates across Miss < Bad < Okay < Good < Great < Perfect; `verify_ball_flight.gd` passes headless.
 
 ## Phase C — Bucket + strike gate (v2.0 core)
 

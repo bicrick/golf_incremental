@@ -23,42 +23,44 @@ Implications:
 
 ## Contact flavor → flight and depth
 
-Contact timing resolves to tier + **flavor** (see [01-core-loop.md](01-core-loop.md#timing-tiers-and-contact-flavor)). Flight renderer reads flavor for arc and `p`, not a second thin/fat skill check.
+Contact timing resolves to tier + **flavor** (see [01-core-loop.md](01-core-loop.md#timing-tiers-and-contact-flavor)). Flight renderer reads flavor (and, at the top of the ladder, tier) for arc, not a second thin/fat skill check.
 
-| Flavor | Arc / motion | Visual `p` (early game) |
-|--------|--------------|-------------------------|
-| **Pure** (Perfect / Good) | Normal carry arc; Perfect slightly higher | Floor for OK+; extra depth only with carry tier upgrades |
-| **Slightly fat** (OK) | Lower, blunter arc; still forward | **Visual carry floor** — same minimum band as pure OK+ |
-| **Thin** (Miss early) | Ground skid, low dribble | Near tee; `WHIFF_MAX_P` cap |
-| **Chunk** (Miss late) | Fat hop off turf, comedic bounce | Near tee; short hop, low `p` |
+| Flavor | Arc / motion |
+|--------|--------------|
+| **Pure** (Perfect / Great / Good) | Normal carry arc; Perfect/Great arc a little higher than Good |
+| **Slightly fat** (Okay / Bad) | Lower, blunter arc; still forward |
+| **Thin** (Miss early) | Ground skid, low dribble |
+| **Chunk** (Miss late) | Fat hop off turf, comedic bounce |
 
-OK+ always meets the floor regardless of slightly-fat read. Miss flavors never inherit the OK+ floor.
+Visual distance always tracks the tier's actual computed yards — see below.
 
-## Visual carry floor (non-negotiable)
+## Proportional flight (no visual floor)
 
-**Gameplay yards** and **visual world-space distance** still decouple early — now expressed directly in world-space yards instead of a screen-space perspective fraction.
+**Visual world-space distance always equals gameplay yards exactly**, for every tier including Miss. There is no floor or cap decoupling the two — a Bad hit visibly travels less than a Good hit, which travels less than a Great or Perfect hit, and a whiff genuinely dribbles near the tee.
 
-| Contact result | Visual landing (early game) | Gameplay yards (example) |
-|----------------|----------------------------|---------------------------|
-| Thin / chunk (Miss) | Dribble or hop near tee | ~0–5 |
-| OK+ (incl. slightly fat) | At least **`VISUAL_FLOOR_YARDS`** world-space carry | 15–30 |
-| Pure Perfect / Good | Same floor early; higher arc | capped by stats |
-| Pure + carry tier upgrade | Real long carry down `-Z` (late game) | high |
+| Contact result | Visual landing | Gameplay yards (example, early game) |
+|----------------|----------------|---------------------------------------|
+| Miss (thin/chunk) | Near tee, proportional to its (very low) yards | ~1–3 |
+| Bad | Short, visibly farther than a whiff | ~2–6 |
+| Okay | Modest carry | ~6–17 |
+| Good | Solid carry | ~17–26 |
+| Great | Strong carry | ~26–29 |
+| Perfect | Best carry at current stats | ~29–30 |
+
+Long carry beyond these bands comes from distance/power upgrades (`base_yards`, `max_yards`), not from an artificial floor.
 
 ### Implementation (current codebase, `ball_flight_3d.gd`)
 
-- `BallFlight3D.resolve_visual_yards(yards, timing_tier)` replaces the old `Economy.visual_depth_t()` / `BallFlightRenderer.yards_to_p()` screen-space compression — it works directly in world-space yards, no perspective inversion needed.
-- Whiff (Miss tier): clamped to `[0, Balance.WHIFF_MAX_YARDS]`.
-- Non-whiff: `max(yards, Balance.VISUAL_FLOOR_YARDS)` — the floor is a real world distance now, not a screen Y coordinate.
-- `Balance.VISUAL_MAX_YARDS` (300) still normalizes depth fraction for scatter-range scaling, but landing position is a real `Vector3`, not a perspective sample.
+- `BallFlight3D.resolve_visual_yards(yards, timing_tier)` returns `yards` unmodified (clamped only to non-negative) — replaces the old `Economy.visual_depth_t()` / `BallFlightRenderer.yards_to_p()` screen-space compression and the later world-space floor/cap.
+- `BallFlight3D.apex_ratio_for(contact_flavor, timing_tier)` applies the flavor's base apex ratio (`Balance.FLIGHT_APEX_RATIO`) plus a small multiplier for Perfect/Great so the cleanest pure-flavor hits arc a bit higher than a plain Good.
+- `Balance.VISUAL_MAX_YARDS` (300) still normalizes depth fraction for scatter-range scaling, but landing position is a real `Vector3` computed directly from yards, not a perspective sample.
 
 Constants in `balance.gd` (implemented):
 
 | Constant | Purpose |
 |----------|---------|
-| `VISUAL_FLOOR_YARDS` | Minimum world-space carry (yards) for OK+ |
-| `WHIFF_MAX_YARDS` | Cap whiff carry (yards) near tee |
 | `LANDING_SCATTER_YARDS` | Max lateral (`X`) scatter on landing, yards |
+| `FLIGHT_MIN_APEX_YARDS` | Minimum apex so even a tiny whiff arcs slightly above ground |
 
 ## Scatter on landing
 
@@ -66,7 +68,7 @@ Constants in `balance.gd` (implemented):
 
 ## Arc and juice
 
-- OK+ (pure or slightly fat): `Balance.FLIGHT_APEX_RATIO` keeps a minimum apex height so flight never reads as "ground skid"
+- Okay and above (pure or slightly fat): `Balance.FLIGHT_APEX_RATIO` plus `Balance.FLIGHT_MIN_APEX_YARDS` keep a minimum apex height so flight never reads as "ground skid"
 - Pure Perfect: tier color flash, optional camera nudge (existing jackpot shake, now `Camera3D` frustum offset)
 - Thin: low apex ratio (skid); chunk: short-hop apex ratio — comedy on miss only
 - Carry tier upgrades (pure only): real long carry down `-Z` — late-game comedy goal, no longer needs a "leave the visible band" trick since the world is real 3D space

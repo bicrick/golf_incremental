@@ -21,16 +21,22 @@ class FlightPath:
 	var apex_height: float = 0.0
 
 
-## Gameplay yards → visual flight yards, with the v2 carry floor / whiff cap
-## now expressed directly as world-space distance instead of screen-space p.
-static func resolve_visual_yards(yards: float, timing_tier: int) -> float:
-	if timing_tier == Balance.TimingTier.MISS:
-		return clampf(yards, 0.0, Balance.WHIFF_MAX_YARDS)
-	return maxf(yards, Balance.VISUAL_FLOOR_YARDS)
+## Visual flight distance always equals gameplay yards exactly — no floor or
+## cap. Every tier's rendered carry is proportional to its actual yardage.
+static func resolve_visual_yards(yards: float, _timing_tier: int) -> float:
+	return maxf(yards, 0.0)
 
 
-static func apex_ratio_for(contact_flavor: int) -> float:
-	return Balance.FLIGHT_APEX_RATIO.get(contact_flavor, Balance.FLIGHT_APEX_RATIO[0])
+## Apex ratio comes from contact flavor, with a small bonus at the top of the
+## ladder (Great/Perfect) so the cleanest hits arc a little higher than a
+## plain Good even when they share the PURE flavor.
+static func apex_ratio_for(contact_flavor: int, timing_tier: int = -1) -> float:
+	var ratio: float = Balance.FLIGHT_APEX_RATIO.get(contact_flavor, Balance.FLIGHT_APEX_RATIO[0])
+	if timing_tier == Balance.TimingTier.PERFECT:
+		ratio *= 1.15
+	elif timing_tier == Balance.TimingTier.GREAT:
+		ratio *= 1.08
+	return ratio
 
 
 static func build_path(
@@ -46,7 +52,7 @@ static func build_path(
 	path.yards = yards
 	path.visual_yards = resolve_visual_yards(yards, timing_tier)
 
-	var apex_ratio := apex_ratio_for(contact_flavor)
+	var apex_ratio := apex_ratio_for(contact_flavor, timing_tier)
 	path.apex_height = maxf(path.visual_yards * apex_ratio, Balance.FLIGHT_MIN_APEX_YARDS)
 
 	var g := Balance.FLIGHT_GRAVITY

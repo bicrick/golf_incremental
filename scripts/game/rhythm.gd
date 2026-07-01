@@ -70,7 +70,7 @@ func contact_flavor(tier: int, hold_duration_sec: float, _stats: PlayerStats) ->
 		if hold_duration_sec < contact_time_sec():
 			return Balance.ContactFlavor.THIN
 		return Balance.ContactFlavor.CHUNK
-	if tier == Balance.TimingTier.OK:
+	if tier == Balance.TimingTier.BAD or tier == Balance.TimingTier.OKAY:
 		return Balance.ContactFlavor.SLIGHTLY_FAT
 	return Balance.ContactFlavor.PURE
 
@@ -91,7 +91,7 @@ func timing_quality(hold_duration_sec: float, stats: PlayerStats) -> float:
 func _yard_quality_early(error_ms: float, stats: PlayerStats) -> float:
 	var floor := Balance.YARD_QUALITY_FLOOR
 	var span := 1.0 - floor
-	var sigma := maxf(stats.timing_window_good_ms * 0.85, 1.0)
+	var sigma := maxf(stats.timing_window_good_ms * 0.9, 1.0)
 	return floor + span * exp(-0.5 * pow(error_ms / sigma, 2.0))
 
 
@@ -99,7 +99,7 @@ func _yard_quality_late(late_ms: float) -> float:
 	var floor := Balance.YARD_QUALITY_FLOOR
 	var peak := Balance.YARD_QUALITY_LATE_PEAK
 	var span := peak - floor
-	var sigma := maxf(Balance.POST_PEAK_GOOD_MS * 1.25, 1.0)
+	var sigma := maxf(Balance.POST_PEAK_GOOD_MS, 1.0)
 	return floor + span * exp(-0.5 * pow(late_ms / sigma, 2.0))
 
 
@@ -114,17 +114,24 @@ func evaluate_timing(hold_duration_sec: float, stats: PlayerStats) -> int:
 		var early_ms := absf(delta_sec) * 1000.0
 		if early_ms <= stats.timing_window_perfect_ms:
 			return Balance.TimingTier.PERFECT
+		if early_ms <= stats.timing_window_great_ms:
+			return Balance.TimingTier.GREAT
 		if early_ms <= stats.timing_window_good_ms:
 			return Balance.TimingTier.GOOD
-		if early_ms <= stats.timing_window_good_ms * 1.5:
-			return Balance.TimingTier.OK
+		if early_ms <= stats.timing_window_okay_ms:
+			return Balance.TimingTier.OKAY
+		if early_ms <= stats.timing_window_bad_ms:
+			return Balance.TimingTier.BAD
 		return Balance.TimingTier.MISS
 
-	# Late release — no Perfect; degrades through Good → OK → Miss.
-	var overshoot_ms := delta_sec * 1000.0
-	if overshoot_ms <= Balance.POST_PEAK_GOOD_MS:
+	# Late release — no Perfect; degrades through Great → Good → Okay → Bad → Miss.
+	var late_ms := delta_sec * 1000.0
+	if late_ms <= Balance.POST_PEAK_GREAT_MS:
+		return Balance.TimingTier.GREAT
+	if late_ms <= Balance.POST_PEAK_GOOD_MS:
 		return Balance.TimingTier.GOOD
-	var ok_max := contact_decay_sec() * 0.5
-	if delta_sec <= ok_max:
-		return Balance.TimingTier.OK
+	if late_ms <= Balance.POST_PEAK_OKAY_MS:
+		return Balance.TimingTier.OKAY
+	if delta_sec <= Balance.POST_PEAK_BAD_MAX_SEC:
+		return Balance.TimingTier.BAD
 	return Balance.TimingTier.MISS
