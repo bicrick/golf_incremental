@@ -326,39 +326,48 @@ func _check_hit_mode_during_harvest(main: Node, gs: Node) -> bool:
 	if gs.harvest_collected != 1:
 		print("FAIL: hit mode test expected 1 collected ball")
 		return false
-	if gs.has_bucket_balls():
-		print("FAIL: collect mode should not allow bucket hits")
-		return false
-
-	gs.set_range_action_mode(gs.ACTION_HIT)
-	await process_frame
 	if not gs.has_bucket_balls():
-		print("FAIL: hit mode should allow swings with collected balls")
+		print("FAIL: one collected ball should allow swings during harvest")
+		return false
+	if not gs.is_collect_mode():
+		print("FAIL: partial bucket should still allow pickup")
 		return false
 
 	range_view._swing._last_swing_msec = Time.get_ticks_msec() - int(gs.stats.swing_cooldown_ms) - 1
 	range_view._swing.start_charge()
 	if not range_view._swing.is_charging():
-		print("FAIL: hit mode start_charge did not begin swing")
+		print("FAIL: harvest swing start_charge did not begin swing")
 		return false
 	await process_frame
 	range_view._swing.release_strike()
 	await process_frame
 	if gs.harvest_collected != 0:
 		print(
-			"FAIL: swing during harvest hit mode should consume collected ball, got %d"
+			"FAIL: swing during harvest should consume collected ball, got %d"
 			% gs.harvest_collected
 		)
 		return false
 	if gs.current_phase != "harvest":
-		print("FAIL: harvest hit swing should stay in harvest phase")
+		print("FAIL: harvest swing should stay in harvest phase")
 		return false
 	if gs.has_bucket_balls():
-		print("FAIL: empty harvest hit bucket should not allow swings")
+		print("FAIL: empty harvest bucket should not allow swings")
 		return false
-	if gs.range_action_mode != gs.ACTION_COLLECT:
-		print("FAIL: empty harvest hit bucket should auto-return to collect mode")
+	if not gs.is_collect_mode():
+		print("FAIL: empty harvest bucket should still allow pickup")
 		return false
 
-	print("OK: hit mode swings consume collected balls during harvest")
+	gs.collect_harvest_ball(Vector3.ZERO, 1)
+	gs.collect_harvest_ball(Vector3.ZERO, 1)
+	if gs.harvest_collected != 2:
+		print("FAIL: dual capability test expected 2 collected balls")
+		return false
+	if not gs.has_bucket_balls():
+		print("FAIL: dual capability test should allow swings with 2 balls")
+		return false
+	if not gs.is_collect_mode():
+		print("FAIL: dual capability test should allow pickup with 2 balls")
+		return false
+
+	print("OK: harvest swings and pickup inferred from bucket count")
 	return true

@@ -19,31 +19,13 @@ offset_top = 10.0
 grow_horizontal = 0
 grow_vertical = 0
 
-[node name="VBox" type="VBoxContainer" parent="Margin"]
+[node name="CurrencyPanel" type="PanelContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 2
 
-[node name="CurrencyLabel" type="Label" parent="Margin/VBox"]
+[node name="CurrencyLabel" type="Label" parent="Margin/CurrencyPanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.9, 0.75, 1)
 theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
 theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 12
 text = "$0"
-
-[node name="HintLabel" type="Label" parent="Margin/VBox"]
-visible = false
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.92, 0.45, 1)
-theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 8
-text = "Hold to swing"
-
-[node name="PhaseLabel" type="Label" parent="Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.75, 0.82, 0.72, 0.9)
-theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 8
-text = "STRIKE"

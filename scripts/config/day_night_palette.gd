@@ -60,9 +60,9 @@ static func _midnight() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.06, 0.08, 0.22),
 		Color(0.12, 0.18, 0.16),
-		Color(0.22, 0.32, 0.26),
+		Color(0.30, 0.42, 0.34),
+		Color(0.38, 0.52, 0.42),
 		Color(0.28, 0.40, 0.32),
-		Color(0.19, 0.28, 0.22),
 		Color(0.48, 0.50, 0.66)
 	)
 
@@ -104,9 +104,9 @@ static func _night() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.10, 0.14, 0.32),
 		Color(0.18, 0.28, 0.22),
-		Color(0.26, 0.38, 0.30),
-		Color(0.35, 0.50, 0.38),
-		Color(0.23, 0.34, 0.26),
+		Color(0.34, 0.48, 0.36),
+		Color(0.44, 0.62, 0.48),
+		Color(0.32, 0.46, 0.36),
 		Color(0.58, 0.62, 0.78)
 	)
 

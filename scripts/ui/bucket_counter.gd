@@ -1,15 +1,16 @@
-extends HBoxContainer
-## Bottom-right ball bucket count — Dinky ball icon + current/max fraction.
+extends PanelContainer
+## Bottom-right ball bucket count — wood panel, Dinky ball icon + current/max fraction.
 
 const COLOR_NORMAL := Color(0.85, 0.92, 0.98, 1.0)
 const COLOR_EMPTY := Color(0.95, 0.55, 0.45, 0.85)
 
-@onready var _ball_icon: TextureRect = $BallIcon
-@onready var _count_label: Label = $CountLabel
+@onready var _ball_icon: TextureRect = $Row/BallIcon
+@onready var _count_label: Label = $Row/CountLabel
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UiTheme.apply_wood_panel(self)
 	_ball_icon.texture = DinkySpriteFrames.ball_lay_texture()
 	_ball_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	PixelFont.apply_label(_count_label, 10)

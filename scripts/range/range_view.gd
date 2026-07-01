@@ -4,7 +4,7 @@ extends Node3D
 ## this script places golfer/ball/litter at real Vector3 positions and lets
 ## the engine handle the rest.
 
-const CHARGE_METER_POSITION := Vector2(190.0, 152.143)
+const CHARGE_METER_POSITION := Vector2(236.0, 185.143)
 const BALL_PIXEL_SIZE := 0.021
 const GOLFER_PIXEL_SIZE := 0.024
 const VANISH_DISTANCE_YARDS := 220.0
@@ -60,7 +60,6 @@ func _ready() -> void:
 	EventBus.swing_charge_updated.connect(_on_swing_charge_updated)
 	EventBus.bucket_changed.connect(_on_bucket_changed)
 	EventBus.phase_changed.connect(_on_phase_changed)
-	EventBus.range_action_changed.connect(_on_range_action_changed)
 	call_deferred("_sync_tee_ball_from_bucket")
 	call_deferred("_setup_pickup_controller")
 	if camera:
@@ -153,17 +152,19 @@ func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float
 func apply_atmosphere(cycle_time: float) -> void:
 	var snap := DayNightPalette.sample_at(cycle_time)
 	_sprite_atmosphere_tint = snap.canvas_modulate
+	var day_factor := DayNightPalette.celestial_alpha(cycle_time, false)
 	if world_environment and world_environment.environment:
 		var env := world_environment.environment
 		env.background_color = snap.sky
-		env.ambient_light_color = snap.sky
+		# Moonlit sky is very dark; blend ambient toward fairway green so ground
+		# stays readable without brightening the sky backdrop.
+		env.ambient_light_color = snap.sky.lerp(snap.fairway_light, (1.0 - day_factor) * 0.45)
 	FairwayGrassTiles3D.apply_palette(
 		ground, Balance.FAIRWAY_HALF_WIDTH_YARDS, snap.fairway_light, snap.fairway_dark
 	)
 	if sun_light:
-		var day_factor := DayNightPalette.celestial_alpha(cycle_time, false)
 		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)
-		sun_light.light_energy = lerpf(0.22, 1.15, day_factor)
+		sun_light.light_energy = lerpf(0.30, 1.15, day_factor)
 		sun_light.rotation_degrees = Vector3(lerpf(-70.0, -35.0, day_factor), 35.0, 0.0)
 	_apply_sprite_atmosphere_tint()
 
@@ -536,13 +537,6 @@ func _on_phase_changed(phase: String) -> void:
 		_sync_tee_ball_from_bucket()
 	elif phase == "strike":
 		golfer.position = _golfer_home
-	_sync_golfer_idle_from_bucket()
-
-
-func _on_range_action_changed(_mode: String) -> void:
-	if not GameState.is_harvest_phase():
-		return
-	_sync_tee_ball_from_bucket()
 	_sync_golfer_idle_from_bucket()
 
 

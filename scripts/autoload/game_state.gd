@@ -9,10 +9,6 @@ var bucket_capacity: int = 0
 var current_phase: String = "strike"
 var harvest_collected: int = 0
 
-const ACTION_COLLECT := "collect"
-const ACTION_HIT := "hit"
-
-var range_action_mode: String = ACTION_HIT
 var lifetime: Dictionary = {
 	"total_swings": 0,
 	"lifetime_yards": 0.0,
@@ -80,7 +76,6 @@ func reset_to_fresh() -> void:
 	bucket_remaining = bucket_capacity
 	current_phase = "strike"
 	harvest_collected = 0
-	range_action_mode = ACTION_HIT
 	lifetime = {
 		"total_swings": 0,
 		"lifetime_yards": 0.0,
@@ -100,7 +95,7 @@ func get_bucket_capacity() -> int:
 func has_bucket_balls() -> bool:
 	if current_phase == "strike":
 		return bucket_remaining > 0
-	if current_phase == "harvest" and range_action_mode == ACTION_HIT:
+	if current_phase == "harvest":
 		return harvest_collected > 0
 	return false
 
@@ -110,31 +105,7 @@ func is_harvest_phase() -> bool:
 
 
 func is_collect_mode() -> bool:
-	return is_harvest_phase() and range_action_mode == ACTION_COLLECT
-
-
-func is_hit_mode() -> bool:
-	return not is_harvest_phase() or range_action_mode == ACTION_HIT
-
-
-func can_toggle_range_action() -> bool:
 	return is_harvest_phase() and harvest_collected < bucket_capacity
-
-
-func set_range_action_mode(mode: String) -> void:
-	if mode != ACTION_COLLECT and mode != ACTION_HIT:
-		return
-	if range_action_mode == mode:
-		return
-	range_action_mode = mode
-	EventBus.range_action_changed.emit(mode)
-	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
-
-
-func toggle_range_action() -> void:
-	if not can_toggle_range_action():
-		return
-	set_range_action_mode(ACTION_HIT if range_action_mode == ACTION_COLLECT else ACTION_COLLECT)
 
 
 func is_harvest_complete() -> bool:
@@ -143,12 +114,10 @@ func is_harvest_complete() -> bool:
 
 func consume_bucket_ball() -> bool:
 	if current_phase == "harvest":
-		if range_action_mode != ACTION_HIT or harvest_collected <= 0:
+		if harvest_collected <= 0:
 			return false
 		harvest_collected -= 1
 		EventBus.bucket_changed.emit(harvest_collected, bucket_capacity)
-		if harvest_collected <= 0:
-			set_range_action_mode(ACTION_COLLECT)
 		return true
 	if bucket_remaining <= 0:
 		return false
@@ -193,7 +162,6 @@ func _exit_harvest_to_strike(bonus: float) -> void:
 	harvest_collected = 0
 	bucket_remaining = bucket_capacity
 	current_phase = "strike"
-	range_action_mode = ACTION_HIT
 	if bonus > 0.0:
 		EventBus.bucket_completed.emit(bonus)
 	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
@@ -203,7 +171,6 @@ func _exit_harvest_to_strike(bonus: float) -> void:
 func _enter_harvest_phase() -> void:
 	current_phase = "harvest"
 	harvest_collected = 0
-	range_action_mode = ACTION_COLLECT
 	EventBus.phase_changed.emit("harvest")
 	EventBus.bucket_changed.emit(harvest_collected, bucket_capacity)
 
