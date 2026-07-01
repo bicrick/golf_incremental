@@ -31,6 +31,7 @@ var _title_label: Label
 var _info_label: Label
 var _help_label: Label
 var _copy_button: Button
+var _capture_button: Button
 var _status_label: Label
 
 var _drag_target := ""
@@ -106,7 +107,7 @@ func _build_overlay() -> void:
 	vbox.add_child(_info_label)
 
 	_help_label = Label.new()
-	_help_label.text = "P toggle | Arrows rat | Shift+arrows ball | [ ] rat scale | , . ball scale | Drag | C copy"
+	_help_label.text = "P toggle | Arrows rat | Shift+arrows ball | [ ] rat scale | , . ball scale | Drag | C copy | S capture"
 	PixelFont.apply_label(_help_label, 6)
 	_help_label.modulate = Color(0.75, 0.85, 0.75, 1.0)
 	vbox.add_child(_help_label)
@@ -117,6 +118,13 @@ func _build_overlay() -> void:
 	_copy_button.pressed.connect(_copy_positions)
 	_copy_button.add_theme_font_override(&"font", PixelFont.font_for_size(OVERLAY_FONT_SIZE))
 	vbox.add_child(_copy_button)
+
+	_capture_button = Button.new()
+	_capture_button.text = "Capture plate"
+	_capture_button.custom_minimum_size = Vector2(140, 18)
+	_capture_button.pressed.connect(_capture_plate)
+	_capture_button.add_theme_font_override(&"font", PixelFont.font_for_size(OVERLAY_FONT_SIZE))
+	vbox.add_child(_capture_button)
 
 	_status_label = Label.new()
 	_status_label.visible = false
@@ -153,6 +161,10 @@ func _input(event: InputEvent) -> void:
 			return
 		if key.pressed and key.keycode == KEY_C:
 			_copy_positions()
+			get_viewport().set_input_as_handled()
+			return
+		if key.pressed and key.keycode == KEY_S:
+			_capture_plate()
 			get_viewport().set_input_as_handled()
 			return
 		if key.pressed:
@@ -321,6 +333,77 @@ func _fmt(value: float) -> String:
 	return ("%.2f" % value).trim_suffix("0").trim_suffix(".")
 
 
+func _capture_plate() -> void:
+	_capture_plate_async()
+
+
+func _capture_plate_async() -> void:
+	var range_view := get_parent()
+	if range_view == null or not range_view.has_method(&"capture_plate"):
+		return
+
+	var main := get_tree().current_scene
+	var ui_visible := true
+	var title_visible := false
+	var settings_visible := true
+	if main != null:
+		var ui := main.get_node_or_null("UI")
+		if ui:
+			ui_visible = ui.visible
+			ui.visible = false
+		var title := main.get_node_or_null("TitleScreen")
+		if title:
+			title_visible = title.visible
+			title.visible = false
+		var settings := main.get_node_or_null("SettingsLayer")
+		if settings:
+			settings_visible = settings.visible
+			settings.visible = false
+
+	var canvas_visible := _canvas.visible if _canvas else false
+	if _canvas:
+		_canvas.visible = false
+
+	var cycle_time := 40.0
+	var cycle := range_view.get_node_or_null("DayNightCycle")
+	if cycle != null and cycle.has_method(&"cycle_elapsed"):
+		cycle_time = cycle.cycle_elapsed()
+
+	var output_path: String = range_view.PLATE_CAPTURE_OUTPUT
+	var err: Error = await range_view.capture_plate(output_path, cycle_time)
+
+	if _canvas:
+		_canvas.visible = canvas_visible
+	if main != null:
+		var ui := main.get_node_or_null("UI")
+		if ui:
+			ui.visible = ui_visible
+		var title := main.get_node_or_null("TitleScreen")
+		if title:
+			title.visible = title_visible
+		var settings := main.get_node_or_null("SettingsLayer")
+		if settings:
+			settings.visible = settings_visible
+
+	var path := ProjectSettings.globalize_path(output_path)
+	if err == OK:
+		print("[PlacementDebug] Range plate saved: ", path)
+		_show_status("Saved range_bg.png")
+	else:
+		print("[PlacementDebug] Capture failed (", err, "): ", path)
+		_show_status("Capture failed")
+
+
+func _show_status(text: String) -> void:
+	if _status_label == null:
+		return
+	_status_label.text = text
+	_status_label.visible = true
+	var tween := create_tween()
+	tween.tween_interval(2.0)
+	tween.tween_callback(func(): _status_label.visible = false)
+
+
 func _copy_positions() -> void:
 	if _golfer == null or _ball == null:
 		return
@@ -338,9 +421,4 @@ func _copy_positions() -> void:
 	var text := "\n".join(lines)
 	DisplayServer.clipboard_set(text)
 	print("[PlacementDebug]\n", text)
-	if _status_label:
-		_status_label.text = "Copied to clipboard"
-		_status_label.visible = true
-		var tween := create_tween()
-		tween.tween_interval(1.5)
-		tween.tween_callback(func(): _status_label.visible = false)
+	_show_status("Copied to clipboard")

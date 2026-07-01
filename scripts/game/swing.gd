@@ -8,6 +8,7 @@ var charge := ChargeSwing.new()
 var phase: Phase = Phase.IDLE
 var windup_progress: float = 0.0
 var last_contact_flavor: int = Balance.ContactFlavor.PURE
+var last_hold_sec: float = 0.0
 var _last_swing_msec: int = 0
 var _charge_start_msec: int = 0
 
@@ -48,6 +49,7 @@ func release_strike() -> void:
 	if phase != Phase.CHARGING:
 		return
 	var hold_sec := charge_elapsed_sec()
+	last_hold_sec = hold_sec
 	var tier := charge.evaluate_timing(hold_sec, GameState.stats)
 	var quality := charge.timing_quality(hold_sec, GameState.stats)
 	last_contact_flavor = charge.contact_flavor(tier, hold_sec, GameState.stats)

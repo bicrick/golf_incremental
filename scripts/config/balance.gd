@@ -25,11 +25,13 @@ const CHARGE_DECAY_SEC: float = CONTACT_DECAY_SEC
 const POST_PEAK_OK_MAX_SEC: float = CHARGE_DECAY_SEC * 0.5
 const POST_PEAK_GOOD_MS: float = 35.0
 
-# Concentric ring visuals (outer shrinks toward fixed inner sweet spot)
-const RING_OUTER_START_SCALE: float = 2.0
-const RING_OUTER_ALIGN_SCALE: float = 1.0
-const RING_OUTER_OVERSHOOT_SCALE: float = 0.35
-const RING_INNER_SCALE: float = 1.0
+# Concentric ring visuals — inner rhombus expands into outer target (shared base polygon)
+const RING_INNER_START_FRAC: float = 0.20
+const RING_INNER_CONTACT_FRAC: float = 1.0
+const RING_INNER_OVERSHOOT_FRAC: float = 1.05
+## Outer target size scales with distance/power upgrades (noob → maxed).
+const RING_OUTER_MIN_SCALE: float = 0.55
+const RING_OUTER_MAX_SCALE: float = 1.35
 
 const TIER_MULTS: Dictionary = {
 	0: 1.0,   # PERFECT

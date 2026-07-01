@@ -53,8 +53,10 @@ func power_at(elapsed_sec: float) -> float:
 func is_in_contact_band(elapsed_sec: float, stats: PlayerStats) -> bool:
 	if elapsed_sec < Balance.MIN_HOLD_SEC:
 		return false
-	var error_ms := absf(elapsed_sec - contact_time_sec()) * 1000.0
-	return error_ms <= stats.timing_window_perfect_ms
+	if past_contact(elapsed_sec):
+		return false
+	var early_ms := (contact_time_sec() - elapsed_sec) * 1000.0
+	return early_ms <= stats.timing_window_perfect_ms
 
 
 func is_in_release_band(elapsed_sec: float, stats: PlayerStats) -> bool:

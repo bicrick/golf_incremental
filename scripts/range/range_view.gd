@@ -2,8 +2,7 @@ extends Node2D
 ## Driving range view: parallax 2.5D layers, charge ring, ball flight, Range Rat + Dinky ball sprites.
 
 const CHARGE_METER_POSITION := Vector2(270, 182)
-const POWER_BAR_HEIGHT := 56.0
-const POWER_BAR_HALF_WIDTH := 3.0
+const CHARGE_RING_Z_INDEX := 5
 const BALL_PIXEL_SCALE := Vector2(0.6, 0.6)
 const GOLFER_PIXEL_SCALE := Vector2(1.44, 1.44)
 const GOLFER_HARVEST_SIDESTEP_X := -50.0
@@ -67,23 +66,15 @@ const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 @onready var parallax_fairway: Parallax2D = $ParallaxFairway
 @onready var foreground: Node2D = $Foreground
 @onready var charge_meter: Node2D = $ChargeMeter
-@onready var beat_ring: Node2D = $ChargeMeter/BeatRing
-@onready var ring_outer: Polygon2D = $ChargeMeter/BeatRing/RingOuter
-@onready var ring_inner: Polygon2D = $ChargeMeter/BeatRing/RingInner
-@onready var sweet_spot_glow: Polygon2D = $ChargeMeter/BeatRing/SweetSpotGlow
-@onready var sweet_spot_label: Label = $ChargeMeter/SweetSpotLabel
+@onready var contact_ring = $ChargeMeter/BeatRing
 @onready var tier_sprite: Sprite2D = $JackpotFeedback/TierSprite
 @onready var camera: Camera2D = $Camera2D
-var power_bar_fill: Polygon2D = null
 
 var _swing := Swing.new()
 var _ball_home: Vector2
 var _golfer_home: Vector2
 var _base_ball_scale: Vector2 = BALL_PIXEL_SCALE
 var _base_golfer_scale: Vector2 = GOLFER_PIXEL_SCALE
-var _ring_base_scale: float = 1.0
-var _flash_tween: Tween
-var _result_flash_active: bool = false
 var _golfer_joy_active: bool = false
 var _golfer_holding_finish: bool = false
 var _ball_in_flight: bool = false
@@ -105,14 +96,16 @@ func _ready() -> void:
 	_ball_home = ball.position
 	_golfer_home = golfer.position
 	_flight_config = _build_flight_config()
-	PixelFont.apply_label(sweet_spot_label, 8)
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
+	if contact_ring:
+		contact_ring.frozen_fade_completed.connect(_on_contact_ring_fade_completed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
 	EventBus.swing_charge_updated.connect(_on_swing_charge_updated)
 	EventBus.bucket_changed.connect(_on_bucket_changed)
 	EventBus.phase_changed.connect(_on_phase_changed)
+	EventBus.range_action_changed.connect(_on_range_action_changed)
 	call_deferred("_sync_tee_ball_from_bucket")
 	call_deferred("_setup_pickup_controller")
 	if camera:
@@ -141,6 +134,48 @@ func _setup_fairway_stripes() -> void:
 	_fairway_stripes = FairwayStripes.populate(
 		$ParallaxFairway/FairwayStripes, FAIRWAY_TOP_Y, FAIRWAY_BOTTOM_Y
 	)
+
+
+const PLATE_CAPTURE_CYCLE_TIME := 40.0
+const PLATE_CAPTURE_OUTPUT := "res://captures/range_bg.png"
+
+
+func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float = PLATE_CAPTURE_CYCLE_TIME) -> Error:
+	var hidden: Array[Node] = []
+	for node_name in ["Foreground", "ChargeMeter", "JackpotFeedback"]:
+		var node := get_node_or_null(node_name)
+		if node == null or not node.visible:
+			continue
+		hidden.append(node)
+		node.visible = false
+
+	var cycle := get_node_or_null("DayNightCycle")
+	var cycle_was_processing := false
+	if cycle:
+		cycle_was_processing = cycle.is_processing()
+		cycle.set_process(false)
+	apply_atmosphere(cycle_time)
+
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var image := get_viewport().get_texture().get_image()
+	var target_size := Vector2i(get_viewport().get_visible_rect().size)
+	if image.get_size() != target_size:
+		image.resize(target_size.x, target_size.y, Image.INTERPOLATE_NEAREST)
+	var global_path := output_path
+	if not global_path.is_absolute_path():
+		global_path = ProjectSettings.globalize_path(output_path)
+	var dir_path := global_path.get_base_dir()
+	DirAccess.make_dir_recursive_absolute(dir_path)
+	var err := image.save_png(global_path)
+
+	for node in hidden:
+		node.visible = true
+	if cycle and cycle_was_processing:
+		cycle.set_process(true)
+
+	return err
 
 
 func apply_atmosphere(cycle_time: float) -> void:
@@ -188,6 +223,9 @@ func _configure_draw_layers() -> void:
 	golfer.z_index = Z_GOLFER
 	ball.z_as_relative = false
 	ball.z_index = Z_BALL
+	if charge_meter:
+		charge_meter.z_as_relative = false
+		charge_meter.z_index = CHARGE_RING_Z_INDEX
 
 
 func _process(delta: float) -> void:
@@ -250,6 +288,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _pickup and _pickup.handle_input(event):
 		get_viewport().set_input_as_handled()
 		return
+	if not GameState.has_bucket_balls():
+		return
 	if not event is InputEventKey:
 		return
 	var key := event as InputEventKey
@@ -268,6 +308,8 @@ func _on_swing_charging_changed(charging: bool) -> void:
 		golfer.stop()
 		golfer.animation = &"swing"
 		golfer.frame = 0
+		if contact_ring:
+			contact_ring.show_charging(GameState.stats)
 		if _ball_at_tee:
 			ball.play(&"idle")
 	elif not _golfer_joy_active:
@@ -351,7 +393,7 @@ func _is_golfer_sidestep_tweening() -> bool:
 
 
 func _request_harvest_sidestep() -> void:
-	if not GameState.is_harvest_phase():
+	if not GameState.is_harvest_phase() or not GameState.is_collect_mode():
 		return
 	if _golfer_idle_blocked() or _ball_in_flight:
 		_pending_harvest_sidestep = true
@@ -403,114 +445,64 @@ func _on_golfer_animation_finished() -> void:
 	_try_pending_harvest_sidestep()
 
 
+func _clear_frozen_charge_ring() -> void:
+	if contact_ring and contact_ring.is_frozen():
+		contact_ring.clear_frozen_result()
+
+
+func _on_contact_ring_fade_completed() -> void:
+	if charge_meter:
+		charge_meter.visible = false
+
+
 func _set_idle_ring() -> void:
-	if _result_flash_active:
+	if contact_ring and (contact_ring.is_frozen() or contact_ring.is_flash_active()):
 		return
 	if charge_meter:
 		charge_meter.visible = false
-	if sweet_spot_glow:
-		sweet_spot_glow.visible = false
-	if sweet_spot_label:
-		sweet_spot_label.visible = false
-	if not beat_ring:
-		return
-	beat_ring.scale = Vector2.ONE * _ring_base_scale
-	if ring_inner:
-		ring_inner.scale = Vector2.ONE * Balance.RING_INNER_SCALE
-		ring_inner.modulate = Color(0.92, 0.85, 0.55, 0.18)
-	if ring_outer:
-		ring_outer.scale = Vector2.ONE * 1.35
-		ring_outer.modulate = Color(1.0, 1.0, 1.0, 0.1)
-
-
-func _update_sweet_spot_indicator(in_band: bool, elapsed: float) -> void:
-	if sweet_spot_glow:
-		sweet_spot_glow.visible = in_band
-		if in_band:
-			var pulse := 0.55 + 0.45 * sin(elapsed * 18.0)
-			sweet_spot_glow.modulate = Color(1.0, 0.92, 0.35, pulse)
-			sweet_spot_glow.scale = Vector2.ONE * (1.0 + 0.08 * sin(elapsed * 18.0))
-	if sweet_spot_label:
-		sweet_spot_label.visible = in_band
-		if in_band:
-			var text_pulse := 0.85 + 0.15 * sin(elapsed * 18.0)
-			sweet_spot_label.modulate = Color(0.45, 1.0, 0.55, text_pulse)
-
-
-func _update_power_bar(power: float, in_band: bool, past_peak: bool) -> void:
-	if not power_bar_fill:
-		return
-	var fill_h := power * POWER_BAR_HEIGHT
-	if fill_h < 0.5:
-		power_bar_fill.visible = false
-		return
-	power_bar_fill.visible = true
-	var bottom := POWER_BAR_HEIGHT * 0.5
-	power_bar_fill.polygon = PackedVector2Array([
-		Vector2(-POWER_BAR_HALF_WIDTH, bottom),
-		Vector2(POWER_BAR_HALF_WIDTH, bottom),
-		Vector2(POWER_BAR_HALF_WIDTH, bottom - fill_h),
-		Vector2(-POWER_BAR_HALF_WIDTH, bottom - fill_h),
-	])
-	if in_band:
-		power_bar_fill.color = Color(0.4, 0.95, 0.5, 0.95)
-	elif past_peak:
-		power_bar_fill.color = Color(0.95, 0.4, 0.35, 0.9)
-	else:
-		power_bar_fill.color = Color(0.95, 0.85, 0.4, lerpf(0.5, 0.95, power))
+	if contact_ring:
+		contact_ring.hide_idle()
 
 
 func _update_charge_visuals() -> void:
 	if _placement_debug and _placement_debug.is_active():
 		return
 	if not _swing.is_charging():
-		if not _result_flash_active and not _ball_in_flight:
-			if _ball_at_tee:
-				ball.position = _ball_home
-				ball.scale = _base_ball_scale
-				if ball.animation != &"roll":
-					ball.play(&"idle")
-			if GameState.is_harvest_phase():
-				_try_pending_harvest_sidestep()
-			elif not _is_golfer_sidestep_tweening():
-				golfer.position = _golfer_home
-			_sync_golfer_idle_from_bucket()
-			if _ball_at_tee:
-				_set_idle_ring()
-		return
+		if contact_ring and contact_ring.is_frozen():
+			if charge_meter:
+				charge_meter.visible = true
+		else:
+			if charge_meter:
+				charge_meter.visible = false
+			if contact_ring and not contact_ring.is_flash_active():
+				contact_ring.hide_idle()
+			if not _ball_in_flight:
+				if _ball_at_tee:
+					ball.position = _ball_home
+					ball.scale = _base_ball_scale
+					if ball.animation != &"roll":
+						ball.play(&"idle")
+				if GameState.is_collect_mode():
+					_try_pending_harvest_sidestep()
+				elif not _is_golfer_sidestep_tweening():
+					golfer.position = _golfer_home
+				_sync_golfer_idle_from_bucket()
+		if not _swing.is_charging():
+			return
 
 	if charge_meter:
 		charge_meter.visible = true
-	if power_bar_fill:
-		power_bar_fill.visible = false
 
 	var elapsed := _swing.charge_elapsed_sec()
 	var windup := _swing.charge.windup_progress(elapsed)
 	var in_band := _swing.charge.is_in_contact_band(elapsed, GameState.stats)
 	var past_contact := _swing.charge.past_contact(elapsed)
+	var past_contact_frac := _swing.charge.past_contact_fraction(elapsed)
 
-	beat_ring.scale = Vector2.ONE * _ring_base_scale
-	if ring_inner:
-		ring_inner.scale = Vector2.ONE * Balance.RING_INNER_SCALE
-		if in_band:
-			var pulse := 0.65 + 0.35 * sin(elapsed * 20.0)
-			ring_inner.modulate = Color(1.0, 0.88, 0.25, pulse)
-		elif past_contact:
-			var red_pulse := 0.7 + 0.3 * sin(elapsed * 14.0)
-			ring_inner.modulate = Color(0.95, 0.45, 0.4, red_pulse)
-		else:
-			ring_inner.modulate = Color(0.92, 0.85, 0.55, lerpf(0.15, 0.35, windup))
-	if ring_outer:
-		ring_outer.scale = Vector2.ONE * Balance.RING_OUTER_ALIGN_SCALE
-		if in_band:
-			var gold_pulse := 0.55 + 0.45 * sin(elapsed * 20.0)
-			ring_outer.modulate = Color(1.0, 0.88, 0.25, gold_pulse)
-		elif past_contact:
-			ring_outer.modulate = Color(0.9, 0.45, 0.4, 0.45)
-		else:
-			ring_outer.modulate = Color(1.0, 1.0, 1.0, lerpf(0.08, 0.2, windup))
-
-	_update_sweet_spot_indicator(in_band, elapsed)
+	if contact_ring:
+		contact_ring.update_visuals(
+			windup, in_band, past_contact, past_contact_frac, elapsed, GameState.stats
+		)
 
 	if not _ball_at_tee:
 		return
@@ -522,33 +514,12 @@ func _update_charge_visuals() -> void:
 
 
 func _flash_beat_ring(tier: int) -> void:
-	if not beat_ring:
+	if not contact_ring:
 		return
-	_result_flash_active = true
 	if charge_meter:
 		charge_meter.visible = true
-	if sweet_spot_glow:
-		sweet_spot_glow.visible = false
-	if sweet_spot_label:
-		sweet_spot_label.visible = false
-	if _flash_tween and _flash_tween.is_valid():
-		_flash_tween.kill()
-	var flash_color: Color = Balance.TIER_COLORS[tier]
-	beat_ring.scale = Vector2.ONE * _ring_base_scale
-	if ring_inner:
-		ring_inner.scale = Vector2.ONE * Balance.RING_INNER_SCALE
-		ring_inner.modulate = Color(flash_color.r, flash_color.g, flash_color.b, 1.0)
-	if ring_outer:
-		ring_outer.scale = Vector2.ONE * Balance.RING_OUTER_ALIGN_SCALE
-		ring_outer.modulate = Color(flash_color.r, flash_color.g, flash_color.b, 0.65)
-	_flash_tween = create_tween()
-	_flash_tween.tween_property(ring_inner, "modulate:a", 0.18, 0.18)\
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_flash_tween.parallel().tween_property(ring_outer, "scale", Vector2.ONE * 1.35, 0.18)\
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_flash_tween.chain().tween_callback(func():
-		_result_flash_active = false
-		_set_idle_ring()
+	contact_ring.freeze_release_result(
+		tier, _swing.last_contact_flavor, _swing.last_hold_sec, GameState.stats
 	)
 
 
@@ -648,10 +619,25 @@ func _on_bucket_changed(_count: int, _capacity: int) -> void:
 func _on_phase_changed(phase: String) -> void:
 	if phase == "harvest":
 		_sync_tee_ball_from_bucket()
-		_request_harvest_sidestep()
+		_sync_golfer_for_harvest_mode()
 	elif phase == "strike":
 		_request_strike_home()
 	_sync_golfer_idle_from_bucket()
+
+
+func _on_range_action_changed(_mode: String) -> void:
+	if not GameState.is_harvest_phase():
+		return
+	_sync_tee_ball_from_bucket()
+	_sync_golfer_for_harvest_mode()
+	_sync_golfer_idle_from_bucket()
+
+
+func _sync_golfer_for_harvest_mode() -> void:
+	if GameState.is_collect_mode():
+		_request_harvest_sidestep()
+	else:
+		_request_strike_home()
 
 
 func on_harvest_complete() -> void:
@@ -675,6 +661,8 @@ func _sync_tee_ball_from_bucket() -> void:
 	if not GameState.has_bucket_balls():
 		ball.visible = false
 		_ball_at_tee = false
+		_clear_frozen_charge_ring()
+		_set_idle_ring()
 		_sync_golfer_idle_from_bucket()
 		return
 	if _ball_at_tee:
@@ -705,6 +693,7 @@ func _respawn_ball_at_tee() -> void:
 	ball.scale = _base_ball_scale
 	ball.play(&"idle")
 	_ball_at_tee = true
+	_set_idle_ring()
 	_release_swing_finish()
 	_sync_golfer_idle_from_bucket()
 

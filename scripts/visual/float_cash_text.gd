@@ -36,12 +36,9 @@ static func format_amount(amount: float) -> String:
 	return "%.2f" % amount
 
 
-func _play(amount: float, combo_tier: int) -> void:
+func _play(amount: float, _combo_tier: int) -> void:
 	var label := Label.new()
-	var lines: PackedStringArray = ["+$%s" % format_amount(amount)]
-	if combo_tier > 1:
-		lines.append("x%d" % combo_tier)
-	label.text = "\n".join(lines)
+	label.text = "+$%s" % format_amount(amount)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	PixelFont.apply_label(label, 8)
 	label.modulate = COLOR_CASH

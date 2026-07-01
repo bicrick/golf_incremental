@@ -28,10 +28,11 @@ func _run() -> void:
 	ok = _check_economy_grants(gs) and ok
 	ok = _check_combo_logic() and ok
 	ok = _check_bucket_refill_and_strike(gs) and ok
-	ok = _check_skip_harvest_early(gs) and ok
+	ok = await _check_space_does_not_skip_harvest(main, gs) and ok
 	ok = _check_event_bus_signals(gs) and ok
 	ok = await _check_phase_integration(main, gs) and ok
 	ok = await _check_harvest_sidestep(main, gs) and ok
+	ok = await _check_hit_mode_during_harvest(main, gs) and ok
 	_cleanup_save()
 	print("pickup_ok=", ok)
 	quit(0 if ok else 1)
@@ -160,40 +161,39 @@ func _check_bucket_refill_and_strike(gs: Node) -> bool:
 	return true
 
 
-func _check_skip_harvest_early(gs: Node) -> bool:
+func _check_space_does_not_skip_harvest(main: Node, gs: Node) -> bool:
 	_reset(gs)
+	main._on_play_pressed()
+	await process_frame
+	await process_frame
+	var range_view: Node2D = main.get_node("RangeView")
 	_enter_harvest(gs)
-	gs.collect_harvest_ball(Vector2.ZERO, 1)
-	var partial_collected: int = gs.harvest_collected
-	if partial_collected <= 0:
-		print("FAIL: skip test needs partial collection")
+	await process_frame
+	if gs.current_phase != "harvest":
+		print("FAIL: space test expected harvest phase")
 		return false
-	var before_currency: float = gs.currency
-	var bonus := Economy.bucket_complete_bonus_value(gs.stats)
-	gs.skip_harvest()
-	if gs.current_phase != "strike":
-		print("FAIL: skip_harvest should return to strike, got %s" % gs.current_phase)
+	_send_space(range_view, true)
+	await process_frame
+	_send_space(range_view, false)
+	await process_frame
+	if gs.current_phase != "harvest":
+		print("FAIL: Space should not exit harvest phase, got %s" % gs.current_phase)
 		return false
-	if gs.bucket_remaining != gs.bucket_capacity:
-		print(
-			"FAIL: skip_harvest should refill bucket to %d, got %d"
-			% [gs.bucket_capacity, gs.bucket_remaining]
-		)
+	if gs.has_bucket_balls():
+		print("FAIL: Space should not refill bucket during harvest")
 		return false
-	if not gs.has_bucket_balls():
-		print("FAIL: has_bucket_balls false after skip_harvest")
+	if gs.bucket_remaining != 0:
+		print("FAIL: Space changed bucket_remaining during harvest")
 		return false
-	if gs.harvest_collected != 0:
-		print("FAIL: harvest_collected not cleared after skip_harvest")
-		return false
-	if not is_equal_approx(gs.currency - before_currency, 0.0):
-		print("FAIL: skip_harvest should not grant bucket-complete bonus")
-		return false
-	if is_equal_approx(bonus, 0.0):
-		print("FAIL: skip test setup — bonus should be positive for contrast")
-		return false
-	print("OK: skip_harvest refills bucket without bonus")
+	print("OK: Space does not skip harvest or refill bucket")
 	return true
+
+
+func _send_space(target: Node, pressed: bool) -> void:
+	var event := InputEventKey.new()
+	event.keycode = KEY_SPACE
+	event.pressed = pressed
+	target._unhandled_input(event)
 
 
 func _check_event_bus_signals(gs: Node) -> bool:
@@ -276,32 +276,6 @@ func _check_phase_integration(main: Node, gs: Node) -> bool:
 		print("FAIL: integration collect did not increment harvest")
 		return false
 
-	# Early exit via Space — litter stays, becomes non-collectible until next harvest.
-	range_view._leave_litter_ball(Vector2(300, 170), Vector2(0.5, 0.5))
-	var skip_key := InputEventKey.new()
-	skip_key.keycode = KEY_SPACE
-	skip_key.pressed = true
-	if not range_view._pickup.handle_input(skip_key):
-		print("FAIL: Space skip did not finish harvest early")
-		return false
-	await process_frame
-	if gs.current_phase != "strike":
-		print("FAIL: Space skip should return to strike")
-		return false
-	if litter_parent.get_child_count() < 1:
-		print("FAIL: skip should leave uncollected litter on fairway")
-		return false
-	for child in litter_parent.get_children():
-		if child.get_meta("collectible", true):
-			print("FAIL: litter should be non-collectible after skip")
-			return false
-	_enter_harvest(gs)
-	await process_frame
-	for child in litter_parent.get_children():
-		if not child.get_meta("collectible", false):
-			print("FAIL: litter should be collectible again on re-enter harvest")
-			return false
-
 	print("OK: range pickup integration")
 	return true
 
@@ -348,4 +322,54 @@ func _check_harvest_sidestep(main: Node, gs: Node) -> bool:
 		return false
 
 	print("OK: harvest sidestep offset %.0fpx, return to strike home" % offset.x)
+	return true
+
+
+func _check_hit_mode_during_harvest(main: Node, gs: Node) -> bool:
+	_reset(gs)
+	main._on_play_pressed()
+	await process_frame
+	await process_frame
+	var range_view: Node2D = main.get_node("RangeView")
+
+	_enter_harvest(gs)
+	gs.collect_harvest_ball(Vector2.ZERO, 1)
+	if gs.harvest_collected != 1:
+		print("FAIL: hit mode test expected 1 collected ball")
+		return false
+	if gs.has_bucket_balls():
+		print("FAIL: collect mode should not allow bucket hits")
+		return false
+
+	gs.set_range_action_mode(gs.ACTION_HIT)
+	await process_frame
+	if not gs.has_bucket_balls():
+		print("FAIL: hit mode should allow swings with collected balls")
+		return false
+
+	range_view._swing._last_swing_msec = Time.get_ticks_msec() - int(gs.stats.swing_cooldown_ms) - 1
+	range_view._swing.start_charge()
+	if not range_view._swing.is_charging():
+		print("FAIL: hit mode start_charge did not begin swing")
+		return false
+	await process_frame
+	range_view._swing.release_strike()
+	await process_frame
+	if gs.harvest_collected != 0:
+		print(
+			"FAIL: swing during harvest hit mode should consume collected ball, got %d"
+			% gs.harvest_collected
+		)
+		return false
+	if gs.current_phase != "harvest":
+		print("FAIL: harvest hit swing should stay in harvest phase")
+		return false
+	if gs.has_bucket_balls():
+		print("FAIL: empty harvest hit bucket should not allow swings")
+		return false
+	if gs.range_action_mode != gs.ACTION_COLLECT:
+		print("FAIL: empty harvest hit bucket should auto-return to collect mode")
+		return false
+
+	print("OK: hit mode swings consume collected balls during harvest")
 	return true

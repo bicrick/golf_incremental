@@ -30,7 +30,7 @@ func _run() -> void:
 	ok = _check_save_roundtrip(gs) and ok
 	ok = _check_load_refills_empty_bucket(gs) and ok
 	ok = await _check_tee_ball_visibility(main, gs) and ok
-	ok = await _check_swing_integration(main, gs) and ok
+	ok = await _check_space_does_not_refill(main, gs) and ok
 	_cleanup_save()
 	print("bucket_ok=", ok)
 	quit(0 if ok else 1)
@@ -176,6 +176,29 @@ func _check_swing_integration(main: Node, gs: Node) -> bool:
 		)
 		return false
 	print("OK: range_view swing integration")
+	return true
+
+
+func _check_space_does_not_refill(main: Node, gs: Node) -> bool:
+	_reset_bucket(gs)
+	main._on_play_pressed()
+	await process_frame
+	await process_frame
+	var range_view: Node = main.get_node("RangeView")
+	gs.bucket_remaining = 0
+	gs._enter_harvest_phase()
+	await process_frame
+	_send_space(range_view, true)
+	await process_frame
+	_send_space(range_view, false)
+	await process_frame
+	if gs.has_bucket_balls():
+		print("FAIL: Space refilled empty bucket during harvest")
+		return false
+	if gs.current_phase != "harvest":
+		print("FAIL: Space should not exit harvest, got %s" % gs.current_phase)
+		return false
+	print("OK: Space does not refill bucket during harvest")
 	return true
 
 

@@ -82,10 +82,10 @@ func _run() -> void:
 		print("FAIL: mouse click on title should not auto-swing")
 		ok = false
 
-	play_button.pressed.emit()
+	_parse_space_key(true)
 	await process_frame
 	if not play_button.disabled:
-		print("FAIL: play should begin fade transition after press")
+		print("FAIL: Space should begin fade transition")
 		ok = false
 
 	# Simulate mouse release after fade (PLAY click bleed-through regression).
@@ -137,6 +137,13 @@ func _parse_mouse_button(position: Vector2, pressed: bool) -> void:
 	event.pressed = pressed
 	event.position = position
 	event.global_position = position
+	Input.parse_input_event(event)
+
+
+func _parse_space_key(pressed: bool) -> void:
+	var event := InputEventKey.new()
+	event.keycode = KEY_SPACE
+	event.pressed = pressed
 	Input.parse_input_event(event)
 
 

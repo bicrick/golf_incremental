@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://icon_bar_scene"]
+[gd_scene load_steps=6 format=3 uid="uid://icon_bar_scene"]
 
 [ext_resource type="Script" path="res://scripts/ui/icon_bar.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/ui/pixel_up_arrow.gd" id="2_arrow"]
 [ext_resource type="Script" path="res://scripts/ui/pixel_gear.gd" id="3_gear"]
 [ext_resource type="Script" path="res://scripts/ui/bucket_counter.gd" id="4_bucket"]
+[ext_resource type="Script" path="res://scripts/ui/range_mode_toggle.gd" id="5_mode_toggle"]
 
 [node name="IconBar" type="Control"]
 layout_mode = 3
@@ -15,26 +16,29 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_script")
 
-[node name="BottomRight" type="Control" parent="."]
+[node name="BottomRight" type="HBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -48.0
+offset_left = -108.0
 offset_top = -32.0
 offset_right = -8.0
 offset_bottom = -8.0
 grow_horizontal = 0
 grow_vertical = 0
+theme_override_constants/separation = 6
+alignment = 2
+
+[node name="RangeModeToggle" type="Button" parent="BottomRight"]
+layout_mode = 2
+text = "COL"
+script = ExtResource("5_mode_toggle")
 
 [node name="BucketCounter" type="HBoxContainer" parent="BottomRight"]
-layout_mode = 0
-offset_left = 0.0
-offset_top = 4.0
-offset_right = 40.0
-offset_bottom = 20.0
+layout_mode = 2
 theme_override_constants/separation = 4
 alignment = 1
 script = ExtResource("4_bucket")
@@ -52,15 +56,7 @@ theme_override_colors/font_color = Color(0.85, 0.92, 0.98, 1)
 theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
 theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 10
-text = "6"
-
-[node name="ComboLabel" type="Label" parent="BottomRight/BucketCounter"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.88, 0.25, 1)
-theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 8
-text = "x2"
+text = "6/6"
 
 [node name="BottomLeft" type="Control" parent="."]
 layout_mode = 1

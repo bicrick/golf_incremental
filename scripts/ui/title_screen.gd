@@ -32,10 +32,27 @@ func _ready() -> void:
 	_style_play_button()
 	play_button.pressed.connect(_on_play_pressed)
 	call_deferred("_capture_play_button_rest_y")
+	call_deferred("_focus_play_button")
 
 
 func _capture_play_button_rest_y() -> void:
 	_play_button_rest_y = play_button.position.y
+
+
+func _focus_play_button() -> void:
+	play_button.grab_focus()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _transitioning or not visible:
+		return
+	if not event is InputEventKey:
+		return
+	var key := event as InputEventKey
+	if key.echo or not key.pressed or key.keycode != KEY_SPACE:
+		return
+	get_viewport().set_input_as_handled()
+	_on_play_pressed()
 
 
 func _process(delta: float) -> void:
@@ -112,3 +129,4 @@ func reset_for_show() -> void:
 	overlay.modulate.a = 1.0
 	play_button.disabled = false
 	_bob_time = 0.0
+	call_deferred("_focus_play_button")

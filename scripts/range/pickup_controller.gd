@@ -24,17 +24,11 @@ func setup(range_view: Node2D, littered_balls: Node2D, bucket_counter: Control) 
 
 
 func is_active() -> bool:
-	return _active
+	return _active and GameState.is_collect_mode()
 
 
 func handle_input(event: InputEvent) -> bool:
 	if not _active:
-		return false
-	if event is InputEventKey:
-		var key := event as InputEventKey
-		if key.pressed and not key.echo and key.keycode == KEY_SPACE:
-			_skip_harvest()
-			return true
 		return false
 	if _collecting:
 		return false
@@ -177,12 +171,6 @@ func _finish_harvest() -> void:
 	_return_to_strike()
 
 
-func _skip_harvest() -> void:
-	GameState.skip_harvest()
-	_mark_all_litter_non_collectible()
-	_return_to_strike()
-
-
 func _return_to_strike() -> void:
 	if _range_view.has_method("on_harvest_complete"):
 		_range_view.on_harvest_complete()
@@ -194,14 +182,6 @@ func _mark_all_litter_collectible() -> void:
 	for child in _littered_balls.get_children():
 		if child is Sprite2D:
 			child.set_meta("collectible", true)
-
-
-func _mark_all_litter_non_collectible() -> void:
-	if _littered_balls == null:
-		return
-	for child in _littered_balls.get_children():
-		if child is Sprite2D:
-			child.set_meta("collectible", false)
 
 
 func _clear_litter() -> void:

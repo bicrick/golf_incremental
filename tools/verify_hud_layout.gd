@@ -20,6 +20,7 @@ func _run() -> void:
 	var margin: MarginContainer = hud.get_node("Margin")
 	var icon_bar: Control = ui_root.get_node("IconBar")
 	var bucket_counter: Control = icon_bar.get_node("BottomRight/BucketCounter")
+	var mode_toggle: Control = icon_bar.get_node("BottomRight/RangeModeToggle")
 	var settings_btn: Control = icon_bar.get_node("BottomLeft/SettingsWrap/SettingsButton")
 	var vp_size: Vector2 = root.get_visible_rect().size
 
@@ -66,17 +67,23 @@ func _run() -> void:
 		ok = false
 	var count_label: Label = bucket_counter.get_node("CountLabel")
 	var gs: Node = root.get_node_or_null("GameState")
-	var expected_count := Balance.BUCKET_CAPACITY_DEFAULT
+	var expected_count := "%d/%d" % [Balance.BUCKET_CAPACITY_DEFAULT, Balance.BUCKET_CAPACITY_DEFAULT]
 	if gs != null:
-		expected_count = gs.bucket_remaining
-	if count_label.text != str(expected_count):
+		expected_count = "%d/%d" % [gs.bucket_remaining, gs.bucket_capacity]
+	if count_label.text != expected_count:
 		print(
-			"FAIL: bucket count label expected %d, got '%s'"
+			"FAIL: bucket count label expected '%s', got '%s'"
 			% [expected_count, count_label.text]
 		)
 		ok = false
-	if "/" in count_label.text:
-		print("FAIL: bucket count should not show capacity fraction")
+	if "/" not in count_label.text:
+		print("FAIL: bucket count should show current/max fraction")
+		ok = false
+	if not mode_toggle is Button:
+		print("FAIL: RangeModeToggle missing from bottom-right")
+		ok = false
+	if mode_toggle.visible:
+		print("FAIL: RangeModeToggle should be hidden outside harvest")
 		ok = false
 
 	print("hud_layout_ok=", ok)

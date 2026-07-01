@@ -21,6 +21,7 @@ func _ready() -> void:
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
 	EventBus.swing_charge_updated.connect(_on_swing_charge_updated)
 	EventBus.pickup_payout.connect(_on_pickup_payout)
+	EventBus.range_action_changed.connect(_on_range_action_changed)
 	_update_currency(GameState.currency)
 	_update_phase_label(GameState.current_phase)
 	_set_idle_hint()
@@ -43,7 +44,7 @@ func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:
 
 
 func _on_bucket_changed(count: int, _capacity: int) -> void:
-	if GameState.is_harvest_phase():
+	if GameState.is_collect_mode():
 		return
 	if count > 0:
 		_set_idle_hint()
@@ -52,9 +53,7 @@ func _on_bucket_changed(count: int, _capacity: int) -> void:
 func _on_phase_changed(phase: String) -> void:
 	_update_phase_label(phase)
 	if phase == "harvest":
-		hint_label.visible = true
-		hint_label.text = "Click litter — Space when done"
-		hint_label.modulate = Color(0.95, 0.75, 0.45, 1.0)
+		_set_harvest_hint()
 	else:
 		_set_idle_hint()
 
@@ -69,7 +68,7 @@ func _on_swing_resolved(_y, _tier: int, payout: float, _f) -> void:
 
 
 func _on_swing_charging_changed(charging: bool) -> void:
-	if GameState.is_harvest_phase():
+	if GameState.is_collect_mode():
 		return
 	if charging:
 		hint_label.visible = true
@@ -80,7 +79,7 @@ func _on_swing_charging_changed(charging: bool) -> void:
 
 
 func _on_swing_charge_updated(_windup: float, in_contact_band: bool, past_contact: bool) -> void:
-	if GameState.is_harvest_phase():
+	if GameState.is_collect_mode():
 		return
 	if in_contact_band:
 		hint_label.text = "Release!"
@@ -93,11 +92,20 @@ func _on_swing_charge_updated(_windup: float, in_contact_band: bool, past_contac
 		hint_label.modulate = Color(0.85, 0.9, 0.95, 1.0)
 
 
+func _set_harvest_hint() -> void:
+	hint_label.visible = true
+	if GameState.is_hit_mode() and GameState.has_bucket_balls():
+		hint_label.text = "Hold Space — release at contact"
+		hint_label.modulate = Color(0.75, 0.78, 0.82, 0.85)
+	else:
+		hint_label.text = "Click litter to refill bucket"
+		hint_label.modulate = Color(0.95, 0.75, 0.45, 1.0)
+
+
 func _set_idle_hint() -> void:
 	hint_label.visible = true
 	if GameState.is_harvest_phase():
-		hint_label.text = "Click litter — Space when done"
-		hint_label.modulate = Color(0.95, 0.75, 0.45, 1.0)
+		_set_harvest_hint()
 		return
 	if not GameState.has_bucket_balls():
 		hint_label.text = "Bucket empty — collect litter"
@@ -105,6 +113,11 @@ func _set_idle_hint() -> void:
 		return
 	hint_label.text = "Hold Space — release at contact"
 	hint_label.modulate = Color(0.75, 0.78, 0.82, 0.85)
+
+
+func _on_range_action_changed(_mode: String) -> void:
+	if GameState.is_harvest_phase():
+		_set_harvest_hint()
 
 
 func _update_phase_label(phase: String) -> void:

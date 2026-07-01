@@ -10,6 +10,7 @@ signal swing_charge_updated(windup_progress: float, in_contact_band: bool, past_
 signal ui_panel_toggled(panel_id: String, is_open: bool)
 signal bucket_changed(count: int, capacity: int)
 signal phase_changed(phase: String)
+signal range_action_changed(mode: String)
 signal ball_collected(world_pos: Vector2, combo: int)
 signal bucket_completed(bonus: float)
 signal pickup_payout(amount: float, combo: int)
