@@ -3,6 +3,9 @@ extends SceneTree
 ## godot --headless --script res://tools/verify_ball_flight.gd
 
 
+const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
+
+
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -16,6 +19,7 @@ func _run() -> void:
 	ok = _check_flight_time_monotonic() and ok
 	ok = _check_flight_time_bounds() and ok
 	ok = _check_landing_matches_visual_yards() and ok
+	ok = await _check_flight_trail() and ok
 	print("ball_flight_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -185,4 +189,45 @@ func _check_landing_matches_visual_yards() -> bool:
 		ok = false
 	else:
 		print("OK: OK+ meets visual carry floor (dist=%.2fyd)" % ok_dist)
+	return ok
+
+
+func _check_flight_trail() -> bool:
+	var ok := true
+	var fx_layer := Node2D.new()
+	root.add_child(fx_layer)
+
+	var camera := Camera3D.new()
+	camera.position = Vector3(0.24, 1.24, -2.016)
+	camera.rotation_degrees = Vector3(1.2, 3.0, 0.0)
+	root.add_child(camera)
+	await process_frame
+
+	var trail = BallFlightTrailScript.begin(fx_layer, camera)
+	var origin := Vector3(-0.545, 0.05, -6.395)
+	for step in 12:
+		var z := origin.z - float(step) * 8.0
+		var y := origin.y + sin(float(step) * 0.4) * 2.0
+		trail.track(Vector3(origin.x, y, z))
+
+	if trail.point_count() > Balance.FLIGHT_TRAIL_MAX_POINTS:
+		print(
+			"FAIL: trail point count %d exceeds cap %d"
+			% [trail.point_count(), Balance.FLIGHT_TRAIL_MAX_POINTS]
+		)
+		ok = false
+	elif trail.point_count() < 3:
+		print("FAIL: trail should accumulate multiple spaced points, got %d" % trail.point_count())
+		ok = false
+
+	if trail.tail_alpha() >= trail.head_alpha():
+		print(
+			"FAIL: trail gradient tail alpha %.3f should be less than head %.3f"
+			% [trail.tail_alpha(), trail.head_alpha()]
+		)
+		ok = false
+
+	trail.finish()
+	if ok:
+		print("OK: flight trail caps points and fades tail-to-head")
 	return ok

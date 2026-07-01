@@ -5,6 +5,8 @@ extends Node3D
 ## the engine handle the rest.
 
 const CHARGE_METER_POSITION := Vector2(236.0, 185.143)
+## Local offset from rhombus center — text sits above the contact ring.
+const SWING_RESULT_TEXT_OFFSET := Vector2(0.0, -38.0)
 const BALL_PIXEL_SIZE := 0.021
 const GOLFER_PIXEL_SIZE := 0.024
 const VANISH_DISTANCE_YARDS := 220.0
@@ -13,6 +15,7 @@ const PICKUP_FLY_ARC_PX := 36.0
 const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles/TEXT"
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
+const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
 
 # Range Rat swing: linear wind-up frames 0-7; release at frame 8 (contact);
 # follow-through auto-plays frames 9-16. Idle loops 5 frames from idle sheet.
@@ -43,6 +46,7 @@ var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
 var _placement_debug: PlacementDebug
 var _pickup: Node
+var _flight_trail = null
 var _sprite_atmosphere_tint: Color = Color.WHITE
 
 
@@ -511,20 +515,24 @@ func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:
 
 
 func _spawn_float_text(tier: int, yards: float, payout: float) -> void:
+	if charge_meter == null:
+		return
 	var tier_name := Balance.TIER_NAMES[tier]
 	var label := Label.new()
 	label.text = "%s\n%d yds\n+$%s" % [tier_name, int(yards), FloatCashTextScript.format_amount(payout)]
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.z_index = 2
 	PixelFont.apply_label(label, 8)
 	label.modulate = Balance.TIER_COLORS[tier]
-	label.position = _project_to_screen(ball.global_position) + Vector2(-36, -52)
-	fx_layer.add_child(label)
+	charge_meter.add_child(label)
+	label.reset_size()
+	var size := label.get_minimum_size()
+	label.position = Vector2(-size.x * 0.5, SWING_RESULT_TEXT_OFFSET.y - size.y)
 
-	var tween := create_tween().set_parallel(true)
-	tween.tween_property(label, "position", label.position + Vector2(0, -48), 0.85)\
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(label, "modulate:a", 0.0, 0.85).set_delay(0.25)
-	tween.chain().tween_callback(label.queue_free)
+	var tween := create_tween()
+	tween.tween_property(label, "modulate:a", 0.0, ContactChargeRing.FROZEN_FADE_DURATION)\
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_callback(label.queue_free)
 
 
 func _on_bucket_changed(_count: int, _capacity: int) -> void:
@@ -611,6 +619,8 @@ func _leave_litter_ball(land_position: Vector3, land_scale: Vector3) -> void:
 
 func _apply_flight_sample(progress: float, path: BallFlight3D.FlightPath) -> void:
 	ball.global_position = BallFlight3D.sample(progress, path)
+	if _flight_trail:
+		_flight_trail.track(ball.global_position)
 
 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
@@ -624,6 +634,12 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 
 	_ball_in_flight = true
 	_ball_at_tee = false
+	if _flight_trail:
+		_flight_trail.finish()
+		_flight_trail = null
+	if fx_layer and camera:
+		_flight_trail = BallFlightTrailScript.begin(fx_layer, camera)
+		_flight_trail.track(ball.global_position)
 	ball.visible = true
 	ball.position = _ball_home
 	ball.scale = _base_ball_scale
@@ -640,6 +656,9 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 	tween.chain().tween_callback(func():
 		var landing := BallFlight3D.sample(1.0, path)
 		_ball_in_flight = false
+		if _flight_trail:
+			_flight_trail.finish()
+			_flight_trail = null
 		if path.visual_yards <= VANISH_DISTANCE_YARDS:
 			_leave_litter_ball(landing, _base_ball_scale)
 		else:
