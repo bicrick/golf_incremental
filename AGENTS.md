@@ -6,7 +6,7 @@
 
 Before implementing any feature:
 
-1. Read the relevant doc from the [doc map](docs/README.md#doc-map). **New loop / progression work:** start at [`docs/v2/README.md`](docs/v2/README.md).
+1. Read the relevant doc from the [doc map](docs/README.md#doc-map). **New loop work:** [`docs/v2/README.md`](docs/v2/README.md). **Balance / long-tail progression:** [`docs/v3/README.md`](docs/v3/README.md).
 2. Follow [agent workstreams](docs/technical/03-agent-workstreams.md) for parallel work — do not edit files outside your workstream
 3. Freeze autoloads (`EventBus`, `GameState`) and `PlayerStats` before parallel splits (Workstream 0)
 4. Parallax layer tree lives in `scenes/range/range_view.tscn` — only Workstream A edits it
