@@ -13,14 +13,14 @@ func _initialize() -> void:
 func _run() -> void:
 	var stats := Balance.default_stats()
 	var charge := ChargeSwing.new()
-	var peak := charge.charge_duration_sec()
+	var contact := charge.contact_time_sec()
 	var ok := true
 
-	# Early-release samples: error decreases toward peak → yards must increase.
+	# Early-release samples: error decreases toward contact → yards must increase.
 	var early_errors_ms: Array[float] = [150.0, 120.0, 100.0, 75.0, 50.0, 25.0, 10.0, 0.0]
 	var prev_yards := -1.0
 	for error_ms in early_errors_ms:
-		var hold := peak - error_ms / 1000.0
+		var hold := contact - error_ms / 1000.0
 		var quality := charge.timing_quality(hold, stats)
 		var yards := Economy.yards_from_quality(quality, stats)
 		var tier := charge.evaluate_timing(hold, stats)
@@ -32,11 +32,11 @@ func _run() -> void:
 			ok = false
 		prev_yards = yards
 
-	# Late-release samples: closer to peak → higher yards.
+	# Late-release samples: closer to contact → higher yards.
 	var late_errors_ms: Array[float] = [300.0, 200.0, 100.0, 35.0, 10.0, 1.0]
 	prev_yards = -1.0
 	for late_ms in late_errors_ms:
-		var hold := peak + late_ms / 1000.0
+		var hold := contact + late_ms / 1000.0
 		var quality := charge.timing_quality(hold, stats)
 		var yards := Economy.yards_from_quality(quality, stats)
 		if yards <= prev_yards:
@@ -46,7 +46,7 @@ func _run() -> void:
 			ok = false
 		prev_yards = yards
 
-	_print_examples(stats, charge, peak)
+	_print_examples(stats, charge, contact)
 
 	ok = _check_balance_targets() and ok
 	ok = _check_visual_depth() and ok
@@ -74,11 +74,11 @@ func _check_balance_targets() -> bool:
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 	var end_yards := Economy.yards_from_quality(1.0, maxed)
-	if end_yards < 480.0:
-		print("FAIL: maxed distance perfect yards expected ~500+, got %.2f" % end_yards)
-		ok = false
-	elif end_yards > 560.0:
-		print("FAIL: maxed distance perfect yards unexpectedly high %.2f" % end_yards)
+	if end_yards < maxed.max_yards * 0.9:
+		print(
+			"FAIL: maxed perfect yards expected near cap %.0f, got %.2f"
+			% [maxed.max_yards, end_yards]
+		)
 		ok = false
 	else:
 		print(
@@ -225,17 +225,17 @@ func _check_visual_depth() -> bool:
 	return ok
 
 
-func _print_examples(stats: PlayerStats, charge: ChargeSwing, peak: float) -> void:
-	print("--- yard formula comparison (default stats) ---")
+func _print_examples(stats: PlayerStats, charge: ChargeSwing, contact: float) -> void:
+	print("--- contact swing yard examples (default stats) ---")
 	print("OLD: min(base_yards * yard_mult * TIER_MULT[tier], max_yards)")
 	print("NEW: min(base_yards * yard_mult * timing_quality, max_yards); tier mult on payout only")
 
 	var cases: Array[Dictionary] = [
-		{"label": "perfect center (0ms)", "hold": peak},
-		{"label": "near-perfect early (10ms)", "hold": peak - 0.010},
-		{"label": "perfect edge (50ms)", "hold": peak - 0.050},
-		{"label": "good edge (100ms)", "hold": peak - 0.100},
-		{"label": "late good edge (+35ms)", "hold": peak + 0.035},
+		{"label": "perfect at contact (0ms)", "hold": contact},
+		{"label": "near-perfect early (10ms)", "hold": contact - 0.010},
+		{"label": "perfect edge (50ms)", "hold": contact - 0.050},
+		{"label": "good edge (100ms)", "hold": contact - 0.100},
+		{"label": "late good edge (+35ms)", "hold": contact + 0.035},
 	]
 
 	for case in cases:

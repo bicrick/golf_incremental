@@ -1,12 +1,13 @@
 class_name Swing
 extends RefCounted
-## Orchestrates hold-to-charge swing attempts — Workstream A + B integrate economy.
+## Orchestrates contact-timing swing attempts — release at wind-up contact.
 
 enum Phase { IDLE, CHARGING }
 
 var charge := ChargeSwing.new()
 var phase: Phase = Phase.IDLE
-var charge_power: float = 0.0
+var windup_progress: float = 0.0
+var last_contact_flavor: int = Balance.ContactFlavor.PURE
 var _last_swing_msec: int = 0
 var _charge_start_msec: int = 0
 
@@ -15,10 +16,10 @@ func update(_delta: float) -> void:
 	if phase != Phase.CHARGING:
 		return
 	var elapsed := charge_elapsed_sec()
-	charge_power = charge.power_at(elapsed)
-	var in_band := charge.is_in_release_band(elapsed, GameState.stats)
-	var past_peak := charge.overshoot_fraction(elapsed) > 0.0
-	EventBus.swing_charge_updated.emit(charge_power, in_band, past_peak)
+	windup_progress = charge.windup_progress(elapsed)
+	var in_band := charge.is_in_contact_band(elapsed, GameState.stats)
+	var past_contact := charge.past_contact(elapsed)
+	EventBus.swing_charge_updated.emit(windup_progress, in_band, past_contact)
 
 
 func is_charging() -> bool:
@@ -39,7 +40,7 @@ func start_charge() -> void:
 		return
 	phase = Phase.CHARGING
 	_charge_start_msec = Time.get_ticks_msec()
-	charge_power = 0.0
+	windup_progress = 0.0
 	EventBus.swing_charging_changed.emit(true)
 
 
@@ -49,6 +50,7 @@ func release_strike() -> void:
 	var hold_sec := charge_elapsed_sec()
 	var tier := charge.evaluate_timing(hold_sec, GameState.stats)
 	var quality := charge.timing_quality(hold_sec, GameState.stats)
+	last_contact_flavor = charge.contact_flavor(tier, hold_sec, GameState.stats)
 	_resolve_swing(tier, quality)
 
 
@@ -61,7 +63,7 @@ func charge_elapsed_sec() -> float:
 func _resolve_swing(tier: int, timing_quality: float) -> void:
 	_last_swing_msec = Time.get_ticks_msec()
 	phase = Phase.IDLE
-	charge_power = 0.0
+	windup_progress = 0.0
 	EventBus.swing_charging_changed.emit(false)
 
 	if tier == Balance.TimingTier.PERFECT:

@@ -8,10 +8,13 @@ const BALL_PIXEL_SCALE := Vector2(0.6, 0.6)
 const GOLFER_PIXEL_SCALE := Vector2(1.44, 1.44)
 const GOLFER_HARVEST_SIDESTEP_X := -50.0
 const GOLFER_HARVEST_TWEEN_SEC := 0.4
-const FLIGHT_ARC_MIN_PX := 12.0
-const FLIGHT_ARC_MAX_PX := 40.0
-const FLIGHT_TIME_MIN_SEC := 0.65
-const FLIGHT_TIME_RANGE_SEC := 0.95
+const FLIGHT_ARC_MIN_PX := 24.0
+const FLIGHT_ARC_MAX_PX := 80.0
+const FLIGHT_TIME_MIN_SEC := 0.40
+const FLIGHT_TIME_MAX_SEC := 2.80
+const FLIGHT_TIME_ARC_SEC := 0.55
+const FLIGHT_TIME_TRAVEL_SEC := 1.10
+const FLIGHT_TRAVEL_REF_PX := 110.0
 const FLIGHT_DEPTH_EXPONENT := 0.34
 const FLIGHT_DEPTH_STRETCH := 1.02
 const FLIGHT_YARD_DEPTH_SCALE := 180.0
@@ -45,7 +48,7 @@ const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/S
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 
-# Range Rat swing: charge maps progress to wind-up frames 0–7; release hits frame 8 (contact);
+# Range Rat swing: linear wind-up frames 0–7; release at frame 8 (contact);
 # follow-through auto-plays frames 9–16. Idle loops 5 frames from idle sheet.
 # idle_out_of_balls loops 17 frames (5x4) when bucket is empty or in harvest phase.
 
@@ -273,13 +276,11 @@ func _on_swing_charging_changed(charging: bool) -> void:
 		golfer.frame = RangeRatSpriteFrames.CONTACT_FRAME
 
 
-func _on_swing_charge_updated(_power: float, _in_band: bool, _past_peak: bool) -> void:
+func _on_swing_charge_updated(windup: float, _in_band: bool, _past_contact: bool) -> void:
 	if not _swing.is_charging():
 		return
-	var elapsed := _swing.charge_elapsed_sec()
-	var progress := _swing.charge.charge_progress(elapsed)
 	var frame := clampi(
-		int(floor(progress * float(RangeRatSpriteFrames.WINDUP_LAST))),
+		int(floor(windup * float(RangeRatSpriteFrames.WINDUP_LAST))),
 		0,
 		RangeRatSpriteFrames.WINDUP_LAST
 	)
@@ -480,62 +481,44 @@ func _update_charge_visuals() -> void:
 
 	if charge_meter:
 		charge_meter.visible = true
+	if power_bar_fill:
+		power_bar_fill.visible = false
 
 	var elapsed := _swing.charge_elapsed_sec()
-	var charge := _swing.charge
-	var power := charge.power_at(elapsed)
-	var in_band := charge.is_in_release_band(elapsed, GameState.stats)
-	var overshoot := charge.overshoot_fraction(elapsed)
-	var past_peak := overshoot > 0.0
-	var outer_scale := charge.outer_ring_scale(elapsed)
-	var converge := 1.0 - clampf(
-		(outer_scale - Balance.RING_OUTER_ALIGN_SCALE)
-		/ (Balance.RING_OUTER_START_SCALE - Balance.RING_OUTER_ALIGN_SCALE),
-		0.0,
-		1.0
-	)
+	var windup := _swing.charge.windup_progress(elapsed)
+	var in_band := _swing.charge.is_in_contact_band(elapsed, GameState.stats)
+	var past_contact := _swing.charge.past_contact(elapsed)
 
 	beat_ring.scale = Vector2.ONE * _ring_base_scale
 	if ring_inner:
-		ring_inner.scale = Vector2.ONE * charge.inner_ring_scale()
+		ring_inner.scale = Vector2.ONE * Balance.RING_INNER_SCALE
 		if in_band:
-			var pulse := 0.7 + 0.3 * sin(elapsed * 18.0)
-			ring_inner.modulate = Color(0.35, 1.0, 0.48, pulse)
+			var pulse := 0.65 + 0.35 * sin(elapsed * 20.0)
+			ring_inner.modulate = Color(1.0, 0.88, 0.25, pulse)
+		elif past_contact:
+			var red_pulse := 0.7 + 0.3 * sin(elapsed * 14.0)
+			ring_inner.modulate = Color(0.95, 0.45, 0.4, red_pulse)
 		else:
-			ring_inner.modulate = Color(
-				1.0,
-				lerpf(0.82, 0.96, power),
-				lerpf(0.42, 0.58, power),
-				lerpf(0.45, 1.0, power)
-			)
+			ring_inner.modulate = Color(0.92, 0.85, 0.55, lerpf(0.15, 0.35, windup))
 	if ring_outer:
-		ring_outer.scale = Vector2.ONE * outer_scale
+		ring_outer.scale = Vector2.ONE * Balance.RING_OUTER_ALIGN_SCALE
 		if in_band:
-			var gold_pulse := 0.75 + 0.25 * sin(elapsed * 18.0)
+			var gold_pulse := 0.55 + 0.45 * sin(elapsed * 20.0)
 			ring_outer.modulate = Color(1.0, 0.88, 0.25, gold_pulse)
-		elif past_peak:
-			var red := clampf(overshoot * 1.8, 0.0, 1.0)
-			var pulse := 0.82 + 0.18 * sin(elapsed * 14.0)
-			ring_outer.modulate = Color(
-				1.0,
-				lerpf(0.95, 0.28, red),
-				lerpf(0.95, 0.25, red),
-				lerpf(0.75, 0.95, red) * pulse
-			)
+		elif past_contact:
+			ring_outer.modulate = Color(0.9, 0.45, 0.4, 0.45)
 		else:
-			ring_outer.modulate = Color(1.0, 1.0, 1.0, lerpf(0.3, 0.9, converge))
+			ring_outer.modulate = Color(1.0, 1.0, 1.0, lerpf(0.08, 0.2, windup))
 
 	_update_sweet_spot_indicator(in_band, elapsed)
-	_update_power_bar(power, in_band, past_peak)
 
 	if not _ball_at_tee:
 		return
 
-	var compress := power * 0.18
+	var compress := windup * 0.14
 	ball.scale = _base_ball_scale * Vector2(1.0 + compress * 0.5, 1.0 - compress)
-	ball.position = _ball_home + Vector2(0.0, compress * 6.0)
-
-	golfer.position = _golfer_home + Vector2(lerpf(0.0, -2.0, power), lerpf(0.0, 1.0, power))
+	ball.position = _ball_home + Vector2(0.0, compress * 5.0)
+	golfer.position = _golfer_home + Vector2(lerpf(0.0, -2.0, windup), lerpf(0.0, 1.0, windup))
 
 
 func _flash_beat_ring(tier: int) -> void:
@@ -745,7 +728,10 @@ func _build_flight_config() -> BallFlightRenderer.FlightConfig:
 	config.range_x_min = RANGE_X_MIN
 	config.range_x_max = RANGE_X_MAX
 	config.flight_time_min_sec = FLIGHT_TIME_MIN_SEC
-	config.flight_time_range_sec = FLIGHT_TIME_RANGE_SEC
+	config.flight_time_max_sec = FLIGHT_TIME_MAX_SEC
+	config.flight_time_arc_sec = FLIGHT_TIME_ARC_SEC
+	config.flight_time_travel_sec = FLIGHT_TIME_TRAVEL_SEC
+	config.flight_travel_ref_px = FLIGHT_TRAVEL_REF_PX
 	config.base_ball_scale = _base_ball_scale
 	config.min_visible_px = 1.0 * _base_ball_scale.x
 	return config
@@ -773,7 +759,11 @@ func _apply_flight_sample(progress: float, path: BallFlightRenderer.FlightPath) 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 	_flight_config.base_ball_scale = _base_ball_scale
 	var path := BallFlightRenderer.build_path(
-		yards, timing_tier, GameState.stats, _flight_config
+		yards,
+		timing_tier,
+		GameState.stats,
+		_flight_config,
+		_swing.last_contact_flavor
 	)
 
 	_ball_in_flight = true

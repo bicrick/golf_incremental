@@ -1,5 +1,5 @@
 extends Control
-## HUD: currency, phase hints, and swing feedback.
+## HUD: currency, phase hints, and contact swing feedback.
 
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const EDGE_PADDING := 10
@@ -73,23 +73,23 @@ func _on_swing_charging_changed(charging: bool) -> void:
 		return
 	if charging:
 		hint_label.visible = true
-		hint_label.text = "Hold..."
+		hint_label.text = "Wind up..."
 		hint_label.modulate = Color(0.85, 0.9, 0.95, 1.0)
 	else:
 		_set_idle_hint()
 
 
-func _on_swing_charge_updated(_power: float, in_release_band: bool, past_peak: bool) -> void:
+func _on_swing_charge_updated(_windup: float, in_contact_band: bool, past_contact: bool) -> void:
 	if GameState.is_harvest_phase():
 		return
-	if in_release_band:
+	if in_contact_band:
 		hint_label.text = "Release!"
 		hint_label.modulate = Color(1.0, 0.92, 0.45, 1.0)
-	elif past_peak:
+	elif past_contact:
 		hint_label.text = "Too late!"
 		hint_label.modulate = Color(0.9, 0.55, 0.45, 1.0)
 	else:
-		hint_label.text = "Hold..."
+		hint_label.text = "Wind up..."
 		hint_label.modulate = Color(0.85, 0.9, 0.95, 1.0)
 
 
@@ -103,7 +103,7 @@ func _set_idle_hint() -> void:
 		hint_label.text = "Bucket empty — collect litter"
 		hint_label.modulate = Color(0.95, 0.75, 0.45, 1.0)
 		return
-	hint_label.text = "Hold Space to swing"
+	hint_label.text = "Hold Space — release at contact"
 	hint_label.modulate = Color(0.75, 0.78, 0.82, 0.85)
 
 

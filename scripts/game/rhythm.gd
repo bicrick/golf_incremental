@@ -1,79 +1,85 @@
 class_name ChargeSwing
 extends RefCounted
-## Charge curve and peak-timing evaluation for hold-release swings.
+## Contact timing — release at wind-up contact (frame 8), not hold-to-peak power.
+
+
+func contact_time_sec() -> float:
+	return Balance.CONTACT_WINDUP_SEC
+
+
+func contact_decay_sec() -> float:
+	return Balance.CONTACT_DECAY_SEC
 
 
 func charge_duration_sec() -> float:
-	return Balance.CHARGE_DURATION_SEC
+	return contact_time_sec()
 
 
 func charge_decay_sec() -> float:
-	return Balance.CHARGE_DECAY_SEC
+	return contact_decay_sec()
 
 
-func power_at(elapsed_sec: float) -> float:
+## Linear 0–1 wind-up progress for anim frames 0–7.
+func windup_progress(elapsed_sec: float) -> float:
 	if elapsed_sec <= 0.0:
 		return 0.0
-	var duration := charge_duration_sec()
-	if elapsed_sec < duration:
-		var t := elapsed_sec / duration
-		return t * t * (3.0 - 2.0 * t)
-	var overshoot := elapsed_sec - duration
-	return clampf(1.0 - overshoot / charge_decay_sec(), 0.0, 1.0)
+	return clampf(elapsed_sec / contact_time_sec(), 0.0, 1.0)
 
 
 func charge_progress(elapsed_sec: float) -> float:
-	if elapsed_sec <= 0.0:
+	return windup_progress(elapsed_sec)
+
+
+func past_contact(elapsed_sec: float) -> bool:
+	return elapsed_sec > contact_time_sec()
+
+
+func past_contact_fraction(elapsed_sec: float) -> float:
+	var contact := contact_time_sec()
+	if elapsed_sec <= contact:
 		return 0.0
-	var duration := charge_duration_sec()
-	if elapsed_sec >= duration:
-		return 1.0
-	var t := elapsed_sec / duration
-	return t * t * (3.0 - 2.0 * t)
+	return clampf((elapsed_sec - contact) / contact_decay_sec(), 0.0, 1.0)
 
 
 func overshoot_fraction(elapsed_sec: float) -> float:
-	var duration := charge_duration_sec()
-	if elapsed_sec <= duration:
-		return 0.0
-	return clampf(
-		(elapsed_sec - duration) / charge_decay_sec(),
-		0.0,
-		1.0
-	)
+	return past_contact_fraction(elapsed_sec)
 
 
-func outer_ring_scale(elapsed_sec: float) -> float:
-	var duration := charge_duration_sec()
-	if elapsed_sec <= duration:
-		return lerpf(
-			Balance.RING_OUTER_START_SCALE,
-			Balance.RING_OUTER_ALIGN_SCALE,
-			charge_progress(elapsed_sec)
-		)
-	var decay_t := overshoot_fraction(elapsed_sec)
-	return lerpf(Balance.RING_OUTER_ALIGN_SCALE, Balance.RING_OUTER_OVERSHOOT_SCALE, decay_t)
+## Wind-up progress alias for legacy charge visuals.
+func power_at(elapsed_sec: float) -> float:
+	return windup_progress(elapsed_sec)
 
 
-func inner_ring_scale() -> float:
-	return Balance.RING_INNER_SCALE
-
-
-func is_in_release_band(elapsed_sec: float, stats: PlayerStats) -> bool:
+func is_in_contact_band(elapsed_sec: float, stats: PlayerStats) -> bool:
 	if elapsed_sec < Balance.MIN_HOLD_SEC:
 		return false
-	var error_ms := absf(elapsed_sec - charge_duration_sec()) * 1000.0
+	var error_ms := absf(elapsed_sec - contact_time_sec()) * 1000.0
 	return error_ms <= stats.timing_window_perfect_ms
 
 
-## Continuous 0–1 quality for yard distance (1 = dead-center early release).
-## Gaussian falloff from peak; late releases cap below 1.0. Tier labels stay discrete.
+func is_in_release_band(elapsed_sec: float, stats: PlayerStats) -> bool:
+	return is_in_contact_band(elapsed_sec, stats)
+
+
+func contact_flavor(tier: int, hold_duration_sec: float, _stats: PlayerStats) -> int:
+	if tier == Balance.TimingTier.MISS:
+		if hold_duration_sec < Balance.MIN_HOLD_SEC:
+			return Balance.ContactFlavor.THIN
+		if hold_duration_sec < contact_time_sec():
+			return Balance.ContactFlavor.THIN
+		return Balance.ContactFlavor.CHUNK
+	if tier == Balance.TimingTier.OK:
+		return Balance.ContactFlavor.SLIGHTLY_FAT
+	return Balance.ContactFlavor.PURE
+
+
+## Continuous 0–1 quality for yard distance (1 = dead-center at contact).
 func timing_quality(hold_duration_sec: float, stats: PlayerStats) -> float:
 	if hold_duration_sec < Balance.MIN_HOLD_SEC:
 		return Balance.YARD_QUALITY_FLOOR
 
-	var peak := charge_duration_sec()
-	var delta_sec := hold_duration_sec - peak
+	var contact := contact_time_sec()
+	var delta_sec := hold_duration_sec - contact
 
 	if delta_sec <= 0.0:
 		return _yard_quality_early(absf(delta_sec) * 1000.0, stats)
@@ -83,7 +89,6 @@ func timing_quality(hold_duration_sec: float, stats: PlayerStats) -> float:
 func _yard_quality_early(error_ms: float, stats: PlayerStats) -> float:
 	var floor := Balance.YARD_QUALITY_FLOOR
 	var span := 1.0 - floor
-	# sigma ≈ good window → ~0.7 quality at good edge, ~0.91 at perfect edge
 	var sigma := maxf(stats.timing_window_good_ms * 0.85, 1.0)
 	return floor + span * exp(-0.5 * pow(error_ms / sigma, 2.0))
 
@@ -100,8 +105,8 @@ func evaluate_timing(hold_duration_sec: float, stats: PlayerStats) -> int:
 	if hold_duration_sec < Balance.MIN_HOLD_SEC:
 		return Balance.TimingTier.MISS
 
-	var peak := charge_duration_sec()
-	var delta_sec := hold_duration_sec - peak
+	var contact := contact_time_sec()
+	var delta_sec := hold_duration_sec - contact
 
 	if delta_sec <= 0.0:
 		var early_ms := absf(delta_sec) * 1000.0
@@ -113,11 +118,11 @@ func evaluate_timing(hold_duration_sec: float, stats: PlayerStats) -> int:
 			return Balance.TimingTier.OK
 		return Balance.TimingTier.MISS
 
-	# Late release — no Perfect; degrades quickly through Good → OK → Miss.
+	# Late release — no Perfect; degrades through Good → OK → Miss.
 	var overshoot_ms := delta_sec * 1000.0
 	if overshoot_ms <= Balance.POST_PEAK_GOOD_MS:
 		return Balance.TimingTier.GOOD
-	var ok_max := charge_decay_sec() * 0.5
+	var ok_max := contact_decay_sec() * 0.5
 	if delta_sec <= ok_max:
 		return Balance.TimingTier.OK
 	return Balance.TimingTier.MISS

@@ -14,10 +14,13 @@ const BUCKET_COMPLETE_BONUS: float = 5.0
 const COMBO_WINDOW_SEC: float = 0.8
 const COMBO_MULT_PER_TIER: float = 0.10
 
-# Hold-to-charge swing
-const CHARGE_DURATION_SEC: float = 0.5
-const CHARGE_DECAY_SEC: float = 0.6
+# v2 Phase E — contact swing (release at frame-8 contact, not hold-to-peak)
+const CONTACT_WINDUP_SEC: float = 0.5
+const CONTACT_DECAY_SEC: float = 0.6
 const MIN_HOLD_SEC: float = 0.05
+## Legacy aliases — same values as contact timing.
+const CHARGE_DURATION_SEC: float = CONTACT_WINDUP_SEC
+const CHARGE_DECAY_SEC: float = CONTACT_DECAY_SEC
 ## Past peak: no Perfect; OK caps here, then Miss (half decay window).
 const POST_PEAK_OK_MAX_SEC: float = CHARGE_DECAY_SEC * 0.5
 const POST_PEAK_GOOD_MS: float = 35.0
@@ -66,11 +69,12 @@ const VISUAL_FLOOR_P: float = 0.356
 ## Cap whiff/miss depth near tee (dribble).
 const WHIFF_MAX_P: float = 0.06
 ## OK+ minimum arc so short carries never read as ground skids.
-const VISUAL_ARC_MIN_PX: float = 18.0
+const VISUAL_ARC_MIN_PX: float = 36.0
 ## Max tee-to-landing travel (px) for whiff acceptance tests.
 const VISUAL_DRIBBLE_MAX_PX: float = 14.0
 
 enum TimingTier { PERFECT, GOOD, OK, MISS }
+enum ContactFlavor { PURE, SLIGHTLY_FAT, THIN, CHUNK }
 enum FeedbackTier { WHISPER, WARM, JACKPOT, MILESTONE }
 enum UpgradeBranch { RHYTHM, DISTANCE, CLUBS, BALLS, RANGE, OUTFITS, ECONOMY, FRIENDS }
 

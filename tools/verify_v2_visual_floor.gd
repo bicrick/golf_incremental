@@ -39,11 +39,16 @@ func _make_config() -> BallFlightRenderer.FlightConfig:
 	config.base_ball_scale = Vector2(0.6, 0.6)
 	config.min_visible_px = 0.6
 	config.ball_texture_px = 16.0
-	config.arc_min_px = 12.0
-	config.arc_max_px = 40.0
+	config.arc_min_px = 24.0
+	config.arc_max_px = 80.0
 	config.landing_scatter_x = 28.0
 	config.range_x_min = 24.0
 	config.range_x_max = 456.0
+	config.flight_time_min_sec = 0.40
+	config.flight_time_max_sec = 2.80
+	config.flight_time_arc_sec = 0.55
+	config.flight_time_travel_sec = 1.10
+	config.flight_travel_ref_px = 110.0
 	return config
 
 
@@ -54,19 +59,23 @@ func _default_stats() -> PlayerStats:
 func _ok_tier_sample() -> Dictionary:
 	var stats := _default_stats()
 	var charge := ChargeSwing.new()
-	var peak := charge.charge_duration_sec()
+	var contact := charge.contact_time_sec()
 	# Mid OK window: between good edge (100ms) and OK edge (150ms) early release.
-	var hold := peak - 120.0 / 1000.0
+	var hold := contact - 120.0 / 1000.0
 	var tier := charge.evaluate_timing(hold, stats)
 	var quality := charge.timing_quality(hold, stats)
+	var flavor := charge.contact_flavor(tier, hold, stats)
 	var yards := Economy.yards_from_quality(quality, stats)
 	if tier != Balance.TimingTier.OK:
 		print(
 			"FAIL: expected OK tier sample, got %s (hold=%.3f early_ms=%.0f)"
-			% [Balance.TIER_NAMES[tier], hold, absf(hold - peak) * 1000.0]
+			% [Balance.TIER_NAMES[tier], hold, absf(hold - contact) * 1000.0]
 		)
 		return {}
-	return {"tier": tier, "yards": yards, "quality": quality}
+	if flavor != Balance.ContactFlavor.SLIGHTLY_FAT:
+		print("FAIL: OK tier sample expected SLIGHTLY_FAT flavor, got %d" % flavor)
+		return {}
+	return {"tier": tier, "yards": yards, "quality": quality, "flavor": flavor}
 
 
 func _floor_landing_y(config: BallFlightRenderer.FlightConfig) -> float:
@@ -87,7 +96,7 @@ func _check_ok_tier_floor() -> bool:
 		return false
 
 	var path := BallFlightRenderer.build_path(
-		sample["yards"], sample["tier"], stats, config
+		sample["yards"], sample["tier"], stats, config, sample["flavor"]
 	)
 	var landing_y: float = path.landing_ground.y
 	var floor_y := _floor_landing_y(config)
@@ -118,8 +127,9 @@ func _check_perfect_first_band() -> bool:
 	var config := _make_config()
 	var stats := _default_stats()
 	var charge := ChargeSwing.new()
+	var contact := charge.contact_time_sec()
 	var yards := Economy.yards_from_quality(1.0, stats)
-	var tier := charge.evaluate_timing(charge.charge_duration_sec(), stats)
+	var tier := charge.evaluate_timing(contact, stats)
 
 	var path := BallFlightRenderer.build_path(
 		yards, tier, stats, config
@@ -196,7 +206,7 @@ func _check_ok_plus_arc() -> bool:
 		return false
 
 	var arc := BallFlightRenderer.arc_height_for_hit(
-		sample["yards"], sample["tier"], stats, config
+		sample["yards"], sample["tier"], stats, config, -1.0, sample["flavor"]
 	)
 	if arc < Balance.VISUAL_ARC_MIN_PX:
 		print(
@@ -208,7 +218,7 @@ func _check_ok_plus_arc() -> bool:
 		print("OK: OK tier arc=%.1fpx (min=%.0fpx)" % [arc, Balance.VISUAL_ARC_MIN_PX])
 
 	var miss_arc := BallFlightRenderer.arc_height_for_hit(
-		3.0, Balance.TimingTier.MISS, stats, config
+		3.0, Balance.TimingTier.MISS, stats, config, -1.0, Balance.ContactFlavor.THIN
 	)
 	if miss_arc >= Balance.VISUAL_ARC_MIN_PX:
 		print("FAIL: miss arc %.1fpx should stay below OK+ floor" % miss_arc)

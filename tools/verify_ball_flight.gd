@@ -8,6 +8,11 @@ const FAR_GROUND_Y := 105.0
 const GROUND_BOTTOM_Y := 270.0
 const MAT_BACK_Y := 180.0
 const VANISHING_POINT := Vector2(240.0, 100.0)
+const FLIGHT_TIME_MIN_SEC := 0.40
+const FLIGHT_TIME_MAX_SEC := 2.80
+const FLIGHT_TIME_ARC_SEC := 0.55
+const FLIGHT_TIME_TRAVEL_SEC := 1.10
+const FLIGHT_TRAVEL_REF_PX := 110.0
 
 
 func _initialize() -> void:
@@ -22,6 +27,7 @@ func _run() -> void:
 	ok = _check_scale_bounds() and ok
 	ok = _check_fairway_travel() and ok
 	ok = _check_subpixel_vanish() and ok
+	ok = _check_flight_time_monotonic() and ok
 	print("ball_flight_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -41,11 +47,16 @@ func _make_config() -> BallFlightRenderer.FlightConfig:
 	config.base_ball_scale = Vector2(0.5, 0.5)
 	config.min_visible_px = 0.5
 	config.ball_texture_px = 8.0
-	config.arc_min_px = 12.0
-	config.arc_max_px = 40.0
+	config.arc_min_px = 24.0
+	config.arc_max_px = 80.0
 	config.landing_scatter_x = 28.0
 	config.range_x_min = 24.0
 	config.range_x_max = 456.0
+	config.flight_time_min_sec = FLIGHT_TIME_MIN_SEC
+	config.flight_time_max_sec = FLIGHT_TIME_MAX_SEC
+	config.flight_time_arc_sec = FLIGHT_TIME_ARC_SEC
+	config.flight_time_travel_sec = FLIGHT_TIME_TRAVEL_SEC
+	config.flight_travel_ref_px = FLIGHT_TRAVEL_REF_PX
 	return config
 
 
@@ -289,4 +300,63 @@ func _check_subpixel_vanish() -> bool:
 
 	if ok:
 		print("OK: long shots extrapolate past far edge and cull sub-pixel")
+	return ok
+
+
+func _check_flight_time_monotonic() -> bool:
+	var ok := true
+	var config := _make_config()
+	var stats := _maxed_stats()
+
+	var short_path := BallFlightRenderer.build_path(
+		30.0, Balance.TimingTier.PERFECT, stats, config
+	)
+	var mid_path := BallFlightRenderer.build_path(
+		150.0, Balance.TimingTier.PERFECT, stats, config
+	)
+	var long_path := BallFlightRenderer.build_path(
+		300.0, Balance.TimingTier.PERFECT, stats, config
+	)
+	if short_path.flight_time >= mid_path.flight_time \
+			or mid_path.flight_time >= long_path.flight_time:
+		print(
+			"FAIL: flight_time should increase with distance 30=%.2fs 150=%.2fs 300=%.2fs"
+			% [short_path.flight_time, mid_path.flight_time, long_path.flight_time]
+		)
+		ok = false
+	else:
+		print(
+			"OK: flight_time increases with distance (30=%.2fs 150=%.2fs 300=%.2fs)"
+			% [short_path.flight_time, mid_path.flight_time, long_path.flight_time]
+		)
+
+	var ok_path := BallFlightRenderer.build_path(
+		150.0, Balance.TimingTier.OK, stats, config
+	)
+	var miss_path := BallFlightRenderer.build_path(
+		150.0, Balance.TimingTier.MISS, stats, config
+	)
+	if miss_path.flight_time >= ok_path.flight_time:
+		print(
+			"FAIL: miss flight_time %.2fs should be shorter than OK+ %.2fs"
+			% [miss_path.flight_time, ok_path.flight_time]
+		)
+		ok = false
+	else:
+		print(
+			"OK: miss flight shorter than OK+ (miss=%.2fs ok=%.2fs)"
+			% [miss_path.flight_time, ok_path.flight_time]
+		)
+
+	for path in [short_path, mid_path, long_path, ok_path, miss_path]:
+		if path.flight_time < FLIGHT_TIME_MIN_SEC - 0.001 \
+				or path.flight_time > FLIGHT_TIME_MAX_SEC + 0.001:
+			print(
+				"FAIL: flight_time %.2fs outside [%.2f, %.2f]"
+				% [path.flight_time, FLIGHT_TIME_MIN_SEC, FLIGHT_TIME_MAX_SEC]
+			)
+			ok = false
+			break
+	if ok:
+		print("OK: flight_time stays within configured clamp")
 	return ok
