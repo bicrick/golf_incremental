@@ -175,6 +175,12 @@ static func celestial_position(cycle_time: float, is_moon: bool) -> Vector2:
 	)
 
 
+## Unit direction on the sky dome — east horizon → zenith → west horizon arc.
+static func celestial_direction_3d(cycle_time: float, is_moon: bool) -> Vector3:
+	var angle := celestial_angle(cycle_time, is_moon)
+	return Vector3(cos(angle), sin(angle), 0.35).normalized()
+
+
 static func celestial_alpha(cycle_time: float, is_moon: bool) -> float:
 	if _orbit_progress(cycle_time, is_moon) > 0.5:
 		return 0.0

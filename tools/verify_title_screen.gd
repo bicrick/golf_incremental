@@ -19,8 +19,8 @@ func _run() -> void:
 	var ui: CanvasLayer = main.get_node("UI")
 	var title_screen: CanvasLayer = main.get_node("TitleScreen")
 	var sky_bg: Node = title_screen.get_node("SkyBg")
-	var play_button: Button = title_screen.get_node("Overlay/Center/VBox/PlayBob/PlayButton")
-	var title_label: Label = title_screen.get_node("Overlay/Center/VBox/TitleLabel")
+	var press_space: Label = title_screen.get_node("Overlay/Center/VBox/PressSpace")
+	var title_logo: TextureRect = title_screen.get_node("Overlay/Center/VBox/TitleLogo")
 
 	var ok := true
 
@@ -33,8 +33,14 @@ func _run() -> void:
 	if ui.visible:
 		print("FAIL: UI should be hidden on launch")
 		ok = false
-	if title_label.text != "Range Rat":
-		print("FAIL: title text expected 'Range Rat', got '%s'" % title_label.text)
+	if title_logo.texture == null:
+		print("FAIL: title logo texture missing")
+		ok = false
+	elif title_logo.texture.resource_path != "res://assets/sprites/range_rat/range-rat-title-logo.png":
+		print("FAIL: title logo path expected range-rat-title-logo.png, got '%s'" % title_logo.texture.resource_path)
+		ok = false
+	elif title_logo.custom_minimum_size.x < 400.0:
+		print("FAIL: title logo should dominate the screen (min width >= 400), got %s" % title_logo.custom_minimum_size)
 		ok = false
 	if title_screen.get_node_or_null("FairwayBg") != null:
 		print("FAIL: FairwayBg should be replaced by SkyBg")
@@ -73,7 +79,7 @@ func _run() -> void:
 	var swings_before := int(game_state.lifetime.get("total_swings", 0))
 
 	# Regression: mouse press/release on title must not register as a swing.
-	var click_pos := play_button.get_global_rect().get_center()
+	var click_pos := press_space.get_global_rect().get_center()
 	_parse_mouse_button(click_pos, true)
 	await process_frame
 	_parse_mouse_button(click_pos, false)
@@ -84,7 +90,7 @@ func _run() -> void:
 
 	_parse_space_key(true)
 	await process_frame
-	if not play_button.disabled:
+	if not title_screen.is_transitioning():
 		print("FAIL: Space should begin fade transition")
 		ok = false
 

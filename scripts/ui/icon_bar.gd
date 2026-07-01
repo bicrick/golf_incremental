@@ -6,6 +6,9 @@ signal settings_toggled(is_open: bool)
 
 const ICON_SIZE := Vector2i(24, 24)
 const MARGIN := 8
+const PANEL_BORDER := 2
+const UPGRADES_WRAP_MARGIN_H := 2
+const UPGRADES_WRAP_MARGIN_V := 1
 
 const COLOR_WOOD := Color(0.55, 0.42, 0.32, 1)
 const COLOR_WOOD_DARK := Color(0.35, 0.28, 0.22, 1)
@@ -14,9 +17,10 @@ const COLOR_DISABLED := Color(0.45, 0.4, 0.35, 0.6)
 const HOVER_BOB_AMPLITUDE := 1.5
 const HOVER_BOB_FREQ := 2.4
 
-@onready var upgrades_button: Button = $TopRight/UpgradesButton
+@onready var upgrades_button: Button = $TopRight/UpgradesWrap/UpgradesButton
 @onready var settings_button: Button = $BottomLeft/SettingsWrap/SettingsButton
-@onready var _upgrades_glyph: Control = $TopRight/UpgradesButton/Glyph
+@onready var _upgrades_glyph: Control = $TopRight/UpgradesWrap/UpgradesButton/Glyph
+@onready var _upgrades_wrap: PanelContainer = $TopRight/UpgradesWrap
 @onready var _settings_glyph: Control = $BottomLeft/SettingsWrap/SettingsButton/Glyph
 @onready var _settings_wrap: Control = $BottomLeft/SettingsWrap
 
@@ -42,8 +46,10 @@ func _ready() -> void:
 	upgrades_button.mouse_exited.connect(_on_upgrades_mouse_exited)
 	settings_button.mouse_entered.connect(_on_settings_mouse_entered)
 	settings_button.mouse_exited.connect(_on_settings_mouse_exited)
+	_style_upgrades_wrap()
 	_style_upgrades_button()
 	_style_settings_button()
+	_layout_upgrades_corner()
 	upgrades_button.tooltip_text = ""
 	settings_button.tooltip_text = ""
 	call_deferred("_capture_button_rest_positions")
@@ -51,7 +57,7 @@ func _ready() -> void:
 
 
 func _capture_button_rest_positions() -> void:
-	_upgrades_rest_y = upgrades_button.position.y
+	_upgrades_rest_y = _upgrades_wrap.position.y
 	_settings_rest_y = _settings_wrap.position.y
 
 
@@ -61,19 +67,21 @@ func _process(delta: float) -> void:
 	_hover_bob_time += delta
 	var wave := sin(_hover_bob_time * HOVER_BOB_FREQ) * HOVER_BOB_AMPLITUDE
 	if _upgrades_hover:
-		upgrades_button.position.y = _upgrades_rest_y + wave
+		_upgrades_wrap.position.y = _upgrades_rest_y + wave
 	if _settings_hover:
 		_settings_wrap.position.y = _settings_rest_y + wave
 
 
 func _on_upgrades_mouse_entered() -> void:
 	_upgrades_hover = true
+	_apply_upgrades_panel_style(true)
 	set_process(true)
 
 
 func _on_upgrades_mouse_exited() -> void:
 	_upgrades_hover = false
-	upgrades_button.position.y = _upgrades_rest_y
+	_upgrades_wrap.position.y = _upgrades_rest_y
+	_apply_upgrades_panel_style()
 	_update_hover_process()
 
 
@@ -118,6 +126,45 @@ func set_upgrades_open(is_open: bool) -> void:
 func _set_upgrades_pressed(is_open: bool) -> void:
 	upgrades_button.button_pressed = is_open
 	_upgrades_glyph.highlighted = is_open
+	_apply_upgrades_panel_style(_upgrades_hover, is_open)
+
+
+func _style_upgrades_wrap() -> void:
+	_apply_upgrades_panel_style()
+
+
+func _upgrades_panel_outer_size() -> Vector2i:
+	return Vector2i(
+		ICON_SIZE.x + UPGRADES_WRAP_MARGIN_H * 2 + PANEL_BORDER * 2,
+		ICON_SIZE.y + UPGRADES_WRAP_MARGIN_V * 2 + PANEL_BORDER * 2
+	)
+
+
+func _layout_upgrades_corner() -> void:
+	var top_right: Control = $TopRight
+	var outer := Vector2(_upgrades_panel_outer_size())
+	top_right.offset_left = -MARGIN - outer.x
+	top_right.offset_top = MARGIN
+	top_right.offset_right = -MARGIN
+	top_right.offset_bottom = MARGIN + outer.y
+	_upgrades_wrap.custom_minimum_size = outer
+
+
+func _make_upgrades_panel_style(hovering: bool = false, pressed: bool = false) -> StyleBoxFlat:
+	var style := UiTheme.make_wood_panel()
+	style.content_margin_left = UPGRADES_WRAP_MARGIN_H
+	style.content_margin_right = UPGRADES_WRAP_MARGIN_H
+	style.content_margin_top = UPGRADES_WRAP_MARGIN_V
+	style.content_margin_bottom = UPGRADES_WRAP_MARGIN_V
+	if pressed:
+		style.bg_color = UiTheme.COLOR_PARCHMENT.darkened(0.05)
+	elif hovering:
+		style.bg_color = UiTheme.COLOR_PARCHMENT.lightened(0.06)
+	return style
+
+
+func _apply_upgrades_panel_style(hovering: bool = false, pressed: bool = false) -> void:
+	_upgrades_wrap.add_theme_stylebox_override(&"panel", _make_upgrades_panel_style(hovering, pressed))
 
 
 func _style_upgrades_button() -> void:

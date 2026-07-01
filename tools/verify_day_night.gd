@@ -15,6 +15,7 @@ func _run() -> void:
 	ok = _check_celestial_arc() and ok
 	ok = await _check_atmosphere_application() and ok
 	ok = await _check_sun_light_scene() and ok
+	ok = await _check_sky_dome() and ok
 	print("day_night_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -171,4 +172,57 @@ func _check_sun_light_scene() -> bool:
 		"OK: DirectionalLight3D energy follows day/night (day=%.2f night=%.2f)"
 		% [day_energy, night_energy]
 	)
+	return true
+
+
+func _check_sky_dome() -> bool:
+	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
+	if scene == null:
+		print("FAIL: could not load range_view.tscn for sky dome check")
+		return false
+
+	var range_view: Node3D = scene.instantiate()
+	root.add_child(range_view)
+	range_view.visible = true
+	await process_frame
+
+	var sky_dome := range_view.get_node_or_null("SkyDome")
+	if sky_dome == null:
+		print("FAIL: RangeView missing SkyDome node")
+		range_view.queue_free()
+		return false
+
+	if not sky_dome.has_method(&"update_atmosphere"):
+		print("FAIL: SkyDome missing update_atmosphere")
+		range_view.queue_free()
+		return false
+
+	range_view.apply_atmosphere(50.0)
+	if not sky_dome.has_method(&"get_sun_alpha"):
+		print("FAIL: SkyDome missing get_sun_alpha")
+		range_view.queue_free()
+		return false
+	if sky_dome.get_sun_alpha() < 0.5:
+		print("FAIL: sun should be visible during day, alpha=", sky_dome.get_sun_alpha())
+		range_view.queue_free()
+		return false
+
+	range_view.apply_atmosphere(0.0)
+	if sky_dome.get_sun_alpha() > 0.15:
+		print("FAIL: sun should be hidden at midnight, alpha=", sky_dome.get_sun_alpha())
+		range_view.queue_free()
+		return false
+
+	range_view.apply_atmosphere(110.0)
+	if not sky_dome.has_method(&"get_star_alpha"):
+		print("FAIL: SkyDome missing get_star_alpha")
+		range_view.queue_free()
+		return false
+	if sky_dome.get_star_alpha() <= 0.0:
+		print("FAIL: stars should be visible at night, alpha=", sky_dome.get_star_alpha())
+		range_view.queue_free()
+		return false
+
+	range_view.queue_free()
+	print("OK: SkyDome sun and star visibility follow day/night cycle")
 	return true

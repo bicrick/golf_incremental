@@ -29,6 +29,8 @@ func _run() -> void:
 	ok = _check_bucket_changed_signal(gs) and ok
 	ok = _check_save_roundtrip(gs) and ok
 	ok = _check_load_refills_empty_bucket(gs) and ok
+	ok = _check_upgrade_refills_bucket(gs) and ok
+	ok = _check_upgrade_refills_during_harvest(gs) and ok
 	ok = await _check_tee_ball_visibility(main, gs) and ok
 	ok = await _check_space_does_not_refill(main, gs) and ok
 	_cleanup_save()
@@ -152,6 +154,69 @@ func _check_load_refills_empty_bucket(gs: Node) -> bool:
 		print("FAIL: has_bucket_balls false after load refill")
 		return false
 	print("OK: empty bucket refilled to %d on load" % gs.bucket_remaining)
+	return true
+
+
+func _check_upgrade_refills_bucket(gs: Node) -> bool:
+	_reset_bucket(gs)
+	gs.currency = 1_000_000.0
+	gs.upgrade_levels = {"power": 1}
+	gs._recompute_stats()
+	gs.bucket_remaining = 2
+	if not gs.purchase_upgrade("bucket_size_1"):
+		print("FAIL: bucket_size_1 purchase failed")
+		return false
+	var expected := CAPACITY + 2
+	if gs.bucket_capacity != expected:
+		print(
+			"FAIL: bucket_capacity after upgrade expected %d, got %d"
+			% [expected, gs.bucket_capacity]
+		)
+		return false
+	if gs.bucket_remaining != expected:
+		print(
+			"FAIL: bucket upgrade should refill to %d, got %d"
+			% [expected, gs.bucket_remaining]
+		)
+		return false
+	print("OK: bucket upgrade refills to %d/%d" % [gs.bucket_remaining, gs.bucket_capacity])
+	return true
+
+
+func _check_upgrade_refills_during_harvest(gs: Node) -> bool:
+	_reset_bucket(gs)
+	gs.currency = 1_000_000.0
+	gs.upgrade_levels = {"power": 1}
+	gs._recompute_stats()
+	gs.bucket_remaining = 0
+	gs._enter_harvest_phase()
+	gs.harvest_collected = 3
+	if not gs.purchase_upgrade("bucket_size_1"):
+		print("FAIL: bucket_size_1 purchase failed during harvest")
+		return false
+	var expected := CAPACITY + 2
+	if gs.current_phase != "strike":
+		print("FAIL: bucket upgrade during harvest should return to strike, got %s" % gs.current_phase)
+		return false
+	if gs.bucket_capacity != expected:
+		print(
+			"FAIL: bucket_capacity after harvest upgrade expected %d, got %d"
+			% [expected, gs.bucket_capacity]
+		)
+		return false
+	if gs.bucket_remaining != expected:
+		print(
+			"FAIL: bucket upgrade during harvest should refill to %d, got %d"
+			% [expected, gs.bucket_remaining]
+		)
+		return false
+	if gs.harvest_collected != 0:
+		print("FAIL: harvest_collected should reset after bucket upgrade refill")
+		return false
+	if not gs.has_bucket_balls():
+		print("FAIL: has_bucket_balls false after harvest upgrade refill")
+		return false
+	print("OK: bucket upgrade during harvest refills to %d/%d" % [gs.bucket_remaining, gs.bucket_capacity])
 	return true
 
 

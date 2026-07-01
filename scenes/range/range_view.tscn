@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://range_view"]
+[gd_scene load_steps=5 format=3 uid="uid://range_view"]
 
 [ext_resource type="Script" path="res://scripts/range/range_view.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/range/day_night_cycle.gd" id="2_cycle"]
 [ext_resource type="Script" path="res://scripts/ui/contact_charge_ring.gd" id="3_charge_ring"]
+[ext_resource type="PackedScene" uid="uid://range_sky_dome" path="res://scenes/visual/range_sky_dome.tscn" id="4_sky_dome"]
 
 [sub_resource type="Environment" id="Environment_range"]
 background_mode = 1
@@ -29,6 +30,8 @@ shadow_enabled = false
 position = Vector3(0.24, 1.24, -2.016)
 rotation_degrees = Vector3(1.2, 3.0, 0.0)
 fov = 55.0
+
+[node name="SkyDome" parent="." instance=ExtResource("4_sky_dome")]
 
 [node name="Ground" type="MeshInstance3D" parent="."]
 
@@ -58,10 +61,3 @@ color = Color(1, 0.93, 0.48, 1)
 polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
 
 [node name="FxLayer" type="Node2D" parent="."]
-
-[node name="JackpotFeedback" type="CanvasLayer" parent="."]
-layer = 5
-
-[node name="TierSprite" type="Sprite2D" parent="JackpotFeedback"]
-visible = false
-position = Vector2(240, 72)

@@ -1,33 +1,15 @@
 extends Control
-## 8-bit app-icon squircle with upward arrow — nearest-neighbor pixel art.
+## Up-arrow glyph for the upgrades button — wood-panel palette, no squircle frame.
 
 const PIXEL := 2
 const GRID := 11
 
-const COLOR_BORDER := Color("#2A4420")
-const COLOR_BORDER_DARK := Color("#1E3018")
-const COLOR_FILL := Color("#D8EECF")
-const COLOR_FILL_HI := Color("#EAF6E4")
-const COLOR_ARROW := Color("#3DDC84")
-const COLOR_ARROW_BRIGHT := Color("#5AF098")
-const COLOR_ARROW_OUTLINE := Color("#1B3D18")
+const COLOR_ARROW := UiTheme.COLOR_BORDER
+const COLOR_ARROW_BRIGHT := Color(0.26, 0.64, 0.58, 1.0)
+const COLOR_ARROW_OUTLINE := Color(0.12, 0.32, 0.28, 1.0)
+const COLOR_ARROW_HI := Color(0.34, 0.68, 0.62, 1.0)
 
-# Pixel-rounded square frame (B=border, F=fill).
-const SQUIRCLE: PackedStringArray = [
-	"..BBBBBBB..",
-	".BFFFFFFFB.",
-	"BFFFFFFFFFB",
-	"BFFFFFFFFFB",
-	"BFFFFFFFFFB",
-	"BFFFFFFFFFB",
-	"BFFFFFFFFFB",
-	"BFFFFFFFFFB",
-	"BFFFFFFFFFB",
-	".BFFFFFFFB.",
-	"..BBBBBBB..",
-]
-
-# Centered arrow: O=outline, #=fill (7 cols x 7 rows inside squircle).
+# Centered arrow: O=outline, #=fill (7 cols x 7 rows).
 const ARROW: PackedStringArray = [
 	"...O...",
 	"..O#O..",
@@ -60,10 +42,12 @@ func _ready() -> void:
 
 
 func _draw() -> void:
-	var fill := COLOR_FILL_HI if _highlighted else COLOR_FILL
-	_draw_grid(SQUIRCLE, {"B": COLOR_BORDER, "F": fill})
-	_draw_corner_accents(COLOR_BORDER_DARK)
-	_draw_grid(ARROW, {"O": COLOR_ARROW_OUTLINE, "#": COLOR_ARROW}, ARROW_OFFSET)
+	var fill := COLOR_ARROW_HI if _highlighted else COLOR_ARROW
+	var outline := COLOR_ARROW_OUTLINE
+	if _highlighted:
+		fill = COLOR_ARROW_BRIGHT
+		outline = COLOR_ARROW
+	_draw_grid(ARROW, {"O": outline, "#": fill}, ARROW_OFFSET)
 	_draw_arrow_highlights()
 
 
@@ -84,20 +68,9 @@ func _draw_grid(
 			)
 
 
-func _draw_corner_accents(dark: Color) -> void:
-	# One-pixel dark accents on outer corners for depth.
-	var corners := [
-		Vector2i(2, 1), Vector2i(8, 1),
-		Vector2i(1, 2), Vector2i(9, 2),
-		Vector2i(1, 8), Vector2i(9, 8),
-		Vector2i(2, 9), Vector2i(8, 9),
-	]
-	for cell in corners:
-		draw_rect(Rect2(cell * PIXEL, Vector2(PIXEL, PIXEL)), dark)
-
-
 func _draw_arrow_highlights() -> void:
-	# Bright cap on arrow head for readable 8-bit shading.
+	if _highlighted:
+		return
 	var highlights := [
 		Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2),
 		Vector2i(4, 3),
@@ -106,5 +79,5 @@ func _draw_arrow_highlights() -> void:
 	for cell in highlights:
 		draw_rect(
 			Rect2((origin.x + cell.x) * PIXEL, (origin.y + cell.y) * PIXEL, PIXEL, PIXEL),
-			COLOR_ARROW_BRIGHT
+			COLOR_ARROW_HI
 		)

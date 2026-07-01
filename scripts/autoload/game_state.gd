@@ -54,7 +54,14 @@ func purchase_upgrade(id: String) -> bool:
 		return false
 	currency -= cost
 	upgrade_levels[id] = level + 1
+	var old_capacity := bucket_capacity
 	_recompute_stats()
+	if bucket_capacity > old_capacity:
+		bucket_remaining = bucket_capacity
+		if current_phase == "harvest":
+			harvest_collected = 0
+			current_phase = "strike"
+			EventBus.phase_changed.emit("strike")
 	EventBus.upgrade_purchased.emit(id, level + 1, int(def["branch"]))
 	EventBus.stats_changed.emit(stats, currency)
 	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)

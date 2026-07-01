@@ -3,44 +3,32 @@ extends CanvasLayer
 
 signal play_pressed
 
-const TITLE_FONT_SIZE := 18
-const BUTTON_FONT_SIZE := 12
+const LOGO_DISPLAY_SIZE := Vector2(420.0, 132.0)
+const PROMPT_FONT_SIZE := 8
 const FADE_DURATION_SEC := 0.5
 
-const COLOR_TITLE := Color(1.0, 0.92, 0.45, 1.0)
-const COLOR_TITLE_OUTLINE := Color(0.2, 0.15, 0.08, 0.9)
-const COLOR_BUTTON_FILL := Color(0.82, 0.72, 0.48, 1.0)
-const COLOR_BUTTON_BORDER := Color(0.18, 0.52, 0.48, 1.0)
-const COLOR_BUTTON_HOVER := Color(0.92, 0.82, 0.58, 1.0)
-const COLOR_BUTTON_PRESSED := Color(0.68, 0.58, 0.38, 1.0)
-
-const BOB_AMPLITUDE_PX := 3.0
-const BOB_SPEED := 2.4
+const PROMPT_FADE_MIN_ALPHA := 0.25
+const PROMPT_FADE_MAX_ALPHA := 1.0
+const PROMPT_FADE_HALF_CYCLE_SEC := 0.9
 
 @onready var sky_bg: Control = $SkyBg
 @onready var overlay: Control = $Overlay
-@onready var title_label: Label = $Overlay/Center/VBox/TitleLabel
-@onready var play_button: Button = $Overlay/Center/VBox/PlayBob/PlayButton
+@onready var title_logo: TextureRect = $Overlay/Center/VBox/TitleLogo
+@onready var press_space_label: Label = $Overlay/Center/VBox/PressSpace
 
-var _bob_time := 0.0
-var _play_button_rest_y := 0.0
 var _transitioning := false
+var _prompt_fade_tween: Tween
 
 
 func _ready() -> void:
-	_apply_fonts()
-	_style_play_button()
-	play_button.pressed.connect(_on_play_pressed)
-	call_deferred("_capture_play_button_rest_y")
-	call_deferred("_focus_play_button")
+	_setup_title_logo()
+	_setup_press_space_label()
+	press_space_label.gui_input.connect(_on_press_space_gui_input)
+	_start_prompt_fade()
 
 
-func _capture_play_button_rest_y() -> void:
-	_play_button_rest_y = play_button.position.y
-
-
-func _focus_play_button() -> void:
-	play_button.grab_focus()
+func is_transitioning() -> bool:
+	return _transitioning
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -55,58 +43,50 @@ func _unhandled_input(event: InputEvent) -> void:
 	_on_play_pressed()
 
 
-func _process(delta: float) -> void:
+func _setup_title_logo() -> void:
+	title_logo.custom_minimum_size = LOGO_DISPLAY_SIZE
+	title_logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+
+func _setup_press_space_label() -> void:
+	press_space_label.text = "Press Space"
+	PixelFont.apply_label(press_space_label, PROMPT_FONT_SIZE)
+	press_space_label.add_theme_color_override(&"font_color", Color.BLACK)
+	press_space_label.add_theme_color_override(&"font_outline_color", Color.BLACK)
+
+
+func _start_prompt_fade() -> void:
+	_stop_prompt_fade()
+	press_space_label.modulate.a = PROMPT_FADE_MAX_ALPHA
+	_prompt_fade_tween = create_tween().set_loops()
+	_prompt_fade_tween.tween_property(
+		press_space_label, "modulate:a", PROMPT_FADE_MIN_ALPHA, PROMPT_FADE_HALF_CYCLE_SEC
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_prompt_fade_tween.tween_property(
+		press_space_label, "modulate:a", PROMPT_FADE_MAX_ALPHA, PROMPT_FADE_HALF_CYCLE_SEC
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _stop_prompt_fade() -> void:
+	if _prompt_fade_tween != null and _prompt_fade_tween.is_valid():
+		_prompt_fade_tween.kill()
+	_prompt_fade_tween = null
+
+
+func _on_press_space_gui_input(event: InputEvent) -> void:
 	if _transitioning:
 		return
-	_bob_time += delta
-	play_button.position.y = _play_button_rest_y + sin(_bob_time * BOB_SPEED) * BOB_AMPLITUDE_PX
-
-
-func _apply_fonts() -> void:
-	PixelFont.apply_label(title_label, TITLE_FONT_SIZE)
-	title_label.add_theme_color_override(&"font_color", COLOR_TITLE)
-	title_label.add_theme_color_override(&"font_outline_color", COLOR_TITLE_OUTLINE)
-	title_label.add_theme_constant_override(&"outline_size", 2)
-
-
-func _style_play_button() -> void:
-	play_button.text = "Press Space"
-	play_button.custom_minimum_size = Vector2(200.0, 44.0)
-	play_button.add_theme_font_override(&"font", PixelFont.font_for_size(BUTTON_FONT_SIZE))
-	play_button.add_theme_font_size_override(&"font_size", BUTTON_FONT_SIZE)
-	play_button.add_theme_color_override(&"font_color", Color(0.12, 0.1, 0.08, 1.0))
-	play_button.add_theme_color_override(&"font_hover_color", Color(0.12, 0.1, 0.08, 1.0))
-	play_button.add_theme_color_override(&"font_pressed_color", Color(0.12, 0.1, 0.08, 1.0))
-	play_button.add_theme_stylebox_override(&"normal", _make_button_style(COLOR_BUTTON_FILL))
-	play_button.add_theme_stylebox_override(&"hover", _make_button_style(COLOR_BUTTON_HOVER))
-	play_button.add_theme_stylebox_override(&"pressed", _make_button_style(COLOR_BUTTON_PRESSED))
-	play_button.add_theme_stylebox_override(&"focus", _make_button_style(COLOR_BUTTON_HOVER))
-
-
-func _make_button_style(fill: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_width_left = 3
-	style.border_width_top = 3
-	style.border_width_right = 3
-	style.border_width_bottom = 3
-	style.border_color = COLOR_BUTTON_BORDER
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
-	return style
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
+			_on_play_pressed()
 
 
 func _on_play_pressed() -> void:
 	if _transitioning:
 		return
 	_transitioning = true
-	play_button.disabled = true
+	_stop_prompt_fade()
 	SfxManager.play_start()
 	SfxManager.start_bgm()
 	var tween := create_tween().set_parallel(true)
@@ -127,6 +107,5 @@ func reset_for_show() -> void:
 	_transitioning = false
 	sky_bg.modulate.a = 1.0
 	overlay.modulate.a = 1.0
-	play_button.disabled = false
-	_bob_time = 0.0
-	call_deferred("_focus_play_button")
+	press_space_label.modulate.a = PROMPT_FADE_MAX_ALPHA
+	_start_prompt_fade()

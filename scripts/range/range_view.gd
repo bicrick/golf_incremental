@@ -12,7 +12,6 @@ const GOLFER_PIXEL_SIZE := 0.024
 const VANISH_DISTANCE_YARDS := 220.0
 const PICKUP_FLY_DURATION_SEC := 0.35
 const PICKUP_FLY_ARC_PX := 36.0
-const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles/TEXT"
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
@@ -24,6 +23,7 @@ const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.g
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var sun_light: DirectionalLight3D = $Sun
 @onready var camera: Camera3D = $Camera3D
+@onready var sky_dome: RangeSkyDome = $SkyDome
 @onready var ground: MeshInstance3D = $Ground
 @onready var ball: AnimatedSprite3D = $Foreground/Ball
 @onready var golfer: AnimatedSprite3D = $Foreground/Golfer
@@ -32,7 +32,6 @@ const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.g
 @onready var charge_meter: Node2D = $ChargeMeter
 @onready var contact_ring = $ChargeMeter/BeatRing
 @onready var fx_layer: Node2D = $FxLayer
-@onready var tier_sprite: Sprite2D = $JackpotFeedback/TierSprite
 
 var _swing := Swing.new()
 var _ball_home: Vector3
@@ -71,6 +70,8 @@ func _ready() -> void:
 	_set_idle_ring()
 	if sun_light:
 		sun_light.shadow_enabled = false
+	if sky_dome and camera:
+		sky_dome.setup(camera)
 	apply_atmosphere(24.0)
 	_setup_placement_debug()
 
@@ -115,7 +116,7 @@ const PLATE_CAPTURE_OUTPUT := "res://captures/range_bg.png"
 
 func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float = PLATE_CAPTURE_CYCLE_TIME) -> Error:
 	var hidden: Array[Node] = []
-	for node_name in ["Foreground", "ChargeMeter", "JackpotFeedback"]:
+	for node_name in ["Foreground", "ChargeMeter"]:
 		var node := get_node_or_null(node_name)
 		if node == null or not node.visible:
 			continue
@@ -170,6 +171,8 @@ func apply_atmosphere(cycle_time: float) -> void:
 		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)
 		sun_light.light_energy = lerpf(0.30, 1.15, day_factor)
 		sun_light.rotation_degrees = Vector3(lerpf(-70.0, -35.0, day_factor), 35.0, 0.0)
+	if sky_dome:
+		sky_dome.update_atmosphere(cycle_time, snap)
 	_apply_sprite_atmosphere_tint()
 
 
@@ -418,7 +421,6 @@ func _on_swing_resolved(
 	_flash_beat_ring(tier)
 	HitPoof.spawn(fx_layer, _project_to_screen(ball.global_position), tier, feedback_tier)
 	_spawn_float_text(tier, yards, payout)
-	_show_tier_sprite(tier, feedback_tier)
 	if feedback_tier == Balance.FeedbackTier.JACKPOT:
 		_play_golfer_joy()
 	elif not _golfer_joy_active:
@@ -451,26 +453,6 @@ func _release_swing_finish() -> void:
 
 func _play_swing_followthrough() -> void:
 	golfer.play(&"follow")
-
-
-func _show_tier_sprite(tier: int, feedback_tier: int) -> void:
-	if not tier_sprite:
-		return
-	var path := ""
-	if feedback_tier == Balance.FeedbackTier.JACKPOT:
-		path = TEXT_BASE + "/TXT_EAGLE.png"
-	if path.is_empty():
-		return
-	tier_sprite.texture = load(path)
-	tier_sprite.visible = true
-	tier_sprite.modulate = Color.WHITE
-	tier_sprite.scale = Vector2(2, 2)
-	var tween := create_tween()
-	tween.tween_property(tier_sprite, "modulate:a", 0.0, 0.85).set_delay(0.5)
-	tween.tween_callback(func():
-		tier_sprite.visible = false
-		tier_sprite.modulate = Color.WHITE
-	)
 
 
 func _project_to_screen(world_pos: Vector3) -> Vector2:
