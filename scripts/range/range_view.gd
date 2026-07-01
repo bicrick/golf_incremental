@@ -4,11 +4,9 @@ extends Node3D
 ## this script places golfer/ball/litter at real Vector3 positions and lets
 ## the engine handle the rest.
 
-const CHARGE_METER_POSITION := Vector2(270, 182)
+const CHARGE_METER_POSITION := Vector2(190.0, 152.143)
 const BALL_PIXEL_SIZE := 0.021
 const GOLFER_PIXEL_SIZE := 0.024
-const GOLFER_HARVEST_SIDESTEP_X := -1.3
-const GOLFER_HARVEST_TWEEN_SEC := 0.4
 const VANISH_DISTANCE_YARDS := 220.0
 const PICKUP_FLY_DURATION_SEC := 0.35
 const PICKUP_FLY_ARC_PX := 36.0
@@ -24,7 +22,6 @@ const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 @onready var sun_light: DirectionalLight3D = $Sun
 @onready var camera: Camera3D = $Camera3D
 @onready var ground: MeshInstance3D = $Ground
-@onready var fence_container: Node3D = $ForestFence
 @onready var ball: AnimatedSprite3D = $Foreground/Ball
 @onready var golfer: AnimatedSprite3D = $Foreground/Golfer
 @onready var littered_balls: Node3D = $Foreground/LitteredBalls
@@ -46,13 +43,11 @@ var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
 var _placement_debug: PlacementDebug
 var _pickup: Node
-var _golfer_sidestep_tween: Tween
-var _golfer_at_harvest_side := false
-var _pending_harvest_sidestep := false
+var _sprite_atmosphere_tint: Color = Color.WHITE
 
 
 func _ready() -> void:
-	_setup_ground_and_fence()
+	_setup_ground()
 	_setup_dinky_sprites()
 	_ball_home = ball.position
 	_golfer_home = golfer.position
@@ -104,13 +99,10 @@ func _configure_billboard(sprite: SpriteBase3D, pixel_size: float) -> void:
 	sprite.shaded = false
 
 
-func _setup_ground_and_fence() -> void:
+func _setup_ground() -> void:
 	var snap := DayNightPalette.sample_at(24.0)
 	FairwayGround3D.apply_palette(
 		ground, Balance.FAIRWAY_HALF_WIDTH_YARDS, snap.fairway_light, snap.fairway_dark
-	)
-	ForestFence.populate(
-		fence_container, Balance.FAIRWAY_HALF_WIDTH_YARDS, Balance.VISUAL_MAX_YARDS
 	)
 
 
@@ -156,18 +148,15 @@ func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float
 	return err
 
 
-## Real 3D day/night: DirectionalLight3D angle/color/energy + flat background
-## color + ground palette. Replaces the old per-layer Polygon2D/CanvasModulate
-## tint stack and the hand-drawn sun/moon/star/cloud sprites — the engine's
-## own lighting communicates time of day now.
+## Real 3D day/night: DirectionalLight3D + flat background color + ground palette
+## + sprite atmosphere tint.
 func apply_atmosphere(cycle_time: float) -> void:
 	var snap := DayNightPalette.sample_at(cycle_time)
+	_sprite_atmosphere_tint = snap.canvas_modulate
 	if world_environment and world_environment.environment:
 		var env := world_environment.environment
 		env.background_color = snap.sky
 		env.ambient_light_color = snap.sky
-		if env.fog_enabled:
-			env.fog_light_color = snap.sky
 	FairwayGround3D.apply_palette(
 		ground, Balance.FAIRWAY_HALF_WIDTH_YARDS, snap.fairway_light, snap.fairway_dark
 	)
@@ -176,6 +165,18 @@ func apply_atmosphere(cycle_time: float) -> void:
 		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)
 		sun_light.light_energy = lerpf(0.22, 1.15, day_factor)
 		sun_light.rotation_degrees = Vector3(lerpf(-70.0, -35.0, day_factor), 35.0, 0.0)
+	_apply_sprite_atmosphere_tint()
+
+
+func _apply_sprite_atmosphere_tint() -> void:
+	if golfer:
+		golfer.modulate = _sprite_atmosphere_tint
+	if ball:
+		ball.modulate = _sprite_atmosphere_tint
+	if littered_balls:
+		for child in littered_balls.get_children():
+			if child is SpriteBase3D:
+				(child as SpriteBase3D).modulate = _sprite_atmosphere_tint
 
 
 func _process(delta: float) -> void:
@@ -192,6 +193,7 @@ func _setup_placement_debug() -> void:
 		ball,
 		foreground,
 		camera,
+		charge_meter,
 		_golfer_home,
 		_ball_home,
 		_base_golfer_scale,
@@ -205,10 +207,7 @@ func _setup_placement_debug() -> void:
 func _on_debug_positions_changed(golfer_pos: Vector3, ball_pos: Vector3) -> void:
 	_golfer_home = golfer_pos
 	_ball_home = ball_pos
-	if GameState.is_harvest_phase() and _golfer_at_harvest_side:
-		_tween_golfer_to(_golfer_harvest_position(), true)
-	elif not GameState.is_harvest_phase():
-		golfer.position = _golfer_home
+	golfer.position = _golfer_home
 
 
 func _on_debug_scales_changed(golfer_scale: Vector3, ball_scale: Vector3) -> void:
@@ -307,67 +306,6 @@ func golfer_strike_home() -> Vector3:
 	return _golfer_home
 
 
-func golfer_harvest_offset() -> Vector3:
-	return Vector3(GOLFER_HARVEST_SIDESTEP_X, 0.0, 0.0)
-
-
-func _golfer_harvest_position() -> Vector3:
-	return _golfer_home + golfer_harvest_offset()
-
-
-func _kill_golfer_sidestep_tween() -> void:
-	if _golfer_sidestep_tween and _golfer_sidestep_tween.is_valid():
-		_golfer_sidestep_tween.kill()
-	_golfer_sidestep_tween = null
-
-
-func _tween_golfer_to(target: Vector3, at_harvest_side: bool = _golfer_at_harvest_side) -> void:
-	_kill_golfer_sidestep_tween()
-	if golfer.position.is_equal_approx(target):
-		_golfer_at_harvest_side = at_harvest_side
-		return
-	_golfer_sidestep_tween = create_tween()
-	_golfer_sidestep_tween.tween_property(
-		golfer, "position", target, GOLFER_HARVEST_TWEEN_SEC
-	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	_golfer_sidestep_tween.tween_callback(func() -> void:
-		_golfer_at_harvest_side = at_harvest_side
-	)
-
-
-func _is_golfer_sidestep_tweening() -> bool:
-	return _golfer_sidestep_tween != null and _golfer_sidestep_tween.is_valid()
-
-
-func _request_harvest_sidestep() -> void:
-	if not GameState.is_harvest_phase() or not GameState.is_collect_mode():
-		return
-	if _golfer_idle_blocked() or _ball_in_flight:
-		_pending_harvest_sidestep = true
-		return
-	_pending_harvest_sidestep = false
-	_golfer_at_harvest_side = true
-	_play_golfer_idle()
-	_tween_golfer_to(_golfer_harvest_position(), true)
-
-
-func _request_strike_home() -> void:
-	_pending_harvest_sidestep = false
-	_golfer_at_harvest_side = false
-	_tween_golfer_to(_golfer_home, false)
-
-
-func _try_pending_harvest_sidestep() -> void:
-	if not _pending_harvest_sidestep:
-		return
-	if not GameState.is_harvest_phase():
-		_pending_harvest_sidestep = false
-		return
-	if _golfer_idle_blocked() or _ball_in_flight:
-		return
-	_request_harvest_sidestep()
-
-
 func _sync_golfer_idle_from_bucket() -> void:
 	if _golfer_idle_blocked():
 		return
@@ -389,7 +327,6 @@ func _on_golfer_animation_finished() -> void:
 			_play_golfer_idle()
 	elif golfer.animation == &"follow":
 		_hold_swing_finish()
-	_try_pending_harvest_sidestep()
 
 
 func _clear_frozen_charge_ring() -> void:
@@ -429,10 +366,7 @@ func _update_charge_visuals() -> void:
 					ball.scale = _base_ball_scale
 					if ball.animation != &"roll":
 						ball.play(&"idle")
-				if GameState.is_collect_mode():
-					_try_pending_harvest_sidestep()
-				elif not _is_golfer_sidestep_tweening():
-					golfer.position = _golfer_home
+				golfer.position = _golfer_home
 				_sync_golfer_idle_from_bucket()
 		if not _swing.is_charging():
 			return
@@ -508,7 +442,6 @@ func _release_swing_finish() -> void:
 	_golfer_holding_finish = false
 	if not _golfer_idle_blocked():
 		_play_golfer_idle()
-	_try_pending_harvest_sidestep()
 
 
 func _play_swing_followthrough() -> void:
@@ -601,9 +534,8 @@ func _on_bucket_changed(_count: int, _capacity: int) -> void:
 func _on_phase_changed(phase: String) -> void:
 	if phase == "harvest":
 		_sync_tee_ball_from_bucket()
-		_sync_golfer_for_harvest_mode()
 	elif phase == "strike":
-		_request_strike_home()
+		golfer.position = _golfer_home
 	_sync_golfer_idle_from_bucket()
 
 
@@ -611,15 +543,7 @@ func _on_range_action_changed(_mode: String) -> void:
 	if not GameState.is_harvest_phase():
 		return
 	_sync_tee_ball_from_bucket()
-	_sync_golfer_for_harvest_mode()
 	_sync_golfer_idle_from_bucket()
-
-
-func _sync_golfer_for_harvest_mode() -> void:
-	if GameState.is_collect_mode():
-		_request_harvest_sidestep()
-	else:
-		_request_strike_home()
 
 
 func on_harvest_complete() -> void:
@@ -686,6 +610,7 @@ func _leave_litter_ball(land_position: Vector3, land_scale: Vector3) -> void:
 	litter.position = land_position
 	litter.scale = land_scale
 	_configure_billboard(litter, BALL_PIXEL_SIZE)
+	litter.modulate = _sprite_atmosphere_tint
 	litter.set_meta("collectible", true)
 	littered_balls.add_child(litter)
 
@@ -708,7 +633,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 	ball.visible = true
 	ball.position = _ball_home
 	ball.scale = _base_ball_scale
-	ball.modulate = Color.WHITE
+	ball.modulate = _sprite_atmosphere_tint
 	ball.play(&"roll")
 	ball.sprite_frames.set_animation_speed(
 		&"roll",
@@ -726,13 +651,12 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 		else:
 			DistanceTwinkle.spawn(fx_layer, _project_to_screen(landing))
 		ball.visible = false
-		ball.modulate = Color.WHITE
+		ball.modulate = _sprite_atmosphere_tint
 		if GameState.has_bucket_balls():
 			_update_ball_reload()
 		else:
 			_ball_at_tee = false
 		_sync_golfer_idle_from_bucket()
-		_try_pending_harvest_sidestep()
 	)
 
 	if feedback_tier == Balance.FeedbackTier.JACKPOT and camera:

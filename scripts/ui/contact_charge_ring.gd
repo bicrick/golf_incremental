@@ -3,16 +3,17 @@ extends Node2D
 ## Concentric rhombus charge UI — inner expands into upgrade-scaled outer target.
 
 const FROZEN_FADE_DURATION: float = 1.0
-const CHARGE_OUTER_COLOR := Color(0.18, 0.28, 0.12, 0.72)
-const CHARGE_INNER_COLOR := Color(1.0, 0.93, 0.48, 1.0)
+const COLOR_PERFECT := Color(0.35, 0.85, 0.42)
+const COLOR_GOOD := Color(1.0, 0.88, 0.25)
+const COLOR_BAD := Color(0.92, 0.32, 0.28)
 
 signal frozen_fade_completed
 
 const FLAVOR_COLORS: Dictionary = {
-	Balance.ContactFlavor.PURE: Color(1.0, 0.88, 0.25),
-	Balance.ContactFlavor.SLIGHTLY_FAT: Color(0.82, 0.88, 0.38),
-	Balance.ContactFlavor.THIN: Color(0.98, 0.58, 0.32),
-	Balance.ContactFlavor.CHUNK: Color(0.78, 0.42, 0.32),
+	Balance.ContactFlavor.PURE: Color(0.45, 0.92, 0.48),
+	Balance.ContactFlavor.SLIGHTLY_FAT: Color(1.0, 0.82, 0.35),
+	Balance.ContactFlavor.THIN: Color(0.98, 0.62, 0.38),
+	Balance.ContactFlavor.CHUNK: Color(0.88, 0.38, 0.30),
 }
 
 @onready var ring_outer: Polygon2D = $RingOuter
@@ -102,6 +103,47 @@ static func is_hold_in_perfect_zone(hold_sec: float, stats: PlayerStats) -> bool
 	return charge.evaluate_timing(hold_sec, stats) == Balance.TimingTier.PERFECT
 
 
+## Piecewise green → yellow → red blend keyed to the same ms windows as evaluate_timing.
+static func charge_timing_color(elapsed_sec: float, stats: PlayerStats) -> Color:
+	if elapsed_sec < Balance.MIN_HOLD_SEC:
+		return COLOR_BAD
+
+	var contact := Balance.CONTACT_WINDUP_SEC
+	var delta_sec := elapsed_sec - contact
+	var perfect_ms := stats.timing_window_perfect_ms
+	var good_ms := stats.timing_window_good_ms
+	var ok_ms := good_ms * 1.5
+
+	if delta_sec <= 0.0:
+		var early_ms := absf(delta_sec) * 1000.0
+		if early_ms <= perfect_ms:
+			return COLOR_PERFECT
+		if early_ms <= good_ms:
+			var t := (early_ms - perfect_ms) / maxf(good_ms - perfect_ms, 0.001)
+			return COLOR_PERFECT.lerp(COLOR_GOOD, t)
+		if early_ms <= ok_ms:
+			var t := (early_ms - good_ms) / maxf(ok_ms - good_ms, 0.001)
+			return COLOR_GOOD.lerp(COLOR_BAD, t)
+		return COLOR_BAD
+
+	var late_ms := delta_sec * 1000.0
+	var good_late_ms := Balance.POST_PEAK_GOOD_MS
+	var ok_max_ms := Balance.CONTACT_DECAY_SEC * 0.5 * 1000.0
+	if late_ms <= good_late_ms:
+		var t := late_ms / maxf(good_late_ms, 0.001)
+		return COLOR_PERFECT.lerp(COLOR_GOOD, t)
+	if late_ms <= ok_max_ms:
+		var t := (late_ms - good_late_ms) / maxf(ok_max_ms - good_late_ms, 0.001)
+		return COLOR_GOOD.lerp(COLOR_BAD, t)
+	return COLOR_BAD
+
+
+static func charge_outer_color(inner: Color) -> Color:
+	var outer := inner.darkened(0.55)
+	outer.a = 0.72
+	return outer
+
+
 static func outer_scale_for_stats(stats: PlayerStats) -> float:
 	var default := Balance.default_stats()
 	var min_metric := default.max_yards * default.yard_multiplier
@@ -140,10 +182,11 @@ func show_charging(stats: PlayerStats) -> void:
 		ring_outer.visible = true
 	if ring_inner:
 		ring_inner.visible = true
-	_apply_outer(outer_scale, CHARGE_OUTER_COLOR)
+	var inner_color := charge_timing_color(0.0, stats)
+	_apply_outer(outer_scale, charge_outer_color(inner_color))
 	_apply_inner(
 		Balance.RING_INNER_START_FRAC * outer_scale,
-		CHARGE_INNER_COLOR
+		inner_color
 	)
 
 
@@ -172,7 +215,7 @@ func update_visuals(
 	_in_band: bool,
 	past_contact: bool,
 	past_contact_frac: float,
-	_elapsed: float,
+	elapsed: float,
 	stats: PlayerStats
 ) -> void:
 	if _frozen or is_flash_active():
@@ -183,8 +226,9 @@ func update_visuals(
 	var inner_scale := inner_visual_scale_for_windup(
 		windup, past_contact, past_contact_frac, _cached_outer_scale
 	)
-	_apply_outer(_cached_outer_scale, CHARGE_OUTER_COLOR)
-	_apply_inner(inner_scale, CHARGE_INNER_COLOR)
+	var inner_color := charge_timing_color(elapsed, stats)
+	_apply_outer(_cached_outer_scale, charge_outer_color(inner_color))
+	_apply_inner(inner_scale, inner_color)
 
 
 func freeze_release_result(

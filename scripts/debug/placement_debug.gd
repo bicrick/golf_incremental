@@ -1,21 +1,34 @@
 class_name PlacementDebug
 extends Node
-## Runtime-only golfer/ball placement tuner for the 3D driving range view.
-## Arrow keys move along the ground plane (X/Z); drag projects the mouse
-## ray onto the ground plane (y = target's current height) instead of the
-## old 2D `to_local()` conversion.
+## Runtime-only golfer/ball/camera/charge-meter placement tuner for the range view.
+## Arrow keys move the currently selected target: golfer/ball/camera on the X/Z
+## plane, or the charge-meter rhombus in 2D screen space. Drag projects the
+## mouse ray onto the ground plane for 3D targets, or snaps the rhombus to the
+## cursor. TAB cycles which target the movement keys act on; Shift+arrows always
+## moves the ball as a legacy shortcut regardless of the selected target.
 
 signal mode_changed(active: bool)
 
 const MOVE_STEP := 0.02
 const MOVE_FAST_UNITS_PER_SEC := 2.0
 const MOVE_FAST_DELAY_SEC := 0.35
+const ROTATE_STEP_DEG := 0.6
+const ROTATE_FAST_DEG_PER_SEC := 60.0
 const SCALE_STEP := 0.05
 const SCALE_MIN := 0.25
 const SCALE_MAX := 4.0
 const PICK_GOLFER_RADIUS_PX := 48.0
 const PICK_BALL_RADIUS_PX := 20.0
+const PICK_RHOMBUS_RADIUS_PX := 56.0
+const MOVE_STEP_2D_PX := 1.0
+const MOVE_FAST_PX_PER_SEC := 120.0
 const OVERLAY_FONT_SIZE := 8
+
+const TARGET_GOLFER := "golfer"
+const TARGET_BALL := "ball"
+const TARGET_CAMERA := "camera"
+const TARGET_RHOMBUS := "rhombus"
+const TARGET_CYCLE: Array[String] = [TARGET_GOLFER, TARGET_BALL, TARGET_CAMERA, TARGET_RHOMBUS]
 
 var _enabled := false
 var _active := false
@@ -23,6 +36,8 @@ var _golfer: AnimatedSprite3D
 var _ball: AnimatedSprite3D
 var _foreground: Node3D
 var _camera: Camera3D
+var _charge_meter: Node2D
+var _charge_meter_home_start: Vector2
 var _on_positions_changed: Callable
 var _on_scales_changed: Callable
 var _golfer_home_start: Vector3
@@ -39,7 +54,9 @@ var _capture_button: Button
 var _status_label: Label
 
 var _drag_target := ""
+var _active_target := TARGET_GOLFER
 var _key_hold_time := 0.0
+var _rotate_hold_time := 0.0
 
 
 func _ready() -> void:
@@ -57,6 +74,7 @@ func setup(
 	ball: AnimatedSprite3D,
 	foreground: Node3D,
 	camera: Camera3D,
+	charge_meter: Node2D,
 	golfer_home: Vector3,
 	ball_home: Vector3,
 	golfer_scale: Vector3,
@@ -68,6 +86,9 @@ func setup(
 	_ball = ball
 	_foreground = foreground
 	_camera = camera
+	_charge_meter = charge_meter
+	if _charge_meter:
+		_charge_meter_home_start = _charge_meter.position
 	_golfer_home_start = golfer_home
 	_ball_home_start = ball_home
 	_golfer_scale_start = golfer_scale
@@ -113,7 +134,10 @@ func _build_overlay() -> void:
 	vbox.add_child(_info_label)
 
 	_help_label = Label.new()
-	_help_label.text = "P toggle | Arrows rat X/Z | Shift+arrows ball | [ ] rat scale | , . ball scale | Drag | C copy | S capture"
+	_help_label.text = (
+		"P toggle | TAB cycle (rat/ball/cam/rhombus) | Arrows move target | Q/E target height (3D)\n"
+		+ "Shift+arrows ball X/Z | I/K cam pitch | J/L cam yaw | [ ] rat scale | , . ball scale | Drag | C copy | S capture"
+	)
 	PixelFont.apply_label(_help_label, 6)
 	_help_label.modulate = Color(0.75, 0.85, 0.75, 1.0)
 	vbox.add_child(_help_label)
@@ -173,22 +197,26 @@ func _input(event: InputEvent) -> void:
 			_capture_plate()
 			get_viewport().set_input_as_handled()
 			return
+		if key.pressed and key.keycode == KEY_TAB:
+			_cycle_active_target()
+			get_viewport().set_input_as_handled()
+			return
 		if key.pressed:
 			match key.keycode:
 				KEY_BRACKETLEFT:
-					_adjust_scale("golfer", -SCALE_STEP)
+					_adjust_scale(TARGET_GOLFER, -SCALE_STEP)
 					get_viewport().set_input_as_handled()
 					return
 				KEY_BRACKETRIGHT:
-					_adjust_scale("golfer", SCALE_STEP)
+					_adjust_scale(TARGET_GOLFER, SCALE_STEP)
 					get_viewport().set_input_as_handled()
 					return
 				KEY_COMMA:
-					_adjust_scale("ball", -SCALE_STEP)
+					_adjust_scale(TARGET_BALL, -SCALE_STEP)
 					get_viewport().set_input_as_handled()
 					return
 				KEY_PERIOD:
-					_adjust_scale("ball", SCALE_STEP)
+					_adjust_scale(TARGET_BALL, SCALE_STEP)
 					get_viewport().set_input_as_handled()
 					return
 
@@ -205,9 +233,12 @@ func _input(event: InputEvent) -> void:
 			else:
 				_drag_target = ""
 	elif event is InputEventMouseMotion and not _drag_target.is_empty():
-		var ground_pos: Variant = _screen_to_ground(event.position, _target_position(_drag_target).y)
-		if ground_pos != null:
-			_move_target(_drag_target, ground_pos)
+		if _drag_target == TARGET_RHOMBUS:
+			_set_charge_meter_position(event.position)
+		else:
+			var ground_pos: Variant = _screen_to_ground(event.position, _target_position(_drag_target).y)
+			if ground_pos != null:
+				_move_target(_drag_target, ground_pos)
 		get_viewport().set_input_as_handled()
 
 
@@ -215,6 +246,7 @@ func _toggle_active() -> void:
 	_active = not _active
 	_drag_target = ""
 	_key_hold_time = 0.0
+	_rotate_hold_time = 0.0
 	if _canvas:
 		_canvas.visible = _active
 	if _active:
@@ -224,7 +256,23 @@ func _toggle_active() -> void:
 	mode_changed.emit(_active)
 
 
+func _cycle_active_target() -> void:
+	var idx := TARGET_CYCLE.find(_active_target)
+	_active_target = TARGET_CYCLE[(idx + 1) % TARGET_CYCLE.size()]
+	_key_hold_time = 0.0
+	_rotate_hold_time = 0.0
+	_refresh_overlay()
+
+
 func _apply_keyboard_movement(delta: float) -> void:
+	_apply_target_movement(delta)
+	_apply_camera_rotation(delta)
+
+
+## Arrow keys move the currently selected target (golfer/ball/camera) on the
+## X/Z plane; Q/E move it vertically. Shift+arrows is a legacy shortcut that
+## always moves the ball, regardless of the selected target.
+func _apply_target_movement(delta: float) -> void:
 	var move_dir := Vector2.ZERO
 	if Input.is_key_pressed(KEY_UP):
 		move_dir.y -= 1.0
@@ -234,34 +282,93 @@ func _apply_keyboard_movement(delta: float) -> void:
 		move_dir.x -= 1.0
 	if Input.is_key_pressed(KEY_RIGHT):
 		move_dir.x += 1.0
-	if move_dir == Vector2.ZERO:
+
+	var vertical := 0.0
+	if Input.is_key_pressed(KEY_Q):
+		vertical += 1.0
+	if Input.is_key_pressed(KEY_E):
+		vertical -= 1.0
+
+	if move_dir == Vector2.ZERO and is_zero_approx(vertical):
 		_key_hold_time = 0.0
 		return
 
 	_key_hold_time += delta
 	var step := MOVE_STEP
+	var step_2d := MOVE_STEP_2D_PX
 	if _key_hold_time >= MOVE_FAST_DELAY_SEC:
 		step = MOVE_FAST_UNITS_PER_SEC * delta
+		step_2d = MOVE_FAST_PX_PER_SEC * delta
 
-	var target := "golfer"
-	if Input.is_key_pressed(KEY_SHIFT):
-		target = "ball"
+	if move_dir != Vector2.ZERO:
+		var move_dir_norm := move_dir.normalized()
+		if Input.is_key_pressed(KEY_SHIFT):
+			var offset := Vector3(move_dir_norm.x, 0.0, move_dir_norm.y) * step
+			_set_target_position(TARGET_BALL, _target_position(TARGET_BALL) + offset)
+		elif _active_target == TARGET_RHOMBUS:
+			_set_charge_meter_position(_charge_meter_position() + move_dir_norm * step_2d)
+		else:
+			var offset := Vector3(move_dir_norm.x, 0.0, move_dir_norm.y) * step
+			_set_target_position(_active_target, _target_position(_active_target) + offset)
 
-	var move_dir_norm := move_dir.normalized()
-	var pos := _target_position(target) + Vector3(move_dir_norm.x, 0.0, move_dir_norm.y) * step
-	_set_target_position(target, pos)
+	if not is_zero_approx(vertical) and _active_target != TARGET_RHOMBUS:
+		var vertical_offset := Vector3(0.0, vertical * step, 0.0)
+		_set_target_position(_active_target, _target_position(_active_target) + vertical_offset)
+
+
+## I/K pitch and J/L yaw the camera. Only active when the camera is the
+## currently selected target, so these keys are inert otherwise.
+func _apply_camera_rotation(delta: float) -> void:
+	if _active_target != TARGET_CAMERA or _camera == null:
+		_rotate_hold_time = 0.0
+		return
+
+	var pitch := 0.0
+	var yaw := 0.0
+	if Input.is_key_pressed(KEY_I):
+		pitch += 1.0
+	if Input.is_key_pressed(KEY_K):
+		pitch -= 1.0
+	if Input.is_key_pressed(KEY_J):
+		yaw += 1.0
+	if Input.is_key_pressed(KEY_L):
+		yaw -= 1.0
+
+	if is_zero_approx(pitch) and is_zero_approx(yaw):
+		_rotate_hold_time = 0.0
+		return
+
+	_rotate_hold_time += delta
+	var step_deg := ROTATE_STEP_DEG
+	if _rotate_hold_time >= MOVE_FAST_DELAY_SEC:
+		step_deg = ROTATE_FAST_DEG_PER_SEC * delta
+
+	var rot := _camera.rotation_degrees
+	rot.x += pitch * step_deg
+	rot.y += yaw * step_deg
+	_camera.rotation_degrees = rot
 
 
 func _pick_target(screen_pos: Vector2) -> String:
-	if _golfer == null or _ball == null or _camera == null:
-		return ""
-	var golfer_dist := screen_pos.distance_to(_camera.unproject_position(_golfer.global_position))
-	var ball_dist := screen_pos.distance_to(_camera.unproject_position(_ball.global_position))
-	if golfer_dist <= PICK_GOLFER_RADIUS_PX and golfer_dist <= ball_dist:
-		return "golfer"
-	if ball_dist <= PICK_BALL_RADIUS_PX:
-		return "ball"
-	return ""
+	var rhombus_dist := INF
+	if _charge_meter:
+		rhombus_dist = screen_pos.distance_to(_charge_meter.global_position)
+	var golfer_dist := INF
+	var ball_dist := INF
+	if _golfer != null and _ball != null and _camera != null:
+		golfer_dist = screen_pos.distance_to(_camera.unproject_position(_golfer.global_position))
+		ball_dist = screen_pos.distance_to(_camera.unproject_position(_ball.global_position))
+	var best_target := ""
+	var best_dist := INF
+	if rhombus_dist <= PICK_RHOMBUS_RADIUS_PX and rhombus_dist < best_dist:
+		best_target = TARGET_RHOMBUS
+		best_dist = rhombus_dist
+	if golfer_dist <= PICK_GOLFER_RADIUS_PX and golfer_dist < best_dist:
+		best_target = TARGET_GOLFER
+		best_dist = golfer_dist
+	if ball_dist <= PICK_BALL_RADIUS_PX and ball_dist < best_dist:
+		best_target = TARGET_BALL
+	return best_target
 
 
 ## Intersects the camera ray through `screen_pos` with the horizontal plane
@@ -284,21 +391,28 @@ func _move_target(target: String, world_pos: Vector3) -> void:
 
 
 func _target_position(target: String) -> Vector3:
-	if target == "ball" and _ball:
-		return _ball.position
-	if _golfer:
-		return _golfer.position
-	return Vector3.ZERO
+	match target:
+		TARGET_BALL:
+			return _ball.position if _ball else Vector3.ZERO
+		TARGET_CAMERA:
+			return _camera.position if _camera else Vector3.ZERO
+		_:
+			return _golfer.position if _golfer else Vector3.ZERO
 
 
 func _set_target_position(target: String, pos: Vector3) -> void:
-	if target == "ball":
-		if _ball:
-			_ball.position = pos
-	else:
-		if _golfer:
-			_golfer.position = pos
-	_notify_positions_changed()
+	match target:
+		TARGET_BALL:
+			if _ball:
+				_ball.position = pos
+			_notify_positions_changed()
+		TARGET_CAMERA:
+			if _camera:
+				_camera.position = pos
+		_:
+			if _golfer:
+				_golfer.position = pos
+			_notify_positions_changed()
 
 
 func _notify_positions_changed() -> void:
@@ -307,7 +421,7 @@ func _notify_positions_changed() -> void:
 
 
 func _adjust_scale(target: String, delta: float) -> void:
-	var sprite: AnimatedSprite3D = _golfer if target == "golfer" else _ball
+	var sprite: AnimatedSprite3D = _golfer if target == TARGET_GOLFER else _ball
 	if sprite == null:
 		return
 	var next := clampf(sprite.scale.x + delta, SCALE_MIN, SCALE_MAX)
@@ -321,22 +435,53 @@ func _notify_scales_changed() -> void:
 		_on_scales_changed.call(_golfer.scale, _ball.scale)
 
 
+func _charge_meter_position() -> Vector2:
+	return _charge_meter.position if _charge_meter else Vector2.ZERO
+
+
+func _set_charge_meter_position(pos: Vector2) -> void:
+	if _charge_meter:
+		_charge_meter.position = pos
+
+
+## Builds the golfer/ball/camera/charge-meter position+scale lines shared by the overlay
+## and the clipboard copy, so both stay in sync.
+func _build_position_lines() -> PackedStringArray:
+	var lines: PackedStringArray = []
+	if _golfer and _ball:
+		var golfer_pos := _golfer.position
+		var ball_pos := _ball.position
+		lines.append("Golfer position = Vector3(%s, %s, %s)" % [_fmt(golfer_pos.x), _fmt(golfer_pos.y), _fmt(golfer_pos.z)])
+		lines.append("Ball position = Vector3(%s, %s, %s)" % [_fmt(ball_pos.x), _fmt(ball_pos.y), _fmt(ball_pos.z)])
+		lines.append("Golfer scale = %s" % _fmt(_golfer.scale.x))
+		lines.append("Ball scale = %s" % _fmt(_ball.scale.x))
+	if _camera:
+		var cam_pos := _camera.position
+		var cam_rot := _camera.rotation_degrees
+		lines.append("Camera position = Vector3(%s, %s, %s)" % [_fmt(cam_pos.x), _fmt(cam_pos.y), _fmt(cam_pos.z)])
+		lines.append("Camera rotation_degrees = Vector3(%s, %s, %s)" % [_fmt(cam_rot.x), _fmt(cam_rot.y), _fmt(cam_rot.z)])
+	if _charge_meter:
+		var cm_pos := _charge_meter.position
+		lines.append("CHARGE_METER_POSITION := Vector2(%s, %s)" % [_fmt(cm_pos.x), _fmt(cm_pos.y)])
+	return lines
+
+
 func _refresh_overlay() -> void:
 	if _info_label == null or _golfer == null or _ball == null:
 		return
-	var golfer_pos := _golfer.position
-	var ball_pos := _ball.position
-	var lines: PackedStringArray = [
-		"Golfer position = Vector3(%s, %s, %s)" % [_fmt(golfer_pos.x), _fmt(golfer_pos.y), _fmt(golfer_pos.z)],
-		"Ball position = Vector3(%s, %s, %s)" % [_fmt(ball_pos.x), _fmt(ball_pos.y), _fmt(ball_pos.z)],
-		"Golfer scale = %s" % _fmt(_golfer.scale.x),
-		"Ball scale = %s" % _fmt(_ball.scale.x),
-	]
-	var golfer_delta := golfer_pos - _golfer_home_start
+	var lines: PackedStringArray = ["Target: %s (TAB to cycle)" % _active_target.capitalize()]
+	lines.append_array(_build_position_lines())
+	var golfer_delta := _golfer.position - _golfer_home_start
 	if golfer_delta.length() >= 0.2:
 		lines.append(
 			"# Golfer moved %s units from session start" % _fmt(golfer_delta.length())
 		)
+	if _charge_meter:
+		var rhombus_delta := _charge_meter.position - _charge_meter_home_start
+		if rhombus_delta.length() >= 2.0:
+			lines.append(
+				"# Rhombus moved %s px from session start" % _fmt(rhombus_delta.length())
+			)
 	_info_label.text = "\n".join(lines)
 
 
@@ -420,17 +565,14 @@ func _show_status(text: String) -> void:
 func _copy_positions() -> void:
 	if _golfer == null or _ball == null:
 		return
-	var golfer_pos := _golfer.position
-	var ball_pos := _ball.position
-	var lines: PackedStringArray = [
-		"Golfer position = Vector3(%s, %s, %s)" % [_fmt(golfer_pos.x), _fmt(golfer_pos.y), _fmt(golfer_pos.z)],
-		"Ball position = Vector3(%s, %s, %s)" % [_fmt(ball_pos.x), _fmt(ball_pos.y), _fmt(ball_pos.z)],
-		"Golfer scale = %s" % _fmt(_golfer.scale.x),
-		"Ball scale = %s" % _fmt(_ball.scale.x),
-	]
-	var golfer_delta := golfer_pos - _golfer_home_start
+	var lines := _build_position_lines()
+	var golfer_delta := _golfer.position - _golfer_home_start
 	if golfer_delta.length() >= 0.2:
 		lines.append("# Golfer delta from start: %s" % golfer_delta)
+	if _charge_meter:
+		var rhombus_delta := _charge_meter.position - _charge_meter_home_start
+		if rhombus_delta.length() >= 2.0:
+			lines.append("# Rhombus delta from start: %s" % rhombus_delta)
 	var text := "\n".join(lines)
 	DisplayServer.clipboard_set(text)
 	print("[PlacementDebug]\n", text)

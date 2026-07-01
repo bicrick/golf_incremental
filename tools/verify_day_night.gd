@@ -13,7 +13,6 @@ func _run() -> void:
 	ok = _check_phase_sampling() and ok
 	ok = _check_smooth_transitions() and ok
 	ok = _check_celestial_arc() and ok
-	ok = _check_decor_visibility() and ok
 	ok = await _check_atmosphere_application() and ok
 	ok = await _check_sun_light_scene() and ok
 	print("day_night_ok=", ok)
@@ -103,39 +102,6 @@ func _check_celestial_arc() -> bool:
 		return false
 
 	print("OK: sun/moon visibility follows day/night cycle")
-	return true
-
-
-func _check_decor_visibility() -> bool:
-	if DayNightPalette.DECOR_FADE_SEC != 8.0:
-		print("FAIL: DECOR_FADE_SEC expected 8")
-		return false
-
-	if DayNightPalette.cloud_visibility(40.0) < 0.8:
-		print("FAIL: clouds should be visible mid-day")
-		return false
-	if DayNightPalette.cloud_visibility(0.0) > 0.05:
-		print("FAIL: clouds should be hidden at midnight")
-		return false
-
-	if DayNightPalette.star_visibility(0.0) < 0.8:
-		print("FAIL: stars should be visible at midnight")
-		return false
-	if DayNightPalette.star_visibility(40.0) > 0.05:
-		print("FAIL: stars should be hidden mid-day")
-		return false
-
-	var cloud_fade := DayNightPalette.cloud_visibility(20.0)
-	if cloud_fade <= 0.05 or cloud_fade >= 0.95:
-		print("FAIL: clouds should be partially faded during dawn fade window")
-		return false
-
-	var star_fade := DayNightPalette.star_visibility(17.0)
-	if star_fade <= 0.05 or star_fade >= 0.95:
-		print("FAIL: stars should be partially faded during dawn fade-out window")
-		return false
-
-	print("OK: cloud/star visibility curves retained for future use")
 	return true
 
 

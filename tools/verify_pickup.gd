@@ -31,7 +31,7 @@ func _run() -> void:
 	ok = await _check_space_does_not_skip_harvest(main, gs) and ok
 	ok = _check_event_bus_signals(gs) and ok
 	ok = await _check_phase_integration(main, gs) and ok
-	ok = await _check_harvest_sidestep(main, gs) and ok
+	ok = await _check_harvest_idle_at_home(main, gs) and ok
 	ok = await _check_hit_mode_during_harvest(main, gs) and ok
 	_cleanup_save()
 	print("pickup_ok=", ok)
@@ -280,48 +280,37 @@ func _check_phase_integration(main: Node, gs: Node) -> bool:
 	return true
 
 
-func _check_harvest_sidestep(main: Node, gs: Node) -> bool:
+func _check_harvest_idle_at_home(main: Node, gs: Node) -> bool:
 	_reset(gs)
 	main._on_play_pressed()
 	await process_frame
 	await process_frame
 	var range_view: Node3D = main.get_node("RangeView")
 	var home: Vector3 = range_view.golfer_strike_home()
-	var offset: Vector3 = range_view.golfer_harvest_offset()
-	var harvest_pos: Vector3 = home + offset
 
 	_enter_harvest(gs)
 	await process_frame
-	var deadline := Time.get_ticks_msec() + 1200
-	while Time.get_ticks_msec() < deadline:
-		if range_view.golfer.position.is_equal_approx(harvest_pos):
-			break
-		await process_frame
-	if not range_view.golfer.position.is_equal_approx(harvest_pos):
+	await process_frame
+	if not range_view.golfer.position.is_equal_approx(home):
 		print(
-			"FAIL: harvest sidestep expected %s, got %s"
-			% [harvest_pos, range_view.golfer.position]
+			"FAIL: harvest idle expected home %s, got %s"
+			% [home, range_view.golfer.position]
 		)
 		return false
 	if range_view.golfer.animation != &"idle_out_of_balls":
-		print("FAIL: harvest sidestep should play idle_out_of_balls")
+		print("FAIL: harvest idle should play idle_out_of_balls")
 		return false
 
 	gs.skip_harvest()
 	await process_frame
-	deadline = Time.get_ticks_msec() + 1200
-	while Time.get_ticks_msec() < deadline:
-		if range_view.golfer.position.is_equal_approx(home):
-			break
-		await process_frame
 	if not range_view.golfer.position.is_equal_approx(home):
 		print(
-			"FAIL: strike return expected %s, got %s"
+			"FAIL: strike return expected home %s, got %s"
 			% [home, range_view.golfer.position]
 		)
 		return false
 
-	print("OK: harvest sidestep offset %.2f units, return to strike home" % offset.x)
+	print("OK: harvest idle stays at home, returns to idle on strike")
 	return true
 
 

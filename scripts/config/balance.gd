@@ -48,10 +48,10 @@ const YARD_QUALITY_LATE_PEAK: float = 0.92
 const TIER_NAMES: Array[String] = ["Perfect!", "Good", "OK", "Miss"]
 
 const TIER_COLORS: Array[Color] = [
-	Color(1.0, 0.88, 0.25),
-	Color(0.55, 0.85, 0.45),
-	Color(0.75, 0.75, 0.75),
-	Color(0.9, 0.45, 0.4),
+	Color(0.35, 0.85, 0.42),  # PERFECT — green
+	Color(1.0, 0.88, 0.25),   # GOOD — yellow
+	Color(0.95, 0.58, 0.22),  # OK — orange (between good and miss)
+	Color(0.92, 0.32, 0.28),  # MISS — red
 ]
 
 const JACKPOT_PAYOUT_THRESHOLD: float = 500.0

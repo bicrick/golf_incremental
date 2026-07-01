@@ -1,12 +1,12 @@
 class_name FairwayGround3D
 extends RefCounted
 ## Builds the driving-range ground as a real 3D mesh — alternating light/dark
-## "mower stripe" bands running across the fairway at intervals down -Z.
+## "mower stripe" lanes running lengthwise down the fairway toward -Z.
 ## Replaces the old FairwayStripes perspective-trapezoid Polygon2D stack;
 ## Camera3D projection now does the vanishing-point convergence for free.
 
-const STRIPE_DEPTH_YARDS := 8.0
-const STRIPE_COUNT := 28
+const STRIPE_WIDTH_YARDS := 2.0
+const FAIRWAY_DEPTH_YARDS := 224.0  ## 28 × 8 yd — unchanged fairway reach
 
 
 static func build_mesh(
@@ -18,15 +18,19 @@ static func build_mesh(
 	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
 
-	for i in STRIPE_COUNT:
-		var z0 := -float(i) * STRIPE_DEPTH_YARDS
-		var z1 := -float(i + 1) * STRIPE_DEPTH_YARDS
+	var z_near := 0.0
+	var z_far := -FAIRWAY_DEPTH_YARDS
+	var stripe_count := ceili(half_width * 2.0 / STRIPE_WIDTH_YARDS)
+
+	for i in stripe_count:
+		var x0 := -half_width + float(i) * STRIPE_WIDTH_YARDS
+		var x1 := minf(x0 + STRIPE_WIDTH_YARDS, half_width)
 		var color := light_color if i % 2 == 0 else dark_color
 		var base := verts.size()
-		verts.append(Vector3(-half_width, 0.0, z0))
-		verts.append(Vector3(half_width, 0.0, z0))
-		verts.append(Vector3(half_width, 0.0, z1))
-		verts.append(Vector3(-half_width, 0.0, z1))
+		verts.append(Vector3(x0, 0.0, z_near))
+		verts.append(Vector3(x1, 0.0, z_near))
+		verts.append(Vector3(x1, 0.0, z_far))
+		verts.append(Vector3(x0, 0.0, z_far))
 		for _c in 4:
 			colors.append(color)
 		indices.append_array(PackedInt32Array([
