@@ -9,7 +9,8 @@ static func apply_all(stats: PlayerStats, levels: Dictionary) -> void:
 		var level: int = levels.get(id, 0)
 		if level <= 0:
 			continue
-		_apply_effect(stats, def["effect"], level)
+		for effect in def.get("effects", []):
+			_apply_effect(stats, effect, level)
 
 
 static func _apply_effect(stats: PlayerStats, effect: Dictionary, level: int) -> void:

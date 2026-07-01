@@ -50,8 +50,11 @@ func reset_combo() -> void:
 func _on_phase_changed(phase: String) -> void:
 	_active = phase == "harvest"
 	if _active:
+		CursorManager.set_grab_cursor()
 		reset_combo()
 		_mark_all_litter_collectible()
+	else:
+		CursorManager.clear_grab_cursor()
 
 
 func _camera() -> Camera3D:

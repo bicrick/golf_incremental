@@ -39,6 +39,7 @@ func save_game() -> void:
 		"version": Balance.SAVE_VERSION,
 		"currency": GameState.currency,
 		"upgrade_levels": GameState.upgrade_levels.duplicate(),
+		"upgrades_unlocked": GameState.upgrades_unlocked,
 		"lifetime": GameState.lifetime.duplicate(),
 		"bucket_remaining": GameState.bucket_remaining,
 		"bucket_capacity": GameState.bucket_capacity,
@@ -110,6 +111,7 @@ func load_game() -> void:
 		return
 	GameState.currency = float(parsed.get("currency", 0.0))
 	GameState.upgrade_levels = parsed.get("upgrade_levels", {})
+	GameState.upgrades_unlocked = bool(parsed.get("upgrades_unlocked", false))
 	GameState.lifetime = parsed.get("lifetime", GameState.lifetime)
 	GameState.bucket_capacity = int(parsed.get("bucket_capacity", Balance.BUCKET_CAPACITY_DEFAULT))
 	var saved_remaining: int = int(parsed.get("bucket_remaining", -1))

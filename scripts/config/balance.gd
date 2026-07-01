@@ -113,7 +113,10 @@ const FLIGHT_TRAIL_HEAD_ALPHA := 0.35
 enum TimingTier { PERFECT, GREAT, GOOD, OKAY, BAD, MISS }
 enum ContactFlavor { PURE, SLIGHTLY_FAT, THIN, CHUNK }
 enum FeedbackTier { WHISPER, WARM, JACKPOT, MILESTONE }
-enum UpgradeBranch { BASE_PAY, YARDAGE, YARDAGE_MULT, CONTACT, QUALITY_MULT, BUCKET }
+enum UpgradeBranch { BASE_PAY, YARDAGE, QUALITY, POWER }
+
+## One-time cost to unlock the upgrade tree from the icon bar.
+const UPGRADES_UNLOCK_COST: float = 1.50
 
 
 static func default_stats() -> PlayerStats:

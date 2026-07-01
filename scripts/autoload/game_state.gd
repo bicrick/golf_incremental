@@ -3,6 +3,7 @@ extends Node
 
 var currency: float = 0.0
 var upgrade_levels: Dictionary = {}
+var upgrades_unlocked: bool = false
 var stats: PlayerStats = Balance.default_stats()
 var bucket_remaining: int = -1
 var bucket_capacity: int = 0
@@ -38,6 +39,17 @@ func _recompute_stats() -> void:
 	stats = Balance.default_stats()
 	UpgradeEffects.apply_all(stats, upgrade_levels)
 	bucket_capacity = get_bucket_capacity()
+
+
+func try_unlock_upgrades() -> bool:
+	if upgrades_unlocked:
+		return true
+	if currency < Balance.UPGRADES_UNLOCK_COST:
+		return false
+	currency -= Balance.UPGRADES_UNLOCK_COST
+	upgrades_unlocked = true
+	EventBus.stats_changed.emit(stats, currency)
+	return true
 
 
 func purchase_upgrade(id: String) -> bool:
@@ -78,6 +90,7 @@ func get_upgrade_cost(id: String) -> float:
 func reset_to_fresh() -> void:
 	currency = 0.0
 	upgrade_levels.clear()
+	upgrades_unlocked = false
 	stats = Balance.default_stats()
 	bucket_capacity = get_bucket_capacity()
 	bucket_remaining = bucket_capacity

@@ -1,9 +1,6 @@
 class_name UpgradeDefinitions
 extends RefCounted
-## v3 formula-unlock upgrade tree — barebones placeholder layout.
-
-const DINKY_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles"
-const ICON := DINKY_BASE + "/HUD/PowerBar.png"
+## v3 formula-unlock upgrade tree — barebones fan-out from Base Pay.
 
 static var _by_id: Dictionary = {}
 static var _tree_order: Array[String] = []
@@ -16,79 +13,50 @@ static func _init_defs() -> void:
 		_def(
 			"base_pay", Balance.UpgradeBranch.BASE_PAY, "Base Pay", "+$ per ball.",
 			100, 5.0, 1.05,
-			{"type": "add", "stat": "base_amount", "value_per_level": 0.02},
-			"", {}, Vector2(213, 6),
-			ICON
+			[{"type": "add", "stat": "base_amount", "value_per_level": 0.02}],
+			"", {}, Vector2(213, 6)
 		),
 		_def(
-			"bucket_size", Balance.UpgradeBranch.BUCKET, "Big Bucket", "+2 capacity.",
-			5, 35.0, 1.5,
-			{"type": "add", "stat": "bucket_capacity_bonus", "value_per_level": 2.0},
-			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(120, 62),
-			DINKY_BASE + "/Ball/Ball-Sprites_0005.png"
+			"yardage", Balance.UpgradeBranch.YARDAGE, "Yardage", "Unlock yardage payout + rate.",
+			100, 10.0, 1.055,
+			[
+				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
+				{"type": "multiply", "stat": "yardage_multiplier", "value_per_level": 1.03},
+			],
+			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(48, 62)
 		),
 		_def(
-			"yardage_markers", Balance.UpgradeBranch.YARDAGE, "Yardage Markers", "Unlock yardage payout.",
-			1, 50.0, 1.0,
-			{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
-			"base_pay", {"upgrade_id": "base_pay", "level": 15}, Vector2(213, 62),
-			DINKY_BASE + "/HUD/Distance Box.png"
+			"quality", Balance.UpgradeBranch.QUALITY, "Quality", "Unlock quality payout + bonus.",
+			100, 15.0, 1.055,
+			[
+				{"type": "binary", "stat": "quality_term_unlocked", "value": 1},
+				{"type": "multiply", "stat": "quality_multiplier", "value_per_level": 1.05},
+			],
+			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(213, 62)
 		),
 		_def(
-			"yardage", Balance.UpgradeBranch.YARDAGE, "Leg Day", "+base yards.",
-			10, 25.0, 1.5,
-			{"type": "multiply", "stat": "base_yards", "value_per_level": 1.112},
-			"yardage_markers", {"upgrade_id": "yardage_markers", "level": 1}, Vector2(48, 114),
-			DINKY_BASE + "/Player/Swing03.png"
-		),
-		_def(
-			"carry_form", Balance.UpgradeBranch.YARDAGE, "Form", "+distance %.",
-			10, 40.0, 1.55,
-			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.065},
-			"yardage", {"upgrade_id": "yardage", "level": 1}, Vector2(16, 166),
-			DINKY_BASE + "/Ball/Ball-Sprites_0005.png"
-		),
-		_def(
-			"yardage_cap", Balance.UpgradeBranch.YARDAGE, "Core", "Raise max yards.",
-			8, 75.0, 1.6,
-			{"type": "add", "stat": "max_yards", "value_per_level": 32.0},
-			"carry_form", {"upgrade_id": "carry_form", "level": 1}, Vector2(48, 218),
-			DINKY_BASE + "/Player/Swing05.png"
-		),
-		_def(
-			"carry_power", Balance.UpgradeBranch.YARDAGE, "Power", "+carry strength.",
+			"power", Balance.UpgradeBranch.POWER, "Power", "+carry strength.",
 			5, 15.0, 1.45,
-			{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.13},
-			"yardage_markers", {"upgrade_id": "yardage_markers", "level": 1}, Vector2(48, 62),
-			ICON
+			[{"type": "multiply", "stat": "yard_multiplier", "value_per_level": 1.13}],
+			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(378, 62)
 		),
 		_def(
-			"yardage_mult", Balance.UpgradeBranch.YARDAGE_MULT, "Yd Mult", "+yardage rate.",
-			100, 20.0, 1.06,
-			{"type": "multiply", "stat": "yardage_multiplier", "value_per_level": 1.03},
-			"yardage_markers", {"upgrade_id": "yardage_markers", "level": 1}, Vector2(378, 114),
-			DINKY_BASE + "/TEXT/TXT_PAR.png"
-		),
-		_def(
-			"contact_awareness", Balance.UpgradeBranch.CONTACT, "Contact Aware", "Unlock quality payout.",
-			1, 100.0, 1.0,
-			{"type": "binary", "stat": "quality_term_unlocked", "value": 1},
-			"yardage_mult", {"upgrade_id": "yardage_mult", "level": 15}, Vector2(378, 166),
-			DINKY_BASE + "/Star.png"
-		),
-		_def(
-			"contact_training", Balance.UpgradeBranch.CONTACT, "Metronome", "Wider perfect window.",
+			"leg_day", Balance.UpgradeBranch.POWER, "Leg Day", "+base yards.",
 			10, 25.0, 1.5,
-			{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 4.0},
-			"contact_awareness", {"upgrade_id": "contact_awareness", "level": 1}, Vector2(213, 218),
-			DINKY_BASE + "/Player/Walk01.png"
+			[{"type": "multiply", "stat": "base_yards", "value_per_level": 1.112}],
+			"power", {"upgrade_id": "power", "level": 1}, Vector2(378, 114)
 		),
 		_def(
-			"quality_mult", Balance.UpgradeBranch.QUALITY_MULT, "Qlty Mult", "+quality bonus.",
-			100, 20.0, 1.06,
-			{"type": "multiply", "stat": "quality_multiplier", "value_per_level": 1.05},
-			"contact_awareness", {"upgrade_id": "contact_awareness", "level": 1}, Vector2(378, 218),
-			DINKY_BASE + "/TEXT/TXT_BIRDIE.png"
+			"core_strength", Balance.UpgradeBranch.POWER, "Core", "Raise max yards.",
+			8, 75.0, 1.6,
+			[{"type": "add", "stat": "max_yards", "value_per_level": 32.0}],
+			"leg_day", {"upgrade_id": "leg_day", "level": 1}, Vector2(378, 166)
+		),
+		_def(
+			"contact_training", Balance.UpgradeBranch.QUALITY, "Metronome", "Wider perfect window.",
+			10, 25.0, 1.5,
+			[{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 4.0}],
+			"quality", {"upgrade_id": "quality", "level": 1}, Vector2(213, 114)
 		),
 	]
 	for d in defs:
@@ -104,11 +72,10 @@ static func _def(
 	max_level: int,
 	base_cost: float,
 	growth_rate: float,
-	effect: Dictionary,
+	effects: Array,
 	parent_id: String,
 	prerequisite: Dictionary,
-	tree_pos: Vector2,
-	icon_path: String
+	tree_pos: Vector2
 ) -> Dictionary:
 	return {
 		"id": id,
@@ -118,11 +85,10 @@ static func _def(
 		"max_level": max_level,
 		"base_cost": base_cost,
 		"growth_rate": growth_rate,
-		"effect": effect,
+		"effects": effects,
 		"parent_id": parent_id,
 		"prerequisite": prerequisite,
 		"tree_pos": tree_pos,
-		"icon_path": icon_path,
 	}
 
 

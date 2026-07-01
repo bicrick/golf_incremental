@@ -23,6 +23,7 @@ const ARROW: PackedStringArray = [
 const ARROW_OFFSET := Vector2i(2, 2)
 
 var _highlighted := false
+var _locked := false
 
 var highlighted: bool:
 	get:
@@ -31,6 +32,15 @@ var highlighted: bool:
 		if _highlighted == value:
 			return
 		_highlighted = value
+		queue_redraw()
+
+var locked: bool:
+	get:
+		return _locked
+	set(value):
+		if _locked == value:
+			return
+		_locked = value
 		queue_redraw()
 
 
@@ -44,7 +54,10 @@ func _ready() -> void:
 func _draw() -> void:
 	var fill := COLOR_ARROW_HI if _highlighted else COLOR_ARROW
 	var outline := COLOR_ARROW_OUTLINE
-	if _highlighted:
+	if _locked:
+		fill = Color(0.45, 0.42, 0.38, 1.0)
+		outline = Color(0.32, 0.30, 0.28, 1.0)
+	elif _highlighted:
 		fill = COLOR_ARROW_BRIGHT
 		outline = COLOR_ARROW
 	_draw_grid(ARROW, {"O": outline, "#": fill}, ARROW_OFFSET)
@@ -69,7 +82,7 @@ func _draw_grid(
 
 
 func _draw_arrow_highlights() -> void:
-	if _highlighted:
+	if _highlighted or _locked:
 		return
 	var highlights := [
 		Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2),

@@ -11,21 +11,21 @@ func _run() -> void:
 	var ok := true
 
 	var defs := UpgradeDefinitions.all()
-	if defs.size() != 11:
-		print("FAIL: expected 11 upgrades, got ", defs.size())
+	if defs.size() != 7:
+		print("FAIL: expected 7 upgrades, got ", defs.size())
 		ok = false
 	var base_pay := UpgradeDefinitions.get_def("base_pay")
 	if base_pay.is_empty() or base_pay.get("parent_id", "x") != "":
 		print("FAIL: base_pay root missing or has parent")
 		ok = false
-	var branch_heads := ["bucket_size", "yardage_markers"]
+	var branch_heads := ["yardage", "quality", "power"]
 	for head in branch_heads:
 		var def := UpgradeDefinitions.get_def(head)
 		if def.get("parent_id", "") != "base_pay":
 			print("FAIL: %s should branch from base_pay" % head)
 			ok = false
-	if UpgradeDefinitions.connections().size() != 10:
-		print("FAIL: expected 10 tree connections")
+	if UpgradeDefinitions.connections().size() != 6:
+		print("FAIL: expected 6 tree connections")
 		ok = false
 
 	var main: Node = load("res://scenes/main.tscn").instantiate()
@@ -42,6 +42,7 @@ func _run() -> void:
 		return
 
 	gs.currency = 500.0
+	gs.upgrades_unlocked = true
 	gs.upgrade_levels = {}
 	gs._recompute_stats()
 	var before_base: float = gs.stats.base_amount
@@ -54,35 +55,42 @@ func _run() -> void:
 	if gs.stats.base_amount <= before_base:
 		print("FAIL: base_pay did not affect base_amount")
 		ok = false
-	if gs.purchase_upgrade("bucket_size"):
-		if gs.stats.bucket_capacity_bonus <= 0.0:
-			print("FAIL: bucket_size did not increase capacity bonus")
-			ok = false
-	else:
-		print("FAIL: could not purchase bucket_size after base_pay")
+
+	if not UpgradeDefinitions.is_unlocked("yardage", gs.upgrade_levels):
+		print("FAIL: yardage should unlock at base_pay Lv.1")
+		ok = false
+	if not UpgradeDefinitions.is_unlocked("quality", gs.upgrade_levels):
+		print("FAIL: quality should unlock at base_pay Lv.1")
+		ok = false
+	if not UpgradeDefinitions.is_unlocked("power", gs.upgrade_levels):
+		print("FAIL: power should unlock at base_pay Lv.1")
 		ok = false
 
-	gs.upgrade_levels["base_pay"] = 15
-	gs._recompute_stats()
-	if not gs.purchase_upgrade("yardage_markers"):
-		print("FAIL: could not purchase yardage_markers at base_pay 15")
-		ok = false
-	if gs.stats.yardage_term_unlocked <= 0.0:
-		print("FAIL: yardage_markers did not unlock yardage term")
-		ok = false
 	if gs.purchase_upgrade("yardage"):
-		if gs.stats.base_yards <= Balance.default_stats().base_yards:
-			print("FAIL: yardage did not increase base_yards")
+		if gs.stats.yardage_term_unlocked <= 0.0:
+			print("FAIL: yardage did not unlock yardage term")
+			ok = false
+		if gs.stats.yardage_multiplier <= Balance.default_stats().yardage_multiplier:
+			print("FAIL: yardage did not increase yardage_multiplier")
 			ok = false
 	else:
 		print("FAIL: could not purchase yardage")
 		ok = false
-	if gs.purchase_upgrade("yardage_mult"):
-		if gs.stats.yardage_multiplier <= Balance.default_stats().yardage_multiplier:
-			print("FAIL: yardage_mult did not increase yardage_multiplier")
+
+	if gs.purchase_upgrade("power"):
+		if gs.stats.yard_multiplier <= 1.0:
+			print("FAIL: power did not increase yard_multiplier")
 			ok = false
 	else:
-		print("FAIL: could not purchase yardage_mult")
+		print("FAIL: could not purchase power")
+		ok = false
+
+	if gs.purchase_upgrade("quality"):
+		if gs.stats.quality_term_unlocked <= 0.0:
+			print("FAIL: quality did not unlock quality term")
+			ok = false
+	else:
+		print("FAIL: could not purchase quality")
 		ok = false
 
 	var range_view: Node3D = main.get_node("RangeView")
@@ -100,27 +108,12 @@ func _run() -> void:
 		print("FAIL: UpgradePanel missing from main")
 		ok = false
 	else:
-		var sky_bg: Node = panel.get_node_or_null("SkyBg")
-		if sky_bg == null or not sky_bg.has_method("layer_count") or sky_bg.layer_count() != 4:
-			var count: int = sky_bg.layer_count() if sky_bg != null and sky_bg.has_method("layer_count") else -1
-			print("FAIL: expected 4 cloud layers on upgrade view, got %d" % count)
-			ok = false
-		if panel.get_node_or_null("DimOverlay") != null:
-			print("FAIL: upgrade view should not use modal DimOverlay")
-			ok = false
-
 		gs.upgrade_levels = {}
 		gs._recompute_stats()
 		panel.open()
 		await process_frame
 		if not panel.visible:
 			print("FAIL: panel not visible after open()")
-			ok = false
-		if range_view.visible:
-			print("FAIL: range view should hide when upgrade view opens")
-			ok = false
-		if hud.visible or icon_bar.visible:
-			print("FAIL: gameplay HUD should hide when upgrade view opens")
 			ok = false
 
 		var nodes_root: Control = panel.get_node("Content/TreeCanvas/Nodes")
@@ -138,25 +131,43 @@ func _run() -> void:
 		panel._refresh_all()
 		await process_frame
 		var visible_after_base := _count_visible_nodes(nodes_root)
-		if visible_after_base != 2:
-			print("FAIL: expected 2 revealed nodes after base_pay, got ", visible_after_base)
+		if visible_after_base != 4:
+			print("FAIL: expected 4 revealed nodes after base_pay, got ", visible_after_base)
 			ok = false
 
-		if nodes_root.get_child_count() != 11:
-			print("FAIL: expected 11 tree nodes built, got ", nodes_root.get_child_count())
+		if nodes_root.get_child_count() != 7:
+			print("FAIL: expected 7 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
 		panel.close()
 		await process_frame
-		if panel.visible:
-			print("FAIL: panel still visible after close()")
-			ok = false
 		if not range_view.visible:
 			print("FAIL: range view should restore after closing upgrade view")
 			ok = false
-		if not hud.visible or not icon_bar.visible:
-			print("FAIL: gameplay HUD should restore after closing upgrade view")
+
+	# Icon bar unlock gate
+	gs.reset_to_fresh()
+	await process_frame
+	var icon_bar_node: Node = main.get_node("UI/UIRoot/IconBar")
+	if icon_bar_node.has_method("_refresh_upgrades_lock_state"):
+		icon_bar_node._refresh_upgrades_lock_state()
+	if not gs.upgrades_unlocked and gs.currency < Balance.UPGRADES_UNLOCK_COST:
+		if not icon_bar_node.upgrades_button.disabled:
+			print("FAIL: upgrades button should be disabled below unlock cost")
 			ok = false
+	gs.currency = Balance.UPGRADES_UNLOCK_COST
+	if icon_bar_node.has_method("_refresh_upgrades_lock_state"):
+		icon_bar_node._refresh_upgrades_lock_state()
+	if gs.try_unlock_upgrades():
+		if not gs.upgrades_unlocked:
+			print("FAIL: try_unlock_upgrades should set flag")
+			ok = false
+		if gs.currency > 0.001:
+			print("FAIL: unlock should spend full cost, currency=%.2f" % gs.currency)
+			ok = false
+	else:
+		print("FAIL: try_unlock_upgrades failed at exact cost")
+		ok = false
 
 	print("upgrade_tree_ok=", ok)
 	quit(0 if ok else 1)

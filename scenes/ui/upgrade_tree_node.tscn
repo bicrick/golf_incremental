@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://upgrade_tree_node"]
+[gd_scene load_steps=3 format=3 uid="uid://upgrade_tree_node"]
 
 [ext_resource type="Script" path="res://scripts/ui/upgrade_tree_node.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/ui/upgrade_node_shape.gd" id="2_shape"]
 
 [node name="UpgradeTreeNode" type="PanelContainer"]
 custom_minimum_size = Vector2(38, 38)
@@ -16,16 +17,14 @@ offset_bottom = 38.0
 mouse_filter = 2
 color = Color(1, 0.86, 0.25, 0)
 
-[node name="Icon" type="TextureRect" parent="."]
+[node name="ShapeIcon" type="Control" parent="."]
 layout_mode = 0
 offset_left = 13.0
 offset_top = 7.0
 offset_right = 25.0
 offset_bottom = 19.0
 mouse_filter = 2
-expand_mode = 1
-stretch_mode = 5
-texture_filter = 0
+script = ExtResource("2_shape")
 
 [node name="FooterLabel" type="Label" parent="."]
 layout_mode = 0

@@ -46,6 +46,7 @@ func _ready() -> void:
 	upgrades_button.mouse_exited.connect(_on_upgrades_mouse_exited)
 	settings_button.mouse_entered.connect(_on_settings_mouse_entered)
 	settings_button.mouse_exited.connect(_on_settings_mouse_exited)
+	EventBus.stats_changed.connect(_on_stats_changed)
 	_style_upgrades_wrap()
 	_style_upgrades_button()
 	_style_settings_button()
@@ -53,7 +54,33 @@ func _ready() -> void:
 	upgrades_button.tooltip_text = ""
 	settings_button.tooltip_text = ""
 	call_deferred("_capture_button_rest_positions")
+	call_deferred("_refresh_upgrades_lock_state")
 	set_process(false)
+
+
+func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
+	_refresh_upgrades_lock_state()
+
+
+func _refresh_upgrades_lock_state() -> void:
+	if upgrades_button == null:
+		return
+	var unlocked := GameState.upgrades_unlocked
+	var can_afford := GameState.currency >= Balance.UPGRADES_UNLOCK_COST
+	upgrades_button.disabled = not unlocked and not can_afford
+	if unlocked:
+		upgrades_button.tooltip_text = ""
+		_upgrades_wrap.modulate = Color.WHITE
+		if _upgrades_glyph:
+			_upgrades_glyph.locked = false
+	else:
+		upgrades_button.tooltip_text = "$%.2f" % Balance.UPGRADES_UNLOCK_COST
+		if can_afford:
+			_upgrades_wrap.modulate = Color(1.0, 1.0, 1.0, 0.85)
+		else:
+			_upgrades_wrap.modulate = Color(0.55, 0.52, 0.48, 0.75)
+		if _upgrades_glyph:
+			_upgrades_glyph.locked = true
 
 
 func _capture_button_rest_positions() -> void:
@@ -106,6 +133,10 @@ func _update_hover_process() -> void:
 func _on_upgrades_pressed() -> void:
 	if _upgrade_panel == null:
 		return
+	if not GameState.upgrades_unlocked:
+		if not GameState.try_unlock_upgrades():
+			return
+		_refresh_upgrades_lock_state()
 	if _settings_panel and _settings_panel.has_method("is_open") and _settings_panel.is_open():
 		_settings_panel.close()
 	if _upgrade_panel.has_method("toggle"):

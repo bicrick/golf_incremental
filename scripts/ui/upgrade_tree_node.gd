@@ -15,16 +15,12 @@ const TOOLTIP_EDGE_MARGIN := 4
 
 const SHORT_NAMES: Dictionary = {
 	"base_pay": "PAY",
-	"bucket_size": "BKT",
-	"yardage_markers": "MKR",
 	"yardage": "YDS",
-	"carry_form": "FRM",
-	"yardage_cap": "CAP",
-	"carry_power": "PWR",
-	"yardage_mult": "YDM",
-	"contact_awareness": "AWA",
+	"quality": "QLT",
+	"power": "PWR",
+	"leg_day": "LEG",
+	"core_strength": "COR",
 	"contact_training": "MET",
-	"quality_mult": "QLM",
 }
 
 const COLOR_BG := Color(0.18, 0.15, 0.12, 0.92)
@@ -62,7 +58,7 @@ var _tooltip_affordable := false
 
 @onready var _button: Button = $HitButton
 @onready var _glow: ColorRect = $GlowOverlay
-@onready var _icon: TextureRect = $Icon
+@onready var _shape_icon: Control = $ShapeIcon
 @onready var _footer_label: Label = $FooterLabel
 @onready var _tooltip_panel: PanelContainer = $TooltipPanel
 @onready var _tooltip_name: Label = $TooltipPanel/Margin/VBox/NameLabel
@@ -92,13 +88,9 @@ func _ready() -> void:
 
 func setup(def: Dictionary) -> void:
 	upgrade_id = def["id"]
-	var tex: Texture2D = load(def["icon_path"])
-	if tex:
-		_icon.texture = tex
-		_icon.custom_minimum_size = ICON_SIZE
-		_icon.size = ICON_SIZE
-		_icon.position = Vector2((NODE_SIZE.x - ICON_SIZE.x) * 0.5, 7.0)
-		_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	if _shape_icon:
+		_shape_icon.branch = int(def.get("branch", Balance.UpgradeBranch.BASE_PAY))
+		_shape_icon.queue_redraw()
 	refresh()
 
 
@@ -260,25 +252,25 @@ func _apply_visual_state() -> void:
 	match _state:
 		NodeState.PURCHASABLE:
 			modulate = Color.WHITE
-			_icon.modulate = Color.WHITE
+			_shape_icon.modulate = Color.WHITE
 			_footer_label.add_theme_color_override(&"font_color", COLOR_TEXT_GOLD)
 			_style_panel(COLOR_BORDER_AFFORD, 1)
 		NodeState.MAXED:
 			_glow.color = Color(COLOR_GLOW.r, COLOR_GLOW.g, COLOR_GLOW.b, 0.0)
 			modulate = MODULATE_MAXED
-			_icon.modulate = MODULATE_MAXED
+			_shape_icon.modulate = MODULATE_MAXED
 			_footer_label.add_theme_color_override(&"font_color", COLOR_TEXT_GOLD)
 			_style_panel(COLOR_BORDER_MAXED, 1)
 		NodeState.LOCKED:
 			_glow.color = Color(COLOR_GLOW.r, COLOR_GLOW.g, COLOR_GLOW.b, 0.0)
 			modulate = MODULATE_LOCKED
-			_icon.modulate = MODULATE_LOCKED
+			_shape_icon.modulate = MODULATE_LOCKED
 			_footer_label.add_theme_color_override(&"font_color", COLOR_TEXT_DIM)
 			_style_panel(COLOR_BORDER_LOCKED, 1)
 		NodeState.UNAFFORDABLE:
 			_glow.color = Color(COLOR_GLOW.r, COLOR_GLOW.g, COLOR_GLOW.b, 0.0)
 			modulate = MODULATE_UNAFFORDABLE
-			_icon.modulate = MODULATE_UNAFFORDABLE
+			_shape_icon.modulate = MODULATE_UNAFFORDABLE
 			_footer_label.add_theme_color_override(&"font_color", COLOR_TEXT_DIM)
 			_style_panel(COLOR_BORDER, 1)
 

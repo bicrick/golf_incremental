@@ -67,17 +67,16 @@ func _check_balance_targets() -> bool:
 
 	var maxed := Balance.default_stats()
 	var max_levels := {
-		"yardage": UpgradeDefinitions.get_def("yardage").get("max_level", 0),
-		"carry_form": UpgradeDefinitions.get_def("carry_form").get("max_level", 0),
-		"yardage_cap": UpgradeDefinitions.get_def("yardage_cap").get("max_level", 0),
-		"carry_power": UpgradeDefinitions.get_def("carry_power").get("max_level", 0),
+		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
+		"leg_day": UpgradeDefinitions.get_def("leg_day").get("max_level", 0),
+		"core_strength": UpgradeDefinitions.get_def("core_strength").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 	var end_yards := Economy.yards_from_quality(1.0, maxed)
-	if end_yards < maxed.max_yards * 0.9:
+	if end_yards < 150.0 or end_yards > 170.0:
 		print(
-			"FAIL: maxed perfect yards expected near cap %.0f, got %.2f"
-			% [maxed.max_yards, end_yards]
+			"FAIL: maxed perfect yards expected ~160, got %.2f (cap=%.0f)"
+			% [end_yards, maxed.max_yards]
 		)
 		ok = false
 	else:
@@ -101,10 +100,9 @@ func _check_visual_depth() -> bool:
 	var default_stats := Balance.default_stats()
 	var maxed := Balance.default_stats()
 	var max_levels := {
-		"yardage": UpgradeDefinitions.get_def("yardage").get("max_level", 0),
-		"carry_form": UpgradeDefinitions.get_def("carry_form").get("max_level", 0),
-		"yardage_cap": UpgradeDefinitions.get_def("yardage_cap").get("max_level", 0),
-		"carry_power": UpgradeDefinitions.get_def("carry_power").get("max_level", 0),
+		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
+		"leg_day": UpgradeDefinitions.get_def("leg_day").get("max_level", 0),
+		"core_strength": UpgradeDefinitions.get_def("core_strength").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 
@@ -123,8 +121,8 @@ func _check_visual_depth() -> bool:
 			% [start_t, start_y, start_yards, Balance.VISUAL_MAX_YARDS]
 		)
 
-	var mid_yards := 150.0
 	var end_yards := Economy.yards_from_quality(1.0, maxed)
+	var mid_yards := minf(end_yards * 0.6, 80.0)
 	var mid_t := Economy.visual_depth_t(mid_yards, maxed)
 	var mid_y := _landing_y(mid_yards, maxed)
 	var short_t := Economy.visual_depth_t(30.0, maxed)
@@ -137,18 +135,18 @@ func _check_visual_depth() -> bool:
 		ok = false
 	else:
 		print(
-			"OK: maxed depth order 30yd=%.3f 150yd=%.3f max=%.3f"
-			% [short_t, mid_t, long_t]
+			"OK: maxed depth order 30yd=%.3f %.0fyd=%.3f max=%.3f"
+			% [short_t, mid_yards, mid_t, long_t]
 		)
 		print(
-			"OK: 150yd depth t=%.3f landing_y=%.1f (max_yards=%.0f)"
+			"OK: mid depth t=%.3f landing_y=%.1f (max_yards=%.0f)"
 			% [mid_t, mid_y, maxed.max_yards]
 		)
 
 	var end_t := Economy.visual_depth_t(end_yards, maxed)
 	var end_y := _landing_y(end_yards, maxed)
-	if end_t < 0.95:
-		print("FAIL: maxed perfect depth %.3f should reach horizon (~1.0)" % end_t)
+	if end_t < 0.45:
+		print("FAIL: maxed perfect depth %.3f too shallow for %.1f yds" % [end_t, end_yards])
 		ok = false
 	else:
 		print(

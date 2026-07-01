@@ -27,22 +27,12 @@ func _run() -> void:
 
 	var cases: Array[Dictionary] = [
 		{"id": "base_pay", "prereq_levels": {}},
-		{"id": "bucket_size", "prereq_levels": {"base_pay": 1}},
-		{"id": "yardage_markers", "prereq_levels": {"base_pay": 15}},
-		{"id": "yardage", "prereq_levels": {"base_pay": 15, "yardage_markers": 1}},
-		{"id": "carry_form", "prereq_levels": {"base_pay": 15, "yardage_markers": 1, "yardage": 1}},
-		{"id": "yardage_cap", "prereq_levels": {
-			"base_pay": 15, "yardage_markers": 1, "yardage": 1, "carry_form": 1
-		}},
-		{"id": "carry_power", "prereq_levels": {"base_pay": 15, "yardage_markers": 1}},
-		{"id": "yardage_mult", "prereq_levels": {"base_pay": 15, "yardage_markers": 1}},
-		{"id": "contact_awareness", "prereq_levels": {"base_pay": 15, "yardage_markers": 1, "yardage_mult": 15}},
-		{"id": "contact_training", "prereq_levels": {
-			"base_pay": 15, "yardage_markers": 1, "yardage_mult": 15, "contact_awareness": 1
-		}},
-		{"id": "quality_mult", "prereq_levels": {
-			"base_pay": 15, "yardage_markers": 1, "yardage_mult": 15, "contact_awareness": 1
-		}},
+		{"id": "yardage", "prereq_levels": {"base_pay": 1}},
+		{"id": "quality", "prereq_levels": {"base_pay": 1}},
+		{"id": "power", "prereq_levels": {"base_pay": 1}},
+		{"id": "leg_day", "prereq_levels": {"base_pay": 1, "power": 1}},
+		{"id": "core_strength", "prereq_levels": {"base_pay": 1, "power": 1, "leg_day": 1}},
+		{"id": "contact_training", "prereq_levels": {"base_pay": 1, "quality": 1}},
 	]
 
 	for case in cases:
@@ -87,17 +77,32 @@ func _check_pickup_formula(gs: Node) -> bool:
 	if not is_equal_approx(flat, 0.25):
 		print("FAIL: fresh pickup expected $0.25, got %.4f" % flat)
 		return false
-	gs.upgrade_levels = {"base_pay": 15, "yardage_markers": 1}
+	gs.upgrade_levels = {"base_pay": 1, "yardage": 1}
 	gs._recompute_stats()
 	var with_yardage := Economy.resolve_pickup_ball_payout(
-		1, SAMPLE_YARDAGE, 1, gs.stats
+		SAMPLE_QUALITY, SAMPLE_YARDAGE, 1, gs.stats
 	)
-	var expected_yardage: float = gs.stats.base_amount * SAMPLE_YARDAGE * gs.stats.yardage_multiplier
+	var expected_yardage: float = (
+		gs.stats.base_amount * SAMPLE_YARDAGE * gs.stats.yardage_multiplier
+	)
 	if not is_equal_approx(with_yardage, expected_yardage):
 		print(
 			"FAIL: yardage pickup expected %.4f, got %.4f"
 			% [expected_yardage, with_yardage]
 		)
+		return false
+	gs.upgrade_levels = {"base_pay": 1, "yardage": 1, "quality": 1}
+	gs._recompute_stats()
+	var full := Economy.resolve_pickup_ball_payout(SAMPLE_QUALITY, SAMPLE_YARDAGE, 1, gs.stats)
+	var expected_full: float = (
+		gs.stats.base_amount
+		* SAMPLE_YARDAGE
+		* gs.stats.yardage_multiplier
+		* float(SAMPLE_QUALITY)
+		* gs.stats.quality_multiplier
+	)
+	if not is_equal_approx(full, expected_full):
+		print("FAIL: full pickup expected %.4f, got %.4f" % [expected_full, full])
 		return false
 	print("OK: pickup formula unlock stages")
 	return true
@@ -115,21 +120,21 @@ func _check_distance_curve(gs: Node) -> bool:
 		print("OK: fresh save perfect yards=%.2f" % start_yards)
 
 	var max_levels := {}
-	for id in ["yardage", "carry_form", "yardage_cap", "carry_power"]:
+	for id in ["power", "leg_day", "core_strength"]:
 		max_levels[id] = UpgradeDefinitions.get_def(id).get("max_level", 0)
 	gs.upgrade_levels = max_levels
 	gs._recompute_stats()
 	var end_yards := Economy.yards_from_quality(1.0, gs.stats)
-	if end_yards < 280.0:
-		print("FAIL: maxed distance perfect yards expected ~300, got %.2f" % end_yards)
+	if end_yards < 150.0:
+		print("FAIL: maxed distance perfect yards expected ~160+, got %.2f" % end_yards)
 		ok = false
-	elif end_yards > 305.0:
+	elif end_yards > 170.0:
 		print("FAIL: maxed distance perfect yards unexpectedly high %.2f" % end_yards)
 		ok = false
 	else:
 		print(
-			"OK: maxed distance perfect yards=%.2f (base=%.2f cap=%.0f)"
-			% [end_yards, gs.stats.base_yards, gs.stats.max_yards]
+			"OK: maxed distance perfect yards=%.2f (base=%.2f mult=%.3f cap=%.0f)"
+			% [end_yards, gs.stats.base_yards, gs.stats.yard_multiplier, gs.stats.max_yards]
 		)
 	return ok
 
@@ -161,44 +166,30 @@ func _check_upgrade(id: String, before: Dictionary, after: Dictionary) -> String
 				return "base_amount did not increase"
 			if after.pickup_payout <= before.pickup_payout:
 				return "pickup payout did not increase"
-		"bucket_size":
-			if a_stats.bucket_capacity_bonus <= b_stats.bucket_capacity_bonus:
-				return "bucket_capacity_bonus did not increase"
-		"yardage_markers":
+		"yardage":
 			if a_stats.yardage_term_unlocked <= b_stats.yardage_term_unlocked:
 				return "yardage_term_unlocked did not flip on"
-		"yardage":
+			if a_stats.yardage_multiplier <= b_stats.yardage_multiplier:
+				return "yardage_multiplier did not increase"
+		"quality":
+			if a_stats.quality_term_unlocked <= b_stats.quality_term_unlocked:
+				return "quality_term_unlocked did not flip on"
+			if a_stats.quality_multiplier <= b_stats.quality_multiplier:
+				return "quality_multiplier did not increase"
+		"power":
+			if a_stats.yard_multiplier <= b_stats.yard_multiplier:
+				return "yard_multiplier did not increase"
+			if after.perfect_yards <= before.perfect_yards:
+				return "perfect yards did not increase"
+		"leg_day":
 			if a_stats.base_yards <= b_stats.base_yards:
 				return "base_yards did not increase"
 			if after.perfect_yards <= before.perfect_yards:
 				return "perfect yards did not increase"
-		"yardage_cap":
+		"core_strength":
 			if a_stats.max_yards <= b_stats.max_yards:
 				return "max_yards did not increase"
-		"carry_form":
-			if a_stats.yard_multiplier <= b_stats.yard_multiplier:
-				return "yard_multiplier did not increase"
-			if after.perfect_yards <= before.perfect_yards:
-				return "perfect yards did not increase"
-		"carry_power":
-			if a_stats.yard_multiplier <= b_stats.yard_multiplier:
-				return "yard_multiplier did not increase"
-			if after.perfect_yards <= before.perfect_yards:
-				return "perfect yards did not increase"
-		"yardage_mult":
-			if a_stats.yardage_multiplier <= b_stats.yardage_multiplier:
-				return "yardage_multiplier did not increase"
-			if after.pickup_payout <= before.pickup_payout:
-				return "pickup payout did not increase"
-		"contact_awareness":
-			if a_stats.quality_term_unlocked <= b_stats.quality_term_unlocked:
-				return "quality_term_unlocked did not flip on"
 		"contact_training":
 			if a_stats.timing_window_perfect_ms <= b_stats.timing_window_perfect_ms:
 				return "timing_window_perfect_ms did not increase"
-		"quality_mult":
-			if a_stats.quality_multiplier <= b_stats.quality_multiplier:
-				return "quality_multiplier did not increase"
-			if after.pickup_payout <= before.pickup_payout:
-				return "pickup payout did not increase"
 	return ""

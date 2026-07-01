@@ -4,6 +4,10 @@ extends Node2D
 
 const FROZEN_FADE_DURATION: float = 1.0
 
+## Hides the charge rhombus visuals while keeping all timing/scale logic intact.
+## Flip to true to bring the rhombus back.
+const RING_VISUALS_ENABLED: bool = false
+
 signal frozen_fade_completed
 
 const FLAVOR_COLORS: Dictionary = {
@@ -188,9 +192,9 @@ func show_charging(stats: PlayerStats) -> void:
 	var outer_scale := outer_scale_for_stats(stats)
 	_cached_outer_scale = outer_scale
 	if ring_outer:
-		ring_outer.visible = true
+		ring_outer.visible = RING_VISUALS_ENABLED
 	if ring_inner:
-		ring_inner.visible = true
+		ring_inner.visible = RING_VISUALS_ENABLED
 	var inner_color := charge_timing_color(0.0, stats)
 	_apply_outer(outer_scale, charge_outer_color(inner_color))
 	_apply_inner(
@@ -295,7 +299,7 @@ func _on_frozen_fade_complete() -> void:
 func _apply_outer(outer_scale: float, color: Color) -> void:
 	if not ring_outer:
 		return
-	ring_outer.visible = true
+	ring_outer.visible = RING_VISUALS_ENABLED
 	ring_outer.scale = Vector2.ONE * outer_scale
 	ring_outer.modulate = color
 
@@ -303,7 +307,7 @@ func _apply_outer(outer_scale: float, color: Color) -> void:
 func _apply_inner(inner_scale: float, color: Color) -> void:
 	if not ring_inner:
 		return
-	ring_inner.visible = true
+	ring_inner.visible = RING_VISUALS_ENABLED
 	ring_inner.scale = Vector2.ONE * inner_scale
 	ring_inner.modulate = color
 
