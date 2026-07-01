@@ -78,7 +78,7 @@ func _run() -> void:
 		print("FAIL: could not purchase dollars_per_yard")
 		ok = false
 
-	var range_view: Node2D = main.get_node("RangeView")
+	var range_view: Node3D = main.get_node("RangeView")
 	var ui: CanvasLayer = main.get_node("UI")
 	var hud: Control = main.get_node("UI/UIRoot/HUD")
 	var icon_bar: Control = main.get_node("UI/UIRoot/IconBar")

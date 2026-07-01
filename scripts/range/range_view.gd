@@ -1,87 +1,49 @@
-extends Node2D
-## Driving range view: parallax 2.5D layers, charge ring, ball flight, Range Rat + Dinky ball sprites.
+extends Node3D
+## Driving range view — real 3D scene. Camera3D projection now does the
+## depth/vanishing-point work that used to be hand-rolled perspective math;
+## this script places golfer/ball/litter at real Vector3 positions and lets
+## the engine handle the rest.
 
 const CHARGE_METER_POSITION := Vector2(270, 182)
-const CHARGE_RING_Z_INDEX := 5
-const BALL_PIXEL_SCALE := Vector2(0.6, 0.6)
-const GOLFER_PIXEL_SCALE := Vector2(1.44, 1.44)
-const GOLFER_HARVEST_SIDESTEP_X := -50.0
+const BALL_PIXEL_SIZE := 0.021
+const GOLFER_PIXEL_SIZE := 0.024
+const GOLFER_HARVEST_SIDESTEP_X := -1.3
 const GOLFER_HARVEST_TWEEN_SEC := 0.4
-const FLIGHT_ARC_MIN_PX := 24.0
-const FLIGHT_ARC_MAX_PX := 80.0
-const FLIGHT_TIME_MIN_SEC := 0.40
-const FLIGHT_TIME_MAX_SEC := 2.80
-const FLIGHT_TIME_ARC_SEC := 0.55
-const FLIGHT_TIME_TRAVEL_SEC := 1.10
-const FLIGHT_TRAVEL_REF_PX := 110.0
-const FLIGHT_DEPTH_EXPONENT := 0.34
-const FLIGHT_DEPTH_STRETCH := 1.02
-const FLIGHT_YARD_DEPTH_SCALE := 180.0
-const FLIGHT_MIN_LANDING_Y := Balance.VISUAL_FLOOR_Y
-const FLIGHT_BALL_TEXTURE_PX := 16.0
-const LANDING_SCATTER_X := 28.0
-const LANDING_Y_MARGIN := 8.0
-const RANGE_X_MIN := 24.0
-const RANGE_X_MAX := 456.0
-const FAIRWAY_VANISHING_POINT := Vector2(240.0, 100.0)
-# Fairway top must stay below vanishing point Y (y > 100) or stripe wedges overlap into solid green.
-const FAIRWAY_TOP_Y := 105.0
-const FAIRWAY_BOTTOM_Y := 270.0
-const FAIRWAY_BOTTOM_LEFT := -800.0
-const FAIRWAY_BOTTOM_RIGHT := 1280.0
-const FAIRWAY_VIEWPORT_PAD := 120.0
-const FAIRWAY_STRIPE_COUNT := 24
-const FAIRWAY_BASE_COLOR := Color(0.40, 0.58, 0.32)
-const FAIRWAY_STRIPE_LIGHT := Color(0.54, 0.76, 0.44)
-const FAIRWAY_STRIPE_DARK := Color(0.36, 0.52, 0.28)
-const MAT_Y_BACK := 180.0
-# Absolute canvas z_index (z_as_relative = false) — background < fairway < litter < ball < golfer < float text
-const Z_PARALLAX_SKY := -30
-const Z_PARALLAX_HILLS := -20
-const Z_PARALLAX_FAIRWAY := -10
-const Z_LITTER := 1
-const Z_BALL := 3
-const Z_GOLFER := 4
-const Z_FLOAT_TEXT := 4
+const VANISH_DISTANCE_YARDS := 220.0
+const PICKUP_FLY_DURATION_SEC := 0.35
+const PICKUP_FLY_ARC_PX := 36.0
 const TEXT_BASE := "res://assets/imported/dinky_tiny_golf/Dinky_Tiny_Golf_Free/Singles/TEXT"
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 
-# Range Rat swing: linear wind-up frames 0–7; release at frame 8 (contact);
-# follow-through auto-plays frames 9–16. Idle loops 5 frames from idle sheet.
+# Range Rat swing: linear wind-up frames 0-7; release at frame 8 (contact);
+# follow-through auto-plays frames 9-16. Idle loops 5 frames from idle sheet.
 # idle_out_of_balls loops 17 frames (5x4) when bucket is empty or in harvest phase.
 
-@onready var canvas_modulate: CanvasModulate = $CanvasModulate
-@onready var ball: AnimatedSprite2D = $Foreground/Ball
-@onready var golfer: AnimatedSprite2D = $Foreground/Golfer
-@onready var littered_balls: Node2D = $Foreground/LitteredBalls
-@onready var parallax_sky: Parallax2D = $ParallaxSky
-@onready var sky_polygon: Polygon2D = $ParallaxSky/Sky
-@onready var sky_stars: Node2D = $ParallaxSky/Stars
-@onready var sky_clouds: Node2D = $ParallaxSky/Clouds
-@onready var sun: Node2D = $ParallaxSky/Sun
-@onready var moon: Node2D = $ParallaxSky/Moon
-@onready var parallax_hills: Parallax2D = $ParallaxHills
-@onready var hills_polygon: Polygon2D = $ParallaxHills/Hills
-@onready var parallax_fairway: Parallax2D = $ParallaxFairway
-@onready var foreground: Node2D = $Foreground
+@onready var world_environment: WorldEnvironment = $WorldEnvironment
+@onready var sun_light: DirectionalLight3D = $Sun
+@onready var camera: Camera3D = $Camera3D
+@onready var ground: MeshInstance3D = $Ground
+@onready var fence_container: Node3D = $ForestFence
+@onready var ball: AnimatedSprite3D = $Foreground/Ball
+@onready var golfer: AnimatedSprite3D = $Foreground/Golfer
+@onready var littered_balls: Node3D = $Foreground/LitteredBalls
+@onready var foreground: Node3D = $Foreground
 @onready var charge_meter: Node2D = $ChargeMeter
 @onready var contact_ring = $ChargeMeter/BeatRing
+@onready var fx_layer: Node2D = $FxLayer
 @onready var tier_sprite: Sprite2D = $JackpotFeedback/TierSprite
-@onready var camera: Camera2D = $Camera2D
 
 var _swing := Swing.new()
-var _ball_home: Vector2
-var _golfer_home: Vector2
-var _base_ball_scale: Vector2 = BALL_PIXEL_SCALE
-var _base_golfer_scale: Vector2 = GOLFER_PIXEL_SCALE
+var _ball_home: Vector3
+var _golfer_home: Vector3
+var _base_ball_scale: Vector3 = Vector3.ONE
+var _base_golfer_scale: Vector3 = Vector3.ONE
 var _golfer_joy_active: bool = false
 var _golfer_holding_finish: bool = false
 var _ball_in_flight: bool = false
 var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
-var _flight_config: BallFlightRenderer.FlightConfig
-var _fairway_stripes: Array[Polygon2D] = []
 var _placement_debug: PlacementDebug
 var _pickup: Node
 var _golfer_sidestep_tween: Tween
@@ -90,12 +52,10 @@ var _pending_harvest_sidestep := false
 
 
 func _ready() -> void:
-	_setup_fairway_stripes()
-	_configure_draw_layers()
+	_setup_ground_and_fence()
 	_setup_dinky_sprites()
 	_ball_home = ball.position
 	_golfer_home = golfer.position
-	_flight_config = _build_flight_config()
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
 	if contact_ring:
@@ -111,28 +71,46 @@ func _ready() -> void:
 	if camera:
 		camera.make_current()
 	_set_idle_ring()
+	if sun_light:
+		sun_light.shadow_enabled = false
 	apply_atmosphere(24.0)
 	_setup_placement_debug()
+
+
+func get_flight_camera() -> Camera3D:
+	return camera
 
 
 func _setup_dinky_sprites() -> void:
 	_ball_lay_texture = DinkySpriteFrames.ball_lay_texture()
 	ball.sprite_frames = DinkySpriteFrames.make_ball_frames()
-	ball.scale = BALL_PIXEL_SCALE
-	_base_ball_scale = BALL_PIXEL_SCALE
+	_configure_billboard(ball, BALL_PIXEL_SIZE)
+	_base_ball_scale = ball.scale
 	ball.play(&"idle")
 
 	golfer.sprite_frames = RangeRatSpriteFrames.make_golfer_frames()
-	golfer.scale = GOLFER_PIXEL_SCALE
-	_base_golfer_scale = GOLFER_PIXEL_SCALE
+	_configure_billboard(golfer, GOLFER_PIXEL_SIZE)
 	golfer.offset = RangeRatSpriteFrames.FOOT_OFFSET
+	_base_golfer_scale = golfer.scale
 	_play_golfer_idle()
 	golfer.animation_finished.connect(_on_golfer_animation_finished)
 
 
-func _setup_fairway_stripes() -> void:
-	_fairway_stripes = FairwayStripes.populate(
-		$ParallaxFairway/FairwayStripes, FAIRWAY_TOP_Y, FAIRWAY_BOTTOM_Y
+func _configure_billboard(sprite: SpriteBase3D, pixel_size: float) -> void:
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.pixel_size = pixel_size
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sprite.shaded = false
+
+
+func _setup_ground_and_fence() -> void:
+	var snap := DayNightPalette.sample_at(24.0)
+	FairwayGround3D.apply_palette(
+		ground, Balance.FAIRWAY_HALF_WIDTH_YARDS, snap.fairway_light, snap.fairway_dark
+	)
+	ForestFence.populate(
+		fence_container, Balance.FAIRWAY_HALF_WIDTH_YARDS, Balance.VISUAL_MAX_YARDS
 	)
 
 
@@ -178,54 +156,26 @@ func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float
 	return err
 
 
+## Real 3D day/night: DirectionalLight3D angle/color/energy + flat background
+## color + ground palette. Replaces the old per-layer Polygon2D/CanvasModulate
+## tint stack and the hand-drawn sun/moon/star/cloud sprites — the engine's
+## own lighting communicates time of day now.
 func apply_atmosphere(cycle_time: float) -> void:
 	var snap := DayNightPalette.sample_at(cycle_time)
-	if sky_polygon:
-		sky_polygon.color = snap.sky
-	if hills_polygon:
-		hills_polygon.color = snap.hills
-	FairwayStripes.apply_palette(
-		_fairway_stripes, snap.fairway_base, snap.fairway_light, snap.fairway_dark
+	if world_environment and world_environment.environment:
+		var env := world_environment.environment
+		env.background_color = snap.sky
+		env.ambient_light_color = snap.sky
+		if env.fog_enabled:
+			env.fog_light_color = snap.sky
+	FairwayGround3D.apply_palette(
+		ground, Balance.FAIRWAY_HALF_WIDTH_YARDS, snap.fairway_light, snap.fairway_dark
 	)
-	if canvas_modulate:
-		canvas_modulate.color = snap.canvas_modulate
-	if sun and sun.has_method(&"apply_celestial"):
-		sun.apply_celestial(
-			DayNightPalette.celestial_position(cycle_time, false),
-			DayNightPalette.celestial_alpha(cycle_time, false),
-			snap.moon_sky_cutout
-		)
-	if moon and moon.has_method(&"apply_celestial"):
-		moon.apply_celestial(
-			DayNightPalette.celestial_position(cycle_time, true),
-			DayNightPalette.celestial_alpha(cycle_time, true),
-			snap.moon_sky_cutout
-		)
-	if sky_stars and sky_stars.has_method(&"apply_visibility"):
-		sky_stars.apply_visibility(DayNightPalette.star_visibility(cycle_time))
-	if sky_clouds and sky_clouds.has_method(&"apply_visibility"):
-		sky_clouds.apply_visibility(DayNightPalette.cloud_visibility(cycle_time))
-
-
-func _configure_draw_layers() -> void:
-	parallax_sky.z_as_relative = false
-	parallax_sky.z_index = Z_PARALLAX_SKY
-	parallax_hills.z_as_relative = false
-	parallax_hills.z_index = Z_PARALLAX_HILLS
-	parallax_fairway.z_as_relative = false
-	parallax_fairway.z_index = Z_PARALLAX_FAIRWAY
-
-	foreground.z_as_relative = false
-	foreground.z_index = Z_LITTER
-	littered_balls.z_as_relative = false
-	littered_balls.z_index = Z_LITTER
-	golfer.z_as_relative = false
-	golfer.z_index = Z_GOLFER
-	ball.z_as_relative = false
-	ball.z_index = Z_BALL
-	if charge_meter:
-		charge_meter.z_as_relative = false
-		charge_meter.z_index = CHARGE_RING_Z_INDEX
+	if sun_light:
+		var day_factor := DayNightPalette.celestial_alpha(cycle_time, false)
+		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)
+		sun_light.light_energy = lerpf(0.22, 1.15, day_factor)
+		sun_light.rotation_degrees = Vector3(lerpf(-70.0, -35.0, day_factor), 35.0, 0.0)
 
 
 func _process(delta: float) -> void:
@@ -241,6 +191,7 @@ func _setup_placement_debug() -> void:
 		golfer,
 		ball,
 		foreground,
+		camera,
 		_golfer_home,
 		_ball_home,
 		_base_golfer_scale,
@@ -251,24 +202,20 @@ func _setup_placement_debug() -> void:
 	_placement_debug.mode_changed.connect(_on_debug_mode_changed)
 
 
-func _on_debug_positions_changed(golfer_pos: Vector2, ball_pos: Vector2) -> void:
+func _on_debug_positions_changed(golfer_pos: Vector3, ball_pos: Vector3) -> void:
 	_golfer_home = golfer_pos
 	_ball_home = ball_pos
-	_flight_config.tee_x = _ball_home.x
-	_flight_config.tee_y = _ball_home.y
 	if GameState.is_harvest_phase() and _golfer_at_harvest_side:
 		_tween_golfer_to(_golfer_harvest_position(), true)
 	elif not GameState.is_harvest_phase():
 		golfer.position = _golfer_home
 
 
-func _on_debug_scales_changed(golfer_scale: Vector2, ball_scale: Vector2) -> void:
+func _on_debug_scales_changed(golfer_scale: Vector3, ball_scale: Vector3) -> void:
 	_base_golfer_scale = golfer_scale
 	_base_ball_scale = ball_scale
 	golfer.scale = golfer_scale
 	ball.scale = ball_scale
-	_flight_config.base_ball_scale = ball_scale
-	_flight_config.min_visible_px = 1.0 * ball_scale.x
 
 
 func _on_debug_mode_changed(active: bool) -> void:
@@ -356,15 +303,15 @@ func _golfer_idle_blocked() -> bool:
 	)
 
 
-func golfer_strike_home() -> Vector2:
+func golfer_strike_home() -> Vector3:
 	return _golfer_home
 
 
-func golfer_harvest_offset() -> Vector2:
-	return Vector2(GOLFER_HARVEST_SIDESTEP_X, 0.0)
+func golfer_harvest_offset() -> Vector3:
+	return Vector3(GOLFER_HARVEST_SIDESTEP_X, 0.0, 0.0)
 
 
-func _golfer_harvest_position() -> Vector2:
+func _golfer_harvest_position() -> Vector3:
 	return _golfer_home + golfer_harvest_offset()
 
 
@@ -374,7 +321,7 @@ func _kill_golfer_sidestep_tween() -> void:
 	_golfer_sidestep_tween = null
 
 
-func _tween_golfer_to(target: Vector2, at_harvest_side: bool = _golfer_at_harvest_side) -> void:
+func _tween_golfer_to(target: Vector3, at_harvest_side: bool = _golfer_at_harvest_side) -> void:
 	_kill_golfer_sidestep_tween()
 	if golfer.position.is_equal_approx(target):
 		_golfer_at_harvest_side = at_harvest_side
@@ -508,9 +455,9 @@ func _update_charge_visuals() -> void:
 		return
 
 	var compress := windup * 0.14
-	ball.scale = _base_ball_scale * Vector2(1.0 + compress * 0.5, 1.0 - compress)
-	ball.position = _ball_home + Vector2(0.0, compress * 5.0)
-	golfer.position = _golfer_home + Vector2(lerpf(0.0, -2.0, windup), lerpf(0.0, 1.0, windup))
+	ball.scale = _base_ball_scale * Vector3(1.0 + compress * 0.5, 1.0 - compress, 1.0 + compress * 0.5)
+	ball.position = _ball_home + Vector3(0.0, compress * 0.08, 0.0)
+	golfer.position = _golfer_home + Vector3(0.0, lerpf(0.0, 0.03, windup), lerpf(0.0, -0.03, windup))
 
 
 func _flash_beat_ring(tier: int) -> void:
@@ -530,7 +477,7 @@ func _on_swing_resolved(
 	feedback_tier: int
 ) -> void:
 	_flash_beat_ring(tier)
-	HitPoof.spawn(self, ball.global_position, tier, feedback_tier)
+	HitPoof.spawn(fx_layer, _project_to_screen(ball.global_position), tier, feedback_tier)
 	_spawn_float_text(tier, yards, payout)
 	_show_tier_sprite(tier, feedback_tier)
 	if feedback_tier == Balance.FeedbackTier.JACKPOT:
@@ -588,8 +535,45 @@ func _show_tier_sprite(tier: int, feedback_tier: int) -> void:
 	)
 
 
-func show_pickup_cash_float(world_pos: Vector2, payout: float, combo_tier: int) -> void:
-	FloatCashTextScript.spawn(self, world_pos, payout, combo_tier, Z_FLOAT_TEXT)
+func _project_to_screen(world_pos: Vector3) -> Vector2:
+	if camera == null:
+		return Vector2.ZERO
+	return camera.unproject_position(world_pos)
+
+
+func show_pickup_cash_float(world_pos: Vector3, payout: float, combo_tier: int) -> void:
+	FloatCashTextScript.spawn(fx_layer, _project_to_screen(world_pos), payout, combo_tier)
+
+
+## Screen-space "fly to bucket" icon used by PickupController when a litter
+## ball is collected — the litter itself is a 3D Sprite3D and is freed
+## immediately on collect; this is purely UI juice, so it stays 2D.
+func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:
+	if fx_layer == null or _ball_lay_texture == null:
+		return
+	var icon := Sprite2D.new()
+	icon.texture = _ball_lay_texture
+	icon.position = start_screen
+	icon.scale = Vector2(0.5, 0.5)
+	fx_layer.add_child(icon)
+	var mid := (start_screen + end_screen) * 0.5 + Vector2(0.0, -PICKUP_FLY_ARC_PX)
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_method(
+		func(t: float) -> void:
+			if not is_instance_valid(icon):
+				return
+			var u := 1.0 - t
+			icon.position = (
+				u * u * start_screen + 2.0 * u * t * mid + t * t * end_screen
+			),
+		0.0,
+		1.0,
+		PICKUP_FLY_DURATION_SEC
+	)
+	await tween.finished
+	if is_instance_valid(icon):
+		icon.queue_free()
 
 
 func _spawn_float_text(tier: int, yards: float, payout: float) -> void:
@@ -599,10 +583,8 @@ func _spawn_float_text(tier: int, yards: float, payout: float) -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	PixelFont.apply_label(label, 8)
 	label.modulate = Balance.TIER_COLORS[tier]
-	label.position = ball.global_position + Vector2(-36, -52)
-	label.z_as_relative = false
-	label.z_index = Z_FLOAT_TEXT
-	add_child(label)
+	label.position = _project_to_screen(ball.global_position) + Vector2(-36, -52)
+	fx_layer.add_child(label)
 
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(label, "position", label.position + Vector2(0, -48), 0.85)\
@@ -698,61 +680,27 @@ func _respawn_ball_at_tee() -> void:
 	_sync_golfer_idle_from_bucket()
 
 
-func _build_flight_config() -> BallFlightRenderer.FlightConfig:
-	var config := BallFlightRenderer.FlightConfig.new()
-	config.tee_x = _ball_home.x
-	config.tee_y = _ball_home.y
-	config.far_ground_y = FAIRWAY_TOP_Y
-	config.ground_bottom_y = FAIRWAY_BOTTOM_Y
-	config.mat_back_y = MAT_Y_BACK
-	config.vanishing_point = FAIRWAY_VANISHING_POINT
-	config.flight_depth_exponent = FLIGHT_DEPTH_EXPONENT
-	config.flight_depth_stretch = FLIGHT_DEPTH_STRETCH
-	config.yard_depth_scale = FLIGHT_YARD_DEPTH_SCALE
-	config.min_landing_y = FLIGHT_MIN_LANDING_Y
-	config.ball_texture_px = FLIGHT_BALL_TEXTURE_PX
-	config.arc_min_px = FLIGHT_ARC_MIN_PX
-	config.arc_max_px = FLIGHT_ARC_MAX_PX
-	config.landing_scatter_x = LANDING_SCATTER_X
-	config.range_x_min = RANGE_X_MIN
-	config.range_x_max = RANGE_X_MAX
-	config.flight_time_min_sec = FLIGHT_TIME_MIN_SEC
-	config.flight_time_max_sec = FLIGHT_TIME_MAX_SEC
-	config.flight_time_arc_sec = FLIGHT_TIME_ARC_SEC
-	config.flight_time_travel_sec = FLIGHT_TIME_TRAVEL_SEC
-	config.flight_travel_ref_px = FLIGHT_TRAVEL_REF_PX
-	config.base_ball_scale = _base_ball_scale
-	config.min_visible_px = 1.0 * _base_ball_scale.x
-	return config
-
-
-func _leave_litter_ball(land_position: Vector2, land_scale: Vector2) -> void:
-	var litter := Sprite2D.new()
+func _leave_litter_ball(land_position: Vector3, land_scale: Vector3) -> void:
+	var litter := Sprite3D.new()
 	litter.texture = _ball_lay_texture
 	litter.position = land_position
 	litter.scale = land_scale
-	litter.z_as_relative = false
-	litter.z_index = int(land_position.y)
+	_configure_billboard(litter, BALL_PIXEL_SIZE)
 	litter.set_meta("collectible", true)
 	littered_balls.add_child(litter)
 
 
-func _apply_flight_sample(progress: float, path: BallFlightRenderer.FlightPath) -> void:
-	var sample := BallFlightRenderer.sample(progress, path, _flight_config)
-	ball.position = sample["visual_pos"]
-	ball.scale = sample["scale"]
-	ball.modulate.a = sample["ball_alpha"]
-	ball.visible = sample["visible"]
+func _apply_flight_sample(progress: float, path: BallFlight3D.FlightPath) -> void:
+	ball.global_position = BallFlight3D.sample(progress, path)
 
 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
-	_flight_config.base_ball_scale = _base_ball_scale
-	var path := BallFlightRenderer.build_path(
+	var path := BallFlight3D.build_path(
 		yards,
 		timing_tier,
 		GameState.stats,
-		_flight_config,
-		_swing.last_contact_flavor
+		_swing.last_contact_flavor,
+		_ball_home
 	)
 
 	_ball_in_flight = true
@@ -771,12 +719,12 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 	tween.tween_method(_apply_flight_sample.bind(path), 0.0, 1.0, path.flight_time)\
 		.set_trans(Tween.TRANS_LINEAR)
 	tween.chain().tween_callback(func():
-		var landing := BallFlightRenderer.sample(1.0, path, _flight_config)
+		var landing := BallFlight3D.sample(1.0, path)
 		_ball_in_flight = false
-		if landing["visible"]:
-			_leave_litter_ball(landing["visual_pos"], landing["scale"])
+		if path.visual_yards <= VANISH_DISTANCE_YARDS:
+			_leave_litter_ball(landing, _base_ball_scale)
 		else:
-			DistanceTwinkle.spawn(self, landing["visual_pos"])
+			DistanceTwinkle.spawn(fx_layer, _project_to_screen(landing))
 		ball.visible = false
 		ball.modulate = Color.WHITE
 		if GameState.has_bucket_balls():
@@ -789,12 +737,6 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int) -> void:
 
 	if feedback_tier == Balance.FeedbackTier.JACKPOT and camera:
 		var shake := create_tween()
-		shake.tween_property(camera, "offset", Vector2(4, -3), 0.05)
-		shake.tween_property(camera, "offset", Vector2(-3, 2), 0.05)
-		shake.tween_property(camera, "offset", Vector2.ZERO, 0.05)
-
-
-func nudge_parallax(offset: Vector2) -> void:
-	for child in get_children():
-		if child is Parallax2D:
-			child.scroll_offset += offset
+		shake.tween_property(camera, "h_offset", 0.05, 0.05)
+		shake.tween_property(camera, "h_offset", -0.04, 0.05)
+		shake.tween_property(camera, "h_offset", 0.0, 0.05)

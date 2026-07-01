@@ -1,75 +1,57 @@
-[gd_scene load_steps=6 format=3 uid="uid://range_view"]
+[gd_scene load_steps=4 format=3 uid="uid://range_view"]
 
 [ext_resource type="Script" path="res://scripts/range/range_view.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/range/day_night_cycle.gd" id="2_cycle"]
-[ext_resource type="Script" path="res://scripts/visual/pixel_celestial.gd" id="3_celestial"]
-[ext_resource type="Script" path="res://scripts/visual/range_sky_stars.gd" id="4_stars"]
-[ext_resource type="Script" path="res://scripts/visual/range_sky_clouds.gd" id="5_clouds"]
-[ext_resource type="Script" path="res://scripts/ui/contact_charge_ring.gd" id="6_charge_ring"]
+[ext_resource type="Script" path="res://scripts/ui/contact_charge_ring.gd" id="3_charge_ring"]
 
-[node name="RangeView" type="Node2D"]
+[sub_resource type="Environment" id="Environment_range"]
+background_mode = 1
+background_color = Color(0.55, 0.75, 0.92, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.75, 0.92, 1)
+fog_enabled = true
+fog_light_color = Color(0.55, 0.75, 0.92, 1)
+fog_density = 0.015
+
+[node name="RangeView" type="Node3D"]
 script = ExtResource("1_script")
-
-[node name="CanvasModulate" type="CanvasModulate" parent="."]
-color = Color(1, 1, 1, 1)
 
 [node name="DayNightCycle" type="Node" parent="."]
 script = ExtResource("2_cycle")
 
-[node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(240, 135)
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_range")
 
-[node name="ParallaxSky" type="Parallax2D" parent="."]
-scroll_scale = Vector2(0.1, 0.1)
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-45, 35, 0)
+light_color = Color(1, 0.92, 0.55, 1)
+light_energy = 1.0
+shadow_enabled = false
 
-[node name="Sky" type="Polygon2D" parent="ParallaxSky"]
-color = Color(0.55, 0.75, 0.92, 1)
-polygon = PackedVector2Array(0, 0, 480, 0, 480, 140, 0, 140)
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(0, 1.8, 3.4)
+rotation_degrees = Vector3(-9, 0, 0)
+fov = 55.0
 
-[node name="Stars" type="Node2D" parent="ParallaxSky"]
-script = ExtResource("4_stars")
+[node name="Ground" type="MeshInstance3D" parent="."]
 
-[node name="Clouds" type="Node2D" parent="ParallaxSky"]
-script = ExtResource("5_clouds")
+[node name="ForestFence" type="Node3D" parent="."]
 
-[node name="Sun" type="Node2D" parent="ParallaxSky"]
-script = ExtResource("3_celestial")
+[node name="Foreground" type="Node3D" parent="."]
 
-[node name="Moon" type="Node2D" parent="ParallaxSky"]
-script = ExtResource("3_celestial")
-kind = 1
+[node name="LitteredBalls" type="Node3D" parent="Foreground"]
 
-[node name="ParallaxHills" type="Parallax2D" parent="."]
-scroll_scale = Vector2(0.2, 0.2)
+[node name="Golfer" type="AnimatedSprite3D" parent="Foreground"]
+position = Vector3(-0.85, 0, 0.45)
 
-[node name="Hills" type="Polygon2D" parent="ParallaxHills"]
-color = Color(0.35, 0.55, 0.38, 1)
-polygon = PackedVector2Array(0, 80, 120, 50, 240, 70, 360, 45, 480, 75, 480, 180, 0, 180)
-
-[node name="ParallaxFairway" type="Parallax2D" parent="."]
-scroll_scale = Vector2(0.8, 0.8)
-
-[node name="FairwayStripes" type="Node2D" parent="ParallaxFairway"]
-
-[node name="Foreground" type="Node2D" parent="."]
-
-[node name="LitteredBalls" type="Node2D" parent="Foreground"]
-y_sort_enabled = true
-
-[node name="Golfer" type="AnimatedSprite2D" parent="Foreground"]
-position = Vector2(182.06, 237)
-scale = Vector2(1.44, 1.44)
-
-[node name="Ball" type="AnimatedSprite2D" parent="Foreground"]
-position = Vector2(207.23, 226.53)
-scale = Vector2(0.6, 0.6)
+[node name="Ball" type="AnimatedSprite3D" parent="Foreground"]
+position = Vector3(0, 0.05, 0)
 
 [node name="ChargeMeter" type="Node2D" parent="."]
-z_index = 5
 position = Vector2(270, 182)
 
 [node name="BeatRing" type="Node2D" parent="ChargeMeter"]
-script = ExtResource("6_charge_ring")
+script = ExtResource("3_charge_ring")
 
 [node name="RingOuter" type="Polygon2D" parent="ChargeMeter/BeatRing"]
 color = Color(0.18, 0.28, 0.12, 0.72)
@@ -79,6 +61,8 @@ polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
 z_index = 1
 color = Color(1, 0.93, 0.48, 1)
 polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
+
+[node name="FxLayer" type="Node2D" parent="."]
 
 [node name="JackpotFeedback" type="CanvasLayer" parent="."]
 layer = 5

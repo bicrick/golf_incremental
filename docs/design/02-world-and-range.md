@@ -1,97 +1,62 @@
 # World and Range
 
-## Visual model: parallax 2.5D
+## Visual model: real 3D, pixel-art billboards
 
-Not flat single-plane 2D. Not full 3D. **Multiple 2D sprite layers** stacked with different scroll speeds, scale, and z-order to fake depth — ideal for a down-the-line driving range that recedes toward the horizon.
+The range is a **real `Node3D` scene** — `Camera3D` projection does the vanishing-point/depth work that used to require hand-rolled 2.5D parallax math. Golfer, ball, and litter stay pixel art via `AnimatedSprite3D`/`Sprite3D` billboards (always face the camera), so the look is close to the original 2.5D range, but positions, distances, and landing spots are now real `Vector3` world coordinates instead of faked screen-space perspective.
 
-The player reads depth because:
+The player still reads depth naturally because:
 
-- Far layers scroll slower than near layers
-- Ball shrinks as it flies **up-screen** toward the horizon
-- Yard markers and nets sit on mid-depth layers at smaller scale
+- The camera's real perspective projection shrinks and converges distant objects toward the horizon automatically
+- Ball flight is real projectile motion (gravity + initial velocity), arcing away from the tee toward `-Z`
+- Ground stripes and the forest fence recede into the distance like real geometry, not tuned parallax layers
+
+## Coordinate model
+
+- World unit = 1 yard. Tee sits at world origin `(0, 0, 0)`.
+- `-Z` = down the fairway (away from camera). `X` = left/right scatter. `Y` = height/arc.
+- Fairway corridor half-width: `Balance.FAIRWAY_HALF_WIDTH_YARDS` (15yd either side of centerline).
 
 ## Camera
 
-- **Down-the-line view**: player looks over the golfer's shoulder toward the range
-- Golfer in lower third; ball at tee; fairway/targets recede toward horizon
-- `Camera2D` fixed for v1; `offset` shake + brief zoom punch on jackpot only
+- **Down-the-line view**: `Camera3D` fixed behind/above the tee, pitched down slightly — same over-the-shoulder composition as the old 2.5D range, but real perspective now does the vanishing-point work for free
+- Golfer near the tee at world origin; ball flight recedes down `-Z`
+- Camera is fixed for v1 (no orbit/free-look); brief `h_offset`/`v_offset` shake punch on jackpot only
 
-## Parallax layer stack
-
-Back to front — each layer is a Godot `Parallax2D` with `scroll_scale`:
-
-| Layer | Content | scroll_scale | Depth cue |
-|-------|---------|--------------|-----------|
-| 0 | Sky, clouds | ~0.1 | Farthest |
-| 1 | Distant hills, trees | ~0.2 | |
-| 2 | Range structures, far netting | ~0.4 | |
-| 3 | Yard markers, bullseyes (v1.5+) | ~0.6 | Smaller scale |
-| 4 | Fairway ground | ~0.8 | |
-| 5 | Golfer, tee, ball | 1.0 (foreground anchor) | Nearest |
-| 6 | UI, screen particles | `CanvasLayer` | Screen-fixed |
-
-```mermaid
-flowchart TB
-  subgraph depth [Back to front]
-    L0[Layer0 Sky 0.1x]
-    L1[Layer1 Hills 0.2x]
-    L2[Layer2 Structures 0.4x]
-    L3[Layer3 Markers 0.6x]
-    L4[Layer4 Fairway 0.8x]
-    L5[Layer5 Foreground 1.0x]
-    L6[Layer6 UI CanvasLayer]
-  end
-  L0 --> L1 --> L2 --> L3 --> L4 --> L5 --> L6
-```
-
-### Godot scene structure
+## Scene structure (`scenes/range/range_view.tscn`)
 
 ```
-RangeView (Node2D)
-├── Parallax2D_Sky
-├── Parallax2D_Hills
-├── Parallax2D_Structures
-├── Parallax2D_Markers
-├── Parallax2D_Fairway
-├── Foreground (Node2D)
-│   ├── Golfer
-│   ├── Tee
-│   └── Ball
-└── BeatRing
+RangeView (Node3D)
+├── WorldEnvironment      — flat background color + ambient light + fog (day/night driven)
+├── Sun (DirectionalLight3D) — angle/color/energy drive day-night mood
+├── Camera3D              — fixed, over-shoulder, tilted down
+├── Ground (MeshInstance3D) — striped fairway mesh, vertex-colored, rebuilt on palette change
+├── ForestFence (Node3D)  — two tall textured quads along the fairway edges
+├── Foreground (Node3D)
+│   ├── LitteredBalls (Node3D) — Sprite3D children at real landing positions
+│   ├── Golfer (AnimatedSprite3D, billboard)
+│   └── Ball (AnimatedSprite3D, billboard)
+├── ChargeMeter (Node2D)  — screen-space UI overlay, unaffected by the 3D move
+├── FxLayer (Node2D)      — screen-space hit-poof / float-cash-text / distance-twinkle overlays
+└── JackpotFeedback (CanvasLayer) — already screen-space, unaffected
 ```
 
 See [../technical/01-architecture.md](../technical/01-architecture.md).
 
-## Driving range layout
+## Ball flight (real projectile motion)
 
-```
-[ sky / clouds / hills — parallax layers 0–1 ]
+On each swing resolve, `scripts/range/ball_flight_3d.gd` computes a real trajectory from gameplay yards + timing tier + contact flavor:
 
-        ◎ bullseye (far, v1.5+, layer 3)
-      ——— 150yd marker
-      ——— 100yd marker
-      ——— 50yd marker
-    [ net / target zone — layer 2–3 ]
+1. Apex height derived from visual travel distance × a per-flavor ratio (`Balance.FLIGHT_APEX_RATIO`) — pure contact arcs highest, thin/chunk stay low skids/hops.
+2. Solve `v_y0 = sqrt(2·g·h)`, `t = 2·v_y0/g`, `v_z0 = distance / t` (tuned arcade gravity in `Balance.FLIGHT_GRAVITY`, not real-world g).
+3. `position(t) = origin + velocity0 · t + Vector3(0, -0.5·g·t², 0)` — sampled every frame to drive the `AnimatedSprite3D`'s real `Vector3.position`.
+4. Landing point is just `position(flight_time)` — a real `Vector3`, no perspective inversion needed.
 
-         ·  ball flight path (up-screen, scale down)
-
-    [ golfer + tee — layer 5 ]
-```
-
-## Ball flight illusion (2.5D)
-
-On each swing resolve:
-
-1. **Position tween**: ball moves from tee toward a horizon point (decreasing y, toward top of viewport)
-2. **Scale tween**: `1.0` → `0.25–0.4` — reads as flying away from camera
-3. **Duration**: scales with yards (~0.4–0.8s)
-4. Reset ball to tee after tween completes
-
-Parallax layers stay static during flight (world is stable; ball moves through it).
+Camera3D projection handles scale-down/convergence automatically; no manual scale tween is needed the way the old 2.5D renderer needed one.
 
 ## Starting state (v1)
 
-- Short range: close net on layer 2–3, **3+ parallax layers** with visible scroll speed differences
+- Fairway ground mesh with alternating light/dark mower-stripe bands receding down `-Z`
+- Forest fence along both edges of the fairway corridor
 - Single effective target zone (mechanical; bullseye rings in v1.5)
 - Crappy balls = short flight cap, high variance
 
@@ -99,16 +64,16 @@ Parallax layers stay static during flight (world is stable; ball moves through i
 
 | Upgrade / milestone | Visual change |
 |---------------------|---------------|
-| Extend range | Deeper layers unlock; markers farther up-screen; optional parallax scroll offset |
-| Bigger net | Target zone sprite scales up on layer 3 |
-| New bullseyes | Concentric rings at distance tiers on marker layer |
-| Time-of-day shift | Palette tint per layer (sky vs grass independent) |
+| Extend range | Fairway/fence length can grow down `-Z`; markers placed at real world distances |
+| Bigger net | Target zone mesh/billboard scales up at its real world position |
+| New bullseyes | Concentric rings placed at real distance tiers down the fairway |
+| Time-of-day shift | `DirectionalLight3D` color/energy + background color shift |
 
 **Extend range** unlocks depth — not just bigger numbers.
 
 ## Target zones and bullseyes (v1.5+)
 
-Bullseyes provide **zone multipliers** in the payout formula.
+Bullseyes provide **zone multipliers** in the payout formula. In 3D these become plain world-space distance bands / `Area3D` checks instead of screen-space perspective bands.
 
 | Zone | Example multiplier | Skill demand |
 |------|-------------------|--------------|
@@ -120,47 +85,45 @@ Center bullseye hits are primary **jackpot feedback** triggers.
 
 ## Time-of-day cycle
 
-Progression-driven — not real-time clock. Unlocked via range upgrades / milestones.
+Progression-driven — not real-time clock. Unlocked via range upgrades / milestones. Timing/phase curves are unchanged (`DayNightPalette.sample_at`); only how they're *applied* changed (see Implementation notes below).
 
 | Phase | Mood | Example unlock |
 |-------|------|----------------|
-| **Soft morning** | Cool greens, light mist, birds | Game start |
+| **Soft morning** | Cool greens, light mist | Game start |
 | **Bright midday** | Clear sky, crisp shadows | First club upgrade or $ milestone |
 | **Golden evening** | Amber light, long shadows | Distance / bullseye milestone |
-| **Blue hour** | Range lamps glow, cozy netting lights | Late economy branch |
+| **Blue hour** | Cool low light, cozy mood | Late economy branch |
 
 ### Implementation notes
 
-- Palette tables per phase in `scripts/config/atmosphere.gd` (v1.5)
-- `modulate` or shader tint on each parallax layer; sky and grass tint independently
-- Crossfade 2–3s on unlock; triggers `milestone` feedback tier
+- `DayNightPalette` keeps its existing keyframe/timing functions (`sample_at`, `celestial_alpha`, `phase_name_at`) — those are pure data and didn't need to change.
+- `RangeView.apply_atmosphere(cycle_time)` now drives: `WorldEnvironment.environment.background_color` (flat sky color), `DirectionalLight3D.light_color`/`light_energy`/`rotation_degrees` (sun angle + warmth), and the ground mesh palette (`FairwayGround3D.apply_palette`) — replacing the old per-layer `Polygon2D`/`CanvasModulate` tint stack and the hand-drawn sun/moon/star/cloud `_draw()` scripts.
+- Crossfade still reads smoothly frame-to-frame since the same smoothed `DayNightPalette` curves drive it; triggers `milestone` feedback tier same as before.
 
 ## Ambient motion (always on)
 
-- Slow cloud drift on sky layer (sprite offset or `Parallax2D` auto-scroll)
-- Grass tuft sway on fairway layer (2-frame or sine)
-- Optional: bird on sky layer, flag flutter on structure layer
-- Range lamp flicker during blue hour
+- Sun angle/energy drift continuously via `DirectionalLight3D` over the day/night cycle
+- Grass stripe palette shifts with time of day
+- Range lamp flicker during blue hour (future: a small point light)
 
 Motion stays **subtle** — calm baseline, not distracting from rhythm ring.
 
 ## World does NOT change during jackpot spikes
 
-Sky/grass parallax unchanged during jackpot. Frenzy in UI layer, particles, `Camera2D.offset` — see [07-art-and-atmosphere.md](07-art-and-atmosphere.md).
+Ground/fence/sky unchanged during jackpot. Frenzy in UI layer, particles, brief `Camera3D.h_offset`/`v_offset` shake — see [07-art-and-atmosphere.md](07-art-and-atmosphere.md).
 
 ## v1 scope
 
-- Down-the-line layout with placeholder `ColorRect` / `Sprite2D` per layer
-- **Minimum 3 parallax layers** with distinct `scroll_scale`
-- Ball flight: position + scale tween
+- Down-the-line layout with real 3D ground mesh + forest fence geometry
+- Ball flight: real projectile motion (gravity + initial velocity)
 - Single target zone (implicit); no bullseye rings yet
 - Static morning palette
 
 ## v1.5 scope
 
-- Bullseye rings with zone multiplier
+- Bullseye rings with zone multiplier (world-space distance bands)
 - Time-of-day unlocks (at least 2 phases)
-- Extend range scroll / deeper markers
+- Extend range → deeper world-space geometry
 
 ## Related docs
 

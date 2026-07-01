@@ -75,6 +75,30 @@ const VISUAL_ARC_MIN_PX: float = 36.0
 ## Max tee-to-landing travel (px) for whiff acceptance tests.
 const VISUAL_DRIBBLE_MAX_PX: float = 14.0
 
+## --- Real 3D flight (scripts/range/ball_flight_3d.gd) ---
+## World unit = 1 yard. Tee at world origin, ball flies down -Z, side scatter on X, arc on Y.
+const WORLD_UNITS_PER_YARD: float = 1.0
+## Tuned "arcade" gravity (world units/s^2) — not real-world g, chosen for snappy arcs.
+const FLIGHT_GRAVITY: float = 60.0
+## Apex height as a fraction of visual travel distance, by contact flavor.
+const FLIGHT_APEX_RATIO: Dictionary = {
+	0: 0.30,  # PURE
+	1: 0.17,  # SLIGHTLY_FAT
+	2: 0.045, # THIN — low skid
+	3: 0.07,  # CHUNK — short fat hop
+}
+const FLIGHT_MIN_APEX_YARDS: float = 0.15
+## Visual carry floor / whiff cap, now expressed directly in world-space yards.
+const VISUAL_FLOOR_YARDS: float = 50.0
+const WHIFF_MAX_YARDS: float = 4.0
+## Lateral scatter on landing (world yards), scaled by depth fraction of VISUAL_MAX_YARDS.
+const LANDING_SCATTER_YARDS: float = 3.0
+## Fairway corridor half-width in yards — used for ground stripes, fence placement, bounds.
+const FAIRWAY_HALF_WIDTH_YARDS: float = 15.0
+## Flight duration clamp (seconds) — arcade pacing, independent of raw physics extremes.
+const FLIGHT_TIME_MIN_SEC: float = 0.30
+const FLIGHT_TIME_MAX_SEC: float = 3.2
+
 enum TimingTier { PERFECT, GOOD, OK, MISS }
 enum ContactFlavor { PURE, SLIGHTLY_FAT, THIN, CHUNK }
 enum FeedbackTier { WHISPER, WARM, JACKPOT, MILESTONE }

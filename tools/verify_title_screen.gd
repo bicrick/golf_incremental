@@ -15,7 +15,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
-	var range_view: Node2D = main.get_node("RangeView")
+	var range_view: Node3D = main.get_node("RangeView")
 	var ui: CanvasLayer = main.get_node("UI")
 	var title_screen: CanvasLayer = main.get_node("TitleScreen")
 	var sky_bg: Node = title_screen.get_node("SkyBg")

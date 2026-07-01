@@ -1,30 +1,34 @@
 class_name PlacementDebug
 extends Node
-## Runtime-only golfer/ball placement tuner for the driving range view.
+## Runtime-only golfer/ball placement tuner for the 3D driving range view.
+## Arrow keys move along the ground plane (X/Z); drag projects the mouse
+## ray onto the ground plane (y = target's current height) instead of the
+## old 2D `to_local()` conversion.
 
 signal mode_changed(active: bool)
 
-const MOVE_STEP_PX := 1.0
-const MOVE_FAST_PX_PER_SEC := 120.0
+const MOVE_STEP := 0.02
+const MOVE_FAST_UNITS_PER_SEC := 2.0
 const MOVE_FAST_DELAY_SEC := 0.35
 const SCALE_STEP := 0.05
 const SCALE_MIN := 0.25
 const SCALE_MAX := 4.0
-const PICK_GOLFER_RADIUS := 48.0
-const PICK_BALL_RADIUS := 20.0
+const PICK_GOLFER_RADIUS_PX := 48.0
+const PICK_BALL_RADIUS_PX := 20.0
 const OVERLAY_FONT_SIZE := 8
 
 var _enabled := false
 var _active := false
-var _golfer: AnimatedSprite2D
-var _ball: AnimatedSprite2D
-var _foreground: Node2D
+var _golfer: AnimatedSprite3D
+var _ball: AnimatedSprite3D
+var _foreground: Node3D
+var _camera: Camera3D
 var _on_positions_changed: Callable
 var _on_scales_changed: Callable
-var _golfer_home_start: Vector2
-var _ball_home_start: Vector2
-var _golfer_scale_start: Vector2
-var _ball_scale_start: Vector2
+var _golfer_home_start: Vector3
+var _ball_home_start: Vector3
+var _golfer_scale_start: Vector3
+var _ball_scale_start: Vector3
 
 var _canvas: CanvasLayer
 var _title_label: Label
@@ -49,19 +53,21 @@ func _ready() -> void:
 
 
 func setup(
-	golfer: AnimatedSprite2D,
-	ball: AnimatedSprite2D,
-	foreground: Node2D,
-	golfer_home: Vector2,
-	ball_home: Vector2,
-	golfer_scale: Vector2,
-	ball_scale: Vector2,
+	golfer: AnimatedSprite3D,
+	ball: AnimatedSprite3D,
+	foreground: Node3D,
+	camera: Camera3D,
+	golfer_home: Vector3,
+	ball_home: Vector3,
+	golfer_scale: Vector3,
+	ball_scale: Vector3,
 	on_positions_changed: Callable,
 	on_scales_changed: Callable
 ) -> void:
 	_golfer = golfer
 	_ball = ball
 	_foreground = foreground
+	_camera = camera
 	_golfer_home_start = golfer_home
 	_ball_home_start = ball_home
 	_golfer_scale_start = golfer_scale
@@ -107,7 +113,7 @@ func _build_overlay() -> void:
 	vbox.add_child(_info_label)
 
 	_help_label = Label.new()
-	_help_label.text = "P toggle | Arrows rat | Shift+arrows ball | [ ] rat scale | , . ball scale | Drag | C copy | S capture"
+	_help_label.text = "P toggle | Arrows rat X/Z | Shift+arrows ball | [ ] rat scale | , . ball scale | Drag | C copy | S capture"
 	PixelFont.apply_label(_help_label, 6)
 	_help_label.modulate = Color(0.75, 0.85, 0.75, 1.0)
 	vbox.add_child(_help_label)
@@ -168,26 +174,21 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if key.pressed:
-			var scale_delta := 0.0
 			match key.keycode:
 				KEY_BRACKETLEFT:
-					scale_delta = -SCALE_STEP
-					_adjust_scale("golfer", scale_delta)
+					_adjust_scale("golfer", -SCALE_STEP)
 					get_viewport().set_input_as_handled()
 					return
 				KEY_BRACKETRIGHT:
-					scale_delta = SCALE_STEP
-					_adjust_scale("golfer", scale_delta)
+					_adjust_scale("golfer", SCALE_STEP)
 					get_viewport().set_input_as_handled()
 					return
 				KEY_COMMA:
-					scale_delta = -SCALE_STEP
-					_adjust_scale("ball", scale_delta)
+					_adjust_scale("ball", -SCALE_STEP)
 					get_viewport().set_input_as_handled()
 					return
 				KEY_PERIOD:
-					scale_delta = SCALE_STEP
-					_adjust_scale("ball", scale_delta)
+					_adjust_scale("ball", SCALE_STEP)
 					get_viewport().set_input_as_handled()
 					return
 
@@ -198,13 +199,15 @@ func _input(event: InputEvent) -> void:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index == MOUSE_BUTTON_LEFT:
 			if mouse.pressed:
-				_drag_target = _pick_target(mouse.global_position)
+				_drag_target = _pick_target(mouse.position)
 				if not _drag_target.is_empty():
 					get_viewport().set_input_as_handled()
 			else:
 				_drag_target = ""
 	elif event is InputEventMouseMotion and not _drag_target.is_empty():
-		_move_target(_drag_target, _mouse_to_foreground(event.global_position))
+		var ground_pos: Variant = _screen_to_ground(event.position, _target_position(_drag_target).y)
+		if ground_pos != null:
+			_move_target(_drag_target, ground_pos)
 		get_viewport().set_input_as_handled()
 
 
@@ -236,49 +239,59 @@ func _apply_keyboard_movement(delta: float) -> void:
 		return
 
 	_key_hold_time += delta
-	var step := MOVE_STEP_PX
+	var step := MOVE_STEP
 	if _key_hold_time >= MOVE_FAST_DELAY_SEC:
-		step = MOVE_FAST_PX_PER_SEC * delta
+		step = MOVE_FAST_UNITS_PER_SEC * delta
 
 	var target := "golfer"
 	if Input.is_key_pressed(KEY_SHIFT):
 		target = "ball"
 
-	var pos := _target_position(target) + move_dir.normalized() * step
+	var move_dir_norm := move_dir.normalized()
+	var pos := _target_position(target) + Vector3(move_dir_norm.x, 0.0, move_dir_norm.y) * step
 	_set_target_position(target, pos)
 
 
-func _pick_target(global_pos: Vector2) -> String:
-	if _golfer == null or _ball == null:
+func _pick_target(screen_pos: Vector2) -> String:
+	if _golfer == null or _ball == null or _camera == null:
 		return ""
-	var golfer_dist := global_pos.distance_to(_golfer.global_position)
-	var ball_dist := global_pos.distance_to(_ball.global_position)
-	if golfer_dist <= PICK_GOLFER_RADIUS and golfer_dist <= ball_dist:
+	var golfer_dist := screen_pos.distance_to(_camera.unproject_position(_golfer.global_position))
+	var ball_dist := screen_pos.distance_to(_camera.unproject_position(_ball.global_position))
+	if golfer_dist <= PICK_GOLFER_RADIUS_PX and golfer_dist <= ball_dist:
 		return "golfer"
-	if ball_dist <= PICK_BALL_RADIUS:
+	if ball_dist <= PICK_BALL_RADIUS_PX:
 		return "ball"
 	return ""
 
 
-func _mouse_to_foreground(global_pos: Vector2) -> Vector2:
-	if _foreground == null:
-		return global_pos
-	return _foreground.to_local(global_pos)
+## Intersects the camera ray through `screen_pos` with the horizontal plane
+## at height `plane_y`, returning null if the ray runs parallel to it.
+func _screen_to_ground(screen_pos: Vector2, plane_y: float) -> Variant:
+	if _camera == null:
+		return null
+	var origin := _camera.project_ray_origin(screen_pos)
+	var dir := _camera.project_ray_normal(screen_pos)
+	if absf(dir.y) < 0.0001:
+		return null
+	var t := (plane_y - origin.y) / dir.y
+	if t < 0.0:
+		return null
+	return origin + dir * t
 
 
-func _move_target(target: String, local_pos: Vector2) -> void:
-	_set_target_position(target, local_pos)
+func _move_target(target: String, world_pos: Vector3) -> void:
+	_set_target_position(target, world_pos)
 
 
-func _target_position(target: String) -> Vector2:
+func _target_position(target: String) -> Vector3:
 	if target == "ball" and _ball:
 		return _ball.position
 	if _golfer:
 		return _golfer.position
-	return Vector2.ZERO
+	return Vector3.ZERO
 
 
-func _set_target_position(target: String, pos: Vector2) -> void:
+func _set_target_position(target: String, pos: Vector3) -> void:
 	if target == "ball":
 		if _ball:
 			_ball.position = pos
@@ -294,11 +307,11 @@ func _notify_positions_changed() -> void:
 
 
 func _adjust_scale(target: String, delta: float) -> void:
-	var sprite: AnimatedSprite2D = _golfer if target == "golfer" else _ball
+	var sprite: AnimatedSprite3D = _golfer if target == "golfer" else _ball
 	if sprite == null:
 		return
 	var next := clampf(sprite.scale.x + delta, SCALE_MIN, SCALE_MAX)
-	var uniform := Vector2(next, next)
+	var uniform := Vector3(next, next, next)
 	sprite.scale = uniform
 	_notify_scales_changed()
 
@@ -314,23 +327,23 @@ func _refresh_overlay() -> void:
 	var golfer_pos := _golfer.position
 	var ball_pos := _ball.position
 	var lines: PackedStringArray = [
-		"Golfer position = Vector2(%s, %s)" % [_fmt(golfer_pos.x), _fmt(golfer_pos.y)],
-		"Ball position = Vector2(%s, %s)" % [_fmt(ball_pos.x), _fmt(ball_pos.y)],
-		"Golfer scale = Vector2(%s, %s)" % [_fmt(_golfer.scale.x), _fmt(_golfer.scale.y)],
-		"Ball scale = Vector2(%s, %s)" % [_fmt(_ball.scale.x), _fmt(_ball.scale.y)],
+		"Golfer position = Vector3(%s, %s, %s)" % [_fmt(golfer_pos.x), _fmt(golfer_pos.y), _fmt(golfer_pos.z)],
+		"Ball position = Vector3(%s, %s, %s)" % [_fmt(ball_pos.x), _fmt(ball_pos.y), _fmt(ball_pos.z)],
+		"Golfer scale = %s" % _fmt(_golfer.scale.x),
+		"Ball scale = %s" % _fmt(_ball.scale.x),
 	]
 	var golfer_delta := golfer_pos - _golfer_home_start
-	if golfer_delta.length() >= 5.0:
+	if golfer_delta.length() >= 0.2:
 		lines.append(
-			"# Golfer moved %s px from session start" % _fmt(golfer_delta.length())
+			"# Golfer moved %s units from session start" % _fmt(golfer_delta.length())
 		)
 	_info_label.text = "\n".join(lines)
 
 
 func _fmt(value: float) -> String:
-	if is_equal_approx(value, snapped(value, 1.0)):
-		return str(int(snapped(value, 1.0)))
-	return ("%.2f" % value).trim_suffix("0").trim_suffix(".")
+	if is_equal_approx(value, snapped(value, 0.01)):
+		return ("%.2f" % snapped(value, 0.01)).trim_suffix("0").trim_suffix(".")
+	return "%.3f" % value
 
 
 func _capture_plate() -> void:
@@ -410,13 +423,13 @@ func _copy_positions() -> void:
 	var golfer_pos := _golfer.position
 	var ball_pos := _ball.position
 	var lines: PackedStringArray = [
-		"Golfer position = Vector2(%s, %s)" % [_fmt(golfer_pos.x), _fmt(golfer_pos.y)],
-		"Ball position = Vector2(%s, %s)" % [_fmt(ball_pos.x), _fmt(ball_pos.y)],
-		"Golfer scale = Vector2(%s, %s)" % [_fmt(_golfer.scale.x), _fmt(_golfer.scale.y)],
-		"Ball scale = Vector2(%s, %s)" % [_fmt(_ball.scale.x), _fmt(_ball.scale.y)],
+		"Golfer position = Vector3(%s, %s, %s)" % [_fmt(golfer_pos.x), _fmt(golfer_pos.y), _fmt(golfer_pos.z)],
+		"Ball position = Vector3(%s, %s, %s)" % [_fmt(ball_pos.x), _fmt(ball_pos.y), _fmt(ball_pos.z)],
+		"Golfer scale = %s" % _fmt(_golfer.scale.x),
+		"Ball scale = %s" % _fmt(_ball.scale.x),
 	]
 	var golfer_delta := golfer_pos - _golfer_home_start
-	if golfer_delta.length() >= 5.0:
+	if golfer_delta.length() >= 0.2:
 		lines.append("# Golfer delta from start: %s" % golfer_delta)
 	var text := "\n".join(lines)
 	DisplayServer.clipboard_set(text)

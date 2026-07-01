@@ -1,12 +1,6 @@
 extends SceneTree
-## v2 Phase B visual carry floor — run:
+## v2 Phase B visual carry floor, real-3D edition — run:
 ## godot --headless --script res://tools/verify_v2_visual_floor.gd
-
-const TEE_X := 248.0
-const TEE_Y := 206.0
-const FAR_GROUND_Y := 105.0
-const GROUND_BOTTOM_Y := 270.0
-const VANISHING_POINT := Vector2(240.0, 100.0)
 
 
 func _initialize() -> void:
@@ -19,37 +13,10 @@ func _run() -> void:
 	ok = _check_ok_tier_floor() and ok
 	ok = _check_perfect_first_band() and ok
 	ok = _check_whiff_dribble() and ok
-	ok = _check_ok_plus_arc() and ok
+	ok = _check_ok_plus_apex() and ok
 	ok = _check_gameplay_yards_unchanged() and ok
 	print("v2_visual_floor_ok=", ok)
 	quit(0 if ok else 1)
-
-
-func _make_config() -> BallFlightRenderer.FlightConfig:
-	var config := BallFlightRenderer.FlightConfig.new()
-	config.tee_x = TEE_X
-	config.tee_y = TEE_Y
-	config.far_ground_y = FAR_GROUND_Y
-	config.ground_bottom_y = GROUND_BOTTOM_Y
-	config.vanishing_point = VANISHING_POINT
-	config.flight_depth_exponent = 0.34
-	config.flight_depth_stretch = 1.02
-	config.yard_depth_scale = 180.0
-	config.min_landing_y = Balance.VISUAL_FLOOR_Y
-	config.base_ball_scale = Vector2(0.6, 0.6)
-	config.min_visible_px = 0.6
-	config.ball_texture_px = 16.0
-	config.arc_min_px = 24.0
-	config.arc_max_px = 80.0
-	config.landing_scatter_x = 28.0
-	config.range_x_min = 24.0
-	config.range_x_max = 456.0
-	config.flight_time_min_sec = 0.40
-	config.flight_time_max_sec = 2.80
-	config.flight_time_arc_sec = 0.55
-	config.flight_time_travel_sec = 1.10
-	config.flight_travel_ref_px = 110.0
-	return config
 
 
 func _default_stats() -> PlayerStats:
@@ -78,89 +45,65 @@ func _ok_tier_sample() -> Dictionary:
 	return {"tier": tier, "yards": yards, "quality": quality, "flavor": flavor}
 
 
-func _floor_landing_y(config: BallFlightRenderer.FlightConfig) -> float:
-	return PerspectiveGround.y_at_p(
-		Balance.VISUAL_FLOOR_P,
-		config.tee_y,
-		config.far_ground_y,
-		config.vanishing_point
-	)
-
-
 func _check_ok_tier_floor() -> bool:
 	var ok := true
-	var config := _make_config()
 	var stats := _default_stats()
 	var sample := _ok_tier_sample()
 	if sample.is_empty():
 		return false
 
-	var path := BallFlightRenderer.build_path(
-		sample["yards"], sample["tier"], stats, config, sample["flavor"]
+	var path := BallFlight3D.build_path(
+		sample["yards"], sample["tier"], stats, sample["flavor"]
 	)
-	var landing_y: float = path.landing_ground.y
-	var floor_y := _floor_landing_y(config)
-	var travel := config.tee_y - landing_y
+	var travel := path.origin.distance_to(path.landing)
 
-	if path.persp_p < Balance.VISUAL_FLOOR_P - 0.001:
+	if path.visual_yards < Balance.VISUAL_FLOOR_YARDS - 0.01:
 		print(
-			"FAIL: OK tier persp_p=%.3f below floor %.3f"
-			% [path.persp_p, Balance.VISUAL_FLOOR_P]
-		)
-		ok = false
-	if landing_y > floor_y + 0.5:
-		print(
-			"FAIL: OK tier landing_y=%.1f above floor %.1f (yards=%.1f travel=%.1fpx)"
-			% [landing_y, floor_y, sample["yards"], travel]
+			"FAIL: OK tier visual_yards=%.2f below floor %.2f"
+			% [path.visual_yards, Balance.VISUAL_FLOOR_YARDS]
 		)
 		ok = false
 	else:
 		print(
-			"OK: OK tier floor (yards=%.1f p=%.3f landing_y=%.1f travel=%.1fpx)"
-			% [sample["yards"], path.persp_p, landing_y, travel]
+			"OK: OK tier floor (gameplay_yards=%.1f visual_yards=%.1f travel=%.2fyd)"
+			% [sample["yards"], path.visual_yards, travel]
 		)
 	return ok
 
 
 func _check_perfect_first_band() -> bool:
 	var ok := true
-	var config := _make_config()
 	var stats := _default_stats()
 	var charge := ChargeSwing.new()
 	var contact := charge.contact_time_sec()
 	var yards := Economy.yards_from_quality(1.0, stats)
 	var tier := charge.evaluate_timing(contact, stats)
 
-	var path := BallFlightRenderer.build_path(
-		yards, tier, stats, config
-	)
-	var landing_y := path.landing_ground.y
-	var floor_y := _floor_landing_y(config)
-	var travel := config.tee_y - landing_y
+	var path := BallFlight3D.build_path(yards, tier, stats, Balance.ContactFlavor.PURE)
+	var travel := path.origin.distance_to(path.landing)
 
 	if tier != Balance.TimingTier.PERFECT:
 		print("FAIL: perfect sample tier=%s" % Balance.TIER_NAMES[tier])
 		ok = false
-	if landing_y > floor_y + 0.5:
+	if path.visual_yards < Balance.VISUAL_FLOOR_YARDS - 0.01:
 		print(
-			"FAIL: perfect landing_y=%.1f not at first band (floor %.1f travel=%.1fpx)"
-			% [landing_y, floor_y, travel]
+			"FAIL: perfect visual_yards=%.2f not at first band (floor %.2f)"
+			% [path.visual_yards, Balance.VISUAL_FLOOR_YARDS]
 		)
 		ok = false
-	elif travel < 30.0:
-		print("FAIL: perfect travel %.1fpx too short to read as golf carry" % travel)
+	elif travel < 10.0:
+		print("FAIL: perfect travel %.2fyd too short to read as golf carry" % travel)
 		ok = false
 	else:
 		print(
-			"OK: perfect first band (yards=%.1f landing_y=%.1f travel=%.1fpx)"
-			% [yards, landing_y, travel]
+			"OK: perfect first band (gameplay_yards=%.1f visual_yards=%.1f travel=%.2fyd)"
+			% [yards, path.visual_yards, travel]
 		)
 	return ok
 
 
 func _check_whiff_dribble() -> bool:
 	var ok := true
-	var config := _make_config()
 	var stats := _default_stats()
 	var charge := ChargeSwing.new()
 	var hold := Balance.MIN_HOLD_SEC * 0.5
@@ -173,58 +116,57 @@ func _check_whiff_dribble() -> bool:
 		print("FAIL: whiff sample tier=%s" % Balance.TIER_NAMES[tier])
 		ok = false
 
-	var path := BallFlightRenderer.build_path(yards, tier, stats, config)
-	var landing_y := path.landing_ground.y
-	var travel := config.tee_y - landing_y
+	var path := BallFlight3D.build_path(yards, tier, stats, Balance.ContactFlavor.THIN)
+	var travel := path.origin.distance_to(path.landing)
 
-	if path.persp_p > Balance.WHIFF_MAX_P + 0.001:
+	if path.visual_yards > Balance.WHIFF_MAX_YARDS + 0.01:
 		print(
-			"FAIL: whiff persp_p=%.3f exceeds cap %.3f"
-			% [path.persp_p, Balance.WHIFF_MAX_P]
+			"FAIL: whiff visual_yards=%.2f exceeds cap %.2f"
+			% [path.visual_yards, Balance.WHIFF_MAX_YARDS]
 		)
 		ok = false
-	if travel > Balance.VISUAL_DRIBBLE_MAX_PX:
+	if travel > Balance.WHIFF_MAX_YARDS + 0.01:
 		print(
-			"FAIL: whiff travel %.1fpx exceeds dribble max %.0fpx (landing_y=%.1f)"
-			% [travel, Balance.VISUAL_DRIBBLE_MAX_PX, landing_y]
+			"FAIL: whiff travel %.2fyd exceeds dribble max %.2fyd"
+			% [travel, Balance.WHIFF_MAX_YARDS]
 		)
 		ok = false
 	else:
 		print(
-			"OK: whiff dribble (yards=%.1f p=%.3f travel=%.1fpx)"
-			% [yards, path.persp_p, travel]
+			"OK: whiff dribble (gameplay_yards=%.1f visual_yards=%.2f travel=%.2fyd)"
+			% [yards, path.visual_yards, travel]
 		)
 	return ok
 
 
-func _check_ok_plus_arc() -> bool:
+func _check_ok_plus_apex() -> bool:
 	var ok := true
-	var config := _make_config()
 	var stats := _default_stats()
 	var sample := _ok_tier_sample()
 	if sample.is_empty():
 		return false
 
-	var arc := BallFlightRenderer.arc_height_for_hit(
-		sample["yards"], sample["tier"], stats, config, -1.0, sample["flavor"]
+	var path := BallFlight3D.build_path(
+		sample["yards"], sample["tier"], stats, sample["flavor"]
 	)
-	if arc < Balance.VISUAL_ARC_MIN_PX:
+	var min_apex := Balance.VISUAL_FLOOR_YARDS * Balance.FLIGHT_APEX_RATIO[Balance.ContactFlavor.SLIGHTLY_FAT] * 0.5
+	if path.apex_height < min_apex:
 		print(
-			"FAIL: OK tier arc %.1fpx below minimum %.0fpx"
-			% [arc, Balance.VISUAL_ARC_MIN_PX]
+			"FAIL: OK tier apex %.2fyd below expected minimum %.2fyd"
+			% [path.apex_height, min_apex]
 		)
 		ok = false
 	else:
-		print("OK: OK tier arc=%.1fpx (min=%.0fpx)" % [arc, Balance.VISUAL_ARC_MIN_PX])
+		print("OK: OK tier apex=%.2fyd (min expected=%.2fyd)" % [path.apex_height, min_apex])
 
-	var miss_arc := BallFlightRenderer.arc_height_for_hit(
-		3.0, Balance.TimingTier.MISS, stats, config, -1.0, Balance.ContactFlavor.THIN
+	var miss_path := BallFlight3D.build_path(
+		3.0, Balance.TimingTier.MISS, stats, Balance.ContactFlavor.THIN
 	)
-	if miss_arc >= Balance.VISUAL_ARC_MIN_PX:
-		print("FAIL: miss arc %.1fpx should stay below OK+ floor" % miss_arc)
+	if miss_path.apex_height >= path.apex_height:
+		print("FAIL: miss apex %.2fyd should stay below OK+ apex %.2fyd" % [miss_path.apex_height, path.apex_height])
 		ok = false
 	else:
-		print("OK: miss arc=%.1fpx stays low" % miss_arc)
+		print("OK: miss apex=%.2fyd stays low" % miss_path.apex_height)
 	return ok
 
 

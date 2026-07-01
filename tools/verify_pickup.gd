@@ -76,14 +76,14 @@ func _check_harvest_trigger(gs: Node) -> bool:
 func _check_collect_increments(gs: Node) -> bool:
 	_reset(gs)
 	_enter_harvest(gs)
-	var payout: float = gs.collect_harvest_ball(Vector2(100, 120), 1)
+	var payout: float = gs.collect_harvest_ball(Vector3(1.0, 0.0, -5.0), 1)
 	if gs.harvest_collected != 1:
 		print("FAIL: harvest_collected expected 1, got %d" % gs.harvest_collected)
 		return false
 	if payout <= 0.0:
 		print("FAIL: collect payout should be positive")
 		return false
-	gs.collect_harvest_ball(Vector2(110, 125), 2)
+	gs.collect_harvest_ball(Vector3(1.1, 0.0, -5.5), 2)
 	if gs.harvest_collected != 2:
 		print("FAIL: harvest_collected expected 2, got %d" % gs.harvest_collected)
 		return false
@@ -97,7 +97,7 @@ func _check_economy_grants(gs: Node) -> bool:
 	var start_currency: float = gs.currency
 	var per_ball := Economy.pickup_per_ball_value(gs.stats)
 	var combo2 := Economy.resolve_pickup_ball_payout(2, gs.stats)
-	gs.collect_harvest_ball(Vector2.ZERO, 1)
+	gs.collect_harvest_ball(Vector3.ZERO, 1)
 	var after_one: float = gs.currency
 	if not is_equal_approx(after_one - start_currency, per_ball):
 		print(
@@ -105,7 +105,7 @@ func _check_economy_grants(gs: Node) -> bool:
 			% [per_ball, after_one - start_currency]
 		)
 		return false
-	gs.collect_harvest_ball(Vector2.ZERO, 2)
+	gs.collect_harvest_ball(Vector3.ZERO, 2)
 	if not is_equal_approx(gs.currency - after_one, combo2):
 		print("FAIL: combo payout mismatch for tier 2")
 		return false
@@ -166,7 +166,7 @@ func _check_space_does_not_skip_harvest(main: Node, gs: Node) -> bool:
 	main._on_play_pressed()
 	await process_frame
 	await process_frame
-	var range_view: Node2D = main.get_node("RangeView")
+	var range_view: Node3D = main.get_node("RangeView")
 	_enter_harvest(gs)
 	await process_frame
 	if gs.current_phase != "harvest":
@@ -202,7 +202,7 @@ func _check_event_bus_signals(gs: Node) -> bool:
 	var collected: Array = []
 	var completed: Array = []
 	var phases: Array = []
-	var on_collected := func(_pos: Vector2, combo: int) -> void:
+	var on_collected := func(_pos: Vector3, combo: int) -> void:
 		collected.append(combo)
 	var on_completed := func(bonus: float) -> void:
 		completed.append(bonus)
@@ -213,7 +213,7 @@ func _check_event_bus_signals(gs: Node) -> bool:
 	event_bus.phase_changed.connect(on_phase)
 
 	_enter_harvest(gs)
-	gs.collect_harvest_ball(Vector2(50, 80), 1)
+	gs.collect_harvest_ball(Vector3(0.5, 0.0, -8.0), 1)
 	gs.harvest_collected = gs.bucket_capacity
 	gs.complete_harvest(1)
 
@@ -239,10 +239,10 @@ func _check_phase_integration(main: Node, gs: Node) -> bool:
 	main._on_play_pressed()
 	await process_frame
 	await process_frame
-	var range_view: Node2D = main.get_node("RangeView")
-	var litter_parent: Node2D = range_view.get_node("Foreground/LitteredBalls")
+	var range_view: Node3D = main.get_node("RangeView")
+	var litter_parent: Node3D = range_view.get_node("Foreground/LitteredBalls")
 
-	range_view._leave_litter_ball(Vector2(240, 160), Vector2(0.5, 0.5))
+	range_view._leave_litter_ball(Vector3(0.3, 0.0, -8.0), Vector3(1.0, 1.0, 1.0))
 	if litter_parent.get_child_count() != 1:
 		print("FAIL: litter spawn failed")
 		return false
@@ -263,7 +263,7 @@ func _check_phase_integration(main: Node, gs: Node) -> bool:
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
-	click.position = range_view.get_canvas_transform() * litter.global_position
+	click.position = range_view.get_flight_camera().unproject_position(litter.global_position)
 	if not range_view._pickup.handle_input(click):
 		print("FAIL: pickup click did not collect litter")
 		return false
@@ -285,10 +285,10 @@ func _check_harvest_sidestep(main: Node, gs: Node) -> bool:
 	main._on_play_pressed()
 	await process_frame
 	await process_frame
-	var range_view: Node2D = main.get_node("RangeView")
-	var home: Vector2 = range_view.golfer_strike_home()
-	var offset: Vector2 = range_view.golfer_harvest_offset()
-	var harvest_pos: Vector2 = home + offset
+	var range_view: Node3D = main.get_node("RangeView")
+	var home: Vector3 = range_view.golfer_strike_home()
+	var offset: Vector3 = range_view.golfer_harvest_offset()
+	var harvest_pos: Vector3 = home + offset
 
 	_enter_harvest(gs)
 	await process_frame
@@ -321,7 +321,7 @@ func _check_harvest_sidestep(main: Node, gs: Node) -> bool:
 		)
 		return false
 
-	print("OK: harvest sidestep offset %.0fpx, return to strike home" % offset.x)
+	print("OK: harvest sidestep offset %.2f units, return to strike home" % offset.x)
 	return true
 
 
@@ -330,10 +330,10 @@ func _check_hit_mode_during_harvest(main: Node, gs: Node) -> bool:
 	main._on_play_pressed()
 	await process_frame
 	await process_frame
-	var range_view: Node2D = main.get_node("RangeView")
+	var range_view: Node3D = main.get_node("RangeView")
 
 	_enter_harvest(gs)
-	gs.collect_harvest_ball(Vector2.ZERO, 1)
+	gs.collect_harvest_ball(Vector3.ZERO, 1)
 	if gs.harvest_collected != 1:
 		print("FAIL: hit mode test expected 1 collected ball")
 		return false

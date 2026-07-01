@@ -134,36 +134,42 @@ func _check_sweet_spot_upgrade() -> bool:
 	return true
 
 
+## Real-3D flight: apex height is `visual_yards * apex_ratio_for(flavor)` —
+## verify the flavor ordering the old BallFlightRenderer arc heights used to
+## encode (pure highest, slightly-fat lower, thin/chunk lowest/hop-low).
 func _check_flavor_arc() -> bool:
-	var config := BallFlightRenderer.FlightConfig.new()
-	config.arc_min_px = 12.0
-	config.arc_max_px = 40.0
 	var stats := Balance.default_stats()
 
-	var thin_arc := BallFlightRenderer.arc_height_for_hit(
-		3.0, Balance.TimingTier.MISS, stats, config, -1.0, Balance.ContactFlavor.THIN
+	var thin_path := BallFlight3D.build_path(
+		3.0, Balance.TimingTier.MISS, stats, Balance.ContactFlavor.THIN
 	)
-	var chunk_arc := BallFlightRenderer.arc_height_for_hit(
-		3.0, Balance.TimingTier.MISS, stats, config, -1.0, Balance.ContactFlavor.CHUNK
+	var chunk_path := BallFlight3D.build_path(
+		3.0, Balance.TimingTier.MISS, stats, Balance.ContactFlavor.CHUNK
 	)
-	var pure_arc := BallFlightRenderer.arc_height_for_hit(
-		30.0, Balance.TimingTier.PERFECT, stats, config, -1.0, Balance.ContactFlavor.PURE
+	var pure_path := BallFlight3D.build_path(
+		30.0, Balance.TimingTier.PERFECT, stats, Balance.ContactFlavor.PURE
 	)
-	var fat_arc := BallFlightRenderer.arc_height_for_hit(
-		20.0, Balance.TimingTier.OK, stats, config, -1.0, Balance.ContactFlavor.SLIGHTLY_FAT
+	var fat_path := BallFlight3D.build_path(
+		20.0, Balance.TimingTier.OK, stats, Balance.ContactFlavor.SLIGHTLY_FAT
 	)
 
-	if thin_arc >= Balance.VISUAL_ARC_MIN_PX:
-		print("FAIL: thin flavor arc %.1f should stay low" % thin_arc)
+	if thin_path.apex_height >= pure_path.apex_height:
+		print("FAIL: thin flavor apex %.2f should stay low vs pure %.2f" % [thin_path.apex_height, pure_path.apex_height])
 		return false
-	if chunk_arc >= 12.0:
-		print("FAIL: chunk flavor arc %.1f should stay hop-low" % chunk_arc)
+	if chunk_path.apex_height >= 2.0:
+		print("FAIL: chunk flavor apex %.2f should stay hop-low" % chunk_path.apex_height)
 		return false
-	if fat_arc >= pure_arc and fat_arc < Balance.VISUAL_ARC_MIN_PX:
-		print("FAIL: slightly fat arc %.1f below OK+ minimum %.0f" % [fat_arc, Balance.VISUAL_ARC_MIN_PX])
+	if fat_path.apex_height >= pure_path.apex_height:
+		print(
+			"FAIL: slightly-fat apex %.2f should stay below pure apex %.2f"
+			% [fat_path.apex_height, pure_path.apex_height]
+		)
 		return false
-	if fat_arc < Balance.VISUAL_ARC_MIN_PX:
-		print("FAIL: slightly fat arc %.1f below OK+ floor" % fat_arc)
+	if fat_path.apex_height <= thin_path.apex_height:
+		print(
+			"FAIL: slightly-fat apex %.2f should stay above a thin skid %.2f"
+			% [fat_path.apex_height, thin_path.apex_height]
+		)
 		return false
-	print("OK: flavor arc heights thin/chunk/fat/pure")
+	print("OK: flavor apex heights ordered thin/chunk < fat < pure")
 	return true

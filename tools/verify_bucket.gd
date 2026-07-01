@@ -207,9 +207,9 @@ func _check_tee_ball_visibility(main: Node, gs: Node) -> bool:
 	main._on_play_pressed()
 	await process_frame
 	await process_frame
-	var range_view: Node2D = main.get_node("RangeView")
+	var range_view: Node3D = main.get_node("RangeView")
 	await _wait_for_tee_ball_ready(range_view, gs.stats)
-	var ball: CanvasItem = range_view.get_node("Foreground/Ball")
+	var ball: Node3D = range_view.get_node("Foreground/Ball")
 	if not ball.visible:
 		print("FAIL: tee ball should be visible with full bucket")
 		return false
@@ -253,7 +253,7 @@ func _send_space(target: Node, pressed: bool) -> void:
 	target._unhandled_input(event)
 
 
-func _wait_for_tee_ball_ready(range_view: Node2D, stats: PlayerStats) -> void:
+func _wait_for_tee_ball_ready(range_view: Node3D, stats: PlayerStats) -> void:
 	var end := Time.get_ticks_msec() + 5000
 	while Time.get_ticks_msec() < end:
 		await process_frame

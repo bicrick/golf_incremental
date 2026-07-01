@@ -120,7 +120,7 @@ func _test_sprite_frames() -> bool:
 func _test_idle_anim_switch() -> bool:
 	var ok := true
 	var frames := RangeRat.make_golfer_frames()
-	var sprite := AnimatedSprite2D.new()
+	var sprite := AnimatedSprite3D.new()
 	sprite.sprite_frames = frames
 	sprite.play(&"idle_out_of_balls")
 	if sprite.animation != &"idle_out_of_balls":
@@ -136,6 +136,7 @@ func _test_idle_anim_switch() -> bool:
 	if not sprite.is_playing():
 		print("FAIL: idle animation should be playing after switch")
 		ok = false
+	sprite.free()
 	return ok
 
 

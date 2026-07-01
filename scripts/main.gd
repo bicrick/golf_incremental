@@ -1,7 +1,7 @@
 extends Node
 ## Root scene — title screen first, Play reveals range view and HUD.
 
-@onready var range_view: Node2D = $RangeView
+@onready var range_view: Node3D = $RangeView
 @onready var ui: CanvasLayer = $UI
 @onready var title_screen: CanvasLayer = $TitleScreen
 @onready var hud: Control = $UI/UIRoot/HUD

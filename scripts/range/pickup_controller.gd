@@ -1,13 +1,14 @@
 class_name PickupController
 extends Node
-## Harvest-phase click pickup — litter collect, combo, tween to bucket UI.
+## Harvest-phase click pickup — litter lives in real 3D world space; hit
+## testing projects each litter's world position to screen space via the
+## range camera. The "fly to bucket" juice stays a 2D screen-space icon
+## (owned by RangeView) since the bucket counter is UI.
 
 const MIN_HIT_RADIUS_PX := 24.0
-const ARC_HEIGHT_PX := 36.0
-const TWEEN_DURATION_SEC := 0.35
 
-var _range_view: Node2D
-var _littered_balls: Node2D
+var _range_view: Node3D
+var _littered_balls: Node3D
 var _bucket_counter: Control
 var _active := false
 var _combo := 1
@@ -16,7 +17,7 @@ var _last_collect_msec := -999999
 var _collecting := false
 
 
-func setup(range_view: Node2D, littered_balls: Node2D, bucket_counter: Control) -> void:
+func setup(range_view: Node3D, littered_balls: Node3D, bucket_counter: Control) -> void:
 	_range_view = range_view
 	_littered_balls = littered_balls
 	_bucket_counter = bucket_counter
@@ -53,59 +54,79 @@ func _on_phase_changed(phase: String) -> void:
 		_mark_all_litter_collectible()
 
 
+func _camera() -> Camera3D:
+	if _range_view and _range_view.has_method(&"get_flight_camera"):
+		return _range_view.get_flight_camera()
+	return null
+
+
 func _try_collect_at(screen_pos: Vector2) -> bool:
-	var litter: Sprite2D = _pick_litter_at(screen_pos)
+	var litter: Sprite3D = _pick_litter_at(screen_pos)
 	if litter == null:
 		return false
 	_collect_litter(litter)
 	return true
 
 
-func _pick_litter_at(screen_pos: Vector2) -> Sprite2D:
+func _pick_litter_at(screen_pos: Vector2) -> Sprite3D:
 	if _littered_balls == null:
 		return null
-	var canvas_xform := _range_view.get_canvas_transform()
-	var world_click := canvas_xform.affine_inverse() * screen_pos
+	var camera := _camera()
+	if camera == null:
+		return null
 	var candidates: Array[Dictionary] = []
 	for child in _littered_balls.get_children():
-		if not child is Sprite2D:
+		if not child is Sprite3D:
 			continue
 		if not child.get_meta("collectible", false):
 			continue
-		var sprite := child as Sprite2D
-		var dist := world_click.distance_to(sprite.global_position)
-		var hit_radius := _hit_radius_for(sprite)
+		var sprite := child as Sprite3D
+		if camera.is_position_behind(sprite.global_position):
+			continue
+		var proj := camera.unproject_position(sprite.global_position)
+		var dist := screen_pos.distance_to(proj)
+		var hit_radius := _hit_radius_for(sprite, camera)
 		if dist > hit_radius:
 			continue
 		candidates.append({
 			"sprite": sprite,
 			"dist": dist,
-			"z": sprite.z_index,
+			"depth": camera.global_position.distance_squared_to(sprite.global_position),
 		})
 	if candidates.is_empty():
 		return null
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		if a["z"] != b["z"]:
-			return a["z"] > b["z"]
+		if absf(float(a["depth"]) - float(b["depth"])) > 0.0001:
+			return a["depth"] < b["depth"]
 		return a["dist"] < b["dist"]
 	)
-	return candidates[0]["sprite"] as Sprite2D
+	return candidates[0]["sprite"] as Sprite3D
 
 
-func _hit_radius_for(sprite: Sprite2D) -> float:
-	var tex_size := Vector2(16.0, 16.0)
+## Hit radius in screen pixels — projects a world-space offset near the
+## sprite to measure how big it currently reads on screen at this depth.
+func _hit_radius_for(sprite: Sprite3D, camera: Camera3D) -> float:
+	var world_radius := 0.16
 	if sprite.texture:
-		tex_size = sprite.texture.get_size() * sprite.scale
-	var sprite_radius := maxf(tex_size.x, tex_size.y) * 0.5
-	return maxf(MIN_HIT_RADIUS_PX, sprite_radius)
+		world_radius = maxf(sprite.texture.get_size().x, sprite.texture.get_size().y) \
+			* sprite.pixel_size * 0.5
+	var center := camera.unproject_position(sprite.global_position)
+	var edge := camera.unproject_position(
+		sprite.global_position + camera.global_transform.basis.x * world_radius
+	)
+	return maxf(MIN_HIT_RADIUS_PX, center.distance_to(edge))
 
 
-func _collect_litter(litter: Sprite2D) -> void:
+func _collect_litter(litter: Sprite3D) -> void:
 	if not is_instance_valid(litter):
 		return
 	_collecting = true
 	litter.set_meta("collectible", false)
 	var world_pos := litter.global_position
+	var camera := _camera()
+	var start_screen := camera.unproject_position(world_pos) if camera else Vector2.ZERO
+	litter.queue_free()
+
 	var combo_tier := _advance_combo()
 	var payout := GameState.collect_harvest_ball(world_pos, combo_tier)
 	SfxManager.play_pickup_plink(combo_tier)
@@ -113,7 +134,7 @@ func _collect_litter(litter: Sprite2D) -> void:
 		_range_view.show_pickup_cash_float(world_pos, payout, combo_tier)
 	if payout > 0.0:
 		EventBus.pickup_payout.emit(payout, combo_tier)
-	_tween_to_bucket(litter)
+	_fly_to_bucket(start_screen)
 
 
 func _advance_combo() -> int:
@@ -127,7 +148,7 @@ func _advance_combo() -> int:
 	return _combo
 
 
-func _bucket_target_global() -> Vector2:
+func _bucket_target_screen() -> Vector2:
 	if _bucket_counter == null:
 		return Vector2(440.0, 250.0)
 	if _bucket_counter.has_method("get_tween_target_global"):
@@ -135,31 +156,13 @@ func _bucket_target_global() -> Vector2:
 	return _bucket_counter.get_global_rect().get_center()
 
 
-func _tween_to_bucket(litter: Sprite2D) -> void:
-	var start := litter.global_position
-	var end := _bucket_target_global()
-	var mid := (start + end) * 0.5 + Vector2(0.0, -ARC_HEIGHT_PX)
-	var tween := _range_view.create_tween()
-	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tween.tween_method(
-		func(t: float) -> void:
-			if not is_instance_valid(litter):
-				return
-			var u := 1.0 - t
-			litter.global_position = (
-				u * u * start + 2.0 * u * t * mid + t * t * end
-			),
-		0.0,
-		1.0,
-		TWEEN_DURATION_SEC
-	)
-	tween.tween_callback(func() -> void:
-		if is_instance_valid(litter):
-			litter.queue_free()
-		_collecting = false
-		if GameState.is_harvest_complete():
-			_finish_harvest()
-	)
+func _fly_to_bucket(start_screen: Vector2) -> void:
+	var end_screen := _bucket_target_screen()
+	if _range_view.has_method("spawn_pickup_fly_icon"):
+		await _range_view.spawn_pickup_fly_icon(start_screen, end_screen)
+	_collecting = false
+	if GameState.is_harvest_complete():
+		_finish_harvest()
 
 
 func _finish_harvest() -> void:
@@ -180,7 +183,7 @@ func _mark_all_litter_collectible() -> void:
 	if _littered_balls == null:
 		return
 	for child in _littered_balls.get_children():
-		if child is Sprite2D:
+		if child is Sprite3D:
 			child.set_meta("collectible", true)
 
 
