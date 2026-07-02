@@ -76,6 +76,7 @@ offset_bottom = 24.0
 layout_mode = 0
 offset_right = 24.0
 offset_bottom = 24.0
+mouse_default_cursor_shape = 2
 toggle_mode = true
 flat = true
 
@@ -125,6 +126,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(24, 24)
 size_flags_horizontal = 4
 size_flags_vertical = 4
+mouse_default_cursor_shape = 2
 toggle_mode = true
 flat = true
 
@@ -152,6 +154,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(24, 24)
 size_flags_horizontal = 4
 size_flags_vertical = 4
+mouse_default_cursor_shape = 2
 toggle_mode = true
 flat = true
 

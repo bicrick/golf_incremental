@@ -30,6 +30,8 @@ func _ready() -> void:
 	music_volume_slider.value_changed.connect(_on_music_volume_changed)
 	wipe_button.pressed.connect(_on_wipe_pressed)
 	wipe_dialog.confirmed.connect(_on_wipe_dialog_confirmed)
+	wipe_dialog.get_ok_button().mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
+	wipe_dialog.get_cancel_button().mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	_apply_fonts()
 	_style_back_button()
 	_style_toggle(sfx_toggle)

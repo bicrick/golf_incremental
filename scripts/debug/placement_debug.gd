@@ -213,6 +213,7 @@ func _build_overlay() -> void:
 	_copy_button = Button.new()
 	_copy_button.text = "Copy positions"
 	_copy_button.custom_minimum_size = Vector2(140, 18)
+	_copy_button.mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	_copy_button.pressed.connect(_copy_positions)
 	_copy_button.add_theme_font_override(&"font", PixelFont.font_for_size(OVERLAY_FONT_SIZE))
 	vbox.add_child(_copy_button)
@@ -220,6 +221,7 @@ func _build_overlay() -> void:
 	_capture_button = Button.new()
 	_capture_button.text = "Capture plate"
 	_capture_button.custom_minimum_size = Vector2(140, 18)
+	_capture_button.mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	_capture_button.pressed.connect(_capture_plate)
 	_capture_button.add_theme_font_override(&"font", PixelFont.font_for_size(OVERLAY_FONT_SIZE))
 	vbox.add_child(_capture_button)
@@ -227,6 +229,7 @@ func _build_overlay() -> void:
 	_cash_button = Button.new()
 	_cash_button.text = "Grant $1M"
 	_cash_button.custom_minimum_size = Vector2(140, 18)
+	_cash_button.mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	_cash_button.pressed.connect(_grant_debug_cash)
 	_cash_button.add_theme_font_override(&"font", PixelFont.font_for_size(OVERLAY_FONT_SIZE))
 	vbox.add_child(_cash_button)

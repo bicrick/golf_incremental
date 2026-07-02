@@ -44,33 +44,22 @@ func setup(range_view: Node3D) -> void:
 	_camera = range_view.get_flight_camera() if range_view.has_method("get_flight_camera") else null
 	_ball_lay_texture = DinkySpriteFramesScript.ball_lay_texture()
 
-	_home = range_view.golfer_strike_home() + Balance.RATINA_HOME_OFFSET
-	_ball_home = _home + Balance.RATINA_BALL_OFFSET
+	_golfer = range_view.get_node("Foreground/Ratina") as AnimatedSprite3D
+	_ball = range_view.get_node("Foreground/RatinaBall") as AnimatedSprite3D
+	_home = _golfer.position
+	_ball_home = _ball.position
+	_base_golfer_scale = _golfer.scale
+	_base_ball_scale = _ball.scale
 
 	_ball_litter = Node3D.new()
 	_ball_litter.name = "RatinaBallLitter"
 	range_view.get_node("Foreground").add_child(_ball_litter)
 
-	_golfer = AnimatedSprite3D.new()
-	_golfer.name = "Ratina"
-	_golfer.sprite_frames = RatinaSpriteFrames.make_golfer_frames()
-	_configure_billboard(_golfer, GOLFER_PIXEL_SIZE)
-	_golfer.offset = RatinaSpriteFrames.FOOT_OFFSET
-	_base_golfer_scale = _golfer.scale
-	_golfer.position = _home
-	range_view.get_node("Foreground").add_child(_golfer)
 	_golfer.visible = false
 	_golfer.animation_finished.connect(_on_golfer_animation_finished)
 	_golfer.frame_changed.connect(_on_golfer_frame_changed)
 
-	_ball = AnimatedSprite3D.new()
-	_ball.name = "RatinaBall"
-	_ball.sprite_frames = DinkySpriteFramesScript.make_ball_frames()
-	_configure_billboard(_ball, BALL_PIXEL_SIZE)
-	_base_ball_scale = _ball.scale
-	_ball.position = _ball_home
 	_ball.visible = false
-	range_view.get_node("Foreground").add_child(_ball)
 
 	_swing_timer = Timer.new()
 	_swing_timer.name = "SwingTimer"
@@ -157,10 +146,10 @@ func set_debug_scales(golfer_scale: Vector3, ball_scale: Vector3) -> void:
 
 
 func refresh_strike_homes() -> void:
-	if _range_view == null:
-		return
-	_home = _range_view.golfer_strike_home() + Balance.RATINA_HOME_OFFSET
-	_ball_home = _home + Balance.RATINA_BALL_OFFSET
+	if _golfer:
+		_home = _golfer.position
+	if _ball:
+		_ball_home = _ball.position
 	if _golfer and not _swinging:
 		_golfer.position = _home
 	if _ball and not _ball_in_flight:
@@ -175,6 +164,10 @@ func apply_unlock_layout(golfer_scale: Vector3, ball_scale: Vector3) -> void:
 		_golfer.scale = golfer_scale
 	if _ball and not _ball_in_flight:
 		_ball.scale = ball_scale
+
+
+func set_flight_camera(cam: Camera3D) -> void:
+	_camera = cam
 
 
 func apply_atmosphere_tint(tint: Color) -> void:

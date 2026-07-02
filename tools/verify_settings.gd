@@ -255,7 +255,7 @@ func _test_settings_button_behavior() -> bool:
 
 	var settings_btn: Button = main.get_node("UI/UIRoot/IconBar/BottomLeft/SettingsWrap/SettingsButton")
 	var settings_wrap: Control = main.get_node("UI/UIRoot/IconBar/BottomLeft/SettingsWrap")
-	var upgrades_btn: Button = main.get_node("UI/UIRoot/IconBar/TopRight/UpgradesButton")
+	var upgrades_btn: Button = main.get_node("UI/UIRoot/IconBar/TopRight/TopRightRow/UpgradesWrap/UpgradesButton")
 
 	if settings_btn.tooltip_text != "":
 		print("FAIL: in-game settings button should have no tooltip, got '%s'" % settings_btn.tooltip_text)

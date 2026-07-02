@@ -45,6 +45,7 @@ theme_override_constants/separation = 8
 [node name="BackButton" type="Button" parent="Content/Header"]
 custom_minimum_size = Vector2(48, 18)
 layout_mode = 2
+mouse_default_cursor_shape = 2
 theme_override_colors/font_color = Color(0.12, 0.1, 0.08, 1)
 theme_override_font_sizes/font_size = 8
 text = "Back"
@@ -82,6 +83,7 @@ text = "Music"
 
 [node name="MusicToggle" type="CheckButton" parent="Content/Body/MusicRow"]
 layout_mode = 2
+mouse_default_cursor_shape = 2
 button_pressed = true
 text = "On"
 
@@ -112,6 +114,7 @@ text = "Sound Effects"
 
 [node name="SfxToggle" type="CheckButton" parent="Content/Body/SfxRow"]
 layout_mode = 2
+mouse_default_cursor_shape = 2
 button_pressed = true
 text = "On"
 
@@ -133,6 +136,7 @@ script = ExtResource("3_slider")
 [node name="WipeButton" type="Button" parent="Content/Body"]
 layout_mode = 2
 size_flags_horizontal = 4
+mouse_default_cursor_shape = 2
 
 [node name="WipeDialog" type="ConfirmationDialog" parent="."]
 title = "Wipe Character?"

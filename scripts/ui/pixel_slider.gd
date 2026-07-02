@@ -36,6 +36,7 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(120, THUMB_HEIGHT + 4)
 	size = custom_minimum_size
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	focus_mode = Control.FOCUS_ALL
 	queue_redraw()
 

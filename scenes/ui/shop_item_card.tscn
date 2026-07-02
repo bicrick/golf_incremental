@@ -38,4 +38,5 @@ text = "Lv 0/10"
 [node name="BuyButton" type="Button" parent="Margin/Row"]
 layout_mode = 2
 size_flags_vertical = 4
+mouse_default_cursor_shape = 2
 text = "$0"

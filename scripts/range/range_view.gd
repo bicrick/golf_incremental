@@ -13,14 +13,6 @@ extends Node3D
 
 const CHARGE_METER_POSITION := Vector2(236.0, 185.143)
 const RATINA_UNLOCKED_CHARGE_METER_POSITION := Vector2(225.0, 185.143)
-const RATINA_UNLOCKED_GOLFER_POS := Vector3(-1.352, 1.523, -6.424)
-const RATINA_UNLOCKED_BALL_POS := Vector3(-0.845, 0.05, -6.395)
-const RATINA_UNLOCKED_GOLFER_SCALE := 1.3
-const RATINA_UNLOCKED_BALL_SCALE := 0.55
-const RATINA_UNLOCKED_RATINA_SCALE := 1.0
-const RATINA_UNLOCKED_RATINA_BALL_SCALE := 0.55
-const RATINA_UNLOCKED_CAMERA_POS := Vector3(0.0, 2.02, -1.916)
-const RATINA_UNLOCKED_CAMERA_ROT := Vector3(-7.2, 0.0, 0.0)
 ## Local offset from rhombus center — text sits above the contact ring.
 const SWING_RESULT_TEXT_OFFSET := Vector2(0.0, -38.0)
 const BALL_PIXEL_SIZE := 0.021
@@ -46,6 +38,10 @@ const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.g
 @onready var ground: MeshInstance3D = $Ground
 @onready var ball: AnimatedSprite3D = $Foreground/Ball
 @onready var golfer: AnimatedSprite3D = $Foreground/Golfer
+@onready var golfer_unlocked_marker: Marker3D = $Foreground/GolferUnlockedMarker
+@onready var ball_unlocked_marker: Marker3D = $Foreground/BallUnlockedMarker
+@onready var ratina_sprite: AnimatedSprite3D = $Foreground/Ratina
+@onready var ratina_ball_sprite: AnimatedSprite3D = $Foreground/RatinaBall
 @onready var littered_balls: Node3D = $Foreground/LitteredBalls
 @onready var foreground: Node3D = $Foreground
 @onready var charge_meter: Node2D = $ChargeMeter
@@ -74,6 +70,7 @@ var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 func _ready() -> void:
 	_setup_ground()
 	_setup_dinky_sprites()
+	_setup_ratina_sprites()
 	_ball_home = ball.position
 	_golfer_home = golfer.position
 	if charge_meter:
@@ -85,6 +82,10 @@ func _ready() -> void:
 	apply_atmosphere(24.0)
 
 	if Engine.is_editor_hint():
+		if ratina_sprite:
+			ratina_sprite.visible = true
+		if ratina_ball_sprite:
+			ratina_ball_sprite.visible = true
 		return
 
 	if contact_ring:
@@ -116,16 +117,50 @@ func ratina_strike_text_offset() -> Vector2:
 func _setup_dinky_sprites() -> void:
 	_ball_lay_texture = DinkySpriteFrames.ball_lay_texture()
 	ball.sprite_frames = DinkySpriteFrames.make_ball_frames()
+	_strip_empty_default_animation(ball.sprite_frames)
 	_configure_billboard(ball, BALL_PIXEL_SIZE)
 	_base_ball_scale = ball.scale
-	ball.play(&"idle")
+	_set_idle_pose(ball)
 
 	golfer.sprite_frames = RangeRatSpriteFrames.make_golfer_frames()
+	_strip_empty_default_animation(golfer.sprite_frames)
 	_configure_billboard(golfer, GOLFER_PIXEL_SIZE)
 	golfer.offset = RangeRatSpriteFrames.FOOT_OFFSET
 	_base_golfer_scale = golfer.scale
-	_play_golfer_idle()
-	golfer.animation_finished.connect(_on_golfer_animation_finished)
+	if Engine.is_editor_hint():
+		_set_idle_pose(golfer)
+	else:
+		_play_golfer_idle()
+		golfer.animation_finished.connect(_on_golfer_animation_finished)
+
+
+func _setup_ratina_sprites() -> void:
+	if ratina_sprite == null or ratina_ball_sprite == null:
+		return
+	ratina_sprite.sprite_frames = RatinaSpriteFrames.make_golfer_frames()
+	_strip_empty_default_animation(ratina_sprite.sprite_frames)
+	_configure_billboard(ratina_sprite, GOLFER_PIXEL_SIZE)
+	ratina_sprite.offset = RatinaSpriteFrames.FOOT_OFFSET
+	_set_idle_pose(ratina_sprite)
+
+	ratina_ball_sprite.sprite_frames = DinkySpriteFrames.make_ball_frames()
+	_strip_empty_default_animation(ratina_ball_sprite.sprite_frames)
+	_configure_billboard(ratina_ball_sprite, BALL_PIXEL_SIZE)
+	_set_idle_pose(ratina_ball_sprite)
+
+
+func _strip_empty_default_animation(frames: SpriteFrames) -> void:
+	if frames == null:
+		return
+	if frames.has_animation(&"default") and frames.get_frame_count(&"default") == 0:
+		frames.remove_animation(&"default")
+
+
+func _set_idle_pose(sprite: AnimatedSprite3D) -> void:
+	sprite.animation = &"idle"
+	sprite.frame = 0
+	if not Engine.is_editor_hint():
+		sprite.play(&"idle")
 
 
 func _configure_billboard(sprite: SpriteBase3D, pixel_size: float) -> void:
@@ -385,28 +420,22 @@ func _apply_ratina_layout_if_needed() -> void:
 
 
 func _apply_ratina_unlocked_layout() -> void:
-	_golfer_home = RATINA_UNLOCKED_GOLFER_POS
-	_ball_home = RATINA_UNLOCKED_BALL_POS
-	_base_golfer_scale = Vector3.ONE * RATINA_UNLOCKED_GOLFER_SCALE
-	_base_ball_scale = Vector3.ONE * RATINA_UNLOCKED_BALL_SCALE
+	_golfer_home = golfer_unlocked_marker.position
+	_ball_home = ball_unlocked_marker.position
+	_base_golfer_scale = golfer_unlocked_marker.scale
+	_base_ball_scale = ball_unlocked_marker.scale
 
 	golfer.position = _golfer_home
 	golfer.scale = _base_golfer_scale
 	ball.position = _ball_home
 	ball.scale = _base_ball_scale
 
-	if camera:
-		camera.position = RATINA_UNLOCKED_CAMERA_POS
-		camera.rotation_degrees = RATINA_UNLOCKED_CAMERA_ROT
-
 	if charge_meter:
 		charge_meter.position = RATINA_UNLOCKED_CHARGE_METER_POSITION
 	_ratina_strike_text_offset = Balance.RATINA_STRIKE_TEXT_OFFSET
 
-	var ratina_golfer_scale := Vector3.ONE * RATINA_UNLOCKED_RATINA_SCALE
-	var ratina_ball_scale := Vector3.ONE * RATINA_UNLOCKED_RATINA_BALL_SCALE
 	if _ratina and _ratina.has_method("apply_unlock_layout"):
-		_ratina.apply_unlock_layout(ratina_golfer_scale, ratina_ball_scale)
+		_ratina.apply_unlock_layout(ratina_sprite.scale, ratina_ball_sprite.scale)
 
 	if _placement_debug and _ratina and _ratina.has_method("strike_home"):
 		_placement_debug.sync_homes(
@@ -416,8 +445,8 @@ func _apply_ratina_unlocked_layout() -> void:
 			_base_ball_scale,
 			_ratina.strike_home(),
 			_ratina.ball_strike_home(),
-			ratina_golfer_scale,
-			ratina_ball_scale
+			ratina_sprite.scale,
+			ratina_ball_sprite.scale
 		)
 	elif _placement_debug:
 		_placement_debug.sync_homes(
@@ -571,9 +600,10 @@ func _play_swing_followthrough() -> void:
 
 
 func _project_to_screen(world_pos: Vector3) -> Vector2:
-	if camera == null:
+	var cam := get_flight_camera()
+	if cam == null:
 		return Vector2.ZERO
-	return camera.unproject_position(world_pos)
+	return cam.unproject_position(world_pos)
 
 
 func _fairway_screen_dir(from_world: Vector3) -> Vector2:
@@ -828,8 +858,9 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		"sprite": flight_sprite,
 		"trail": null,
 	}
-	if fx_layer and camera:
-		flight["trail"] = BallFlightTrailScript.begin(fx_layer, camera)
+	var flight_cam := get_flight_camera()
+	if fx_layer and flight_cam:
+		flight["trail"] = BallFlightTrailScript.begin(fx_layer, flight_cam)
 		flight["trail"].track(flight_sprite.global_position)
 	_register_flight(flight)
 
@@ -854,8 +885,9 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		_sync_golfer_idle_from_bucket()
 	)
 
-	if feedback_tier == Balance.FeedbackTier.JACKPOT and camera:
-		var shake := camera.create_tween()
-		shake.tween_property(camera, "h_offset", 0.05, 0.05)
-		shake.tween_property(camera, "h_offset", -0.04, 0.05)
-		shake.tween_property(camera, "h_offset", 0.0, 0.05)
+	var shake_cam := get_flight_camera()
+	if feedback_tier == Balance.FeedbackTier.JACKPOT and shake_cam:
+		var shake := shake_cam.create_tween()
+		shake.tween_property(shake_cam, "h_offset", 0.05, 0.05)
+		shake.tween_property(shake_cam, "h_offset", -0.04, 0.05)
+		shake.tween_property(shake_cam, "h_offset", 0.0, 0.05)

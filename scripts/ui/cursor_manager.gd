@@ -6,6 +6,12 @@ const CURSOR_ARROW_PATH := "res://assets/cursors/cursor_arrow.png"
 const CURSOR_HAND_PATH := "res://assets/cursors/cursor_hand.png"
 const CURSOR_GRAB_PATH := "res://assets/cursors/cursor_grab.png"
 
+## Cursor shape every selectable/clickable Control should request via
+## `mouse_default_cursor_shape` so hovering shows the hand cursor instead of
+## silently falling back to the CURSOR_ARROW shape (which the harvest-phase
+## grab cursor also rebinds — see set_grab_cursor()).
+const SELECTABLE_CURSOR_SHAPE := Control.CURSOR_POINTING_HAND
+
 static var _arrow_texture: Texture2D
 static var _hand_texture: Texture2D
 static var _grab_texture: Texture2D
@@ -29,6 +35,14 @@ static func set_grab_cursor() -> void:
 static func clear_grab_cursor() -> void:
 	_ensure_loaded()
 	Input.set_custom_mouse_cursor(_arrow_texture, Input.CURSOR_ARROW, _arrow_hotspot)
+
+
+## Marks a Control as selectable so hovering it shows the hand cursor.
+## Use for controls built at runtime; static scene Buttons should instead set
+## mouse_default_cursor_shape = 2 (Control.CURSOR_POINTING_HAND) directly in
+## the .tscn file.
+static func mark_selectable(control: Control) -> void:
+	control.mouse_default_cursor_shape = SELECTABLE_CURSOR_SHAPE
 
 
 static func _ensure_loaded() -> void:

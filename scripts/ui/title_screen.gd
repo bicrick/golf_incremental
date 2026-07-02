@@ -50,6 +50,7 @@ func _setup_title_logo() -> void:
 
 func _setup_press_space_label() -> void:
 	press_space_label.text = "Press Space"
+	press_space_label.mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	PixelFont.apply_label(press_space_label, PROMPT_FONT_SIZE)
 	press_space_label.add_theme_color_override(&"font_color", Color.BLACK)
 	press_space_label.add_theme_color_override(&"font_outline_color", Color.BLACK)
