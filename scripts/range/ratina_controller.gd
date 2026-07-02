@@ -24,7 +24,11 @@ var _base_golfer_scale: Vector3 = Vector3.ONE
 var _ball_lay_texture: Texture2D
 var _atmosphere_tint: Color = Color.WHITE
 
+enum Phase { ADDRESS, WAITING, SWING }
+
 var _swing_timer: Timer
+var _phase_timer: Timer
+var _phase := Phase.ADDRESS
 var _active := false
 var _swinging := false
 var _ball_in_flight := false
@@ -74,6 +78,12 @@ func setup(range_view: Node3D) -> void:
 	add_child(_swing_timer)
 	_swing_timer.timeout.connect(_on_swing_timer_timeout)
 
+	_phase_timer = Timer.new()
+	_phase_timer.name = "PhaseTimer"
+	_phase_timer.one_shot = true
+	add_child(_phase_timer)
+	_phase_timer.timeout.connect(_on_phase_timer_timeout)
+
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 	_refresh_active_state()
@@ -107,6 +117,7 @@ func set_debug_mode(active: bool) -> void:
 	_debug_mode = active
 	if active:
 		_swing_timer.stop()
+		_phase_timer.stop()
 		_swinging = false
 		_ball_in_flight = false
 		_contact_fired = false
@@ -123,6 +134,7 @@ func set_debug_mode(active: bool) -> void:
 			_ball.play(&"idle")
 	elif _active and not _swinging and not _ball_in_flight:
 		_refresh_cooldown_timer()
+		_start_waiting_phase()
 	_sync_visibility()
 
 
@@ -200,6 +212,7 @@ func _refresh_active_state() -> void:
 	_sync_visibility()
 	if not _active:
 		_swing_timer.stop()
+		_phase_timer.stop()
 		_swinging = false
 		_ball_in_flight = false
 		_contact_fired = false
@@ -210,10 +223,8 @@ func _refresh_active_state() -> void:
 		for child in _ball_litter.get_children():
 			child.queue_free()
 		return
-	_golfer.play(&"idle")
-	_ball.position = _ball_home
-	_ball.play(&"idle")
 	_refresh_cooldown_timer()
+	_start_waiting_phase()
 
 
 func _sync_visibility() -> void:
@@ -247,6 +258,8 @@ func _refresh_cooldown_timer() -> void:
 		_try_pending_swing()
 		return
 	_swing_timer.start()
+	if _phase == Phase.WAITING:
+		_reschedule_waiting_to_address()
 
 
 func _start_cooldown_timer() -> void:
@@ -277,7 +290,8 @@ func _try_pending_swing() -> void:
 func _perform_swing() -> void:
 	_swinging = true
 	_contact_fired = false
-	_swing_timer.stop()
+	_phase = Phase.SWING
+	_phase_timer.stop()
 	_golfer.play(&"swing")
 	_ball.visible = true
 	_ball.position = _ball_home
@@ -287,11 +301,15 @@ func _perform_swing() -> void:
 
 
 func _on_golfer_frame_changed() -> void:
-	if not _swinging or _contact_fired:
+	if not _swinging:
 		return
-	if _golfer.animation == &"swing" and _golfer.frame == RatinaSpriteFrames.CONTACT_FRAME:
+	if _golfer.animation != &"swing":
+		return
+	if not _contact_fired and _golfer.frame == RatinaSpriteFrames.CONTACT_FRAME:
 		_contact_fired = true
 		_launch_ball()
+	elif _golfer.frame >= RatinaSpriteFrames.FOLLOW_START + RatinaSpriteFrames.FOLLOW_HOLD_FRAMES:
+		_complete_swing_anim()
 
 
 func _launch_ball() -> void:
@@ -387,16 +405,63 @@ func _spawn_litter_ball(land_position: Vector3, _quality: int) -> void:
 
 
 func _on_golfer_animation_finished() -> void:
-	if _golfer.animation == &"swing":
-		_golfer.play(&"follow")
-	elif _golfer.animation == &"follow":
-		_swinging = false
-		if _active and not _ball_in_flight:
-			_golfer.play(&"idle")
-			_ball.visible = true
-			_ball.position = _ball_home
-			_ball.play(&"idle")
-		_try_pending_swing()
+	if _golfer.animation == &"swing" and _swinging:
+		_complete_swing_anim()
+
+
+func _on_phase_timer_timeout() -> void:
+	if _phase == Phase.WAITING and not _swinging and not _ball_in_flight:
+		_enter_address_prep_phase()
+
+
+func _complete_swing_anim() -> void:
+	if not _swinging:
+		return
+	_swinging = false
+	_try_pending_swing()
+	if _swinging:
+		return
+	if not _active or _debug_mode:
+		return
+	_start_waiting_phase()
+
+
+func _start_waiting_phase() -> void:
+	if not _active or _debug_mode or _swinging:
+		return
+	if _swing_timer.is_stopped():
+		_start_cooldown_timer()
+	_phase = Phase.WAITING
+	_golfer.play(&"waiting")
+	if _ball and not _ball_in_flight:
+		_ball.visible = false
+	_reschedule_waiting_to_address()
+
+
+func _reschedule_waiting_to_address() -> void:
+	_phase_timer.stop()
+	if _phase != Phase.WAITING or _swinging or not _active:
+		return
+	var prep_sec := Balance.RATINA_ADDRESS_PREP_SEC
+	var remaining := _swing_timer.time_left if not _swing_timer.is_stopped() else _cooldown_sec()
+	var wait_duration := maxf(remaining - prep_sec, 0.0)
+	if wait_duration <= 0.01:
+		_enter_address_prep_phase()
+	else:
+		_phase_timer.wait_time = wait_duration
+		_phase_timer.start()
+
+
+func _enter_address_prep_phase() -> void:
+	if _swinging or not _active:
+		return
+	_phase_timer.stop()
+	_phase = Phase.ADDRESS
+	_golfer.play(&"idle")
+	if _ball and not _ball_in_flight:
+		_ball.visible = true
+		_ball.position = _ball_home
+		_ball.play(&"idle")
 
 
 func _strike_text_offset() -> Vector2:

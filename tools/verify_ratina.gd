@@ -77,6 +77,15 @@ func _run() -> void:
 	else:
 		print("OK: Ratina unlocked")
 
+	if not is_equal_approx(gs.ratina_stats.swing_cooldown_ms, 10000.0):
+		print(
+			"FAIL: base swing_cooldown_ms should be 10000, got %.1f"
+			% gs.ratina_stats.swing_cooldown_ms
+		)
+		ok = false
+	else:
+		print("OK: Ratina base swing interval is 10s")
+
 	if ratina_sprite == null or not ratina_sprite.visible:
 		print("FAIL: Ratina sprite should be visible after unlock")
 		ok = false
@@ -191,7 +200,19 @@ func _test_swing_sprite_frames() -> bool:
 		)
 		ok = false
 
+	if RatinaSpriteFrames.FOLLOW_HOLD_FRAMES != 2:
+		print(
+			"FAIL: FOLLOW_HOLD_FRAMES expected 2, got %d"
+			% RatinaSpriteFrames.FOLLOW_HOLD_FRAMES
+		)
+		ok = false
 	var frames := RatinaSpriteFrames.make_golfer_frames()
+	if frames.get_frame_count(&"waiting") != RatinaSpriteFrames.WAITING_FRAME_COUNT:
+		print(
+			"FAIL: waiting animation has %d frames, expected %d"
+			% [frames.get_frame_count(&"waiting"), RatinaSpriteFrames.WAITING_FRAME_COUNT]
+		)
+		ok = false
 	if frames.get_frame_count(&"swing") != RatinaSpriteFrames.SWING_FRAME_COUNT:
 		print(
 			"FAIL: swing animation has %d frames, expected %d"

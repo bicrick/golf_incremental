@@ -21,6 +21,7 @@ const WINDUP_LAST := 11       # wind-up frames 0-11
 const CONTACT_FRAME := 12     # ball launch / strike frame
 const FOLLOW_START := 13      # follow-through frames 13-16
 const FOLLOW_END := 16
+const FOLLOW_HOLD_FRAMES := 2 # follow pose frames shown after contact before cooldown
 const FOLLOW_FPS := 12.0
 const SWING_FPS := float(CONTACT_FRAME) / Balance.CONTACT_WINDUP_SEC
 const FOOT_OFFSET := Vector2(0.0, -float(FRAME_SIZE) * 0.5)

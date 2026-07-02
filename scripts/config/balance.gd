@@ -137,6 +137,8 @@ const RATINA_HOME_OFFSET := Vector3(2.6, -0.22, 0.31)
 const RATINA_BALL_OFFSET := Vector3(-0.416, -1.253, -0.271)
 ## Screen-space offset from projected Ratina ball contact for strike tier text.
 const RATINA_STRIKE_TEXT_OFFSET := Vector2(-27.0, -20.0)
+## Idle at the tee before each autonomous swing (remainder of swing_cooldown_ms).
+const RATINA_ADDRESS_PREP_SEC: float = 0.75
 
 
 static func default_stats() -> PlayerStats:
@@ -179,6 +181,6 @@ static func default_ratina_stats() -> PlayerStats:
 	stats.base_amount = 0.12
 	stats.pay_per_yard = 0.012
 	stats.quality_multiplier = 1.0
-	stats.swing_cooldown_ms = 5000.0
+	stats.swing_cooldown_ms = 10000.0
 	stats.consistency = 0.0
 	return stats
