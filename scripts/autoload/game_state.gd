@@ -4,6 +4,9 @@ extends Node
 var currency: float = 0.0
 var upgrade_levels: Dictionary = {}
 var upgrades_unlocked: bool = false
+var shop_unlocked: bool = false
+var ratina_unlocked: bool = false
+var shop_levels: Dictionary = {}
 var stats: PlayerStats = Balance.default_stats()
 var bucket_remaining: int = -1
 var bucket_capacity: int = 0
@@ -39,7 +42,77 @@ func get_upgrade_level(id: String) -> int:
 func _recompute_stats() -> void:
 	stats = Balance.default_stats()
 	UpgradeEffects.apply_all(stats, upgrade_levels)
+	ShopEffects.apply_all(stats, shop_levels)
 	bucket_capacity = get_bucket_capacity()
+
+
+func is_shop_visible() -> bool:
+	return get_upgrade_level("base_pay") >= 1
+
+
+func try_unlock_shop() -> bool:
+	if shop_unlocked:
+		return true
+	if currency < Balance.SHOP_UNLOCK_COST:
+		return false
+	currency -= Balance.SHOP_UNLOCK_COST
+	shop_unlocked = true
+	EventBus.stats_changed.emit(stats, currency)
+	return true
+
+
+func try_unlock_ratina() -> bool:
+	if ratina_unlocked:
+		return true
+	if not shop_unlocked:
+		return false
+	if currency < Balance.RATINA_UNLOCK_COST:
+		return false
+	currency -= Balance.RATINA_UNLOCK_COST
+	ratina_unlocked = true
+	EventBus.stats_changed.emit(stats, currency)
+	return true
+
+
+func get_shop_item_level(id: String) -> int:
+	return shop_levels.get(id, 0)
+
+
+func purchase_shop_item(id: String) -> bool:
+	if not shop_unlocked:
+		return false
+	var def: Dictionary = ShopDefinitions.get_def(id)
+	if def.is_empty():
+		return false
+	var level := get_shop_item_level(id)
+	if level >= int(def["max_level"]):
+		return false
+	var cost := get_shop_item_cost(id)
+	if currency < cost:
+		return false
+	currency -= cost
+	shop_levels[id] = level + 1
+	var old_capacity := bucket_capacity
+	_recompute_stats()
+	if bucket_capacity > old_capacity:
+		bucket_remaining = bucket_capacity
+		if current_phase == "harvest":
+			harvest_collected = 0
+			current_phase = "strike"
+			EventBus.phase_changed.emit("strike")
+	EventBus.shop_item_purchased.emit(id, level + 1)
+	EventBus.stats_changed.emit(stats, currency)
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	return true
+
+
+func get_shop_item_cost(id: String) -> float:
+	var def: Dictionary = ShopDefinitions.get_def(id)
+	if def.is_empty():
+		return 0.0
+	return Economy.upgrade_cost(
+		float(def["base_cost"]), float(def["growth_rate"]), get_shop_item_level(id)
+	)
 
 
 func try_unlock_upgrades() -> bool:
@@ -92,6 +165,9 @@ func reset_to_fresh() -> void:
 	currency = 0.0
 	upgrade_levels.clear()
 	upgrades_unlocked = false
+	shop_unlocked = false
+	ratina_unlocked = false
+	shop_levels.clear()
 	stats = Balance.default_stats()
 	bucket_capacity = get_bucket_capacity()
 	bucket_remaining = bucket_capacity
@@ -154,7 +230,8 @@ func collect_harvest_ball(
 	world_pos: Vector3,
 	combo_tier: int,
 	quality: int = 1,
-	yardage: float = 0.0
+	yardage: float = 0.0,
+	is_golden: bool = false
 ) -> float:
 	if current_phase != "harvest":
 		return 0.0
@@ -164,6 +241,8 @@ func collect_harvest_ball(
 	var payout := Economy.resolve_pickup_ball_payout(
 		quality, effective_yardage, combo_tier, stats
 	)
+	if is_golden:
+		payout *= stats.golden_ball_payout_multiplier
 	add_currency(payout)
 	harvest_collected += 1
 	EventBus.ball_collected.emit(world_pos, combo_tier)
@@ -175,12 +254,15 @@ func credit_vanished_ball(
 	world_pos: Vector3,
 	quality: int,
 	yardage: float,
-	combo_tier: int = 1
+	combo_tier: int = 1,
+	is_golden: bool = false
 ) -> float:
 	var effective_yardage := yardage if yardage > 0.0 else stats.base_yards
 	var payout := Economy.resolve_pickup_ball_payout(
 		quality, effective_yardage, combo_tier, stats
 	)
+	if is_golden:
+		payout *= stats.golden_ball_payout_multiplier
 	add_currency(payout)
 	if current_phase == "harvest":
 		harvest_collected += 1

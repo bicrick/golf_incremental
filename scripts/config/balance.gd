@@ -117,8 +117,19 @@ enum UpgradeBranch { BASE_PAY, POWER, QUALITY, PICKUP }
 
 ## One-time cost to unlock the upgrade tree from the icon bar.
 const UPGRADES_UNLOCK_COST: float = 1.50
+## One-time cost to unlock the Pro Shop from the icon bar.
+const SHOP_UNLOCK_COST: float = 50.0
+## One-time cost to hire Ratina (placeholder tab only for now).
+const RATINA_UNLOCK_COST: float = 100.0
 ## Per-level cost escalation — each successive upgrade costs more than pure exponential.
 const UPGRADE_COST_LEVEL_STRETCH: float = 0.165
+
+## Pro Shop — golden ball chance and payout.
+const GOLDEN_BALL_BASE_CHANCE: float = 0.05
+const GOLDEN_BALL_CHANCE_PER_LEVEL: float = 0.02
+const GOLDEN_BALL_PAYOUT_MULTIPLIER: float = 2.0
+## Extra balls per bucket per More Balls shop level.
+const BALL_COUNT_BONUS_PER_LEVEL: float = 1.0
 
 
 static func default_stats() -> PlayerStats:
@@ -148,4 +159,6 @@ static func default_stats() -> PlayerStats:
 	stats.combo_mult_per_tier = 0.0
 	stats.combo_window_bonus_sec = 0.0
 	stats.magnetic_glove = 0.0
+	stats.golden_ball_chance = 0.0
+	stats.golden_ball_payout_multiplier = GOLDEN_BALL_PAYOUT_MULTIPLIER
 	return stats

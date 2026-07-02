@@ -38,9 +38,11 @@ extends Resource
 @export var combo_window_bonus_sec: float = 0.0
 @export var magnetic_glove: float = 0.0
 
-# Equipment (Shop — deferred)
+# Equipment (Shop)
 @export var club_multiplier: float = 1.0
 @export var ball_multiplier: float = 1.0
+@export var golden_ball_chance: float = 0.0
+@export var golden_ball_payout_multiplier: float = 2.0
 
 # Range (v1.5+)
 @export var target_zone_multiplier: float = 1.0
@@ -88,6 +90,8 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.magnetic_glove = from.magnetic_glove
 	copy.club_multiplier = from.club_multiplier
 	copy.ball_multiplier = from.ball_multiplier
+	copy.golden_ball_chance = from.golden_ball_chance
+	copy.golden_ball_payout_multiplier = from.golden_ball_payout_multiplier
 	copy.target_zone_multiplier = from.target_zone_multiplier
 	copy.outfit_multiplier = from.outfit_multiplier
 	copy.global_multiplier = from.global_multiplier

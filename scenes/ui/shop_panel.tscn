@@ -1,0 +1,107 @@
+[gd_scene load_steps=3 format=3 uid="uid://shop_panel"]
+
+[ext_resource type="Script" path="res://scripts/ui/shop_panel.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/ui/parallax_sky_background.gd" id="2_sky_bg"]
+
+[node name="ShopPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_script")
+
+[node name="SkyBg" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+clip_contents = true
+script = ExtResource("2_sky_bg")
+
+[node name="Content" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Header" type="HBoxContainer" parent="Content"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 6.0
+offset_right = 472.0
+offset_bottom = 24.0
+theme_override_constants/separation = 8
+
+[node name="BackButton" type="Button" parent="Content/Header"]
+custom_minimum_size = Vector2(48, 18)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.12, 0.1, 0.08, 1)
+theme_override_font_sizes/font_size = 8
+text = "Back"
+flat = true
+
+[node name="Title" type="Label" parent="Content/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.92, 0.45, 1)
+theme_override_font_sizes/font_size = 10
+text = "Pro Shop"
+horizontal_alignment = 1
+
+[node name="CurrencyLabel" type="Label" parent="Content/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.45, 1)
+theme_override_font_sizes/font_size = 8
+text = "$0"
+horizontal_alignment = 2
+
+[node name="Items" type="VBoxContainer" parent="Content"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 36.0
+offset_right = 464.0
+offset_bottom = 250.0
+theme_override_constants/separation = 8
+
+[node name="RatinaCard" type="PanelContainer" parent="Content/Items"]
+custom_minimum_size = Vector2(440, 52)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Content/Items/RatinaCard"]
+layout_mode = 2
+
+[node name="Row" type="HBoxContainer" parent="Content/Items/RatinaCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Info" type="VBoxContainer" parent="Content/Items/RatinaCard/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="NameLabel" type="Label" parent="Content/Items/RatinaCard/Margin/Row/Info"]
+layout_mode = 2
+text = "Ratina"
+
+[node name="DescLabel" type="Label" parent="Content/Items/RatinaCard/Margin/Row/Info"]
+layout_mode = 2
+autowrap_mode = 2
+text = "Hire the range star."
+
+[node name="LevelLabel" type="Label" parent="Content/Items/RatinaCard/Margin/Row/Info"]
+layout_mode = 2
+text = "$20/min once implemented"
+
+[node name="BuyButton" type="Button" parent="Content/Items/RatinaCard/Margin/Row"]
+layout_mode = 2
+size_flags_vertical = 4
+text = "$100"

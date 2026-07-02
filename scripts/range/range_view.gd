@@ -10,6 +10,7 @@ const SWING_RESULT_TEXT_OFFSET := Vector2(0.0, -38.0)
 const BALL_PIXEL_SIZE := 0.021
 const GOLFER_PIXEL_SIZE := 0.024
 const VANISH_DISTANCE_YARDS := 220.0
+const GOLDEN_BALL_TINT := Color(1.0, 0.88, 0.28, 1.0)
 const PICKUP_FLY_DURATION_SEC := 0.35
 const PICKUP_FLY_ARC_PX := 36.0
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
@@ -45,7 +46,7 @@ var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
 var _placement_debug: PlacementDebug
 var _pickup: Node
-var _flight_trail = null
+var _active_flights: Array[Dictionary] = []
 var _sprite_atmosphere_tint: Color = Color.WHITE
 
 
@@ -181,6 +182,10 @@ func _apply_sprite_atmosphere_tint() -> void:
 		golfer.modulate = _sprite_atmosphere_tint
 	if ball:
 		ball.modulate = _sprite_atmosphere_tint
+	for flight in _active_flights:
+		var sprite: Node = flight.get("sprite")
+		if sprite is SpriteBase3D and is_instance_valid(sprite):
+			(sprite as SpriteBase3D).modulate = _sprite_atmosphere_tint
 	if littered_balls:
 		for child in littered_balls.get_children():
 			if child is SpriteBase3D:
@@ -368,14 +373,13 @@ func _update_charge_visuals() -> void:
 				charge_meter.visible = false
 			if contact_ring and not contact_ring.is_flash_active():
 				contact_ring.hide_idle()
-			if not _ball_in_flight:
-				if _ball_at_tee:
-					ball.position = _ball_home
-					ball.scale = _base_ball_scale
-					if ball.animation != &"roll":
-						ball.play(&"idle")
-				golfer.position = _golfer_home
-				_sync_golfer_idle_from_bucket()
+			if _ball_at_tee:
+				ball.position = _ball_home
+				ball.scale = _base_ball_scale
+				if ball.animation != &"roll":
+					ball.play(&"idle")
+			golfer.position = _golfer_home
+			_sync_golfer_idle_from_bucket()
 		if not _swing.is_charging():
 			return
 
@@ -479,9 +483,9 @@ func show_pickup_cash_float(world_pos: Vector3, payout: float, combo_tier: int) 
 	FloatCashTextScript.spawn(fx_layer, _project_to_screen(world_pos), payout, combo_tier)
 
 
-func _handle_vanished_ball(landing: Vector3, quality: int, yardage: float) -> void:
+func _handle_vanished_ball(landing: Vector3, quality: int, yardage: float, is_golden: bool = false) -> void:
 	DistanceTwinkle.spawn(fx_layer, _project_to_screen(landing))
-	var payout := GameState.credit_vanished_ball(landing, quality, yardage)
+	var payout := GameState.credit_vanished_ball(landing, quality, yardage, 1, is_golden)
 	show_pickup_cash_float(landing, payout, 1)
 	if payout > 0.0:
 		EventBus.pickup_payout.emit(payout, 1)
@@ -515,7 +519,7 @@ func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:
 	icon.scale = Vector2(0.5, 0.5)
 	fx_layer.add_child(icon)
 	var mid := (start_screen + end_screen) * 0.5 + Vector2(0.0, -PICKUP_FLY_ARC_PX)
-	var tween := create_tween()
+	var tween := icon.create_tween()
 	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_method(
 		func(t: float) -> void:
@@ -549,7 +553,7 @@ func _spawn_float_text(tier: int, yards: float) -> void:
 	var size := label.get_minimum_size()
 	label.position = Vector2(-size.x * 0.5, SWING_RESULT_TEXT_OFFSET.y - size.y)
 
-	var tween := create_tween()
+	var tween := label.create_tween()
 	tween.tween_property(label, "modulate:a", 0.0, ContactChargeRing.FROZEN_FADE_DURATION)\
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_callback(label.queue_free)
@@ -584,8 +588,6 @@ func _setup_pickup_controller() -> void:
 
 
 func _sync_tee_ball_from_bucket() -> void:
-	if _ball_in_flight:
-		return
 	if not GameState.has_bucket_balls():
 		ball.visible = false
 		_ball_at_tee = false
@@ -602,8 +604,6 @@ func _sync_tee_ball_from_bucket() -> void:
 
 
 func _update_ball_reload() -> void:
-	if _ball_in_flight:
-		return
 	if not GameState.has_bucket_balls():
 		if ball.visible or _ball_at_tee:
 			ball.visible = false
@@ -626,23 +626,65 @@ func _respawn_ball_at_tee() -> void:
 	_sync_golfer_idle_from_bucket()
 
 
-func _leave_litter_ball(land_position: Vector3, land_scale: Vector3, quality: int, yardage: float) -> void:
+func _leave_litter_ball(
+	land_position: Vector3,
+	land_scale: Vector3,
+	quality: int,
+	yardage: float,
+	is_golden: bool = false
+) -> void:
 	var litter := Sprite3D.new()
 	litter.texture = _ball_lay_texture
 	litter.position = land_position
 	litter.scale = land_scale
 	_configure_billboard(litter, BALL_PIXEL_SIZE)
-	litter.modulate = _sprite_atmosphere_tint
+	litter.modulate = GOLDEN_BALL_TINT if is_golden else _sprite_atmosphere_tint
 	litter.set_meta("collectible", true)
 	litter.set_meta("ball_quality", quality)
 	litter.set_meta("ball_yardage", yardage)
+	litter.set_meta("ball_golden", is_golden)
 	littered_balls.add_child(litter)
 
 
-func _apply_flight_sample(progress: float, path: BallFlight3D.FlightPath) -> void:
-	ball.global_position = BallFlight3D.sample(progress, path)
-	if _flight_trail:
-		_flight_trail.track(ball.global_position)
+func _roll_is_golden() -> bool:
+	var chance := GameState.stats.golden_ball_chance
+	if chance <= 0.0:
+		return false
+	return randf() < chance
+
+
+func _sync_ball_in_flight_flag() -> void:
+	_ball_in_flight = not _active_flights.is_empty()
+
+
+func _register_flight(flight: Dictionary) -> void:
+	_active_flights.append(flight)
+	_sync_ball_in_flight_flag()
+
+
+func _finish_flight(flight: Dictionary) -> void:
+	_active_flights.erase(flight)
+	_sync_ball_in_flight_flag()
+
+
+func _spawn_flight_sprite() -> AnimatedSprite3D:
+	var sprite := AnimatedSprite3D.new()
+	sprite.sprite_frames = DinkySpriteFrames.make_ball_frames()
+	_configure_billboard(sprite, BALL_PIXEL_SIZE)
+	sprite.scale = _base_ball_scale
+	sprite.modulate = _sprite_atmosphere_tint
+	foreground.add_child(sprite)
+	return sprite
+
+
+func _apply_flight_sample(progress: float, flight: Dictionary, path: BallFlight3D.FlightPath) -> void:
+	var sprite: Node = flight.get("sprite")
+	if not sprite is AnimatedSprite3D or not is_instance_valid(sprite):
+		return
+	sprite.global_position = BallFlight3D.sample(progress, path)
+	var trail = flight.get("trail")
+	if trail:
+		trail.track(sprite.global_position)
 
 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int) -> void:
@@ -654,48 +696,49 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		_ball_home
 	)
 
-	_ball_in_flight = true
 	_ball_at_tee = false
-	if _flight_trail:
-		_flight_trail.finish()
-		_flight_trail = null
-	if fx_layer and camera:
-		_flight_trail = BallFlightTrailScript.begin(fx_layer, camera)
-		_flight_trail.track(ball.global_position)
-	ball.visible = true
-	ball.position = _ball_home
-	ball.scale = _base_ball_scale
-	ball.modulate = _sprite_atmosphere_tint
-	ball.play(&"roll")
-	ball.sprite_frames.set_animation_speed(
+	ball.visible = false
+
+	var flight_sprite := _spawn_flight_sprite()
+	flight_sprite.position = _ball_home
+	flight_sprite.play(&"roll")
+	flight_sprite.sprite_frames.set_animation_speed(
 		&"roll",
 		float(DinkySpriteFrames.BALL_ROLL_FRAME_COUNT) / path.flight_time
 	)
 
-	var tween := create_tween()
-	tween.tween_method(_apply_flight_sample.bind(path), 0.0, 1.0, path.flight_time)\
+	var flight := {
+		"sprite": flight_sprite,
+		"trail": null,
+	}
+	if fx_layer and camera:
+		flight["trail"] = BallFlightTrailScript.begin(fx_layer, camera)
+		flight["trail"].track(flight_sprite.global_position)
+	_register_flight(flight)
+
+	var tween := flight_sprite.create_tween()
+	tween.tween_method(_apply_flight_sample.bind(flight, path), 0.0, 1.0, path.flight_time)\
 		.set_trans(Tween.TRANS_LINEAR)
 	tween.chain().tween_callback(func():
+		if not _active_flights.has(flight):
+			return
 		var landing := BallFlight3D.sample(1.0, path)
-		_ball_in_flight = false
-		if _flight_trail:
-			_flight_trail.finish()
-			_flight_trail = null
+		var trail = flight.get("trail")
+		if trail:
+			trail.finish()
+		if is_instance_valid(flight_sprite):
+			flight_sprite.queue_free()
+		_finish_flight(flight)
+		var is_golden := _roll_is_golden()
 		if path.visual_yards <= VANISH_DISTANCE_YARDS:
-			_leave_litter_ball(landing, _base_ball_scale, quality, yards)
+			_leave_litter_ball(landing, _base_ball_scale, quality, yards, is_golden)
 		else:
-			_handle_vanished_ball(landing, quality, yards)
-		ball.visible = false
-		ball.modulate = _sprite_atmosphere_tint
-		if GameState.has_bucket_balls():
-			_update_ball_reload()
-		else:
-			_ball_at_tee = false
+			_handle_vanished_ball(landing, quality, yards, is_golden)
 		_sync_golfer_idle_from_bucket()
 	)
 
 	if feedback_tier == Balance.FeedbackTier.JACKPOT and camera:
-		var shake := create_tween()
+		var shake := camera.create_tween()
 		shake.tween_property(camera, "h_offset", 0.05, 0.05)
 		shake.tween_property(camera, "h_offset", -0.04, 0.05)
 		shake.tween_property(camera, "h_offset", 0.0, 0.05)

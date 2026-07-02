@@ -3,6 +3,7 @@ extends Node
 
 signal swing_resolved(yards: float, timing_tier: int, payout: float, feedback_tier: int)
 signal upgrade_purchased(id: String, level: int, branch: int)
+signal shop_item_purchased(id: String, level: int)
 signal stats_changed(stats: PlayerStats, currency: float)
 signal milestone_reached(id: String, display_name: String)
 signal swing_charging_changed(charging: bool)

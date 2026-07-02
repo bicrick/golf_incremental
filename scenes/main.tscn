@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="2_hud"]
 [ext_resource type="PackedScene" path="res://scenes/ui/icon_bar.tscn" id="3_icons"]
 [ext_resource type="PackedScene" path="res://scenes/ui/upgrade_panel.tscn" id="4_panel"]
+[ext_resource type="PackedScene" path="res://scenes/ui/shop_panel.tscn" id="4b_shop"]
 [ext_resource type="Script" uid="uid://bv7ncrrp8hngf" path="res://scripts/ui/ui_root.gd" id="5_ui_root"]
 [ext_resource type="PackedScene" uid="uid://b8cisw5axuxjg" path="res://scenes/ui/title_screen.tscn" id="6_title"]
 [ext_resource type="Script" uid="uid://bqqkov8a6pslv" path="res://scripts/main.gd" id="7_main"]
@@ -34,6 +35,9 @@ layout_mode = 1
 layout_mode = 1
 
 [node name="UpgradePanel" parent="UI/UIRoot" unique_id=811323415 instance=ExtResource("4_panel")]
+layout_mode = 1
+
+[node name="ShopPanel" parent="UI/UIRoot" instance=ExtResource("4b_shop")]
 layout_mode = 1
 
 [node name="SettingsLayer" type="CanvasLayer" parent="." unique_id=1079990672]
