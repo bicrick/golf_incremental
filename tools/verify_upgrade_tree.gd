@@ -11,21 +11,21 @@ func _run() -> void:
 	var ok := true
 
 	var defs := UpgradeDefinitions.all()
-	if defs.size() != 14:
-		print("FAIL: expected 14 upgrades, got ", defs.size())
+	if defs.size() != 13:
+		print("FAIL: expected 13 upgrades, got ", defs.size())
 		ok = false
 	var base_pay := UpgradeDefinitions.get_def("base_pay")
 	if base_pay.is_empty() or base_pay.get("parent_id", "x") != "":
 		print("FAIL: base_pay root missing or has parent")
 		ok = false
-	var branch_heads := ["power", "quality", "pickup"]
+	var branch_heads := ["distance_pay", "quality", "pickup"]
 	for head in branch_heads:
 		var def := UpgradeDefinitions.get_def(head)
 		if def.get("parent_id", "") != "base_pay":
 			print("FAIL: %s should branch from base_pay" % head)
 			ok = false
-	if UpgradeDefinitions.connections().size() != 13:
-		print("FAIL: expected 13 tree connections, got ", UpgradeDefinitions.connections().size())
+	if UpgradeDefinitions.connections().size() != 12:
+		print("FAIL: expected 12 tree connections, got ", UpgradeDefinitions.connections().size())
 		ok = false
 
 	var main: Node = load("res://scenes/main.tscn").instantiate()
@@ -67,14 +67,6 @@ func _run() -> void:
 			print("FAIL: %s should unlock at base_pay Lv.1" % head)
 			ok = false
 
-	if gs.purchase_upgrade("power"):
-		if gs.stats.carry_multiplier <= 1.0:
-			print("FAIL: power did not increase carry_multiplier")
-			ok = false
-	else:
-		print("FAIL: could not purchase power")
-		ok = false
-
 	if gs.purchase_upgrade("distance_pay"):
 		if gs.stats.yardage_term_unlocked <= 0.0:
 			print("FAIL: distance_pay did not unlock yardage term")
@@ -84,6 +76,22 @@ func _run() -> void:
 			ok = false
 	else:
 		print("FAIL: could not purchase distance_pay")
+		ok = false
+
+	if gs.purchase_upgrade("iron_set"):
+		if gs.stats.base_yards <= 30.0:
+			print("FAIL: iron_set did not increase base_yards")
+			ok = false
+	else:
+		print("FAIL: could not purchase iron_set")
+		ok = false
+
+	if gs.purchase_upgrade("power"):
+		if gs.stats.carry_multiplier <= 1.0:
+			print("FAIL: power did not increase carry_multiplier")
+			ok = false
+	else:
+		print("FAIL: could not purchase power")
 		ok = false
 
 	if gs.purchase_upgrade("quality"):
@@ -134,8 +142,8 @@ func _run() -> void:
 			print("FAIL: expected 4 revealed nodes after base_pay, got ", visible_after_base)
 			ok = false
 
-		if nodes_root.get_child_count() != 14:
-			print("FAIL: expected 14 tree nodes built, got ", nodes_root.get_child_count())
+		if nodes_root.get_child_count() != 13:
+			print("FAIL: expected 13 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
 		panel.close()

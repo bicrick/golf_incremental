@@ -27,11 +27,10 @@ func _run() -> void:
 
 	var cases: Array[Dictionary] = [
 		{"id": "base_pay", "prereq_levels": {}},
-		{"id": "power", "prereq_levels": {"base_pay": 1}},
-		{"id": "distance_pay", "prereq_levels": {"base_pay": 1, "power": 1}},
+		{"id": "distance_pay", "prereq_levels": {"base_pay": 1}},
+		{"id": "iron_set", "prereq_levels": {"base_pay": 1, "distance_pay": 1}},
+		{"id": "power", "prereq_levels": {"base_pay": 1, "distance_pay": 1, "iron_set": 1}},
 		{"id": "quality", "prereq_levels": {"base_pay": 1}},
-		{"id": "iron_set", "prereq_levels": {"base_pay": 1, "power": 1, "distance_pay": 1}},
-		{"id": "power_surge", "prereq_levels": {"base_pay": 1, "power": 1, "distance_pay": 1}},
 		{"id": "metronome", "prereq_levels": {"base_pay": 1, "quality": 1}},
 		{"id": "pickup", "prereq_levels": {"base_pay": 1}},
 	]
@@ -79,7 +78,7 @@ func _check_pickup_formula(gs: Node) -> bool:
 		print("FAIL: fresh pickup expected $0.25, got %.4f" % flat)
 		return false
 
-	gs.upgrade_levels = {"base_pay": 1, "power": 1, "distance_pay": 1}
+	gs.upgrade_levels = {"base_pay": 1, "distance_pay": 1}
 	gs._recompute_stats()
 	var with_yardage := Economy.resolve_pickup_ball_payout(
 		SAMPLE_QUALITY, SAMPLE_YARDAGE, 1, gs.stats
@@ -99,7 +98,7 @@ func _check_pickup_formula(gs: Node) -> bool:
 		print("FAIL: short-yard pickup %.4f below base %.4f" % [short, gs.stats.base_amount])
 		return false
 
-	gs.upgrade_levels = {"base_pay": 1, "power": 1, "distance_pay": 1, "quality": 1}
+	gs.upgrade_levels = {"base_pay": 1, "distance_pay": 1, "quality": 1}
 	gs._recompute_stats()
 	var full := Economy.resolve_pickup_ball_payout(SAMPLE_QUALITY, SAMPLE_YARDAGE, 1, gs.stats)
 	var shot: float = gs.stats.base_amount + gs.stats.base_amount * gs.stats.pay_per_yard * SAMPLE_YARDAGE
@@ -132,14 +131,14 @@ func _check_distance_curve(gs: Node) -> bool:
 		print("OK: fresh save perfect yards=%.2f" % start_yards)
 
 	var max_levels := {}
-	for id in ["power", "distance_pay", "iron_set", "power_surge"]:
+	for id in ["power", "distance_pay", "iron_set"]:
 		max_levels[id] = UpgradeDefinitions.get_def(id).get("max_level", 0)
 	gs.upgrade_levels = max_levels
 	gs._recompute_stats()
 	var end_yards := Economy.yards_from_quality(1.0, gs.stats)
-	if end_yards < start_yards * 3.0:
+	if end_yards < 300.0:
 		print(
-			"FAIL: maxed distance perfect yards expected well above start, got %.2f"
+			"FAIL: maxed power branch perfect yards expected >= 300, got %.2f"
 			% end_yards
 		)
 		ok = false
@@ -148,6 +147,25 @@ func _check_distance_curve(gs: Node) -> bool:
 			"OK: maxed distance perfect yards=%.2f (base=%.2f carry=%.3f)"
 			% [end_yards, gs.stats.base_yards, gs.stats.carry_multiplier]
 		)
+
+	var raw_max := {"distance_pay": max_levels["distance_pay"], "iron_set": max_levels["iron_set"]}
+	gs.upgrade_levels = raw_max
+	gs._recompute_stats()
+	var raw_only_yards := Economy.yards_from_quality(1.0, gs.stats)
+	if raw_only_yards < 85.0:
+		print(
+			"FAIL: max raw power only expected >= 85 yd, got %.2f"
+			% raw_only_yards
+		)
+		ok = false
+	elif raw_only_yards >= 220.0:
+		print(
+			"FAIL: max raw power only expected < 220 yd (on fairway), got %.2f"
+			% raw_only_yards
+		)
+		ok = false
+	else:
+		print("OK: max raw power only perfect yards=%.2f" % raw_only_yards)
 	return ok
 
 
@@ -190,14 +208,14 @@ func _check_upgrade(id: String, before: Dictionary, after: Dictionary) -> String
 				return "quality_term_unlocked did not flip on"
 			if a_stats.quality_multiplier <= b_stats.quality_multiplier:
 				return "quality_multiplier did not increase"
-		"power", "power_surge":
+		"power":
 			if a_stats.carry_multiplier <= b_stats.carry_multiplier:
 				return "carry_multiplier did not increase"
 			if after.perfect_yards <= before.perfect_yards:
 				return "perfect yards did not increase"
 		"iron_set":
-			if a_stats.base_yards <= b_stats.base_yards:
-				return "base_yards did not increase"
+			if not is_equal_approx(a_stats.base_yards, b_stats.base_yards + 3.0):
+				return "base_yards expected +3 at Lv.1, got %.2f" % a_stats.base_yards
 			if after.perfect_yards <= before.perfect_yards:
 				return "perfect yards did not increase"
 		"metronome":

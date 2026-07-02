@@ -60,13 +60,13 @@ static func _format_delta_preview(def: Dictionary, current: PlayerStats, next: P
 	var stat_name := str(primary.get("stat", ""))
 	if str(primary.get("type", "")) == "binary" and _read_stat(current, stat_name) <= 0.0:
 		return _binary_unlock_label(stat_name)
-	var prefix := _axis_prefix(stat_name)
-	var cur_text := _format_stat_value(stat_name, current, false)
-	var next_text := _format_stat_value(stat_name, next, false)
 	if stat_name == "carry_multiplier" or stat_name == "base_yards":
 		var cur_yards := Economy.yards_from_quality(1.0, current)
 		var next_yards := Economy.yards_from_quality(1.0, next)
-		return "%s %s → %s (%.0f→%.0f yd)" % [prefix, cur_text, next_text, cur_yards, next_yards]
+		return "Carry: %.0f yd → %.0f yd" % [cur_yards, next_yards]
+	var prefix := _axis_prefix(stat_name)
+	var cur_text := _format_stat_value(stat_name, current, false)
+	var next_text := _format_stat_value(stat_name, next, false)
 	if stat_name == "pay_per_yard":
 		var sample_yards := 30.0
 		var cur_bonus := current.base_amount * current.pay_per_yard * sample_yards

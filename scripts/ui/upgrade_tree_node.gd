@@ -17,12 +17,11 @@ const TOOLTIP_EDGE_MARGIN := 4
 
 const SHORT_NAMES: Dictionary = {
 	"base_pay": "PAY",
-	"power": "PWR",
+	"power": "CRY",
 	"quality": "QLT",
 	"pickup": "PKP",
-	"distance_pay": "DST",
-	"iron_set": "IRN",
-	"power_surge": "SRG",
+	"distance_pay": "YRD",
+	"iron_set": "RAW",
 	"metronome": "MET",
 	"great_eye": "EYE",
 	"quick_reset": "RST",

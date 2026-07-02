@@ -34,6 +34,7 @@ func _run() -> void:
 	ok = await _check_phase_integration(main, gs) and ok
 	ok = await _check_harvest_idle_at_home(main, gs) and ok
 	ok = await _check_hit_mode_during_harvest(main, gs) and ok
+	ok = await _check_combo_interrupted_by_swing(main, gs) and ok
 	_cleanup_save()
 	print("pickup_ok=", ok)
 	quit(0 if ok else 1)
@@ -429,4 +430,47 @@ func _check_hit_mode_during_harvest(main: Node, gs: Node) -> bool:
 		return false
 
 	print("OK: harvest swings and pickup inferred from bucket count")
+	return true
+
+
+func _check_combo_interrupted_by_swing(main: Node, gs: Node) -> bool:
+	_reset(gs)
+	main._on_play_pressed()
+	await process_frame
+	await process_frame
+	var range_view: Node3D = main.get_node("RangeView")
+	_enter_harvest(gs)
+
+	var pickup: Node = range_view._pickup
+	if pickup == null:
+		print("FAIL: pickup controller missing for combo interrupt test")
+		return false
+
+	var tier1: int = pickup._advance_combo()
+	var tier2: int = pickup._advance_combo()
+	if tier1 != 1 or tier2 != 2:
+		print("FAIL: expected combo tiers 1 then 2, got %d then %d" % [tier1, tier2])
+		return false
+	if pickup._combo != 2:
+		print("FAIL: expected _combo=2 after two pickups, got %d" % pickup._combo)
+		return false
+	if pickup._best_combo != 2:
+		print("FAIL: expected _best_combo=2, got %d" % pickup._best_combo)
+		return false
+
+	var event_bus: Node = root.get_node("EventBus")
+	event_bus.swing_resolved.emit(100.0, Balance.TimingTier.GOOD, 0.0, Balance.FeedbackTier.WHISPER)
+	if pickup._combo != 1:
+		print("FAIL: swing should reset _combo to 1, got %d" % pickup._combo)
+		return false
+	if pickup._best_combo != 2:
+		print("FAIL: swing should preserve _best_combo=2, got %d" % pickup._best_combo)
+		return false
+
+	var tier_after: int = pickup._advance_combo()
+	if tier_after != 1:
+		print("FAIL: pickup after swing should be combo tier 1, got %d" % tier_after)
+		return false
+
+	print("OK: swing interrupts pickup combo streak")
 	return true

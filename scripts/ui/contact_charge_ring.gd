@@ -172,7 +172,7 @@ static func outer_scale_for_stats(stats: PlayerStats) -> float:
 
 static func _max_distance_power_metric() -> float:
 	var levels := {}
-	for id in ["power", "distance_pay", "iron_set", "power_surge"]:
+	for id in ["power", "distance_pay", "iron_set"]:
 		levels[id] = UpgradeDefinitions.get_def(id).get("max_level", 0)
 	var stats := UpgradeEffects.preview_stats(levels)
 	return Economy.yards_from_quality(1.0, stats)

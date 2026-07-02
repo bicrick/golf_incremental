@@ -31,7 +31,6 @@ func _maxed_stats() -> PlayerStats:
 		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
 		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
 		"iron_set": UpgradeDefinitions.get_def("iron_set").get("max_level", 0),
-		"power_surge": UpgradeDefinitions.get_def("power_surge").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(stats, max_levels)
 	return stats

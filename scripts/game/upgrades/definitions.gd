@@ -18,10 +18,13 @@ static func _init_defs() -> void:
 			"", {}, Vector2(213, 6)
 		),
 		_def(
-			"power", Balance.UpgradeBranch.POWER, "Power",
-			"Carry power — ball flies farther on every swing tier.",
-			8, 12.0, 1.26,
-			[{"type": "multiply", "stat": "carry_multiplier", "value_per_level": 1.05}],
+			"distance_pay", Balance.UpgradeBranch.POWER, "Yardage Pay",
+			"Unlock pay per yard. Keep base $; each yard flown adds bonus cash at pickup.",
+			20, 12.0, 1.36,
+			[
+				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
+				{"type": "multiply", "stat": "pay_per_yard", "value_per_level": 1.06},
+			],
 			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(120, 62)
 		),
 		_def(
@@ -45,28 +48,18 @@ static func _init_defs() -> void:
 			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(306, 62)
 		),
 		_def(
-			"distance_pay", Balance.UpgradeBranch.POWER, "Distance Pay",
-			"Unlock pay per yard. Keep base $; each yard flown adds bonus cash at pickup.",
-			20, 22.0, 1.36,
-			[
-				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
-				{"type": "multiply", "stat": "pay_per_yard", "value_per_level": 1.06},
-			],
-			"power", {"upgrade_id": "power", "level": 1}, Vector2(120, 114)
+			"iron_set", Balance.UpgradeBranch.POWER, "Raw Power",
+			"+3 yards baseline carry on every swing tier.",
+			20, 36.0, 1.24,
+			[{"type": "add", "stat": "base_yards", "value_per_level": 3.0}],
+			"distance_pay", {"upgrade_id": "distance_pay", "level": 1}, Vector2(120, 114)
 		),
 		_def(
-			"iron_set", Balance.UpgradeBranch.POWER, "Iron Set",
-			"Raise baseline carry distance on clean contact.",
-			10, 36.0, 1.24,
-			[{"type": "multiply", "stat": "base_yards", "value_per_level": 1.04}],
-			"distance_pay", {"upgrade_id": "distance_pay", "level": 1}, Vector2(72, 166)
-		),
-		_def(
-			"power_surge", Balance.UpgradeBranch.POWER, "Power Surge",
-			"Extra carry multiplier — stacks with Power.",
-			8, 36.0, 1.26,
+			"power", Balance.UpgradeBranch.POWER, "Carry",
+			"Multiply carry distance — extra pop on top of raw power.",
+			30, 36.0, 1.26,
 			[{"type": "multiply", "stat": "carry_multiplier", "value_per_level": 1.05}],
-			"distance_pay", {"upgrade_id": "distance_pay", "level": 1}, Vector2(168, 166)
+			"iron_set", {"upgrade_id": "iron_set", "level": 1}, Vector2(120, 166)
 		),
 		_def(
 			"metronome", Balance.UpgradeBranch.QUALITY, "Metronome",

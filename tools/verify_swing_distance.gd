@@ -70,13 +70,12 @@ func _check_balance_targets() -> bool:
 		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
 		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
 		"iron_set": UpgradeDefinitions.get_def("iron_set").get("max_level", 0),
-		"power_surge": UpgradeDefinitions.get_def("power_surge").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 	var end_yards := Economy.yards_from_quality(1.0, maxed)
-	if end_yards < start_yards * 3.0:
+	if end_yards < 300.0:
 		print(
-			"FAIL: maxed perfect yards expected well above start, got %.2f (start=%.2f)"
+			"FAIL: maxed perfect yards expected >= 300, got %.2f (start=%.2f)"
 			% [end_yards, start_yards]
 		)
 		ok = false
@@ -104,7 +103,6 @@ func _check_visual_depth() -> bool:
 		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
 		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
 		"iron_set": UpgradeDefinitions.get_def("iron_set").get("max_level", 0),
-		"power_surge": UpgradeDefinitions.get_def("power_surge").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 

@@ -22,6 +22,7 @@ func setup(range_view: Node3D, littered_balls: Node3D, bucket_counter: Control) 
 	_littered_balls = littered_balls
 	_bucket_counter = bucket_counter
 	EventBus.phase_changed.connect(_on_phase_changed)
+	EventBus.swing_resolved.connect(_on_swing_resolved)
 
 
 func is_active() -> bool:
@@ -47,6 +48,11 @@ func reset_combo() -> void:
 	_last_collect_msec = -999999
 
 
+func _interrupt_combo() -> void:
+	_combo = 1
+	_last_collect_msec = -999999
+
+
 func get_bucket_target_screen() -> Vector2:
 	return _bucket_target_screen()
 
@@ -66,6 +72,10 @@ func _on_phase_changed(phase: String) -> void:
 		_mark_all_litter_collectible()
 	else:
 		CursorManager.clear_grab_cursor()
+
+
+func _on_swing_resolved(_yards: float, _tier: int, _payout: float, _feedback: int) -> void:
+	_interrupt_combo()
 
 
 func _camera() -> Camera3D:
