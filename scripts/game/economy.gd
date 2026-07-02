@@ -4,7 +4,8 @@ extends RefCounted
 
 
 static func upgrade_cost(base: float, growth: float, level: int) -> float:
-	return floor(base * pow(growth, level) * 100.0 + 0.0001) / 100.0
+	var stretch := 1.0 + float(level) * Balance.UPGRADE_COST_LEVEL_STRETCH
+	return floor(base * pow(growth, level) * stretch * 100.0 + 0.0001) / 100.0
 
 
 static func resolve_payout(

@@ -47,6 +47,17 @@ func reset_combo() -> void:
 	_last_collect_msec = -999999
 
 
+func get_bucket_target_screen() -> Vector2:
+	return _bucket_target_screen()
+
+
+func try_complete_harvest() -> void:
+	if _collecting:
+		return
+	if GameState.is_harvest_complete():
+		_finish_harvest()
+
+
 func _on_phase_changed(phase: String) -> void:
 	_active = phase == "harvest"
 	if _active:

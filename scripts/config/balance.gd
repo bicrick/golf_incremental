@@ -117,6 +117,8 @@ enum UpgradeBranch { BASE_PAY, POWER, QUALITY, PICKUP }
 
 ## One-time cost to unlock the upgrade tree from the icon bar.
 const UPGRADES_UNLOCK_COST: float = 1.50
+## Per-level cost escalation — each successive upgrade costs more than pure exponential.
+const UPGRADE_COST_LEVEL_STRETCH: float = 0.165
 
 
 static func default_stats() -> PlayerStats:

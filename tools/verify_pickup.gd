@@ -27,6 +27,7 @@ func _run() -> void:
 	ok = _check_collect_increments(gs) and ok
 	ok = _check_economy_grants(gs) and ok
 	ok = _check_combo_logic() and ok
+	ok = _check_vanish_auto_collect(gs) and ok
 	ok = _check_bucket_refill_and_strike(gs) and ok
 	ok = await _check_space_does_not_skip_harvest(main, gs) and ok
 	ok = _check_event_bus_signals(gs) and ok
@@ -132,6 +133,69 @@ func _check_combo_logic() -> bool:
 		print("FAIL: combo tier 2 mult should be 1.10 with combo_bonus Lv.1")
 		return false
 	print("OK: combo multiplier gated by upgrade")
+	return true
+
+
+func _check_vanish_auto_collect(gs: Node) -> bool:
+	_reset(gs)
+	var start_currency: float = gs.currency
+	var payout: float = gs.credit_vanished_ball(Vector3(0.0, 0.0, -250.0), 1, 250.0)
+	if not is_equal_approx(payout, 0.25):
+		print("FAIL: vanish payout expected $0.25, got %.4f" % payout)
+		return false
+	if not is_equal_approx(gs.currency - start_currency, 0.25):
+		print(
+			"FAIL: vanish payout currency delta expected $0.25, got %.4f"
+			% (gs.currency - start_currency)
+		)
+		return false
+	if gs.pending_vanish_collects != 1:
+		print(
+			"FAIL: strike-phase vanish should pending=1, got %d"
+			% gs.pending_vanish_collects
+		)
+		return false
+	if gs.harvest_collected != 0:
+		print("FAIL: strike-phase vanish should not touch harvest_collected")
+		return false
+
+	gs._enter_harvest_phase()
+	if gs.harvest_collected != 1:
+		print(
+			"FAIL: harvest should start with pending vanish count 1, got %d"
+			% gs.harvest_collected
+		)
+		return false
+	if gs.pending_vanish_collects != 0:
+		print("FAIL: pending vanish collects should clear on harvest entry")
+		return false
+
+	_reset(gs)
+	_enter_harvest(gs)
+	payout = gs.credit_vanished_ball(Vector3(0.0, 0.0, -250.0), 1, 250.0)
+	if not is_equal_approx(payout, 0.25):
+		print("FAIL: harvest-phase vanish payout expected $0.25, got %.4f" % payout)
+		return false
+	if gs.harvest_collected != 1:
+		print(
+			"FAIL: harvest-phase vanish should increment harvest_collected, got %d"
+			% gs.harvest_collected
+		)
+		return false
+
+	gs.harvest_collected = gs.bucket_capacity - 1
+	payout = gs.credit_vanished_ball(Vector3(1.0, 0.0, -250.0), 6, 250.0)
+	if gs.harvest_collected != gs.bucket_capacity:
+		print(
+			"FAIL: last vanish should fill bucket, got %d/%d"
+			% [gs.harvest_collected, gs.bucket_capacity]
+		)
+		return false
+	if not gs.is_harvest_complete():
+		print("FAIL: last vanish should complete harvest")
+		return false
+
+	print("OK: vanish auto-collect credits bucket and pays out")
 	return true
 
 

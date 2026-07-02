@@ -58,8 +58,8 @@ func _run() -> void:
 	if gs.stats.base_amount <= before_base:
 		print("FAIL: base_pay did not affect base_amount")
 		ok = false
-	if not is_equal_approx(gs.stats.base_amount, 0.50):
-		print("FAIL: base_pay Lv.1 expected base_amount $0.50, got %.2f" % gs.stats.base_amount)
+	if not is_equal_approx(gs.stats.base_amount, 0.2875):
+		print("FAIL: base_pay Lv.1 expected base_amount $0.2875, got %.2f" % gs.stats.base_amount)
 		ok = false
 
 	for head in branch_heads:

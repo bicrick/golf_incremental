@@ -9,6 +9,7 @@ var bucket_remaining: int = -1
 var bucket_capacity: int = 0
 var current_phase: String = "strike"
 var harvest_collected: int = 0
+var pending_vanish_collects: int = 0
 
 var lifetime: Dictionary = {
 	"total_swings": 0,
@@ -96,6 +97,7 @@ func reset_to_fresh() -> void:
 	bucket_remaining = bucket_capacity
 	current_phase = "strike"
 	harvest_collected = 0
+	pending_vanish_collects = 0
 	lifetime = {
 		"total_swings": 0,
 		"lifetime_yards": 0.0,
@@ -169,6 +171,26 @@ func collect_harvest_ball(
 	return payout
 
 
+func credit_vanished_ball(
+	world_pos: Vector3,
+	quality: int,
+	yardage: float,
+	combo_tier: int = 1
+) -> float:
+	var effective_yardage := yardage if yardage > 0.0 else stats.base_yards
+	var payout := Economy.resolve_pickup_ball_payout(
+		quality, effective_yardage, combo_tier, stats
+	)
+	add_currency(payout)
+	if current_phase == "harvest":
+		harvest_collected += 1
+	else:
+		pending_vanish_collects += 1
+	EventBus.ball_collected.emit(world_pos, combo_tier)
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	return payout
+
+
 func complete_harvest(_best_combo: int) -> float:
 	if current_phase != "harvest":
 		return 0.0
@@ -184,6 +206,7 @@ func skip_harvest() -> void:
 
 func _exit_harvest_to_strike(bonus: float) -> void:
 	harvest_collected = 0
+	pending_vanish_collects = 0
 	bucket_remaining = bucket_capacity
 	current_phase = "strike"
 	if bonus > 0.0:
@@ -194,7 +217,8 @@ func _exit_harvest_to_strike(bonus: float) -> void:
 
 func _enter_harvest_phase() -> void:
 	current_phase = "harvest"
-	harvest_collected = 0
+	harvest_collected = pending_vanish_collects
+	pending_vanish_collects = 0
 	EventBus.phase_changed.emit("harvest")
 	EventBus.bucket_changed.emit(harvest_collected, bucket_capacity)
 

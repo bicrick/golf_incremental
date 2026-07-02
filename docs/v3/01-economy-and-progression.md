@@ -21,8 +21,9 @@ Make the game **fun for an hour**, not **done in five minutes** — while keepin
 
 ## What changes (v3)
 
-- Per-branch `effectGrowth` and `growthRate` in `definitions.gd`
-- Verify scripts aligned to new expected values
+- ~~Per-branch `effectGrowth` and `growthRate` in `definitions.gd`~~ **Landed**
+- ~~Per-level cost stretch (`UPGRADE_COST_LEVEL_STRETCH`)~~ **Landed**
+- ~~Compounding sim gate (`tools/simulate_economy.gd`)~~ **Landed**
 - Milestone / crew gates tuned to multi-session lifetime earnings
 
 ## Tuning workflow

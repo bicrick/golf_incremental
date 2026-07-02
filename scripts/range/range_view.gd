@@ -479,6 +479,30 @@ func show_pickup_cash_float(world_pos: Vector3, payout: float, combo_tier: int) 
 	FloatCashTextScript.spawn(fx_layer, _project_to_screen(world_pos), payout, combo_tier)
 
 
+func _handle_vanished_ball(landing: Vector3, quality: int, yardage: float) -> void:
+	DistanceTwinkle.spawn(fx_layer, _project_to_screen(landing))
+	var payout := GameState.credit_vanished_ball(landing, quality, yardage)
+	show_pickup_cash_float(landing, payout, 1)
+	if payout > 0.0:
+		EventBus.pickup_payout.emit(payout, 1)
+	SfxManager.play_pickup_plink(1)
+	_fly_vanished_ball_to_bucket(landing)
+
+
+func _fly_vanished_ball_to_bucket(landing: Vector3) -> void:
+	var start_screen := _project_to_screen(landing)
+	var end_screen := _bucket_target_screen()
+	await spawn_pickup_fly_icon(start_screen, end_screen)
+	if _pickup and _pickup.has_method("try_complete_harvest"):
+		_pickup.try_complete_harvest()
+
+
+func _bucket_target_screen() -> Vector2:
+	if _pickup and _pickup.has_method("get_bucket_target_screen"):
+		return _pickup.get_bucket_target_screen()
+	return Vector2(440.0, 250.0)
+
+
 ## Screen-space "fly to bucket" icon used by PickupController when a litter
 ## ball is collected — the litter itself is a 3D Sprite3D and is freed
 ## immediately on collect; this is purely UI juice, so it stays 2D.
@@ -660,7 +684,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		if path.visual_yards <= VANISH_DISTANCE_YARDS:
 			_leave_litter_ball(landing, _base_ball_scale, quality, yards)
 		else:
-			DistanceTwinkle.spawn(fx_layer, _project_to_screen(landing))
+			_handle_vanished_ball(landing, quality, yards)
 		ball.visible = false
 		ball.modulate = _sprite_atmosphere_tint
 		if GameState.has_bucket_balls():

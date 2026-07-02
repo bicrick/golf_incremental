@@ -174,8 +174,8 @@ func _check_upgrade(id: String, before: Dictionary, after: Dictionary) -> String
 	var a_stats: PlayerStats = after.stats
 	match id:
 		"base_pay":
-			if not is_equal_approx(a_stats.base_amount, 0.50):
-				return "base_amount expected $0.50 at Lv.1, got %.2f" % a_stats.base_amount
+			if not is_equal_approx(a_stats.base_amount, 0.2875):
+				return "base_amount expected $0.2875 at Lv.1, got %.2f" % a_stats.base_amount
 			if a_stats.base_amount <= b_stats.base_amount:
 				return "base_amount did not increase"
 			if after.pickup_payout <= before.pickup_payout:

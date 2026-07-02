@@ -1,35 +1,20 @@
 # Economy & Progression Findings
 
-**Status:** Research + simulation (July 2026). Code still uses ×2 paired curves in `definitions.gd` until v3 balance pass lands.
+**Status:** v2 compounding fix landed (July 2026). Per-branch curves + per-level cost stretch in `definitions.gd`, `balance.gd`, and `economy.gd`. Validated by `tools/simulate_economy.gd` (~90 min full tree).
 
 ## Executive summary
 
 The v2 upgrade tree applies **×2 stat growth and ×2 cost growth on all 14 nodes**. That pairing makes every Base Pay level cost exactly **one bucket** of current income and causes **multiplicative explosion** when Power, Quality, Pickup, and Distance Pay stack. Sessions end in minutes instead of hours.
 
-**Recommendation:** Keep exponential progression, but use **different rates per branch**. Cost growth should **slightly exceed** effect growth (`costRate / effectRate ≈ 1.04–1.08`). Money branches (~1.28× effect) can outpace power (~1.12× effect).
+**v1 fix (per-branch curves):** Unpaired effect/cost growth per branch — necessary but not sufficient.
+
+**v2 fix (compounding):** Playtest still completed the full tree in **~10 minutes**. Root cause: unlocking Quality + Distance Pay + Pickup multiplies income (~10× for ~$24 spent) while per-node cost/effect ratios (~1.04) only stretch payback in isolation. Fix uses three levers: **slash money-branch effect growth**, **wider cost/effect gap (~1.25–1.32)**, **per-level cost stretch** (`UPGRADE_COST_LEVEL_STRETCH = 0.165`), and **raised branch-head base costs**.
 
 ---
 
 ## Current state (code audit)
 
-All definitions in `scripts/game/upgrades/definitions.gd`:
-
-| Node | Branch | Effect | Cost growth | Base cost |
-|------|--------|--------|-------------|-----------|
-| `base_pay` | Base Pay | ×2 `base_amount` | ×2 | $1.50 |
-| `power` | Power | ×2 `carry_multiplier` | ×2 | $6 |
-| `distance_pay` | Power | unlock + ×2 `pay_per_yard` | ×2 | $12 |
-| `iron_set` | Power | ×2 `base_yards` | ×2 | $24 |
-| `power_surge` | Power | ×2 `carry_multiplier` | ×2 | $24 |
-| `quality` | Quality | unlock + ×2 `quality_multiplier` | ×2 | $6 |
-| `metronome` | Quality | +8 ms Perfect window | ×2 cost | $12 |
-| `great_eye` | Quality | +10 ms Great window | ×2 cost | $24 |
-| `quick_reset` | Quality | ×0.5 cooldown | ×2 cost | $24 |
-| `pickup` | Pickup | unlock + ×2 `pickup_multiplier` | ×2 | $6 |
-| `tip_jar` | Pickup | +$0.25 flat/ball | ×2 cost | $12 |
-| `combo_bonus` | Pickup | +10% combo/tier | ×2 cost | $12 |
-| `quick_hands` | Pickup | +0.15 s combo window | ×2 cost | $12 |
-| `magnetic_glove` | Pickup | stub | ×2 cost | $48 |
+All definitions in `scripts/game/upgrades/definitions.gd` use **v2 compounding-aware curves** (see table below). Upgrade cost includes per-level stretch via `Balance.UPGRADE_COST_LEVEL_STRETCH` in `Economy.upgrade_cost()`. Simulation gate: `tools/simulate_economy.gd` (90–150 min full tree).
 
 **Income formula** (`scripts/game/economy.gd`):
 
@@ -83,7 +68,20 @@ Single branch at Lv.8:
 
 ---
 
-## External research
+## Problem 3: Compounding across branches (v2 diagnosis)
+
+Per-node `costRate / effectRate ≈ 1.04` stretches payback on a **single branch in isolation**. It does not account for income jumping ~10× when three money branches unlock:
+
+| Unlock stage | Approx income/bucket | Cumulative unlock cost |
+|--------------|---------------------|------------------------|
+| Fresh | $1.50 | — |
+| Quality Lv1 | ~$9 | $6 |
+| + Distance Pay Lv1 | ~$14 | $18 |
+| + Pickup Lv1 | ~$14+ | $24 |
+
+**Playtest (July 2026):** Even after v1 per-branch curves, a fresh run still maxed the tree in **~10 minutes**. After branch unlocks, buying cheap Lv2–3 on each branch while all multipliers are active collapses payback to **0.05–0.20 buckets**. Fix: slow money effect growth to ~1.05–1.06, widen cost/effect to ~1.25–1.32, add per-level cost stretch, raise branch-head base costs.
+
+---
 
 ### Genre math (incremental games)
 
@@ -143,17 +141,22 @@ costRate / effectRate  >  1.0   (target 1.04 – 1.08)
 
 ---
 
-## Recommended curves (v3 target)
+## Recommended curves (v2 landed in code)
 
-| Node group | effectGrowth | cost growthRate | Rationale |
-|------------|--------------|-----------------|-----------|
-| **Base Pay** | **1.28** | **1.34** | Money spine; payback stretches over time |
-| **Distance Pay, Pickup mult** | **1.18 – 1.20** | **1.22 – 1.24** | Harvest / yardage money |
-| **Quality mult** | **1.15** | **1.20** | Skill expression |
-| **Power, Power Surge** | **1.12** | **1.17** | Slowest — visible distance |
-| **Iron Set** | **1.10** | **1.15** | Baseline yards |
-| **QoL (add)** | additive | **1.20 – 1.25** | Metronome, Tip Jar, Combo, Quick Hands |
-| **Quick Reset** | ×0.5 cooldown | **1.30** | Strong tempo upgrade |
+Global: `UPGRADE_COST_LEVEL_STRETCH = 0.165` — each level costs `(1 + level × 0.165)×` more than pure exponential.
+
+| Node group | effectGrowth | cost growthRate | base_cost (heads) | Rationale |
+|------------|--------------|-----------------|-------------------|-----------|
+| **Base Pay** | **1.15** | **1.48** | $1.50 | Money spine |
+| **Quality mult** | **1.06** | **1.34** | $12 | Slowest compound mult |
+| **Pickup mult** | **1.06** | **1.38** | $12 | Slow compound mult |
+| **Distance Pay** | **1.06** | **1.36** | $22 | Yardage money |
+| **Power / Power Surge** | **1.05** | **1.26** | $12 / $36 | Carry spectacle only |
+| **Iron Set** | **1.04** | **1.24** | $36 | Baseline yards |
+| **QoL (add)** | additive | **1.32** | $18 / $36 | Metronome, Tip Jar, etc. |
+| **Quick Reset** | ×0.5 cooldown | **1.40** | $36 | Strong tempo |
+
+Sim result (`simulate_economy.gd`): **~90 min** full tree, avg payback **~1.9 buckets**, late Base Pay payback **~11 buckets**.
 
 ### Stat growth at Lv.10 (comparison)
 
@@ -224,11 +227,12 @@ Passive uses live stats at collection — crew swings mediocre timing but volume
 
 ## Implementation checklist
 
-1. Apply per-node rates to `scripts/game/upgrades/definitions.gd`
-2. Update `verify_upgrade_tree.gd` and `verify_upgrade_effects.gd` expected values
-3. Playtest: one full bucket cycle after each branch unlock — target **1.5–3 buckets** payback
-4. Optional: `tools/simulate_economy.gd` for payback sweeps
-5. Align crew milestone gates after curves land in code
+1. ~~Apply per-node rates to `scripts/game/upgrades/definitions.gd`~~ **Done**
+2. ~~Update `verify_upgrade_tree.gd` and `verify_upgrade_effects.gd` expected values~~ **Done**
+3. ~~Add `UPGRADE_COST_LEVEL_STRETCH` + per-level cost escalation~~ **Done**
+4. ~~`tools/simulate_economy.gd` compounding sim (90–150 min gate)~~ **Done**
+5. Playtest: confirm fresh run no longer maxes tree in ~10 min
+6. Align crew milestone gates after pacing is stable in playtest
 
 ---
 

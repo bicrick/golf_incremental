@@ -29,6 +29,18 @@ Litter sprites cluster **up-screen** along fairway stripes (see screenshot refer
    - Clear remaining litter nodes
    - Return to **strike phase**, bucket refilled
 
+## Vanish horizon (auto-collect)
+
+Shots that land beyond **220 yards** do not spawn litter — they show a star twinkle at the landing spot instead. These balls are **auto-collected**:
+
+- Payout uses the same pickup formula (quality + yardage at vanish time)
+- Floating `+$` text appears at the star location
+- Ball icon flies to the bucket UI; bucket counter increments
+- Mid-bucket vanishes credit **`pending_vanish_collects`** during strike; applied when harvest begins
+- Last-ball vanishes credit **`harvest_collected`** directly (may complete harvest if bucket fills)
+
+Combo tier for vanish auto-collect is always **1** (no combo chain).
+
 ## Combo
 
 | Rule | Value |
