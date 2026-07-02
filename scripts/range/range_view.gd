@@ -1,8 +1,15 @@
+@tool
 extends Node3D
 ## Driving range view — real 3D scene. Camera3D projection now does the
 ## depth/vanishing-point work that used to be hand-rolled perspective math;
 ## this script places golfer/ball/litter at real Vector3 positions and lets
 ## the engine handle the rest.
+##
+## @tool: builds the ground mesh, sprite frames, and sky dome in the editor
+## too, so the 3D viewport shows real geometry while arranging nodes instead
+## of empty placeholders. Everything past the early-return in _ready()
+## depends on the EventBus/GameState autoloads, which only exist at runtime,
+## so it's skipped when Engine.is_editor_hint() is true.
 
 const CHARGE_METER_POSITION := Vector2(236.0, 185.143)
 const RATINA_UNLOCKED_CHARGE_METER_POSITION := Vector2(225.0, 185.143)
@@ -71,6 +78,15 @@ func _ready() -> void:
 	_golfer_home = golfer.position
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
+	if camera:
+		camera.make_current()
+	if sky_dome and camera:
+		sky_dome.setup(camera)
+	apply_atmosphere(24.0)
+
+	if Engine.is_editor_hint():
+		return
+
 	if contact_ring:
 		contact_ring.frozen_fade_completed.connect(_on_contact_ring_fade_completed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
@@ -83,14 +99,9 @@ func _ready() -> void:
 	call_deferred("_setup_pickup_controller")
 	call_deferred("_setup_ratina_controller")
 	call_deferred("_apply_ratina_layout_if_needed")
-	if camera:
-		camera.make_current()
 	_set_idle_ring()
 	if sun_light:
 		sun_light.shadow_enabled = false
-	if sky_dome and camera:
-		sky_dome.setup(camera)
-	apply_atmosphere(24.0)
 	_setup_placement_debug()
 
 
@@ -216,6 +227,8 @@ func _apply_sprite_atmosphere_tint() -> void:
 
 
 func _process(delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
 	_swing.update(delta)
 	_update_ball_reload()
 	_update_charge_visuals()
@@ -279,6 +292,8 @@ func _on_debug_ratina_strike_text_offset_changed(offset: Vector2) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	if not visible:
 		return
 	if _placement_debug and _placement_debug.is_active():

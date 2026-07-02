@@ -1,9 +1,9 @@
-[gd_scene load_steps=5 format=3 uid="uid://range_view"]
+[gd_scene format=3 uid="uid://vhhtr6moo7oa"]
 
-[ext_resource type="Script" path="res://scripts/range/range_view.gd" id="1_script"]
-[ext_resource type="Script" path="res://scripts/range/day_night_cycle.gd" id="2_cycle"]
-[ext_resource type="Script" path="res://scripts/ui/contact_charge_ring.gd" id="3_charge_ring"]
-[ext_resource type="PackedScene" uid="uid://range_sky_dome" path="res://scenes/visual/range_sky_dome.tscn" id="4_sky_dome"]
+[ext_resource type="Script" uid="uid://8ot3ixie3udb" path="res://scripts/range/range_view.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://0pj3dw47dl76" path="res://scripts/range/day_night_cycle.gd" id="2_cycle"]
+[ext_resource type="Script" uid="uid://dbeyvdqwco6n3" path="res://scripts/ui/contact_charge_ring.gd" id="3_charge_ring"]
+[ext_resource type="PackedScene" path="res://scenes/visual/range_sky_dome.tscn" id="4_sky_dome"]
 
 [sub_resource type="Environment" id="Environment_range"]
 background_mode = 1
@@ -11,53 +11,50 @@ background_color = Color(0.55, 0.75, 0.92, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.55, 0.75, 0.92, 1)
 
-[node name="RangeView" type="Node3D"]
+[node name="RangeView" type="Node3D" unique_id=1455822501]
 script = ExtResource("1_script")
 
-[node name="DayNightCycle" type="Node" parent="."]
+[node name="DayNightCycle" type="Node" parent="." unique_id=1351875691]
 script = ExtResource("2_cycle")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1926929154]
 environment = SubResource("Environment_range")
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-45, 35, 0)
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1856684244]
+transform = Transform3D(0.81915206, -0.4055798, 0.40557975, 0, 0.70710677, 0.7071068, -0.57357645, -0.579228, 0.5792279, 0, 3, -12.101983)
 light_color = Color(1, 0.92, 0.55, 1)
-light_energy = 1.0
-shadow_enabled = false
 
-[node name="Camera3D" type="Camera3D" parent="."]
-position = Vector3(0.24, 1.24, -2.016)
-rotation_degrees = Vector3(1.2, 3.0, 0.0)
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1214699375]
+transform = Transform3D(0.9986295, 0.0010960416, 0.052324478, 0, 0.99978065, -0.02094242, -0.05233596, 0.020913718, 0.99841046, 0.24, 1.24, -2.016)
 fov = 55.0
 
-[node name="SkyDome" parent="." instance=ExtResource("4_sky_dome")]
+[node name="SkyDome" parent="." unique_id=1737236425 instance=ExtResource("4_sky_dome")]
 
-[node name="Ground" type="MeshInstance3D" parent="."]
+[node name="Ground" type="MeshInstance3D" parent="." unique_id=776523448]
 
-[node name="Foreground" type="Node3D" parent="."]
+[node name="Foreground" type="Node3D" parent="." unique_id=330800463]
 
-[node name="LitteredBalls" type="Node3D" parent="Foreground"]
+[node name="LitteredBalls" type="Node3D" parent="Foreground" unique_id=528814338]
 
-[node name="Golfer" type="AnimatedSprite3D" parent="Foreground"]
+[node name="Golfer" type="AnimatedSprite3D" parent="Foreground" unique_id=650257315]
 transform = Transform3D(1.3, 0, 0, 0, 1.3, 0, 0, 0, 1.3, -1.092, 1.523, -6.164)
 
-[node name="Ball" type="AnimatedSprite3D" parent="Foreground"]
+[node name="Ball" type="AnimatedSprite3D" parent="Foreground" unique_id=971971225]
 transform = Transform3D(0.55, 0, 0, 0, 0.55, 0, 0, 0, 0.55, -0.545, 0.05, -6.395)
 
-[node name="ChargeMeter" type="Node2D" parent="."]
+[node name="ChargeMeter" type="Node2D" parent="." unique_id=754841874]
 position = Vector2(236, 185.143)
 
-[node name="BeatRing" type="Node2D" parent="ChargeMeter"]
+[node name="BeatRing" type="Node2D" parent="ChargeMeter" unique_id=386871172]
 script = ExtResource("3_charge_ring")
 
-[node name="RingOuter" type="Polygon2D" parent="ChargeMeter/BeatRing"]
+[node name="RingOuter" type="Polygon2D" parent="ChargeMeter/BeatRing" unique_id=1729827198]
 color = Color(0.18, 0.28, 0.12, 0.72)
 polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
 
-[node name="RingInner" type="Polygon2D" parent="ChargeMeter/BeatRing"]
+[node name="RingInner" type="Polygon2D" parent="ChargeMeter/BeatRing" unique_id=1669832791]
 z_index = 1
 color = Color(1, 0.93, 0.48, 1)
 polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
 
-[node name="FxLayer" type="Node2D" parent="."]
+[node name="FxLayer" type="Node2D" parent="." unique_id=356707013]

@@ -1,6 +1,9 @@
+@tool
 class_name RangeSkyDome
 extends Node3D
 ## Camera-following sky dome — gradient sky shader, pixel sun/moon billboards, star field.
+## @tool: builds its dome mesh/celestials in the editor too, so it's visible
+## in the 3D viewport instead of empty until Play mode runs _ready().
 
 const DOME_RADIUS := 500.0
 const CELESTIAL_DISTANCE := 480.0
