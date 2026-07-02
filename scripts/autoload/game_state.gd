@@ -7,7 +7,9 @@ var upgrades_unlocked: bool = false
 var shop_unlocked: bool = false
 var ratina_unlocked: bool = false
 var shop_levels: Dictionary = {}
+var ratina_upgrade_levels: Dictionary = {}
 var stats: PlayerStats = Balance.default_stats()
+var ratina_stats: PlayerStats = Balance.default_ratina_stats()
 var bucket_remaining: int = -1
 var bucket_capacity: int = 0
 var current_phase: String = "strike"
@@ -18,6 +20,7 @@ var lifetime: Dictionary = {
 	"total_swings": 0,
 	"lifetime_yards": 0.0,
 	"lifetime_earnings": 0.0,
+	"ratina_lifetime_earnings": 0.0,
 	"perfect_count": 0,
 }
 
@@ -43,6 +46,8 @@ func _recompute_stats() -> void:
 	stats = Balance.default_stats()
 	UpgradeEffects.apply_all(stats, upgrade_levels)
 	ShopEffects.apply_all(stats, shop_levels)
+	ratina_stats = Balance.default_ratina_stats()
+	RatinaUpgradeEffects.apply_all(ratina_stats, ratina_upgrade_levels)
 	bucket_capacity = get_bucket_capacity()
 
 
@@ -115,6 +120,48 @@ func get_shop_item_cost(id: String) -> float:
 	)
 
 
+func get_ratina_upgrade_level(id: String) -> int:
+	return ratina_upgrade_levels.get(id, 0)
+
+
+func purchase_ratina_upgrade(id: String) -> bool:
+	if not ratina_unlocked:
+		return false
+	var def: Dictionary = RatinaUpgradeDefinitions.get_def(id)
+	if def.is_empty():
+		return false
+	var level := get_ratina_upgrade_level(id)
+	if level >= int(def["max_level"]):
+		return false
+	if not RatinaUpgradeDefinitions.is_unlocked(id, ratina_upgrade_levels):
+		return false
+	var cost := get_ratina_upgrade_cost(id)
+	if currency < cost:
+		return false
+	currency -= cost
+	ratina_upgrade_levels[id] = level + 1
+	_recompute_stats()
+	EventBus.ratina_upgrade_purchased.emit(id, level + 1)
+	EventBus.stats_changed.emit(stats, currency)
+	return true
+
+
+func get_ratina_upgrade_cost(id: String) -> float:
+	var def: Dictionary = RatinaUpgradeDefinitions.get_def(id)
+	if def.is_empty():
+		return 0.0
+	return Economy.upgrade_cost(
+		float(def["base_cost"]), float(def["growth_rate"]), get_ratina_upgrade_level(id)
+	)
+
+
+func credit_ratina_ball(yardage: float, quality: int) -> float:
+	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, 1, ratina_stats)
+	add_currency(payout)
+	lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout
+	return payout
+
+
 func try_unlock_upgrades() -> bool:
 	if upgrades_unlocked:
 		return true
@@ -168,7 +215,9 @@ func reset_to_fresh() -> void:
 	shop_unlocked = false
 	ratina_unlocked = false
 	shop_levels.clear()
+	ratina_upgrade_levels.clear()
 	stats = Balance.default_stats()
+	ratina_stats = Balance.default_ratina_stats()
 	bucket_capacity = get_bucket_capacity()
 	bucket_remaining = bucket_capacity
 	current_phase = "strike"
@@ -178,6 +227,7 @@ func reset_to_fresh() -> void:
 		"total_swings": 0,
 		"lifetime_yards": 0.0,
 		"lifetime_earnings": 0.0,
+		"ratina_lifetime_earnings": 0.0,
 		"perfect_count": 0,
 	}
 	_recompute_stats()

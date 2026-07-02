@@ -3,32 +3,50 @@ extends RefCounted
 ## Quantitative upgrade tooltips — recompute stats for accurate previews.
 
 
-static func compact_stat(def: Dictionary, level: int, levels: Dictionary) -> String:
+static func compact_stat(
+	def: Dictionary,
+	level: int,
+	levels: Dictionary,
+	preview_provider: Variant = null
+) -> String:
 	if level <= 0:
 		return ""
-	var stats := _stats_at(def["id"], level, levels)
+	var stats := _stats_at(def["id"], level, levels, preview_provider)
 	var primary := _primary_effect(def)
 	if primary.is_empty():
 		return ""
 	return _format_stat_value(str(primary.get("stat", "")), stats, true)
 
 
-static func effect_preview(def: Dictionary, level: int, levels: Dictionary, maxed: bool) -> String:
+static func effect_preview(
+	def: Dictionary,
+	level: int,
+	levels: Dictionary,
+	maxed: bool,
+	preview_provider: Variant = null
+) -> String:
 	var max_level := int(def.get("max_level", 0))
 	if maxed:
-		var stats := _stats_at(def["id"], level, levels)
+		var stats := _stats_at(def["id"], level, levels, preview_provider)
 		return _format_max_preview(def, stats)
 	if level >= max_level:
 		return ""
-	var current_stats := _stats_at(def["id"], level, levels)
-	var next_stats := _stats_at(def["id"], level + 1, levels)
+	var current_stats := _stats_at(def["id"], level, levels, preview_provider)
+	var next_stats := _stats_at(def["id"], level + 1, levels, preview_provider)
 	return _format_delta_preview(def, current_stats, next_stats)
 
 
-static func _stats_at(upgrade_id: String, level: int, levels: Dictionary) -> PlayerStats:
+static func _stats_at(
+	upgrade_id: String,
+	level: int,
+	levels: Dictionary,
+	preview_provider: Variant = null
+) -> PlayerStats:
 	var temp := levels.duplicate()
 	temp[upgrade_id] = level
-	return UpgradeEffects.preview_stats(temp)
+	if preview_provider == null:
+		return UpgradeEffects.preview_stats(temp)
+	return preview_provider.call(temp)
 
 
 static func _primary_effect(def: Dictionary) -> Dictionary:
@@ -99,6 +117,8 @@ static func _axis_prefix(stat_name: String) -> String:
 			return "Carry:"
 		"timing_window_perfect_ms", "timing_window_great_ms", "swing_cooldown_ms":
 			return "Timing:"
+		"consistency", "yard_quality_floor":
+			return "Quality:"
 		"pickup_multiplier", "pickup_flat_bonus", "combo_mult_per_tier", "combo_window_bonus_sec", "pickup_bonus_unlocked":
 			return "Pickup:"
 		_:
@@ -123,6 +143,10 @@ static func _format_stat_value(stat_name: String, stats: PlayerStats, compact: b
 			return "±%.0fms" % _read_stat(stats, stat_name)
 		"swing_cooldown_ms":
 			return "%.1fs" % (stats.swing_cooldown_ms / 1000.0)
+		"consistency":
+			return "%.0f%%" % (stats.consistency * 100.0)
+		"yard_quality_floor":
+			return "%.0f%%" % (stats.yard_quality_floor * 100.0)
 		"pickup_multiplier":
 			return "×%.2f" % stats.pickup_multiplier
 		"pickup_flat_bonus":

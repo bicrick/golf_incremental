@@ -31,6 +31,7 @@ Tone: Miyazaki mischief, not punishment.
 - Second bay, mediocre timing, volume swings for passive $
 - Upgrades: clubs, cadence — player still contact-swing primary
 - Optional synergy: player bucket combo → friend +25% that cycle
+- **Ratina** (implemented): named crew member to the right of the player; timer-driven swings every ~5s, income per hit, dedicated upgrade tree (Base Pay / Power / Quality / Frequency)
 
 ## v1 golf friend
 

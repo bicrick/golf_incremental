@@ -131,6 +131,13 @@ const GOLDEN_BALL_PAYOUT_MULTIPLIER: float = 2.0
 ## Extra balls per bucket per More Balls shop level.
 const BALL_COUNT_BONUS_PER_LEVEL: float = 1.0
 
+## Ratina — autonomous second golfer.
+const RATINA_BALL_DESPAWN_SEC: float = 6.0
+const RATINA_HOME_OFFSET := Vector3(2.6, -0.22, 0.31)
+const RATINA_BALL_OFFSET := Vector3(-0.416, -1.253, -0.271)
+## Screen-space offset from projected Ratina ball contact for strike tier text.
+const RATINA_STRIKE_TEXT_OFFSET := Vector2(-27.0, -20.0)
+
 
 static func default_stats() -> PlayerStats:
 	var stats := PlayerStats.new()
@@ -161,4 +168,17 @@ static func default_stats() -> PlayerStats:
 	stats.magnetic_glove = 0.0
 	stats.golden_ball_chance = 0.0
 	stats.golden_ball_payout_multiplier = GOLDEN_BALL_PAYOUT_MULTIPLIER
+	return stats
+
+
+static func default_ratina_stats() -> PlayerStats:
+	var stats := PlayerStats.new()
+	stats.base_yards = 22.0
+	stats.carry_multiplier = 1.0
+	stats.yard_quality_floor = 0.15
+	stats.base_amount = 0.12
+	stats.pay_per_yard = 0.012
+	stats.quality_multiplier = 1.0
+	stats.swing_cooldown_ms = 5000.0
+	stats.consistency = 0.0
 	return stats

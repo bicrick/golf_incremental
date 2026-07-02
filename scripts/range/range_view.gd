@@ -5,6 +5,15 @@ extends Node3D
 ## the engine handle the rest.
 
 const CHARGE_METER_POSITION := Vector2(236.0, 185.143)
+const RATINA_UNLOCKED_CHARGE_METER_POSITION := Vector2(225.0, 185.143)
+const RATINA_UNLOCKED_GOLFER_POS := Vector3(-1.352, 1.523, -6.424)
+const RATINA_UNLOCKED_BALL_POS := Vector3(-0.845, 0.05, -6.395)
+const RATINA_UNLOCKED_GOLFER_SCALE := 1.3
+const RATINA_UNLOCKED_BALL_SCALE := 0.55
+const RATINA_UNLOCKED_RATINA_SCALE := 1.0
+const RATINA_UNLOCKED_RATINA_BALL_SCALE := 0.55
+const RATINA_UNLOCKED_CAMERA_POS := Vector3(0.0, 2.02, -1.916)
+const RATINA_UNLOCKED_CAMERA_ROT := Vector3(-7.2, 0.0, 0.0)
 ## Local offset from rhombus center — text sits above the contact ring.
 const SWING_RESULT_TEXT_OFFSET := Vector2(0.0, -38.0)
 const BALL_PIXEL_SIZE := 0.021
@@ -14,7 +23,9 @@ const GOLDEN_BALL_TINT := Color(1.0, 0.88, 0.28, 1.0)
 const PICKUP_FLY_DURATION_SEC := 0.35
 const PICKUP_FLY_ARC_PX := 36.0
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
+const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
+const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
 
 # Range Rat swing: linear wind-up frames 0-7; release at frame 8 (contact);
@@ -46,8 +57,11 @@ var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
 var _placement_debug: PlacementDebug
 var _pickup: Node
+var _ratina: Node
 var _active_flights: Array[Dictionary] = []
 var _sprite_atmosphere_tint: Color = Color.WHITE
+var _ratina_layout_applied: bool = false
+var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 
 
 func _ready() -> void:
@@ -64,8 +78,11 @@ func _ready() -> void:
 	EventBus.swing_charge_updated.connect(_on_swing_charge_updated)
 	EventBus.bucket_changed.connect(_on_bucket_changed)
 	EventBus.phase_changed.connect(_on_phase_changed)
+	EventBus.stats_changed.connect(_on_stats_changed)
 	call_deferred("_sync_tee_ball_from_bucket")
 	call_deferred("_setup_pickup_controller")
+	call_deferred("_setup_ratina_controller")
+	call_deferred("_apply_ratina_layout_if_needed")
 	if camera:
 		camera.make_current()
 	_set_idle_ring()
@@ -79,6 +96,10 @@ func _ready() -> void:
 
 func get_flight_camera() -> Camera3D:
 	return camera
+
+
+func ratina_strike_text_offset() -> Vector2:
+	return _ratina_strike_text_offset
 
 
 func _setup_dinky_sprites() -> void:
@@ -190,6 +211,8 @@ func _apply_sprite_atmosphere_tint() -> void:
 		for child in littered_balls.get_children():
 			if child is SpriteBase3D:
 				(child as SpriteBase3D).modulate = _sprite_atmosphere_tint
+	if _ratina and _ratina.has_method("apply_atmosphere_tint"):
+		_ratina.apply_atmosphere_tint(_sprite_atmosphere_tint)
 
 
 func _process(delta: float) -> void:
@@ -237,6 +260,22 @@ func _on_debug_mode_changed(active: bool) -> void:
 		if charge_meter:
 			charge_meter.visible = false
 		_set_idle_ring()
+	if _ratina and _ratina.has_method("set_debug_mode"):
+		_ratina.set_debug_mode(active)
+
+
+func _on_debug_ratina_positions_changed(golfer_pos: Vector3, ball_pos: Vector3) -> void:
+	if _ratina and _ratina.has_method("set_debug_positions"):
+		_ratina.set_debug_positions(golfer_pos, ball_pos)
+
+
+func _on_debug_ratina_scales_changed(golfer_scale: Vector3, ball_scale: Vector3) -> void:
+	if _ratina and _ratina.has_method("set_debug_scales"):
+		_ratina.set_debug_scales(golfer_scale, ball_scale)
+
+
+func _on_debug_ratina_strike_text_offset_changed(offset: Vector2) -> void:
+	_ratina_strike_text_offset = offset
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -317,6 +356,58 @@ func _golfer_idle_blocked() -> bool:
 
 func golfer_strike_home() -> Vector3:
 	return _golfer_home
+
+
+func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
+	_apply_ratina_layout_if_needed()
+
+
+func _apply_ratina_layout_if_needed() -> void:
+	if not GameState.ratina_unlocked or _ratina_layout_applied:
+		return
+	_apply_ratina_unlocked_layout()
+	_ratina_layout_applied = true
+
+
+func _apply_ratina_unlocked_layout() -> void:
+	_golfer_home = RATINA_UNLOCKED_GOLFER_POS
+	_ball_home = RATINA_UNLOCKED_BALL_POS
+	_base_golfer_scale = Vector3.ONE * RATINA_UNLOCKED_GOLFER_SCALE
+	_base_ball_scale = Vector3.ONE * RATINA_UNLOCKED_BALL_SCALE
+
+	golfer.position = _golfer_home
+	golfer.scale = _base_golfer_scale
+	ball.position = _ball_home
+	ball.scale = _base_ball_scale
+
+	if camera:
+		camera.position = RATINA_UNLOCKED_CAMERA_POS
+		camera.rotation_degrees = RATINA_UNLOCKED_CAMERA_ROT
+
+	if charge_meter:
+		charge_meter.position = RATINA_UNLOCKED_CHARGE_METER_POSITION
+	_ratina_strike_text_offset = Balance.RATINA_STRIKE_TEXT_OFFSET
+
+	var ratina_golfer_scale := Vector3.ONE * RATINA_UNLOCKED_RATINA_SCALE
+	var ratina_ball_scale := Vector3.ONE * RATINA_UNLOCKED_RATINA_BALL_SCALE
+	if _ratina and _ratina.has_method("apply_unlock_layout"):
+		_ratina.apply_unlock_layout(ratina_golfer_scale, ratina_ball_scale)
+
+	if _placement_debug and _ratina and _ratina.has_method("strike_home"):
+		_placement_debug.sync_homes(
+			_golfer_home,
+			_ball_home,
+			_base_golfer_scale,
+			_base_ball_scale,
+			_ratina.strike_home(),
+			_ratina.ball_strike_home(),
+			ratina_golfer_scale,
+			ratina_ball_scale
+		)
+	elif _placement_debug:
+		_placement_debug.sync_homes(
+			_golfer_home, _ball_home, _base_golfer_scale, _base_ball_scale
+		)
 
 
 func _sync_golfer_idle_from_bucket() -> void:
@@ -541,22 +632,13 @@ func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:
 func _spawn_float_text(tier: int, yards: float) -> void:
 	if charge_meter == null:
 		return
-	var tier_name := Balance.TIER_NAMES[tier]
-	var label := Label.new()
-	label.text = "%s\n%d yds" % [tier_name, int(yards)]
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.z_index = 2
-	PixelFont.apply_label(label, 8)
-	label.modulate = Balance.TIER_COLORS[tier]
-	charge_meter.add_child(label)
-	label.reset_size()
-	var size := label.get_minimum_size()
-	label.position = Vector2(-size.x * 0.5, SWING_RESULT_TEXT_OFFSET.y - size.y)
-
-	var tween := label.create_tween()
-	tween.tween_property(label, "modulate:a", 0.0, ContactChargeRing.FROZEN_FADE_DURATION)\
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tween.tween_callback(label.queue_free)
+	FloatStrikeTextScript.spawn(
+		charge_meter,
+		Vector2.ZERO,
+		tier,
+		yards,
+		SWING_RESULT_TEXT_OFFSET
+	)
 
 
 func _on_bucket_changed(_count: int, _capacity: int) -> void:
@@ -585,6 +667,26 @@ func _setup_pickup_controller() -> void:
 	)
 	if bucket_counter:
 		_pickup.setup(self, littered_balls, bucket_counter)
+
+
+func _setup_ratina_controller() -> void:
+	_ratina = RatinaControllerScript.new()
+	_ratina.name = "RatinaController"
+	add_child(_ratina)
+	_ratina.setup(self)
+	if _placement_debug and _ratina.has_method("get_golfer_sprite"):
+		_placement_debug.register_ratina(
+			_ratina.get_golfer_sprite(),
+			_ratina.get_ball_sprite(),
+			_ratina.strike_home(),
+			_ratina.ball_strike_home(),
+			_ratina.get_base_golfer_scale(),
+			_ratina.get_base_ball_scale(),
+			_on_debug_ratina_positions_changed,
+			_on_debug_ratina_scales_changed,
+			_ratina_strike_text_offset,
+			_on_debug_ratina_strike_text_offset_changed
+		)
 
 
 func _sync_tee_ball_from_bucket() -> void:

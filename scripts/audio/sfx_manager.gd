@@ -36,6 +36,7 @@ func _ready() -> void:
 	EventBus.swing_resolved.connect(_on_swing_resolved)
 	EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
+	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 
 
 func get_music_tracks() -> Array[String]:
@@ -133,6 +134,10 @@ func play_start() -> void:
 func play_pickup_plink(combo_tier: int) -> void:
 	var pitch := 1.0 + 0.08 * float(maxi(combo_tier, 1) - 1)
 	_play("pickup_plink", -6.0, pitch)
+
+
+func play_ratina_hit(timing_tier: int) -> void:
+	_play_golf_hit(timing_tier, Balance.FeedbackTier.WHISPER)
 
 
 func play_bucket_full_chime() -> void:
@@ -308,6 +313,12 @@ func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
 
 
 func _on_upgrade_purchased(_id: String, level: int, _branch: int) -> void:
+	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
+	_play("upgrade_tap", -12.0, pitch)
+	_play("upgrade_purchase", -2.0, pitch)
+
+
+func _on_ratina_upgrade_purchased(_id: String, level: int) -> void:
 	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
 	_play("upgrade_tap", -12.0, pitch)
 	_play("upgrade_purchase", -2.0, pitch)

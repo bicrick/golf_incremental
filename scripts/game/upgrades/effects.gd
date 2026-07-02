@@ -107,6 +107,8 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 			return stats.passive_swings_per_second
 		"passive_payout_multiplier":
 			return stats.passive_payout_multiplier
+		"consistency":
+			return stats.consistency
 		_:
 			push_warning("UpgradeEffects: unknown stat '%s'" % stat_name)
 			return 0.0
@@ -176,5 +178,7 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 			stats.passive_swings_per_second = value
 		"passive_payout_multiplier":
 			stats.passive_payout_multiplier = value
+		"consistency":
+			stats.consistency = value
 		_:
 			push_warning("UpgradeEffects: unknown stat '%s'" % stat_name)

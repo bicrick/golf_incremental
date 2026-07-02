@@ -59,6 +59,9 @@ extends Resource
 @export var passive_swings_per_second: float = 0.0
 @export var passive_payout_multiplier: float = 1.0
 
+# Ratina — autonomous swing consistency (0..1, only used by Ratina tree)
+@export var consistency: float = 0.0
+
 
 static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	var copy := PlayerStats.new()
@@ -99,4 +102,5 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.bucket_capacity_bonus = from.bucket_capacity_bonus
 	copy.passive_swings_per_second = from.passive_swings_per_second
 	copy.passive_payout_multiplier = from.passive_payout_multiplier
+	copy.consistency = from.consistency
 	return copy

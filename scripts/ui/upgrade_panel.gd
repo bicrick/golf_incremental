@@ -2,6 +2,7 @@ extends Control
 ## Full-screen upgrade tree view — cloud sky background, progressive node reveal.
 
 const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
+const RATINA_NODE_SCENE := preload("res://scenes/ui/ratina_tree_node.tscn")
 
 const COLOR_LINE := Color(0.55, 0.48, 0.32, 0.85)
 const COLOR_LINE_LOCKED := Color(0.35, 0.32, 0.28, 0.5)
@@ -10,17 +11,20 @@ const COLOR_LINE_LOCKED := Color(0.35, 0.32, 0.28, 0.5)
 @onready var nodes_root: Control = $Content/TreeCanvas/Nodes
 @onready var tree_canvas: Control = $Content/TreeCanvas
 @onready var ratina_placeholder: Control = $Content/RatinaPlaceholder
+@onready var ratina_tree_canvas: Control = $Content/RatinaPlaceholder/RatinaTreeCanvas
+@onready var ratina_connectors: Control = $Content/RatinaPlaceholder/RatinaTreeCanvas/Connectors
+@onready var ratina_nodes_root: Control = $Content/RatinaPlaceholder/RatinaTreeCanvas/Nodes
+@onready var ratina_stats_label: Label = $Content/RatinaPlaceholder/StatsLabel
 @onready var title_label: Label = $Content/Header/Title
 @onready var currency_label: Label = $Content/Header/CurrencyLabel
 @onready var back_button: Button = $Content/Header/BackButton
 @onready var tab_upgrades: Button = $Content/Header/TabRow/UpgradesTab
 @onready var tab_ratina: Button = $Content/Header/TabRow/RatinaTab
-@onready var _ratina_title: Label = $Content/RatinaPlaceholder/Center/TitleLabel
-@onready var _ratina_subtitle: Label = $Content/RatinaPlaceholder/Center/SubtitleLabel
 
 var _is_open := false
 var _active_tab := "upgrades"
 var _nodes: Dictionary = {}
+var _ratina_nodes: Dictionary = {}
 
 
 func _ready() -> void:
@@ -30,10 +34,12 @@ func _ready() -> void:
 	tab_ratina.pressed.connect(_on_ratina_tab_pressed)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
+	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 	_apply_fonts()
 	_style_back_button()
 	_style_tabs()
 	_build_tree()
+	_build_ratina_tree()
 	_refresh_all()
 
 
@@ -107,6 +113,80 @@ func _refresh_tab_visibility() -> void:
 		tree_canvas.visible = true
 		ratina_placeholder.visible = false
 		title_label.text = "Upgrade Tree"
+	_refresh_ratina_stats_label()
+
+
+func _build_ratina_tree() -> void:
+	for child in ratina_nodes_root.get_children():
+		child.queue_free()
+	_ratina_nodes.clear()
+	for def in RatinaUpgradeDefinitions.all():
+		var node: PanelContainer = RATINA_NODE_SCENE.instantiate()
+		ratina_nodes_root.add_child(node)
+		node.setup(def)
+		node.position = def["tree_pos"]
+		node.purchase_requested.connect(_on_ratina_purchase_requested)
+		_ratina_nodes[def["id"]] = node
+	ratina_connectors.draw.connect(_draw_ratina_connectors)
+
+
+func _is_ratina_node_revealed(id: String) -> bool:
+	var def := RatinaUpgradeDefinitions.get_def(id)
+	if def.is_empty():
+		return false
+	if def.get("parent_id", "").is_empty():
+		return true
+	return RatinaUpgradeDefinitions.is_unlocked(id, GameState.ratina_upgrade_levels)
+
+
+func _refresh_ratina_tree() -> void:
+	_refresh_ratina_stats_label()
+	for id in _ratina_nodes:
+		var node: PanelContainer = _ratina_nodes[id]
+		var revealed := _is_ratina_node_revealed(id)
+		node.visible = revealed
+		if revealed:
+			node.refresh()
+	ratina_connectors.queue_redraw()
+
+
+func _refresh_ratina_stats_label() -> void:
+	if ratina_stats_label == null:
+		return
+	var interval_sec := GameState.ratina_stats.swing_cooldown_ms / 1000.0
+	var sample_payout := Economy.resolve_pickup_ball_payout(
+		4, GameState.ratina_stats.base_yards, 1, GameState.ratina_stats
+	)
+	ratina_stats_label.text = "Hits every %.1fs · ~$%.2f/hit" % [interval_sec, sample_payout]
+
+
+func _on_ratina_purchase_requested(id: String) -> void:
+	if not GameState.purchase_ratina_upgrade(id):
+		return
+	_refresh_ratina_tree()
+	currency_label.text = "$%s" % _format_currency(GameState.currency)
+
+
+func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
+	if _is_open and _active_tab == "ratina":
+		_refresh_ratina_tree()
+
+
+func _draw_ratina_connectors() -> void:
+	for link in RatinaUpgradeDefinitions.connections():
+		var from_id: String = link["from"]
+		var to_id: String = link["to"]
+		if not _ratina_nodes.has(from_id) or not _ratina_nodes.has(to_id):
+			continue
+		if not _is_ratina_node_revealed(from_id) or not _is_ratina_node_revealed(to_id):
+			continue
+		var from_node: PanelContainer = _ratina_nodes[from_id]
+		var to_node: PanelContainer = _ratina_nodes[to_id]
+		var from_point: Vector2 = _connection_point(from_node, to_node.get_center())
+		var to_point: Vector2 = _connection_point(to_node, from_node.get_center())
+		var unlocked := RatinaUpgradeDefinitions.is_unlocked(to_id, GameState.ratina_upgrade_levels)
+		var color := COLOR_LINE if unlocked else COLOR_LINE_LOCKED
+		_draw_organic_connector_on(ratina_connectors, from_point, to_point, color)
 
 
 func _build_tree() -> void:
@@ -142,6 +222,7 @@ func _refresh_all() -> void:
 		if revealed:
 			node.refresh()
 	connectors.queue_redraw()
+	_refresh_ratina_tree()
 
 
 func _on_purchase_requested(id: String) -> void:
@@ -161,6 +242,8 @@ func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:
 			continue
 		node.refresh()
 	connectors.queue_redraw()
+	if _active_tab == "ratina":
+		_refresh_ratina_tree()
 
 
 func _on_upgrade_purchased(_id: String, _level: int, _branch: int) -> void:
@@ -182,7 +265,27 @@ func _draw_connectors() -> void:
 		var to_point: Vector2 = _connection_point(to_node, from_node.get_center())
 		var unlocked := UpgradeDefinitions.is_unlocked(to_id, GameState.upgrade_levels)
 		var color := COLOR_LINE if unlocked else COLOR_LINE_LOCKED
-		_draw_organic_connector(from_point, to_point, color)
+		_draw_organic_connector_on(connectors, from_point, to_point, color)
+
+
+func _draw_organic_connector_on(canvas: Control, from: Vector2, to: Vector2, color: Color) -> void:
+	var delta: Vector2 = to - from
+	var dist: float = delta.length()
+	if dist < 1.0:
+		return
+	var dir: Vector2 = delta / dist
+	var perp: Vector2 = Vector2(-dir.y, dir.x)
+	var bend_strength: float = clampf(absf(delta.x) * 0.12 + dist * 0.05, 6.0, 16.0)
+	var sign: float = 1.0 if delta.x >= 0.0 else -1.0
+	if absf(delta.x) < 24.0:
+		sign = 1.0 if delta.y > 0.0 else -1.0
+	var elbow: Vector2 = from + delta * 0.42 + perp * bend_strength * sign
+	var points := PackedVector2Array([from, elbow, to])
+	canvas.draw_polyline(points, color, 1.5, true)
+
+
+func _draw_organic_connector(from: Vector2, to: Vector2, color: Color) -> void:
+	_draw_organic_connector_on(connectors, from, to, color)
 
 
 func _connection_point(node: PanelContainer, toward: Vector2) -> Vector2:
@@ -196,27 +299,10 @@ func _connection_point(node: PanelContainer, toward: Vector2) -> Vector2:
 	return center + dir * reach
 
 
-func _draw_organic_connector(from: Vector2, to: Vector2, color: Color) -> void:
-	var delta: Vector2 = to - from
-	var dist: float = delta.length()
-	if dist < 1.0:
-		return
-	var dir: Vector2 = delta / dist
-	var perp: Vector2 = Vector2(-dir.y, dir.x)
-	var bend_strength: float = clampf(absf(delta.x) * 0.12 + dist * 0.05, 6.0, 16.0)
-	var sign: float = 1.0 if delta.x >= 0.0 else -1.0
-	if absf(delta.x) < 24.0:
-		sign = 1.0 if delta.y > 0.0 else -1.0
-	var elbow: Vector2 = from + delta * 0.42 + perp * bend_strength * sign
-	var points := PackedVector2Array([from, elbow, to])
-	connectors.draw_polyline(points, color, 1.5, true)
-
-
 func _apply_fonts() -> void:
 	PixelFont.apply_label(title_label, 10)
 	PixelFont.apply_label(currency_label, 8)
-	PixelFont.apply_label(_ratina_title, 10)
-	PixelFont.apply_label(_ratina_subtitle, 8)
+	PixelFont.apply_label(ratina_stats_label, 7)
 	tab_upgrades.add_theme_font_override(&"font", PixelFont.font_for_size(7))
 	tab_upgrades.add_theme_font_size_override(&"font_size", 7)
 	tab_ratina.add_theme_font_override(&"font", PixelFont.font_for_size(7))
@@ -249,12 +335,6 @@ func _style_tabs() -> void:
 		tab.add_theme_stylebox_override(&"hover", pressed)
 	tab_upgrades.text = "Tree"
 	tab_ratina.text = "Ratina"
-	_ratina_title.text = "Ratina — Coming Soon"
-	_ratina_subtitle.text = "$20/min once hired (passive income in a future update)"
-	_ratina_title.add_theme_color_override(&"font_color", Color(1.0, 0.92, 0.45, 1))
-	_ratina_subtitle.add_theme_color_override(&"font_color", Color(0.82, 0.78, 0.66, 1))
-	_ratina_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_ratina_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
 func _style_back_button() -> void:
