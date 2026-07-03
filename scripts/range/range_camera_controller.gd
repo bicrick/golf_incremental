@@ -3,9 +3,12 @@ extends Node
 ## Orthographic pan/zoom. Scene Camera3D owns position and starting size; this script
 ## only pans freely and clamps zoom relative to the size at setup. Rotation is locked
 ## elsewhere via V4CameraConfig.
+##
+## Zoom listens on Node._input and via consume_zoom_event() (called from range_view
+## _unhandled_input and ui_root _gui_input when the embedded runner routes wheel to UI).
 
 @export var pan_speed: float = 24.0
-@export var zoom_sensitivity: float = 1.5
+@export var zoom_step: float = 1.0
 @export var zoom_in_factor: float = 0.5
 @export var zoom_out_factor: float = 4.0
 
@@ -34,15 +37,34 @@ func is_enabled() -> bool:
 	return _enabled
 
 
-func _input(event: InputEvent) -> void:
+func consume_zoom_event(event: InputEvent) -> bool:
 	if not _enabled or _camera == null:
-		return
+		return false
+	var amount := _zoom_amount_from_event(event)
+	if is_zero_approx(amount):
+		return false
+	_apply_zoom(amount)
+	return true
+
+
+func _input(event: InputEvent) -> void:
+	if consume_zoom_event(event):
+		get_viewport().set_input_as_handled()
+
+
+func _zoom_amount_from_event(event: InputEvent) -> float:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-			var direction := -1.0 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0
-			_apply_zoom(direction * mb.factor * zoom_sensitivity)
-			get_viewport().set_input_as_handled()
+		if not mb.pressed:
+			return 0.0
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			return -zoom_step
+		if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			return zoom_step
+	if event is InputEventMagnifyGesture:
+		var mag := event as InputEventMagnifyGesture
+		return -zoom_step * (mag.factor - 1.0) * 4.0
+	return 0.0
 
 
 func _apply_zoom(delta: float) -> void:
