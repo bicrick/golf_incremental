@@ -175,6 +175,20 @@ func _run() -> void:
 		print("FAIL: try_unlock_upgrades failed at exact cost")
 		ok = false
 
+	gs.upgrades_unlocked = true
+	panel.close()
+	await process_frame
+	if icon_bar_node.has_method("_on_upgrades_pressed"):
+		icon_bar_node._on_upgrades_pressed()
+	else:
+		icon_bar_node.upgrades_button.pressed.emit()
+	await process_frame
+	if not panel.visible:
+		print("FAIL: upgrades button should open UpgradePanel")
+		ok = false
+	panel.close()
+	await process_frame
+
 	print("upgrade_tree_ok=", ok)
 	quit(0 if ok else 1)
 

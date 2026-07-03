@@ -34,8 +34,9 @@ var _hover_bob_time := 0.0
 
 
 func _ready() -> void:
-	_upgrade_panel = get_parent().get_node_or_null("UpgradePanel")
-	_shop_panel = get_parent().get_node_or_null("ShopPanel")
+	var ui_root := get_parent().get_parent()
+	_upgrade_panel = ui_root.get_node_or_null("UpgradePanel")
+	_shop_panel = ui_root.get_node_or_null("ShopPanel")
 	shop_button.pressed.connect(_on_shop_pressed)
 	upgrades_button.pressed.connect(_on_upgrades_pressed)
 	shop_button.mouse_entered.connect(_on_shop_mouse_entered)

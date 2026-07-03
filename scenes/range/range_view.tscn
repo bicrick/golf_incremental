@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://scenes/visual/range_sky_dome.tscn" id="5_sky_dome"]
 [ext_resource type="PackedScene" uid="uid://br0iki0w8fge0" path="res://scenes/range/cells/player_bay_cell.tscn" id="6_player_bay"]
 [ext_resource type="Script" uid="uid://dqw2xmrq7ha6m" path="res://scripts/range/view_mode_controller.gd" id="7_view_mode"]
+[ext_resource type="Script" path="res://scripts/visual/world_cloud_field.gd" id="8_world_clouds"]
 
 [sub_resource type="Environment" id="Environment_range"]
 background_mode = 1
@@ -74,6 +75,18 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.84099174, 1.6275849, -6.182
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=560799956]
 mesh = SubResource("ArrayMesh_4aak5")
 surface_material_override/0 = SubResource("ShaderMaterial_pel0d")
+
+[node name="WorldClouds" type="Node3D" parent="."]
+script = ExtResource("8_world_clouds")
+cloud_layer_y = 19.0
+max_clouds_day = 14
+spawn_interval_sec = 5.0
+drift_speed = 2.5
+deck_half_extent_x = 20000.0
+wrap_inner_fraction = 0.35
+spawn_depth_x_factor = 8.0
+spawn_z_near = -15.0
+spawn_z_far = -285.0
 
 [node name="Foreground" type="Node3D" parent="." unique_id=475863636]
 

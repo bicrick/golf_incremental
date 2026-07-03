@@ -58,7 +58,7 @@ func close() -> void:
 
 
 func _notify_icon_bar(is_open: bool) -> void:
-	var icon_bar := get_parent().get_node_or_null("IconBar")
+	var icon_bar := get_parent().get_node_or_null("GameplayChrome/IconBar")
 	if icon_bar and icon_bar.has_method("set_shop_open"):
 		icon_bar.set_shop_open(is_open)
 
