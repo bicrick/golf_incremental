@@ -4,6 +4,10 @@ extends RefCounted
 
 
 static func compensation(camera: Camera3D, reference_ortho_size: float) -> float:
-	if camera == null or reference_ortho_size <= 0.0:
+	if camera == null:
+		return 1.0
+	if camera.projection == Camera3D.PROJECTION_PERSPECTIVE:
+		return 1.0
+	if reference_ortho_size <= 0.0:
 		return 1.0
 	return reference_ortho_size / camera.size

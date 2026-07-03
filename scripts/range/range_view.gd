@@ -64,6 +64,7 @@ var _ratina_layout_applied: bool = false
 var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 var _surround_home_size: float = -1.0
 var _swing_line_proxy_camera: Camera3D
+var _swing_line_fx_layer: Node2D
 
 
 func _should_use_editor_rig() -> bool:
@@ -163,6 +164,7 @@ func bind_swing_line_viewport(sub_viewport: SubViewport) -> void:
 	sub_viewport.add_child(proxy)
 	proxy.make_current()
 	_swing_line_proxy_camera = proxy
+	_setup_swing_line_fx_layer(sub_viewport)
 	perspective_camera.current = false
 	if camera:
 		camera.make_current()
@@ -181,6 +183,24 @@ func _sync_swing_line_proxy_from_source(proxy: Camera3D) -> void:
 	proxy.far = perspective_camera.far
 	proxy.keep_aspect = perspective_camera.keep_aspect
 	proxy.cull_mask = perspective_camera.cull_mask
+
+
+func _setup_swing_line_fx_layer(sub_viewport: SubViewport) -> void:
+	if _swing_line_fx_layer and is_instance_valid(_swing_line_fx_layer):
+		if _swing_line_fx_layer.get_parent() == sub_viewport:
+			return
+		_swing_line_fx_layer.queue_free()
+	_swing_line_fx_layer = Node2D.new()
+	_swing_line_fx_layer.name = &"SwingLineFxLayer"
+	sub_viewport.add_child(_swing_line_fx_layer)
+
+
+func get_swing_line_fx_layer() -> Node2D:
+	return _swing_line_fx_layer
+
+
+func get_swing_line_camera() -> Camera3D:
+	return _swing_line_proxy_camera
 
 
 func get_fx_reference_ortho_size() -> float:
@@ -876,6 +896,9 @@ func _apply_flight_sample(progress: float, flight: Dictionary, path: BallFlight3
 	var trail = flight.get("trail")
 	if trail:
 		trail.track(sprite.global_position)
+	var swing_trail = flight.get("swing_trail")
+	if swing_trail:
+		swing_trail.track(sprite.global_position)
 
 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int) -> void:
@@ -902,6 +925,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 	var flight := {
 		"sprite": flight_sprite,
 		"trail": null,
+		"swing_trail": null,
 	}
 	var flight_cam := get_flight_camera()
 	if fx_layer and flight_cam:
@@ -912,6 +936,13 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 			get_fx_reference_ortho_size()
 		)
 		flight["trail"].track(flight_sprite.global_position)
+	if _swing_line_fx_layer and _swing_line_proxy_camera:
+		flight["swing_trail"] = BallFlightTrailScript.begin(
+			_swing_line_fx_layer,
+			_swing_line_proxy_camera,
+			timing_tier
+		)
+		flight["swing_trail"].track(flight_sprite.global_position)
 	_register_flight(flight)
 
 	var tween := flight_sprite.create_tween()
@@ -924,6 +955,9 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		var trail = flight.get("trail")
 		if trail:
 			trail.finish()
+		var swing_trail = flight.get("swing_trail")
+		if swing_trail:
+			swing_trail.finish()
 		if is_instance_valid(flight_sprite):
 			flight_sprite.queue_free()
 		_finish_flight(flight)
