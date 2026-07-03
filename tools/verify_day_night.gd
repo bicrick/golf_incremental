@@ -14,6 +14,7 @@ func _run() -> void:
 	ok = _check_smooth_transitions() and ok
 	ok = _check_celestial_arc() and ok
 	ok = await _check_atmosphere_application() and ok
+	ok = await _check_ground_mesh_stability() and ok
 	ok = await _check_sun_light_scene() and ok
 	ok = await _check_sky_dome() and ok
 	print("day_night_ok=", ok)
@@ -137,6 +138,63 @@ func _check_atmosphere_application() -> bool:
 
 	range_view.queue_free()
 	print("OK: apply_atmosphere drives WorldEnvironment background by cycle time")
+	return true
+
+
+func _check_ground_mesh_stability() -> bool:
+	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
+	if scene == null:
+		print("FAIL: could not load range_view.tscn for mesh stability check")
+		return false
+
+	var range_view: Node3D = scene.instantiate()
+	root.add_child(range_view)
+	range_view.visible = true
+	await process_frame
+
+	var ground: MeshInstance3D = range_view.get_node("Ground")
+	var surround: MeshInstance3D = range_view.get_node("Surround")
+	if ground.mesh == null or surround.mesh == null:
+		print("FAIL: ground meshes should be built on load")
+		range_view.queue_free()
+		return false
+
+	var ground_mesh_id := ground.mesh.get_instance_id()
+	var surround_mesh_id := surround.mesh.get_instance_id()
+	var ground_vert_count := ground.mesh.get_surface_count()
+	var surround_vert_count := surround.mesh.get_surface_count()
+	if ground_vert_count < 1 or surround_vert_count < 1:
+		print("FAIL: ground meshes missing surfaces after load")
+		range_view.queue_free()
+		return false
+
+	range_view.apply_atmosphere(40.0)
+	await process_frame
+	range_view.apply_atmosphere(0.0)
+	await process_frame
+
+	if ground.mesh.get_instance_id() != ground_mesh_id:
+		print("FAIL: apply_atmosphere replaced Ground mesh")
+		range_view.queue_free()
+		return false
+	if surround.mesh.get_instance_id() != surround_mesh_id:
+		print("FAIL: apply_atmosphere replaced Surround mesh")
+		range_view.queue_free()
+		return false
+
+	var ground_verts: int = ground.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size()
+	var surround_verts: int = surround.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size()
+	if ground_verts != 4:
+		print("FAIL: Ground mesh should be a single quad, got ", ground_verts, " verts")
+		range_view.queue_free()
+		return false
+	if surround_verts != 4:
+		print("FAIL: Surround mesh should be a single quad, got ", surround_verts, " verts")
+		range_view.queue_free()
+		return false
+
+	range_view.queue_free()
+	print("OK: apply_atmosphere updates palette without rebuilding ground meshes")
 	return true
 
 

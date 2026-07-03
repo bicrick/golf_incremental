@@ -60,6 +60,7 @@ var _active_flights: Array[Dictionary] = []
 var _sprite_atmosphere_tint: Color = Color.WHITE
 var _ratina_layout_applied: bool = false
 var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
+var _surround_home_size: float = -1.0
 
 
 func _should_use_editor_rig() -> bool:
@@ -188,22 +189,33 @@ func _setup_player_bay() -> void:
 func _build_ground() -> void:
 	if ground == null or surround_ground == null:
 		return
+	_ensure_ground_meshes()
 	var snap := DayNightPalette.sample_at(24.0)
 	_apply_ground_palette(snap.fairway_light, snap.fairway_dark)
 
 
-func _apply_ground_palette(light_color: Color, dark_color: Color) -> void:
-	CellGround.apply_grid_to_mesh(
+func _ensure_ground_meshes() -> void:
+	CellGround.ensure_grid_mesh(
 		ground,
 		RangeGrid.GRID_WIDTH_CELLS,
-		RangeGrid.GRID_DEPTH_CELLS,
-		light_color,
-		dark_color
+		RangeGrid.GRID_DEPTH_CELLS
 	)
-	FairwayGrassTiles3D.apply_surround(
+	var home_size := _camera_home_size()
+	if not is_equal_approx(_surround_home_size, home_size):
+		_surround_home_size = home_size
+		surround_ground.mesh = FairwayGrassTiles3D.build_surround_mesh(
+			Color.WHITE,
+			home_size
+		)
+		surround_ground.set_surface_override_material(0, FairwayGrassTiles3D.make_apron_material())
+		surround_ground.sorting_offset = -1.0
+
+
+func _apply_ground_palette(light_color: Color, dark_color: Color) -> void:
+	CellGround.apply_palette_uniforms(ground, light_color, dark_color)
+	FairwayGrassTiles3D.apply_surround_palette_uniforms(
 		surround_ground,
-		light_color.lerp(dark_color, 0.2),
-		_camera_home_size()
+		light_color.lerp(dark_color, 0.2)
 	)
 
 
