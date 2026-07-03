@@ -10,11 +10,12 @@
 [ext_resource type="Script" uid="uid://bqqkov8a6pslv" path="res://scripts/main.gd" id="7_main"]
 [ext_resource type="PackedScene" path="res://scenes/ui/settings_panel.tscn" id="8_settings"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="9_pause"]
+[ext_resource type="PackedScene" path="res://scenes/ui/swing_line_viewport.tscn" id="10_swing_line"]
 
 [node name="Main" type="Node" unique_id=785145167]
 script = ExtResource("7_main")
 
-[node name="RangeView" parent="." instance=ExtResource("1_range")]
+[node name="RangeView" parent="." unique_id=19116026 instance=ExtResource("1_range")]
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=1331961131]
 layer = 10
@@ -32,6 +33,13 @@ script = ExtResource("5_ui_root")
 [node name="HUD" parent="UI/UIRoot" unique_id=647788328 instance=ExtResource("2_hud")]
 layout_mode = 1
 
+[node name="SwingLineViewport" parent="UI/UIRoot" unique_id=211224760 instance=ExtResource("10_swing_line")]
+layout_mode = 0
+offset_left = 31.0
+offset_top = 59.0
+offset_right = 139.0
+offset_bottom = 251.0
+
 [node name="IconBar" parent="UI/UIRoot" unique_id=391510951 instance=ExtResource("3_icons")]
 layout_mode = 1
 
@@ -46,6 +54,6 @@ layer = 25
 
 [node name="SettingsPanel" parent="SettingsLayer" unique_id=511458055 instance=ExtResource("8_settings")]
 
-[node name="PauseMenu" parent="SettingsLayer" instance=ExtResource("9_pause")]
+[node name="PauseMenu" parent="SettingsLayer" unique_id=611848345 instance=ExtResource("9_pause")]
 
 [node name="TitleScreen" parent="." unique_id=1287109368 instance=ExtResource("6_title")]

@@ -5,6 +5,7 @@ extends Node
 @onready var ui: CanvasLayer = $UI
 @onready var title_screen: CanvasLayer = $TitleScreen
 @onready var hud: Control = $UI/UIRoot/HUD
+@onready var swing_line_viewport: Control = $UI/UIRoot/SwingLineViewport
 @onready var icon_bar: Control = $UI/UIRoot/IconBar
 @onready var upgrade_panel: Control = $UI/UIRoot/UpgradePanel
 @onready var shop_panel: Control = $UI/UIRoot/ShopPanel
@@ -59,6 +60,7 @@ func _on_wipe_confirmed() -> void:
 
 func _set_gameplay_ui_visible(visible: bool) -> void:
 	hud.visible = visible
+	swing_line_viewport.visible = visible
 	icon_bar.visible = visible
 
 

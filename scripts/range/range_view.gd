@@ -26,7 +26,9 @@ const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.ts
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var sun_light: DirectionalLight3D = $Sun
 @onready var camera: Camera3D = $Camera3D
+@onready var perspective_camera: Camera3D = $PerspectiveCamera
 @onready var sky_dome: RangeSkyDome = $SkyDome
+@onready var perspective_sky_dome: RangeSkyDome = $PerspectiveSkyDome
 @onready var ground: MeshInstance3D = $Ground
 @onready var surround_ground: MeshInstance3D = $Surround
 @onready var bays: Node3D = $Bays
@@ -139,6 +141,20 @@ func get_camera() -> Camera3D:
 
 func get_flight_camera() -> Camera3D:
 	return camera
+
+
+func get_perspective_camera() -> Camera3D:
+	return perspective_camera
+
+
+func bind_swing_line_viewport(sub_viewport: SubViewport) -> void:
+	if perspective_camera == null or sub_viewport == null:
+		return
+	sub_viewport.own_world_3d = false
+	perspective_camera.custom_viewport = sub_viewport
+	perspective_camera.current = true
+	if perspective_sky_dome and perspective_camera:
+		perspective_sky_dome.setup(perspective_camera)
 
 
 func get_fx_reference_ortho_size() -> float:
@@ -300,6 +316,8 @@ func apply_atmosphere(cycle_time: float) -> void:
 		sun_light.rotation_degrees = Vector3(lerpf(-70.0, -35.0, day_factor), 35.0, 0.0)
 	if sky_dome:
 		sky_dome.update_atmosphere(cycle_time, snap)
+	if perspective_sky_dome:
+		perspective_sky_dome.update_atmosphere(cycle_time, snap)
 	if player_bay:
 		player_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if ratina_bay:

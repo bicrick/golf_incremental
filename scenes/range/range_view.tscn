@@ -16,7 +16,7 @@ ambient_light_source = 2
 ambient_light_color = Color(0.55, 0.75, 0.92, 1)
 ambient_light_energy = 0.55
 
-[sub_resource type="ArrayMesh" id="ArrayMesh_ocobs"]
+[sub_resource type="ArrayMesh" id="ArrayMesh_p8kfu"]
 _surfaces = [{
 "aabb": AABB(-70, -0.01, -340, 140, 1e-05, 401.61438),
 "attribute_data": PackedByteArray(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 140, 66, 0, 0, 0, 0, 0, 0, 140, 66, 164, 206, 72, 67, 0, 0, 0, 0, 164, 206, 72, 67),
@@ -29,7 +29,7 @@ _surfaces = [{
 "vertex_data": PackedByteArray(0, 0, 140, 194, 10, 215, 35, 188, 34, 117, 118, 66, 0, 0, 140, 66, 10, 215, 35, 188, 34, 117, 118, 66, 0, 0, 140, 66, 10, 215, 35, 188, 0, 0, 170, 195, 0, 0, 140, 194, 10, 215, 35, 188, 0, 0, 170, 195)
 }]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_shseb"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ocobs"]
 render_priority = 0
 shader = ExtResource("4_p8kfu")
 shader_parameter/albedo_tex = ExtResource("2_cp8g3")
@@ -81,18 +81,26 @@ light_color = Color(1, 0.92, 0.55, 1)
 light_energy = 1.15
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1433708473]
-transform = Transform3D(0.9608136, -0.06625118, 0.26916188, 0, 0.97101825, 0.23900528, -0.27719548, -0.2296395, 0.93296754, 79.77553, 70.267136, 246.9429)
+transform = Transform3D(0.9608136, -0.06625118, 0.26916188, 0, 0.97101825, 0.23900528, -0.27719548, -0.2296395, 0.93296754, 77.093094, 71.31996, 247.45828)
 projection = 1
 current = true
-size = 10.7228775
+size = 13.277695
+
+[node name="PerspectiveCamera" type="Camera3D" parent="." unique_id=120344469]
+transform = Transform3D(0.99857616, -0.002400752, 0.05329074, 0, 0.9989868, 0.04500443, -0.05334479, -0.044940352, 0.9975644, 0.84099174, 1.6275849, -6.18293)
+current = true
+fov = 55.5
 
 [node name="SkyDome" parent="." unique_id=1582083225 instance=ExtResource("5_sky_dome")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 79.77553, 70.267136, 246.9429)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 77.093094, 71.31996, 247.45828)
+
+[node name="PerspectiveSkyDome" parent="." unique_id=1597684650 instance=ExtResource("5_sky_dome")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.84099174, 1.6275849, -6.18293)
 
 [node name="Surround" type="MeshInstance3D" parent="." unique_id=774444904]
 sorting_offset = -1.0
-mesh = SubResource("ArrayMesh_ocobs")
-surface_material_override/0 = SubResource("ShaderMaterial_shseb")
+mesh = SubResource("ArrayMesh_p8kfu")
+surface_material_override/0 = SubResource("ShaderMaterial_ocobs")
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=560799956]
 mesh = SubResource("ArrayMesh_4aak5")
