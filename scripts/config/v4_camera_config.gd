@@ -1,31 +1,33 @@
 class_name V4CameraConfig
 extends RefCounted
-## v4 orthographic camera — rotation is locked project-wide; position and ortho size may vary per scene.
+## v4 orthographic camera — rotation locked project-wide; position and ortho size may vary per scene.
+##
+## Source of truth: `ratina_bay_cell.tscn` → `EditorOnly/Camera3D`.
+## Re-sync LOCKED_BASIS + HITTING_CELL_DEFAULT_POSITION from that node's transform.
+##
+## IMPORTANT: `.tscn` Transform3D layout is (xx, xy, xz, yx, yy, yz, zx, zy, zz, ox, oy, oz).
+## Basis columns are (xx,yx,zx), (xy,yy,zy), (xz,yz,zz) — NOT the three row triples.
 
-## Locked rotation from `player_bay_cell.tscn` (Align Transform With View, 2026-03-06).
-## Do not change without re-authoring ground/prop art against the reference rig.
-## Euler (approx, YXZ): (13.36°, -18.58°, -4.44°) — use LOCKED_BASIS as source of truth.
+## Locked rotation from ratina `EditorOnly/Camera3D`.
 const LOCKED_BASIS := Basis(
-	Vector3(0.9507437, -0.07534615, 0.30068162),
-	Vector3(0.0, 0.97000897, 0.24306919),
-	Vector3(-0.3099782, -0.23109649, 0.9222299)
+	Vector3(0.9608136, 0.0, -0.27719548),
+	Vector3(-0.06625118, 0.97101825, -0.2296395),
+	Vector3(0.26916188, 0.23900528, 0.93296754)
 )
 
-## Default ortho size for bay cell editor camera (`player_bay_cell.tscn` `EditorOnly/Camera3D`).
 const HITTING_CELL_DEFAULT_SIZE := 8.0
+const HITTING_CELL_DEFAULT_POSITION := Vector3(1.470001, 1.5166433, 2.1563973)
 
-## Default camera position for the atomic cell reference rig (tunable; rotation is not).
-const HITTING_CELL_DEFAULT_POSITION := Vector3(1.5652486, 2.8510237, 4.2030277)
-
-## Starting ortho size for the full range scene — tune to frame 50×300 yd grid.
-const RANGE_VIEW_DEFAULT_SIZE := 18.0
-
-## Starting camera position for the full range scene — tune for framing only.
-const RANGE_VIEW_DEFAULT_POSITION := Vector3(0.0, 12.0, 12.0)
+const RANGE_HOME_SIZE := HITTING_CELL_DEFAULT_SIZE
+const RANGE_HOME_POSITION := HITTING_CELL_DEFAULT_POSITION
 
 
 static func locked_transform(position: Vector3) -> Transform3D:
 	return Transform3D(LOCKED_BASIS, position)
+
+
+static func apply_home_rig(camera: Camera3D) -> void:
+	apply_locked_rotation(camera, HITTING_CELL_DEFAULT_POSITION, HITTING_CELL_DEFAULT_SIZE)
 
 
 static func apply_locked_rotation(camera: Camera3D, position: Vector3, ortho_size: float) -> void:

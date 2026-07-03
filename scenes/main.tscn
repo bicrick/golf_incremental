@@ -13,7 +13,7 @@
 [node name="Main" type="Node" unique_id=785145167]
 script = ExtResource("7_main")
 
-[node name="RangeView" parent="." unique_id=546952961 instance=ExtResource("1_range")]
+[node name="RangeView" parent="." instance=ExtResource("1_range")]
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=1331961131]
 layer = 10

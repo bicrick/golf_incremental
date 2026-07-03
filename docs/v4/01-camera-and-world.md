@@ -6,66 +6,78 @@
 
 | Property | Policy |
 |----------|--------|
-| **Rotation** | **Locked** project-wide — stored in [`V4CameraConfig`](../../scripts/config/v4_camera_config.gd) |
-| **Position** | **Tunable** per scene (bay cell vs. full range framing) |
-| **Ortho `size`** | **Tunable** per scene (zoom) |
+| **Rotation** | **Locked** project-wide — `V4CameraConfig.LOCKED_BASIS` |
+| **Position** | **Home** at reference rig; tunable at runtime via WASD pan |
+| **Ortho `size`** | **Home** at `8.0`; tunable at runtime via scroll zoom |
 | **Projection** | Orthographic only in v4 |
 
 All ground, fence, and prop art is authored against this locked rotation.
 
-### Bay cell tuning camera
+### Source of truth
 
-Tune in [`scenes/range/cells/player_bay_cell.tscn`](../../scenes/range/cells/player_bay_cell.tscn) → `EditorOnly/Camera3D`, or the same node in `ratina_bay_cell.tscn`.
+**[`ratina_bay_cell.tscn`](../../scenes/range/cells/ratina_bay_cell.tscn)** → `EditorOnly/Camera3D` is the reference rig.
 
-Root exports on [`bay_cell.gd`](../../scripts/range/bay_cell.gd): `camera_position`, `camera_size` — apply locked rotation via `V4CameraConfig`.
+Constants live in [`scripts/config/v4_camera_config.gd`](../../scripts/config/v4_camera_config.gd). When retuning the camera, edit ratina bay in the editor first, then re-sync that file.
+
+`player_bay_cell.tscn` and `range_view.tscn` consume `V4CameraConfig`. **Ratina bay still uses its scene camera directly** until verified — do not point ratina at the global config yet.
+
+Root exports on [`bay_cell.gd`](../../scripts/range/bay_cell.gd): `camera_position`, `camera_size` — applied via `V4CameraConfig.apply_locked_rotation()` for player bay only.
 
 **Editor note:** Godot has no "align view to camera." Use split viewport + Preview to see camera output while editing sprites in the main pane.
 
-### Locked rotation (source of truth)
+### Locked rotation
 
-Defined in [`scripts/config/v4_camera_config.gd`](../../scripts/config/v4_camera_config.gd) as `LOCKED_BASIS`:
+From `ratina_bay_cell.tscn` `EditorOnly/Camera3D` → `V4CameraConfig.REFERENCE_HOME_TRANSFORM.basis` (columns of the transform matrix):
 
 ```
-|  0.9507437  -0.07534615   0.30068162 |
-|  0.0         0.97000897   0.24306919 |
-| -0.3099782  -0.23109649   0.9222299  |
+|  0.9608136  -0.06625118   0.26916188 |
+|  0.0         0.97101825   0.23900528 |
+| -0.27719548 -0.2296395    0.93296754 |
 ```
+
+When syncing from the editor, paste the full `Transform3D(...)` line into `v4_camera_config.gd` — do not hand-build a `Basis` from the first three floats.
 
 Approximate euler (informational only): **(13.36°, -18.58°, -4.44°)**.
 
-### Camera presets
+### Camera home rig
 
-| Scene | Position | Ortho `size` | Notes |
-|-------|----------|--------------|-------|
-| Bay cell (`player_bay_cell.tscn` `EditorOnly/Camera3D`) | `(1.565, 2.851, 4.203)` | `8.0` | Frames one 2×2 yd cell |
-| Full range (`range_view.tscn`) | `(0, 12, 12)` | `18.0` | Same rotation; frames 50×300 yd grid |
+| Constant | Value | Notes |
+|----------|-------|-------|
+| `HITTING_CELL_DEFAULT_POSITION` | `(1.470, 1.517, 2.156)` | From ratina reference camera |
+| `HITTING_CELL_DEFAULT_SIZE` | `8.0` | From ratina reference camera |
+| `RANGE_HOME_POSITION` | same as above | Range starts here |
+| `RANGE_HOME_SIZE` | same as above | Range zoom floor |
 
 ```gdscript
 V4CameraConfig.apply_locked_rotation(camera, position, ortho_size)
 ```
 
+Live range framing beyond the home cell uses scroll zoom-out and WASD pan (`range_camera_controller.gd`).
+
 ### Character sprites
 
-Billboarded `AnimatedSprite3D` — tune position/offset/scale in the bay cell `.tscn`; `range_view` instances the prefab at grid origin.
+Billboarded `AnimatedSprite3D` — tune position/offset/scale in the bay cell `.tscn`; `range_view` instances `player_bay_cell.tscn` at `RangeGrid.player_bay_origin()`.
 
 ### World / ground
 
 - Full range grid: 25×150 cells (50×300 yd) — see [02-grid-and-placement.md](02-grid-and-placement.md).
-- Per-bay 2×2 floor via `cell_ground.gd` on each bay's `Ground` node.
-- Surrounding ground / fences: extended to full grid (fence dimetric art polish still open).
+- Per-cell 2×2 yd floor via `CellGround.build_grid_mesh()` on range `Ground`.
+- Flat green surround plane under the cell grid (`FairwayGrassTiles3D.apply_surround()`).
 
 ## Implementation against current code
 
 | Asset | Status |
 |-------|--------|
-| `scripts/config/v4_camera_config.gd` | Locked basis + range/cell defaults |
-| `scenes/range/cells/player_bay_cell.tscn` | Cell camera + player sprite layout |
-| `scenes/range/cells/ratina_bay_cell.tscn` | Same camera; Ratina sprite layout |
-| `scenes/range/range_view.tscn` | Range camera; instances bay prefabs |
+| `scenes/range/cells/ratina_bay_cell.tscn` | **Reference** camera rig (not yet on global config) |
+| `scripts/config/v4_camera_config.gd` | Constants copied from ratina reference |
+| `scenes/range/cells/player_bay_cell.tscn` | Uses `V4CameraConfig` |
+| `scenes/range/range_view.tscn` | Uses `V4CameraConfig` |
+| `scripts/range/range_camera_controller.gd` | WASD pan + scroll zoom |
 
 ### Remaining
 
-- Tune `range_view` camera position/size for full fairway framing (rotation fixed)
+- Wire ratina bay to `V4CameraConfig` after visual verification
+- Instance crew bays on the buildable strip
 - Fence reorientation for dimetric angle (visual polish)
 
 ## Related docs

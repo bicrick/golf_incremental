@@ -1,21 +1,28 @@
 @tool
 extends Node3D
 ## 2×2 yd hitting bay — tune in this scene, ship at runtime.
-## EditorOnly (camera, grid, lighting) is freed on load; Ground + sprites remain.
+## EditorOnly (camera, grid, lighting) exists only while editing this scene
+## standalone; instanced bays and runtime loads strip it.
 
 const CellGroundScript := preload("res://scripts/range/cell_ground.gd")
+const DEFAULT_CAMERA_SIZE := V4CameraConfig.HITTING_CELL_DEFAULT_SIZE
+const DEFAULT_CAMERA_POSITION := V4CameraConfig.HITTING_CELL_DEFAULT_POSITION
 const CELL_SIZE_YARDS := CellGroundScript.CELL_SIZE_YARDS
 const CELL_HALF_YARDS := CellGroundScript.CELL_HALF_YARDS
 const BALL_PIXEL_SIZE := 0.021
 const GOLFER_PIXEL_SIZE := 0.024
 
 @export_group("Camera (editor tuning)")
-@export var camera_size: float = V4CameraConfig.HITTING_CELL_DEFAULT_SIZE:
+@export var camera_size: float = DEFAULT_CAMERA_SIZE:
 	set(value):
+		if is_equal_approx(camera_size, value):
+			return
 		camera_size = value
 		_apply_camera()
-@export var camera_position: Vector3 = V4CameraConfig.HITTING_CELL_DEFAULT_POSITION:
+@export var camera_position: Vector3 = DEFAULT_CAMERA_POSITION:
 	set(value):
+		if camera_position.is_equal_approx(value):
+			return
 		camera_position = value
 		_apply_camera()
 
@@ -30,28 +37,34 @@ const GOLFER_PIXEL_SIZE := 0.024
 @onready var _ball: AnimatedSprite3D = $Ball
 
 
+func _should_use_editor_rig() -> bool:
+	if not Engine.is_editor_hint():
+		return false
+	var edited := get_tree().edited_scene_root
+	return edited != null and edited == self
+
+
 func _enter_tree() -> void:
-	if Engine.is_editor_hint():
+	if _should_use_editor_rig():
 		_refresh_editor_preview()
 
 
 func _ready() -> void:
 	_refresh_editor_preview()
-	if Engine.is_editor_hint():
+	if _should_use_editor_rig():
 		var cam := _get_camera()
 		if cam:
 			cam.current = true
 	else:
-		var editor_only := get_node_or_null("EditorOnly")
-		if editor_only:
-			editor_only.queue_free()
-		_play_idle()
+		_remove_editor_rig()
+		if not Engine.is_editor_hint():
+			_play_idle()
 
 
 func _refresh_editor_preview() -> void:
 	_setup_ground()
 	_setup_sprites()
-	if Engine.is_editor_hint():
+	if _should_use_editor_rig():
 		_setup_editor_environment()
 		_apply_camera()
 		_rebuild_grid_overlay()
@@ -105,6 +118,12 @@ func _get_camera() -> Camera3D:
 	return get_node_or_null("EditorOnly/Camera3D") as Camera3D
 
 
+func _remove_editor_rig() -> void:
+	var editor_only := get_node_or_null("EditorOnly")
+	if editor_only:
+		editor_only.queue_free()
+
+
 func _get_grid_overlay() -> MeshInstance3D:
 	return get_node_or_null("EditorOnly/GridOverlay") as MeshInstance3D
 
@@ -136,7 +155,7 @@ func _apply_camera() -> void:
 		return
 	var pos := cam.position if Engine.is_editor_hint() else camera_position
 	V4CameraConfig.apply_locked_rotation(cam, pos, camera_size)
-	if Engine.is_editor_hint():
+	if _should_use_editor_rig() and not camera_position.is_equal_approx(pos):
 		camera_position = pos
 
 
@@ -144,7 +163,7 @@ func _rebuild_grid_overlay() -> void:
 	var grid := _get_grid_overlay()
 	if grid == null:
 		return
-	if not Engine.is_editor_hint() or not show_grid_overlay:
+	if not _should_use_editor_rig() or not show_grid_overlay:
 		grid.mesh = null
 		return
 	grid.mesh = _build_grid_overlay_mesh()
@@ -161,7 +180,7 @@ func _rebuild_tee_marker() -> void:
 	var marker := get_node_or_null("EditorOnly/TeeMarker") as MeshInstance3D
 	if marker == null:
 		return
-	if not Engine.is_editor_hint():
+	if not _should_use_editor_rig():
 		marker.mesh = null
 		return
 	marker.mesh = _build_tee_marker_mesh()

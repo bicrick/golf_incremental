@@ -38,6 +38,55 @@ static func apply_to_mesh(mesh_instance: MeshInstance3D, light_color: Color, dar
 		mesh_instance.set_surface_override_material(0, FairwayGrassTiles3D.make_material())
 
 
+static func build_grid_mesh(
+	cols: int,
+	rows: int,
+	light_color: Color,
+	dark_color: Color
+) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var colors := PackedColorArray()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+
+	for row in rows:
+		for col in cols:
+			var x_bounds := RangeGrid.cell_x_bounds(col)
+			var z_bounds := RangeGrid.cell_z_bounds(row)
+			var tint := light_color if (col + row) % 2 == 0 else dark_color
+			_append_grass_quad(
+				verts, colors, uvs, indices,
+				x_bounds.x, x_bounds.y,
+				z_bounds.x, z_bounds.y,
+				tint
+			)
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+static func apply_grid_to_mesh(
+	mesh_instance: MeshInstance3D,
+	cols: int,
+	rows: int,
+	light_color: Color,
+	dark_color: Color
+) -> void:
+	if mesh_instance == null:
+		return
+	mesh_instance.mesh = build_grid_mesh(cols, rows, light_color, dark_color)
+	if mesh_instance.get_surface_override_material(0) == null:
+		mesh_instance.set_surface_override_material(0, FairwayGrassTiles3D.make_material())
+
+
 static func _append_grass_quad(
 	verts: PackedVector3Array,
 	colors: PackedColorArray,
