@@ -27,8 +27,8 @@ func _ready() -> void:
 	if not Engine.is_editor_hint():
 		_camera_controller.setup(
 			_camera,
-			V4CameraConfig.RANGE_HOME_POSITION,
-			V4CameraConfig.RANGE_HOME_SIZE
+			_camera.position,
+			_camera.size
 		)
 		_camera_controller.set_enabled(visible)
 
@@ -38,9 +38,10 @@ func _notification(what: int) -> void:
 		_camera_controller.set_enabled(visible)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if visible and _camera_controller and _camera_controller.handle_input(event):
-		get_viewport().set_input_as_handled()
+func consume_zoom_event(event: InputEvent) -> bool:
+	if not visible or _camera_controller == null:
+		return false
+	return _camera_controller.consume_zoom_event(event)
 
 
 func get_camera() -> Camera3D:
@@ -85,11 +86,17 @@ func _build_ground() -> void:
 		snap.fairway_light,
 		snap.fairway_dark
 	)
-	FairwayGrassTiles3D.apply_surround(_surround, snap.fairway_light)
+	FairwayGrassTiles3D.apply_surround(_surround, snap.fairway_light, _camera_home_size())
+
+
+func _camera_home_size() -> float:
+	if _camera:
+		return _camera.size
+	return 8.0
 
 
 func _setup_camera() -> void:
 	if _camera == null:
 		return
-	V4CameraConfig.apply_home_rig(_camera)
+	V4CameraConfig.apply_locked_rotation_only(_camera)
 	_camera.current = true

@@ -2,6 +2,7 @@ class_name FairwayGrassTiles3D
 extends RefCounted
 ## Fairway ground using the light grass tile from the GRASS+ asset pack (col 0 row 0).
 ## Mower stripes reuse the same atlas tile; dark stripes are a subtle vertex tint.
+## Apron/surround uses col 0 row 1 from the same atlas.
 
 const ATLAS_TEXTURE := preload("res://assets/sprites/fairway/grass_plus_atlas.png")
 
@@ -14,20 +15,18 @@ const STRIPE_WIDTH_YARDS := 2.0
 const TILE_SIZE_YARDS := 2.0  ## One 16×16 atlas tile per 2×2 yard world patch.
 const FAIRWAY_DEPTH_YARDS := 224.0
 
-## Column 0 row 0 — Rect2(0, 0, 16, 16). Both stripes sample this tile.
+## Column 0 row 0 — Rect2(0, 0, 16, 16). Fairway stripes sample this tile.
 const GRASS_TILE_COL := 0
 const GRASS_TILE_ROW := 0
+## Column 0 row 1 — apron/surround under the fairway grid.
+const APRON_TILE_COL := 0
+const APRON_TILE_ROW := 1
 ## Blend toward palette fairway_dark (~85% brightness vs light); keeps day/night response.
 const DARK_STRIPE_PALETTE_BLEND := 0.45
-## Flat surround under the striped fairway — fills ortho camera bleed past grid edges.
+## Tiled apron under the fairway — fills ortho camera bleed past grid edges.
 const SURROUND_HALF_WIDTH_YARDS := 70.0
 const SURROUND_DEPTH_YARDS := 340.0
-## +Z edge must cover max pan (PAN_MARGIN_Z) + max ortho size + margin at home rig.
-const SURROUND_NEAR_Z := (
-	RangeCameraController.PAN_MARGIN_Z
-	+ maxf(V4CameraConfig.RANGE_HOME_SIZE * 5.0, 40.0)
-	+ 8.0
-)
+const SURROUND_BLEED_MARGIN := 8.0
 const SURROUND_Y := -0.01
 
 
@@ -95,43 +94,55 @@ static func apply_palette(
 		mesh_instance.set_surface_override_material(0, make_material())
 
 
-static func build_surround_mesh(color: Color) -> ArrayMesh:
-	var x0 := -SURROUND_HALF_WIDTH_YARDS
-	var x1 := SURROUND_HALF_WIDTH_YARDS
-	var z_near := SURROUND_NEAR_Z
+static func _surround_near_z(home_size: float) -> float:
+	return (
+		RangeCameraController.PAN_MARGIN_Z
+		+ maxf(home_size * 5.0, 40.0)
+		+ SURROUND_BLEED_MARGIN
+	)
+
+
+static func build_surround_mesh(tint: Color, home_size: float) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var colors := PackedColorArray()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+
+	var x_min := -SURROUND_HALF_WIDTH_YARDS
+	var x_max := SURROUND_HALF_WIDTH_YARDS
+	var z_near := _surround_near_z(home_size)
 	var z_far := -SURROUND_DEPTH_YARDS
-	var verts := PackedVector3Array([
-		Vector3(x0, SURROUND_Y, z_near),
-		Vector3(x1, SURROUND_Y, z_near),
-		Vector3(x1, SURROUND_Y, z_far),
-		Vector3(x0, SURROUND_Y, z_far),
-	])
-	var colors := PackedColorArray([color, color, color, color])
-	var indices := PackedInt32Array([0, 1, 2, 0, 2, 3])
+
+	var z0 := z_near
+	while z0 > z_far:
+		var z1 := maxf(z0 - TILE_SIZE_YARDS, z_far)
+		var x := x_min
+		while x < x_max:
+			var x1 := minf(x + TILE_SIZE_YARDS, x_max)
+			_append_stripe_quad(
+				verts, colors, uvs, indices,
+				x, x1, z0, z1, tint, APRON_TILE_COL, APRON_TILE_ROW,
+				SURROUND_Y
+			)
+			x += TILE_SIZE_YARDS
+		z0 = z1
+
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
 
 
-static func make_surround_material() -> StandardMaterial3D:
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.vertex_color_use_as_albedo = true
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return mat
-
-
-static func apply_surround(mesh_instance: MeshInstance3D, color: Color) -> void:
+static func apply_surround(mesh_instance: MeshInstance3D, color: Color, home_size: float) -> void:
 	if mesh_instance == null:
 		return
-	mesh_instance.mesh = build_surround_mesh(color)
-	if mesh_instance.get_surface_override_material(0) == null:
-		mesh_instance.set_surface_override_material(0, make_surround_material())
+	mesh_instance.mesh = build_surround_mesh(color, home_size)
+	mesh_instance.set_surface_override_material(0, make_material())
 	mesh_instance.sorting_offset = -1.0
 
 
@@ -156,14 +167,15 @@ static func _append_stripe_quad(
 	z_far: float,
 	tint: Color,
 	tile_col: int,
-	tile_row: int
+	tile_row: int,
+	y: float = 0.0
 ) -> void:
 	var uv := _uv_for_tile(tile_col, tile_row)
 	var base := verts.size()
-	verts.append(Vector3(x0, 0.0, z_near))
-	verts.append(Vector3(x1, 0.0, z_near))
-	verts.append(Vector3(x1, 0.0, z_far))
-	verts.append(Vector3(x0, 0.0, z_far))
+	verts.append(Vector3(x0, y, z_near))
+	verts.append(Vector3(x1, y, z_near))
+	verts.append(Vector3(x1, y, z_far))
+	verts.append(Vector3(x0, y, z_far))
 	for _c in 4:
 		colors.append(tint)
 	uvs.append(Vector2(uv.x, uv.y))

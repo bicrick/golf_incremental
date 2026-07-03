@@ -5,21 +5,19 @@ extends Node3D
 ## standalone; instanced bays and runtime loads strip it.
 
 const CellGroundScript := preload("res://scripts/range/cell_ground.gd")
-const DEFAULT_CAMERA_SIZE := V4CameraConfig.HITTING_CELL_DEFAULT_SIZE
-const DEFAULT_CAMERA_POSITION := V4CameraConfig.HITTING_CELL_DEFAULT_POSITION
 const CELL_SIZE_YARDS := CellGroundScript.CELL_SIZE_YARDS
 const CELL_HALF_YARDS := CellGroundScript.CELL_HALF_YARDS
 const BALL_PIXEL_SIZE := 0.021
 const GOLFER_PIXEL_SIZE := 0.024
 
 @export_group("Camera (editor tuning)")
-@export var camera_size: float = DEFAULT_CAMERA_SIZE:
+@export var camera_size: float = 8.0:
 	set(value):
 		if is_equal_approx(camera_size, value):
 			return
 		camera_size = value
 		_apply_camera()
-@export var camera_position: Vector3 = DEFAULT_CAMERA_POSITION:
+@export var camera_position: Vector3 = Vector3(1.470001, 1.5166433, 2.1563973):
 	set(value):
 		if camera_position.is_equal_approx(value):
 			return

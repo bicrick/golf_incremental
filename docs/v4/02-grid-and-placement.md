@@ -17,7 +17,7 @@ The entire range uses a single **2-yard cell** grid:
 
 ### Player hitting cell placement
 
-The player's atomic hitting cell sits on the **near edge** (`Z ≈ 0`), **centered on X** (midline of the 25-cell width). This is the anchor everything else is laid out from.
+The player's atomic hitting cell is **centered on X** (midline of the 25-cell width) at **row 5** — 10 yd into the fairway from the near edge (`Z = -10`), staging on the fairway rather than the backmost row. Buildable crew bays remain on row 0 (`Z ≈ 0`).
 
 ```
         deep edge (Z = -300)
@@ -26,7 +26,8 @@ The player's atomic hitting cell sits on the **near edge** (`Z ≈ 0`), **center
               |
          fairway / range body
               |
-    [bay][bay][PLAYER][bay][bay]   ← near edge (Z ≈ 0), buildable row
+         [PLAYER]                     ← row 5 (Z ≈ -10), player bay
+    [bay][bay][ · ][bay][bay]         ← row 0 (Z ≈ 0), buildable strip
               |
            camera
 ```
@@ -66,7 +67,7 @@ Only a **single row on the near edge** (`Z ≈ 0`) is buildable for hitting bays
 ### Coordinate convention (implemented)
 
 - **Cell origin** for a hitting bay = center of the cell's near edge, at `Y = 0`.
-- Player at grid cell **`(12, 0)`** → world bay origin `(0, 0, 0)`.
+- Player at grid cell **`(12, 5)`** → world bay origin `(0, 0, -10)`.
 - Ratina at grid cell **`(10, 0)`** → world bay origin `(-4, 0, 0)`.
 - Additional bays occupy neighboring X cells on row `Z = 0`.
 

@@ -49,11 +49,12 @@ static func build_grid_mesh(
 	var uvs := PackedVector2Array()
 	var indices := PackedInt32Array()
 
+	# Mower stripes parallel to -Z — alternate tint by column only.
 	for row in rows:
 		for col in cols:
 			var x_bounds := RangeGrid.cell_x_bounds(col)
 			var z_bounds := RangeGrid.cell_z_bounds(row)
-			var tint := light_color if (col + row) % 2 == 0 else dark_color
+			var tint := light_color if col % 2 == 0 else dark_color
 			_append_grass_quad(
 				verts, colors, uvs, indices,
 				x_bounds.x, x_bounds.y,

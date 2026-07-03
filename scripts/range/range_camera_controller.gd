@@ -3,7 +3,7 @@ extends Node
 ## Runtime pan/zoom for the orthographic range camera. Rotation is fixed at setup.
 ##
 ## Editor troubleshooting:
-## - Embedded game runner: scroll wheel may go to editor UI; use a separate game window for reliable zoom.
+## - Embedded game runner: scroll wheel may go to editor UI; UIRoot _gui_input is the fallback path.
 ## - Exact 50/50 dark bottom pane: Godot Input debug toolbar is toggled on — not a scene bug.
 
 const PAN_SPEED_YARDS_PER_SEC := 24.0
@@ -35,24 +35,48 @@ func setup(camera: Camera3D, home_position: Vector3, home_size: float) -> void:
 
 func set_enabled(enabled: bool) -> void:
 	_enabled = enabled
+	set_process_input(enabled)
 
 
 func is_enabled() -> bool:
 	return _enabled
 
 
-func handle_input(event: InputEvent) -> bool:
+func consume_zoom_event(event: InputEvent) -> bool:
 	if not _enabled or _camera == null:
 		return false
+	var amount := _zoom_amount_from_event(event)
+	if is_zero_approx(amount):
+		return false
+	_zoom_by(amount)
+	return true
+
+
+func _input(event: InputEvent) -> void:
+	if consume_zoom_event(event):
+		get_viewport().set_input_as_handled()
+
+
+func _zoom_amount_from_event(event: InputEvent) -> float:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
-			_zoom_by(-ZOOM_STEP)
-			return true
-		if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
-			_zoom_by(ZOOM_STEP)
-			return true
-	return false
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			return -ZOOM_STEP
+		if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			return ZOOM_STEP
+	if event is InputEventMagnifyGesture:
+		var mag := event as InputEventMagnifyGesture
+		return -ZOOM_STEP * (mag.factor - 1.0) * 4.0
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if key.echo or not key.pressed:
+			return 0.0
+		match key.keycode:
+			KEY_E, KEY_EQUAL, KEY_PLUS, KEY_KP_ADD:
+				return -ZOOM_STEP
+			KEY_Q, KEY_MINUS, KEY_KP_SUBTRACT:
+				return ZOOM_STEP
+	return 0.0
 
 
 func _zoom_by(amount: float) -> void:
