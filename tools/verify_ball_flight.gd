@@ -22,6 +22,7 @@ func _run() -> void:
 	ok = _check_landing_proportional_to_yards() and ok
 	ok = _check_tier_ladder_distance_separation() and ok
 	ok = await _check_flight_trail() and ok
+	ok = await _check_flight_trail_zoom_anchor() and ok
 	ok = await _check_hit_poof_anchor() and ok
 	ok = await _check_hit_poof_zoom_compensation() and ok
 	print("ball_flight_ok=", ok)
@@ -342,6 +343,54 @@ func _check_flight_trail() -> bool:
 	trail.finish()
 	if ok:
 		print("OK: flight trail caps points, fades tail-to-head, and survives camera pan")
+	return ok
+
+
+func _check_flight_trail_zoom_anchor() -> bool:
+	var ok := true
+	var fx_layer := Node2D.new()
+	root.add_child(fx_layer)
+
+	var camera := Camera3D.new()
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.position = Vector3(0.24, 1.24, -2.016)
+	camera.rotation_degrees = Vector3(1.2, 3.0, 0.0)
+	camera.size = 10.0
+	root.add_child(camera)
+	await process_frame
+
+	var reference_size := camera.size
+	var trail = BallFlightTrailScript.begin(
+		fx_layer, camera, Balance.TimingTier.PERFECT, reference_size
+	)
+	var world_head := Vector3(-0.545, 0.05, -6.395)
+	trail.track(world_head)
+	await process_frame
+
+	var expected := fx_layer.to_local(camera.unproject_position(world_head))
+	var actual: Vector2 = trail.screen_point_at(trail.point_count() - 1)
+	if expected.distance_to(actual) > 0.5:
+		print(
+			"FAIL: trail head mismatch at reference zoom (expected %s, got %s)"
+			% [expected, actual]
+		)
+		ok = false
+
+	camera.size = reference_size * 4.0
+	await process_frame
+
+	expected = fx_layer.to_local(camera.unproject_position(world_head))
+	actual = trail.screen_point_at(trail.point_count() - 1)
+	if expected.distance_to(actual) > 0.5:
+		print(
+			"FAIL: trail head mismatch when zoomed out (expected %s, got %s)"
+			% [expected, actual]
+		)
+		ok = false
+
+	trail.finish()
+	if ok:
+		print("OK: flight trail head tracks ball at extreme zoom")
 	return ok
 
 

@@ -120,7 +120,7 @@ func _refresh_line() -> void:
 	if _line == null or _camera == null:
 		return
 	var zoom := ScreenFxScale.compensation(_camera, _reference_ortho_size)
-	scale = Vector2.ONE * zoom
+	_line.width = Balance.FLIGHT_TRAIL_WIDTH * zoom
 	var locals := PackedVector2Array()
 	locals.resize(_world_points.size())
 	for i in _world_points.size():
