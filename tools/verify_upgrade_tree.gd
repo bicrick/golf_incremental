@@ -154,7 +154,7 @@ func _run() -> void:
 
 	gs.reset_to_fresh()
 	await process_frame
-	var icon_bar_node: Node = main.get_node("UI/UIRoot/IconBar")
+	var icon_bar_node: Node = main.get_node("UI/UIRoot/GameplayChrome/IconBar")
 	if icon_bar_node.has_method("_refresh_upgrades_lock_state"):
 		icon_bar_node._refresh_upgrades_lock_state()
 	if not gs.upgrades_unlocked and gs.currency < Balance.UPGRADES_UNLOCK_COST:

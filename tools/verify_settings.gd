@@ -240,7 +240,7 @@ func _test_main_has_settings_panel() -> bool:
 		main.queue_free()
 		return false
 
-	var icon_bar := main.get_node_or_null("UI/UIRoot/IconBar")
+	var icon_bar := main.get_node_or_null("UI/UIRoot/GameplayChrome/IconBar")
 	if icon_bar != null and icon_bar.has_node("BottomLeft"):
 		print("FAIL: settings cog should be removed from icon bar")
 		main.queue_free()

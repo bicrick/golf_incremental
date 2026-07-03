@@ -4,8 +4,7 @@ extends Node
 @onready var range_view: Node3D = $RangeView
 @onready var ui: CanvasLayer = $UI
 @onready var title_screen: CanvasLayer = $TitleScreen
-@onready var hud: Control = $UI/UIRoot/HUD
-@onready var icon_bar: Control = $UI/UIRoot/IconBar
+@onready var gameplay_chrome: Control = $UI/UIRoot/GameplayChrome
 @onready var upgrade_panel: Control = $UI/UIRoot/UpgradePanel
 @onready var shop_panel: Control = $UI/UIRoot/ShopPanel
 @onready var settings_panel: Control = $SettingsLayer/SettingsPanel
@@ -58,8 +57,7 @@ func _on_wipe_confirmed() -> void:
 
 
 func _set_gameplay_ui_visible(visible: bool) -> void:
-	hud.visible = visible
-	icon_bar.visible = visible
+	gameplay_chrome.visible = visible
 
 
 func set_capture_ui_visible(visible: bool) -> void:

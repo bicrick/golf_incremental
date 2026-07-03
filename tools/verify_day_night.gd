@@ -17,6 +17,7 @@ func _run() -> void:
 	ok = await _check_ground_mesh_stability() and ok
 	ok = await _check_sun_light_scene() and ok
 	ok = await _check_sky_dome() and ok
+	ok = await _check_gameplay_ui_atmosphere() and ok
 	print("day_night_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -271,4 +272,48 @@ func _check_sky_dome() -> bool:
 
 	range_view.queue_free()
 	print("OK: SkyDome sun and star visibility follow day/night cycle")
+	return true
+
+
+func _check_gameplay_ui_atmosphere() -> bool:
+	var scene: PackedScene = load("res://scenes/main.tscn")
+	if scene == null:
+		print("FAIL: could not load main.tscn for gameplay UI atmosphere check")
+		return false
+
+	var main: Node = scene.instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+
+	var range_view: Node3D = main.get_node("RangeView")
+	var gameplay_chrome: CanvasItem = main.get_node("UI/UIRoot/GameplayChrome")
+	if gameplay_chrome == null:
+		print("FAIL: GameplayChrome missing from main scene")
+		main.queue_free()
+		return false
+
+	range_view.apply_atmosphere(0.0)
+	await process_frame
+	var midnight_tint := DayNightPalette.sample_at(0.0).canvas_modulate
+	if not gameplay_chrome.modulate.is_equal_approx(midnight_tint):
+		print(
+			"FAIL: GameplayChrome modulate at midnight expected %s, got %s"
+			% [midnight_tint, gameplay_chrome.modulate]
+		)
+		main.queue_free()
+		return false
+
+	range_view.apply_atmosphere(40.0)
+	await process_frame
+	if not gameplay_chrome.modulate.is_equal_approx(Color.WHITE):
+		print(
+			"FAIL: GameplayChrome modulate at day expected white, got %s"
+			% gameplay_chrome.modulate
+		)
+		main.queue_free()
+		return false
+
+	main.queue_free()
+	print("OK: gameplay UI chrome modulate follows day/night canvas_modulate")
 	return true

@@ -348,6 +348,7 @@ func apply_atmosphere(cycle_time: float) -> void:
 	if ratina_bay:
 		ratina_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	_apply_sprite_atmosphere_tint()
+	EventBus.atmosphere_tint_changed.emit(_sprite_atmosphere_tint)
 
 
 func _apply_sprite_atmosphere_tint() -> void:
@@ -752,7 +753,7 @@ func _setup_pickup_controller() -> void:
 	_pickup.name = "PickupController"
 	add_child(_pickup)
 	var bucket_counter: Control = get_tree().root.get_node_or_null(
-		"Main/UI/UIRoot/IconBar/BottomRight/BucketCounter"
+		"Main/UI/UIRoot/GameplayChrome/IconBar/BottomRight/BucketCounter"
 	)
 	if bucket_counter:
 		_pickup.setup(self, littered_balls, bucket_counter)

@@ -21,7 +21,7 @@ func _run() -> void:
 		quit(1)
 		return
 
-	var icon_bar: Node = main.get_node("UI/UIRoot/IconBar")
+	var icon_bar: Node = main.get_node("UI/UIRoot/GameplayChrome/IconBar")
 	var shop_wrap: Control = icon_bar.get_node("TopRight/TopRightRow/ShopWrap")
 	var shop_button: Button = icon_bar.get_node("TopRight/TopRightRow/ShopWrap/ShopButton")
 	var shop_panel: Control = main.get_node("UI/UIRoot/ShopPanel")

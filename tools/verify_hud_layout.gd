@@ -16,9 +16,10 @@ func _run() -> void:
 	await process_frame
 
 	var ui_root: Control = main.get_node("UI/UIRoot")
-	var hud: Control = ui_root.get_node("HUD")
+	var gameplay_chrome: Control = ui_root.get_node("GameplayChrome")
+	var hud: Control = gameplay_chrome.get_node("HUD")
 	var margin: MarginContainer = hud.get_node("Margin")
-	var icon_bar: Control = ui_root.get_node("IconBar")
+	var icon_bar: Control = gameplay_chrome.get_node("IconBar")
 	var bucket_counter: Control = icon_bar.get_node("BottomRight/BucketCounter")
 	var vp_size: Vector2 = root.get_visible_rect().size
 
@@ -32,8 +33,8 @@ func _run() -> void:
 	if ui_root.size != vp_size:
 		print("FAIL: UIRoot not viewport-sized")
 		ok = false
-	if hud.size != ui_root.size:
-		print("FAIL: HUD not filling UIRoot")
+	if hud.size != gameplay_chrome.size:
+		print("FAIL: HUD not filling GameplayChrome")
 		ok = false
 	if margin.global_position != Vector2(EXPECTED_PADDING, EXPECTED_PADDING):
 		print("FAIL: Margin not at (%d,%d), got %s" % [EXPECTED_PADDING, EXPECTED_PADDING, margin.global_position])
