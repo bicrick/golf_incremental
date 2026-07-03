@@ -133,12 +133,12 @@ custom_minimum_size = Vector2(120, 18)
 layout_mode = 2
 script = ExtResource("3_slider")
 
-[node name="WipeButton" type="Button" parent="Content/Body"]
+[node name="ResetButton" type="Button" parent="Content/Body"]
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_default_cursor_shape = 2
 
-[node name="WipeDialog" type="ConfirmationDialog" parent="."]
-title = "Wipe Character?"
+[node name="ResetDialog" type="ConfirmationDialog" parent="."]
+title = "Reset Character?"
 initial_position = 1
 size = Vector2i(360, 140)

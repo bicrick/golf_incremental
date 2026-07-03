@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://b8cisw5axuxjg" path="res://scenes/ui/title_screen.tscn" id="6_title"]
 [ext_resource type="Script" uid="uid://bqqkov8a6pslv" path="res://scripts/main.gd" id="7_main"]
 [ext_resource type="PackedScene" path="res://scenes/ui/settings_panel.tscn" id="8_settings"]
+[ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="9_pause"]
 
 [node name="Main" type="Node" unique_id=785145167]
 script = ExtResource("7_main")
@@ -44,5 +45,7 @@ layout_mode = 1
 layer = 25
 
 [node name="SettingsPanel" parent="SettingsLayer" unique_id=511458055 instance=ExtResource("8_settings")]
+
+[node name="PauseMenu" parent="SettingsLayer" instance=ExtResource("9_pause")]
 
 [node name="TitleScreen" parent="." unique_id=1287109368 instance=ExtResource("6_title")]

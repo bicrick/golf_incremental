@@ -127,6 +127,12 @@ func consume_zoom_event(event: InputEvent) -> bool:
 	return _camera_controller.consume_zoom_event(event)
 
 
+func consume_pan_drag_event(event: InputEvent) -> bool:
+	if not visible or _camera_controller == null:
+		return false
+	return _camera_controller.consume_pan_drag_event(event)
+
+
 func get_camera() -> Camera3D:
 	return camera
 
@@ -324,6 +330,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if _camera_controller and _camera_controller.consume_zoom_event(event):
+		get_viewport().set_input_as_handled()
+		return
+	if _camera_controller and _camera_controller.consume_pan_drag_event(event):
 		get_viewport().set_input_as_handled()
 		return
 	if _pickup and _pickup.handle_input(event):

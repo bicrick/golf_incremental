@@ -23,7 +23,7 @@ func _run() -> void:
 	ok = await _test_sfx_manager_volume_api() and ok
 	ok = _test_wipe_keeps_settings() and ok
 	ok = await _test_main_has_settings_panel() and ok
-	ok = await _test_settings_button_behavior() and ok
+	ok = await _test_pause_menu() and ok
 
 	_cleanup_user_files()
 	print("settings_ok=", ok)
@@ -230,9 +230,43 @@ func _test_main_has_settings_panel() -> bool:
 		main.queue_free()
 		return false
 
-	var icon_bar := main.get_node_or_null("UI/UIRoot/IconBar/BottomLeft/SettingsWrap/SettingsButton")
-	if icon_bar == null:
-		print("FAIL: in-game settings button missing")
+	var pause_menu := main.get_node_or_null("SettingsLayer/PauseMenu")
+	if pause_menu == null:
+		print("FAIL: PauseMenu missing from main scene")
+		main.queue_free()
+		return false
+	if not pause_menu.has_method("open") or not pause_menu.has_method("is_open"):
+		print("FAIL: PauseMenu missing open/is_open API")
+		main.queue_free()
+		return false
+
+	var icon_bar := main.get_node_or_null("UI/UIRoot/IconBar")
+	if icon_bar != null and icon_bar.has_node("BottomLeft"):
+		print("FAIL: settings cog should be removed from icon bar")
+		main.queue_free()
+		return false
+
+	var reset_button: Button = settings_panel.get_node_or_null("Content/Body/ResetButton")
+	if reset_button == null:
+		print("FAIL: Reset Character button missing")
+		main.queue_free()
+		return false
+	if reset_button.text != "Reset Character":
+		print("FAIL: reset button text expected 'Reset Character', got '%s'" % reset_button.text)
+		main.queue_free()
+		return false
+
+	var reset_dialog: ConfirmationDialog = settings_panel.get_node_or_null("ResetDialog")
+	if reset_dialog == null:
+		print("FAIL: ResetDialog missing")
+		main.queue_free()
+		return false
+	if reset_dialog.title != "Reset Character?":
+		print("FAIL: reset dialog title expected 'Reset Character?'")
+		main.queue_free()
+		return false
+	if reset_dialog.ok_button_text != "Reset":
+		print("FAIL: reset dialog ok button expected 'Reset', got '%s'" % reset_dialog.ok_button_text)
 		main.queue_free()
 		return false
 
@@ -247,59 +281,51 @@ func _test_main_has_settings_panel() -> bool:
 	return true
 
 
-func _test_settings_button_behavior() -> bool:
+func _test_pause_menu() -> bool:
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
 	await process_frame
 
-	var settings_btn: Button = main.get_node("UI/UIRoot/IconBar/BottomLeft/SettingsWrap/SettingsButton")
-	var settings_wrap: Control = main.get_node("UI/UIRoot/IconBar/BottomLeft/SettingsWrap")
-	var upgrades_btn: Button = main.get_node("UI/UIRoot/IconBar/TopRight/TopRightRow/UpgradesWrap/UpgradesButton")
+	var pause_menu: Control = main.get_node("SettingsLayer/PauseMenu")
+	var game_state: Node = root.get_node("GameState")
+	game_state.currency = 100.0
 
-	if settings_btn.tooltip_text != "":
-		print("FAIL: in-game settings button should have no tooltip, got '%s'" % settings_btn.tooltip_text)
-		main.queue_free()
-		return false
-
-	var settings_rest_y := settings_wrap.position.y
-	var upgrades_rest_y := upgrades_btn.position.y
-	var game_state: Node = root.get_node_or_null("GameState")
-	if game_state != null:
-		game_state.currency = 999999.0
-		var event_bus: Node = root.get_node_or_null("EventBus")
-		if event_bus:
-			event_bus.stats_changed.emit(game_state.stats, game_state.currency)
-	await process_frame
+	main._on_play_pressed()
 	await process_frame
 
-	for _i in 20:
-		await process_frame
-
-	if not is_equal_approx(settings_wrap.position.y, settings_rest_y):
-		print(
-			"FAIL: settings button bobbed without hover (y=%.2f -> %.2f)"
-			% [settings_rest_y, settings_wrap.position.y]
-		)
+	if pause_menu.is_open():
+		print("FAIL: pause menu should start closed")
 		main.queue_free()
 		return false
 
-	if not is_equal_approx(upgrades_btn.position.y, upgrades_rest_y):
-		print(
-			"FAIL: upgrades button bobbed without hover (y=%.2f -> %.2f)"
-			% [upgrades_rest_y, upgrades_btn.position.y]
-		)
+	pause_menu.open()
+	await process_frame
+
+	if not pause_menu.is_open():
+		print("FAIL: pause menu should open")
 		main.queue_free()
 		return false
 
-	var gear: Node = settings_btn.get_node("Glyph")
-	if gear.get_script() == null:
-		print("FAIL: settings glyph script missing")
+	var add_money_btn: Button = pause_menu.get_node("Content/Center/VBox/DebugSection/AddMoneyButton")
+	add_money_btn.pressed.emit()
+	await process_frame
+
+	if not is_equal_approx(game_state.currency, 100.0 + 1_000_000.0):
+		print("FAIL: debug add money expected %.0f got %.0f" % [100.0 + 1_000_000.0, game_state.currency])
+		main.queue_free()
+		return false
+
+	pause_menu.close()
+	await process_frame
+
+	if pause_menu.is_open():
+		print("FAIL: pause menu should close")
 		main.queue_free()
 		return false
 
 	main.queue_free()
-	print("OK: settings_button_behavior")
+	print("OK: pause_menu")
 	return true
 
 

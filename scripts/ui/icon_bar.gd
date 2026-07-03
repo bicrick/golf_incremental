@@ -3,7 +3,6 @@ extends Control
 
 signal upgrades_toggled(is_open: bool)
 signal shop_toggled(is_open: bool)
-signal settings_toggled(is_open: bool)
 
 const ICON_SIZE := Vector2i(24, 24)
 const MARGIN := 8
@@ -12,64 +11,46 @@ const WRAP_MARGIN_H := 2
 const WRAP_MARGIN_V := 1
 const CORNER_GAP := 4
 
-const COLOR_WOOD := Color(0.55, 0.42, 0.32, 1)
-const COLOR_WOOD_DARK := Color(0.35, 0.28, 0.22, 1)
-
 const HOVER_BOB_AMPLITUDE := 1.5
 const HOVER_BOB_FREQ := 2.4
 
 @onready var shop_button: Button = $TopRight/TopRightRow/ShopWrap/ShopButton
 @onready var upgrades_button: Button = $TopRight/TopRightRow/UpgradesWrap/UpgradesButton
-@onready var settings_button: Button = $BottomLeft/SettingsWrap/SettingsButton
 @onready var _shop_glyph: Control = $TopRight/TopRightRow/ShopWrap/ShopButton/Glyph
 @onready var _shop_wrap: PanelContainer = $TopRight/TopRightRow/ShopWrap
 @onready var _upgrades_glyph: Control = $TopRight/TopRightRow/UpgradesWrap/UpgradesButton/Glyph
 @onready var _upgrades_wrap: PanelContainer = $TopRight/TopRightRow/UpgradesWrap
-@onready var _settings_glyph: Control = $BottomLeft/SettingsWrap/SettingsButton/Glyph
-@onready var _settings_wrap: Control = $BottomLeft/SettingsWrap
 @onready var _top_right_row: HBoxContainer = $TopRight/TopRightRow
 
 var _upgrade_panel: Node = null
 var _shop_panel: Node = null
-var _settings_panel: Node = null
 var _upgrades_open := false
 var _shop_open := false
-var _settings_open := false
 var _upgrades_rest_y := 0.0
 var _shop_rest_y := 0.0
-var _settings_rest_y := 0.0
 var _upgrades_hover := false
 var _shop_hover := false
-var _settings_hover := false
 var _hover_bob_time := 0.0
 
 
 func _ready() -> void:
 	_upgrade_panel = get_parent().get_node_or_null("UpgradePanel")
 	_shop_panel = get_parent().get_node_or_null("ShopPanel")
-	var main := get_tree().root.get_node_or_null("Main")
-	if main:
-		_settings_panel = main.get_node_or_null("SettingsLayer/SettingsPanel")
 	shop_button.pressed.connect(_on_shop_pressed)
 	upgrades_button.pressed.connect(_on_upgrades_pressed)
-	settings_button.pressed.connect(_on_settings_pressed)
 	shop_button.mouse_entered.connect(_on_shop_mouse_entered)
 	shop_button.mouse_exited.connect(_on_shop_mouse_exited)
 	upgrades_button.mouse_entered.connect(_on_upgrades_mouse_entered)
 	upgrades_button.mouse_exited.connect(_on_upgrades_mouse_exited)
-	settings_button.mouse_entered.connect(_on_settings_mouse_entered)
-	settings_button.mouse_exited.connect(_on_settings_mouse_exited)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 	_style_shop_wrap()
 	_style_upgrades_wrap()
 	_style_shop_button()
 	_style_upgrades_button()
-	_style_settings_button()
 	_layout_top_right_corner()
 	shop_button.tooltip_text = ""
 	upgrades_button.tooltip_text = ""
-	settings_button.tooltip_text = ""
 	call_deferred("_capture_button_rest_positions")
 	call_deferred("_refresh_shop_lock_state")
 	call_deferred("_refresh_upgrades_lock_state")
@@ -136,11 +117,10 @@ func _refresh_upgrades_lock_state() -> void:
 func _capture_button_rest_positions() -> void:
 	_shop_rest_y = _shop_wrap.position.y
 	_upgrades_rest_y = _upgrades_wrap.position.y
-	_settings_rest_y = _settings_wrap.position.y
 
 
 func _process(delta: float) -> void:
-	if not _shop_hover and not _upgrades_hover and not _settings_hover:
+	if not _shop_hover and not _upgrades_hover:
 		return
 	_hover_bob_time += delta
 	var wave := sin(_hover_bob_time * HOVER_BOB_FREQ) * HOVER_BOB_AMPLITUDE
@@ -148,8 +128,6 @@ func _process(delta: float) -> void:
 		_shop_wrap.position.y = _shop_rest_y + wave
 	if _upgrades_hover:
 		_upgrades_wrap.position.y = _upgrades_rest_y + wave
-	if _settings_hover:
-		_settings_wrap.position.y = _settings_rest_y + wave
 
 
 func _on_shop_mouse_entered() -> void:
@@ -178,19 +156,8 @@ func _on_upgrades_mouse_exited() -> void:
 	_update_hover_process()
 
 
-func _on_settings_mouse_entered() -> void:
-	_settings_hover = true
-	set_process(true)
-
-
-func _on_settings_mouse_exited() -> void:
-	_settings_hover = false
-	_settings_wrap.position.y = _settings_rest_y
-	_update_hover_process()
-
-
 func _update_hover_process() -> void:
-	var any_hover := _shop_hover or _upgrades_hover or _settings_hover
+	var any_hover := _shop_hover or _upgrades_hover
 	set_process(any_hover)
 	if not any_hover:
 		_hover_bob_time = 0.0
@@ -203,7 +170,6 @@ func _on_shop_pressed() -> void:
 		if not GameState.try_unlock_shop():
 			return
 		_refresh_shop_lock_state()
-	_close_settings_panel()
 	_close_upgrade_panel()
 	if _shop_panel.has_method("toggle"):
 		_shop_panel.toggle()
@@ -230,7 +196,6 @@ func _on_upgrades_pressed() -> void:
 		if not GameState.try_unlock_upgrades():
 			return
 		_refresh_upgrades_lock_state()
-	_close_settings_panel()
 	_close_shop_panel()
 	if _upgrade_panel.has_method("toggle"):
 		_upgrade_panel.toggle()
@@ -312,38 +277,6 @@ func _style_upgrades_button() -> void:
 	_style_icon_button(upgrades_button)
 
 
-func _on_settings_pressed() -> void:
-	if _settings_panel == null:
-		return
-	_close_upgrade_panel()
-	_close_shop_panel()
-	if _settings_panel.has_method("toggle"):
-		_settings_panel.toggle()
-		_settings_open = _settings_panel.is_open() if _settings_panel.has_method("is_open") else not _settings_open
-	else:
-		_settings_open = not _settings_open
-		_settings_panel.visible = _settings_open
-	set_settings_open(_settings_open)
-	settings_toggled.emit(_settings_open)
-
-
-func set_settings_open(is_open: bool) -> void:
-	_settings_open = is_open
-	settings_button.button_pressed = is_open
-	if _settings_glyph:
-		_settings_glyph.highlighted = is_open
-
-
-func _style_settings_button() -> void:
-	settings_button.custom_minimum_size = Vector2(ICON_SIZE)
-	settings_button.tooltip_text = ""
-	var empty := StyleBoxEmpty.new()
-	settings_button.add_theme_stylebox_override("normal", empty)
-	settings_button.add_theme_stylebox_override("hover", empty)
-	settings_button.add_theme_stylebox_override("pressed", empty)
-	settings_button.add_theme_stylebox_override("disabled", empty)
-
-
 func _close_upgrade_panel() -> void:
 	if _upgrade_panel and _upgrade_panel.has_method("is_open") and _upgrade_panel.is_open():
 		_upgrade_panel.close()
@@ -352,8 +285,3 @@ func _close_upgrade_panel() -> void:
 func _close_shop_panel() -> void:
 	if _shop_panel and _shop_panel.has_method("is_open") and _shop_panel.is_open():
 		_shop_panel.close()
-
-
-func _close_settings_panel() -> void:
-	if _settings_panel and _settings_panel.has_method("is_open") and _settings_panel.is_open():
-		_settings_panel.close()

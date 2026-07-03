@@ -6,7 +6,10 @@ extends Node
 @onready var title_screen: CanvasLayer = $TitleScreen
 @onready var hud: Control = $UI/UIRoot/HUD
 @onready var icon_bar: Control = $UI/UIRoot/IconBar
+@onready var upgrade_panel: Control = $UI/UIRoot/UpgradePanel
+@onready var shop_panel: Control = $UI/UIRoot/ShopPanel
 @onready var settings_panel: Control = $SettingsLayer/SettingsPanel
+@onready var pause_menu: Control = $SettingsLayer/PauseMenu
 
 
 func _ready() -> void:
@@ -29,11 +32,25 @@ func _on_play_pressed() -> void:
 
 
 func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
-	if panel_id not in ["upgrades", "settings"]:
+	if panel_id not in ["upgrades", "settings", "pause", "shop"]:
 		return
-	if ui.visible:
-		range_view.visible = not is_open
-		_set_gameplay_ui_visible(not is_open)
+	if not ui.visible:
+		return
+	var overlay_open := _is_overlay_panel_open()
+	range_view.visible = not overlay_open
+	_set_gameplay_ui_visible(not overlay_open)
+
+
+func _is_overlay_panel_open() -> bool:
+	if pause_menu.has_method("is_open") and pause_menu.is_open():
+		return true
+	if settings_panel.has_method("is_open") and settings_panel.is_open():
+		return true
+	if upgrade_panel.has_method("is_open") and upgrade_panel.is_open():
+		return true
+	if shop_panel.has_method("is_open") and shop_panel.is_open():
+		return true
+	return false
 
 
 func _on_wipe_confirmed() -> void:
@@ -46,9 +63,38 @@ func _set_gameplay_ui_visible(visible: bool) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not event.is_action_pressed("reload_game"):
+	if event.is_action_pressed("reload_game"):
+		if range_view.visible:
+			get_viewport().set_input_as_handled()
+			SaveManager.reset_and_reload()
 		return
-	if not range_view.visible:
+	if not event.is_action_pressed("ui_cancel"):
+		return
+	if not _is_in_gameplay():
 		return
 	get_viewport().set_input_as_handled()
-	SaveManager.reset_and_reload()
+	_handle_escape()
+
+
+func _is_in_gameplay() -> bool:
+	return ui.visible and range_view.visible or _is_overlay_panel_open()
+
+
+func _handle_escape() -> void:
+	if settings_panel.has_method("is_open") and settings_panel.is_open():
+		if settings_panel.has_method("close_to_pause"):
+			settings_panel.close_to_pause()
+		else:
+			settings_panel.close()
+		return
+	if shop_panel.has_method("is_open") and shop_panel.is_open():
+		shop_panel.close()
+		return
+	if upgrade_panel.has_method("is_open") and upgrade_panel.is_open():
+		upgrade_panel.close()
+		return
+	if pause_menu.has_method("is_open") and pause_menu.is_open():
+		pause_menu.close()
+		return
+	if pause_menu.has_method("open"):
+		pause_menu.open()

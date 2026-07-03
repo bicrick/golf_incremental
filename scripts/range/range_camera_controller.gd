@@ -6,15 +6,19 @@ extends Node
 ##
 ## Zoom listens on Node._input and via consume_zoom_event() (called from range_view
 ## _unhandled_input and ui_root _gui_input when the embedded runner routes wheel to UI).
+## Middle-mouse drag pan is routed only through consume_pan_drag_event().
 
 @export var pan_speed: float = 24.0
 @export var zoom_step: float = 1.0
 @export var zoom_in_factor: float = 0.5
 @export var zoom_out_factor: float = 4.0
+@export var drag_button: MouseButton = MOUSE_BUTTON_MIDDLE
 
 var _camera: Camera3D
 var _start_size: float
 var _enabled := false
+var _drag_active := false
+var _last_drag_screen := Vector2.ZERO
 var _right_dir := Vector3.RIGHT
 var _forward_dir := Vector3.FORWARD
 
@@ -28,6 +32,8 @@ func setup(camera: Camera3D) -> void:
 
 
 func set_enabled(enabled: bool) -> void:
+	if not enabled and _drag_active:
+		_end_drag()
 	_enabled = enabled
 	set_process_input(enabled)
 	set_process(enabled)
@@ -35,6 +41,10 @@ func set_enabled(enabled: bool) -> void:
 
 func is_enabled() -> bool:
 	return _enabled
+
+
+func is_dragging() -> bool:
+	return _drag_active
 
 
 func consume_zoom_event(event: InputEvent) -> bool:
@@ -45,6 +55,30 @@ func consume_zoom_event(event: InputEvent) -> bool:
 		return false
 	_apply_zoom(amount)
 	return true
+
+
+func consume_pan_drag_event(event: InputEvent) -> bool:
+	if not _enabled or _camera == null:
+		return false
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index != drag_button:
+			return false
+		if mb.pressed:
+			_drag_active = true
+			_last_drag_screen = mb.position
+			CursorManager.set_grab_cursor()
+			return true
+		if _drag_active:
+			_end_drag()
+			return true
+		return false
+	if event is InputEventMouseMotion and _drag_active:
+		var motion := event as InputEventMouseMotion
+		_apply_drag_delta(motion.position - _last_drag_screen)
+		_last_drag_screen = motion.position
+		return true
+	return false
 
 
 func _input(event: InputEvent) -> void:
@@ -75,6 +109,23 @@ func _apply_zoom(delta: float) -> void:
 		min_size = max_size
 		max_size = swap
 	_camera.size = clampf(_camera.size + delta, min_size, max_size)
+
+
+func _apply_drag_delta(delta: Vector2) -> void:
+	if delta == Vector2.ZERO:
+		return
+	_refresh_pan_axes()
+	var vp_height := get_viewport().get_visible_rect().size.y
+	if is_zero_approx(vp_height):
+		return
+	var units_per_pixel := (_camera.size * 2.0) / vp_height
+	_camera.position -= _right_dir * delta.x * units_per_pixel
+	_camera.position += _forward_dir * delta.y * units_per_pixel
+
+
+func _end_drag() -> void:
+	_drag_active = false
+	CursorManager.sync_collect_cursor()
 
 
 func _process(delta: float) -> void:
