@@ -95,11 +95,7 @@ static func apply_palette(
 
 
 static func _surround_near_z(home_size: float) -> float:
-	return (
-		RangeCameraController.PAN_MARGIN_Z
-		+ maxf(home_size * 5.0, 40.0)
-		+ SURROUND_BLEED_MARGIN
-	)
+	return maxf(home_size * 5.0, 40.0) + SURROUND_BLEED_MARGIN
 
 
 static func build_surround_mesh(tint: Color, home_size: float) -> ArrayMesh:

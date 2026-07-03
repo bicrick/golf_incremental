@@ -530,7 +530,7 @@ mesh = SubResource("ArrayMesh_fqunt")
 surface_material_override/0 = SubResource("StandardMaterial3D_2t86a")
 
 [node name="Golfer" type="AnimatedSprite3D" parent="." unique_id=1811193734]
-transform = Transform3D(1.3, 0, 0, 0, 1.3, 0, 0, 0, 1.3, 0.16552734, 1.6916199, -0.10407364)
+transform = Transform3D(1.3, 0, 0, 0, 1.3, 0, 0, 0, 1.3, 0.06677246, 1.6916199, -0.4315883)
 offset = Vector2(0, -26)
 pixel_size = 0.024
 billboard = 1

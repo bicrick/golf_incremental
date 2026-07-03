@@ -26,7 +26,8 @@ static func apply_locked_rotation_only(camera: Camera3D) -> void:
 	if camera == null:
 		return
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.transform = locked_transform(camera.position)
+	var origin := camera.transform.origin
+	camera.transform = Transform3D(LOCKED_BASIS, origin)
 
 
 static func apply_locked_rotation(camera: Camera3D, position: Vector3, ortho_size: float) -> void:
