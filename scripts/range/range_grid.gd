@@ -1,17 +1,17 @@
 class_name RangeGrid
 extends RefCounted
-## v4 range coordinate system — 2 yd cells, 50 yd wide × 300 yd deep.
+## v4 range coordinate system — 2 yd cells, 38 yd wide × 300 yd deep.
 
 const CELL_SIZE_YARDS := 2.0
-const GRID_WIDTH_CELLS := 25
+const GRID_WIDTH_CELLS := 19
 const GRID_DEPTH_CELLS := 150
-const HALF_WIDTH_YARDS := 25.0
+const HALF_WIDTH_YARDS := 19.0
 const DEPTH_YARDS := 300.0
 
-## Player bay — center column, row 5 (10 yd into fairway from near edge).
-const PLAYER_CELL := Vector2i(12, 5)
-## Ratina default bay — one cell left of player, same depth row.
-const RATINA_CELL := Vector2i(10, 5)
+## Player bay — midline column, row 5 (10 yd into fairway from near edge).
+const PLAYER_CELL := Vector2i(9, 5)
+## Ratina default bay — two cells left of player, same depth row.
+const RATINA_CELL := Vector2i(7, 5)
 
 
 static func cell_x_bounds(col: int) -> Vector2:

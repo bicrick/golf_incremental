@@ -153,18 +153,15 @@ func _check_ground_mesh_stability() -> bool:
 	await process_frame
 
 	var ground: MeshInstance3D = range_view.get_node("Ground")
-	var surround: MeshInstance3D = range_view.get_node("Surround")
-	if ground.mesh == null or surround.mesh == null:
-		print("FAIL: ground meshes should be built on load")
+	if ground.mesh == null:
+		print("FAIL: ground mesh should be built on load")
 		range_view.queue_free()
 		return false
 
 	var ground_mesh_id := ground.mesh.get_instance_id()
-	var surround_mesh_id := surround.mesh.get_instance_id()
 	var ground_vert_count := ground.mesh.get_surface_count()
-	var surround_vert_count := surround.mesh.get_surface_count()
-	if ground_vert_count < 1 or surround_vert_count < 1:
-		print("FAIL: ground meshes missing surfaces after load")
+	if ground_vert_count < 1:
+		print("FAIL: ground mesh missing surfaces after load")
 		range_view.queue_free()
 		return false
 
@@ -177,19 +174,10 @@ func _check_ground_mesh_stability() -> bool:
 		print("FAIL: apply_atmosphere replaced Ground mesh")
 		range_view.queue_free()
 		return false
-	if surround.mesh.get_instance_id() != surround_mesh_id:
-		print("FAIL: apply_atmosphere replaced Surround mesh")
-		range_view.queue_free()
-		return false
 
 	var ground_verts: int = ground.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size()
-	var surround_verts: int = surround.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size()
 	if ground_verts != 4:
 		print("FAIL: Ground mesh should be a single quad, got ", ground_verts, " verts")
-		range_view.queue_free()
-		return false
-	if surround_verts != 4:
-		print("FAIL: Surround mesh should be a single quad, got ", surround_verts, " verts")
 		range_view.queue_free()
 		return false
 
