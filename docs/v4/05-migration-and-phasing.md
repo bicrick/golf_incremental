@@ -35,7 +35,8 @@ Build in order. Each phase should be playable/verifiable before starting the nex
 | `Camera3D.projection = PROJECTION_ORTHOGONAL`, locked rotation via `V4CameraConfig` | `v4_camera_config.gd`, `hitting_cell.tscn`, `range_view.tscn` | done |
 | Tune camera position/size in editor (rotation fixed) | `hitting_cell.tscn` exports | cell rig done |
 | Verify `unproject_position()` screen FX under ortho | `range_view.gd`, `pickup_controller.gd` | manual playtest pending |
-| Port tuned sprite offsets to live `Foreground/Golfer` + `Ball` | `range_view.tscn` | pending — port from `hitting_cell.tscn` when locked |
+| Port player sprite layout from atomic cell | `player_bay_cell.tscn`, `range_view.gd` | done |
+| Tune range camera position/size for full grid | `range_view.tscn` | tune in editor |
 
 **Exit:** Headless smoke passes; camera baseline locked in reference rig; sprites aligned in rig and ported to live scene; old perspective transform recoverable from git history.
 
@@ -57,8 +58,9 @@ Build in order. Each phase should be playable/verifiable before starting the nex
 
 | Task | Files | Status |
 |------|-------|--------|
-| `RangeGrid` cell math + bay origins | `scripts/range/range_grid.gd` | done |
-| Runtime bay placement from rig offsets | `range_view.gd` | deferred |
+| Shared `cell_ground.gd` + modular bay prefabs (`base_cell`, `player_bay_cell`, `ratina_bay_cell`) | `scripts/range/cell_ground.gd`, `scenes/range/cells/` | done |
+| Player bay via `player_bay_cell.tscn` at `player_bay_origin()` | `player_bay_cell.tscn`, `range_view.gd` | done |
+| Crew bay (Ratina) via `ratina_bay_cell.tscn` at `ratina_bay_origin()` | `ratina_bay_cell.tscn`, `range_view.gd`, `ratina_controller.gd` | done |
 | Placement UI / purchase flow | Phase F | deferred |
 
 ### Phase E — Generalize `RatinaController` → `HittingBayController`

@@ -6,7 +6,7 @@
 
 | Property | Policy |
 |----------|--------|
-| **Rotation** | **Locked** project-wide — set once in `hitting_cell.tscn`, stored in [`V4CameraConfig`](../../scripts/config/v4_camera_config.gd) |
+| **Rotation** | **Locked** project-wide — authored in `hitting_cell.tscn`, stored in [`V4CameraConfig`](../../scripts/config/v4_camera_config.gd) |
 | **Position** | **Tunable** per scene (atomic cell vs. full range framing) |
 | **Ortho `size`** | **Tunable** per scene (zoom) |
 | **Projection** | Orthographic only in v4 |
@@ -17,7 +17,7 @@ All ground, fence, and prop art is authored against this locked rotation. Changi
 
 **`scenes/range/hitting_cell.tscn`** — open directly in the editor to tune sprite layout and cell-rig camera position/size. Not instanced into `main.tscn`.
 
-Script: [`scripts/range/hitting_cell.gd`](../../scripts/range/hitting_cell.gd) — applies locked rotation via `V4CameraConfig`; only `camera_position` and `camera_size` exports are editable on the root node.
+Script: [`scripts/range/hitting_cell.gd`](../../scripts/range/hitting_cell.gd) — applies locked rotation via `V4CameraConfig`; `camera_position` and `camera_size` exports on the root node.
 
 ### Locked rotation (source of truth)
 
@@ -31,16 +31,16 @@ Defined in [`scripts/config/v4_camera_config.gd`](../../scripts/config/v4_camera
 
 Approximate euler (informational only — use `LOCKED_BASIS` in code): **(13.36°, -18.58°, -4.44°)**.
 
-Locked via **Align Transform With View** in the atomic cell rig (2026-03-06).
+Locked via **Align Transform With View** in the atomic cell rig.
 
-### Default camera presets (position + size — tunable)
+### Camera presets (locked in `hitting_cell.tscn`, commit `6bf2867`)
 
-| Scene | Position | Ortho `size` | Constant |
-|-------|----------|--------------|----------|
-| Atomic cell rig (`hitting_cell.tscn`) | `(1.061, 1.330, 1.896)` | `8.0` | `HITTING_CELL_DEFAULT_*` |
-| Full range (`range_view.tscn`) | `(0, 12, 12)` | `18.0` | `RANGE_VIEW_DEFAULT_*` |
+| Scene | Position | Ortho `size` | Notes |
+|-------|----------|--------------|-------|
+| Atomic cell rig (`hitting_cell.tscn`) | `(1.565, 2.851, 4.203)` | `8.0` | Frames one 2×2 yd cell |
+| Full range (`range_view.tscn`) | `(0, 12, 12)` | `18.0` | Same rotation; tune to frame 50×300 yd grid |
 
-Apply locked rotation in code:
+Code reads cell camera values from the packed scene via [`V4AtomicCell`](../../scripts/config/v4_atomic_cell.gd). Range camera uses `RANGE_VIEW_DEFAULT_*` constants until tuned in editor.
 
 ```gdscript
 V4CameraConfig.apply_locked_rotation(camera, position, ortho_size)
@@ -48,31 +48,28 @@ V4CameraConfig.apply_locked_rotation(camera, position, ortho_size)
 
 ### Character sprites
 
-Billboarded `AnimatedSprite3D` — rotation locked on camera does not rotate sprites; tune position/offset/scale in the reference rig.
+Billboarded `AnimatedSprite3D` — tune position/offset/scale in `hitting_cell.tscn` only; range reads them through `V4AtomicCell`.
 
 ### World / ground
 
 - Full range grid: 25×150 cells (50×300 yd) — see [02-grid-and-placement.md](02-grid-and-placement.md).
 - Atomic cell rig: one 2×2 yd cell.
-- Surrounding ground / fences: extended to full grid in Phase C (fence dimetric art polish still open).
-
-### Depth cue
-
-Flat orthographic size; depth via grid position. No distance-based sprite scaling.
+- Surrounding ground / fences: extended to full grid (fence dimetric art polish still open).
 
 ## Implementation against current code
 
 | Asset | Status |
 |-------|--------|
-| `scripts/config/v4_camera_config.gd` | Locked basis + helpers |
-| `scenes/range/hitting_cell.tscn` | Reference rig with locked rotation |
-| `scenes/range/range_view.tscn` | Live camera uses same `LOCKED_BASIS`; position/size are range defaults (tune for full fairway) |
-| `hitting_cell.gd` | Enforces locked rotation on `_apply_camera()` |
+| `scripts/config/v4_camera_config.gd` | Locked basis + range/cell defaults |
+| `scripts/config/v4_atomic_cell.gd` | Reads sprite layout from packed `hitting_cell.tscn` |
+| `scenes/range/hitting_cell.tscn` | Locked cell camera + golfer/ball layout |
+| `scenes/range/range_view.tscn` | Same `LOCKED_BASIS`; range position/size separate from cell rig |
 
 ### Remaining
 
-- Fence *reorientation* for dimetric angle (visual style — quads extended to full size only)
-- Phase E: instance `hitting_cell.tscn` per bay via `HittingBayController`
+- Tune `range_view` camera position/size for full fairway framing (rotation fixed)
+- Fence reorientation for dimetric angle (visual polish)
+- Phase E: instance `hitting_cell.tscn` per crew bay
 
 ## Related docs
 

@@ -27,6 +27,8 @@ const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
 const RangeGridScript := preload("res://scripts/range/range_grid.gd")
+const PlayerBayCellScene := preload("res://scenes/range/cells/player_bay_cell.tscn")
+const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.tscn")
 
 # Range Rat swing: linear wind-up frames 0-7; release at frame 8 (contact);
 # follow-through auto-plays frames 9-16. Idle loops 5 frames from idle sheet.
@@ -38,14 +40,16 @@ const RangeGridScript := preload("res://scripts/range/range_grid.gd")
 @onready var sky_dome: RangeSkyDome = $SkyDome
 @onready var ground: MeshInstance3D = $Ground
 @onready var forest_fence: Node3D = $ForestFence
-@onready var ball: AnimatedSprite3D = $Foreground/Ball
-@onready var golfer: AnimatedSprite3D = $Foreground/Golfer
-@onready var golfer_unlocked_marker: Marker3D = $Foreground/GolferUnlockedMarker
-@onready var ball_unlocked_marker: Marker3D = $Foreground/BallUnlockedMarker
-@onready var ratina_sprite: AnimatedSprite3D = $Foreground/Ratina
-@onready var ratina_ball_sprite: AnimatedSprite3D = $Foreground/RatinaBall
+@onready var bays: Node3D = $Bays
 @onready var littered_balls: Node3D = $Foreground/LitteredBalls
 @onready var foreground: Node3D = $Foreground
+
+var player_bay: Node3D
+var ratina_bay: Node3D
+var golfer: AnimatedSprite3D
+var ball: AnimatedSprite3D
+var ratina_sprite: AnimatedSprite3D
+var ratina_ball_sprite: AnimatedSprite3D
 @onready var charge_meter: Node2D = $ChargeMeter
 @onready var contact_ring = $ChargeMeter/BeatRing
 @onready var fx_layer: Node2D = $FxLayer
@@ -73,10 +77,7 @@ func _ready() -> void:
 	_setup_v4_camera()
 	_setup_ground()
 	_setup_fences()
-	_setup_dinky_sprites()
-	_setup_ratina_sprites()
-	_ball_home = ball.position
-	_golfer_home = golfer.position
+	_setup_bays()
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
 	if camera:
@@ -118,53 +119,36 @@ func ratina_strike_text_offset() -> Vector2:
 	return _ratina_strike_text_offset
 
 
-func _setup_dinky_sprites() -> void:
+func _setup_bays() -> void:
 	_ball_lay_texture = DinkySpriteFrames.ball_lay_texture()
-	ball.sprite_frames = DinkySpriteFrames.make_ball_frames()
-	_strip_empty_default_animation(ball.sprite_frames)
-	_configure_billboard(ball, BALL_PIXEL_SIZE)
-	_base_ball_scale = ball.scale
-	_set_idle_pose(ball)
 
-	golfer.sprite_frames = RangeRatSpriteFrames.make_golfer_frames()
-	_strip_empty_default_animation(golfer.sprite_frames)
-	_configure_billboard(golfer, GOLFER_PIXEL_SIZE)
-	golfer.offset = RangeRatSpriteFrames.FOOT_OFFSET
-	_base_golfer_scale = golfer.scale
-	if Engine.is_editor_hint():
-		_set_idle_pose(golfer)
-	else:
-		_play_golfer_idle()
+	player_bay = PlayerBayCellScene.instantiate()
+	player_bay.position = RangeGridScript.player_bay_origin()
+	bays.add_child(player_bay)
+	if player_bay.has_method("set_embedded_rig_active"):
+		player_bay.set_embedded_rig_active(false)
+	golfer = player_bay.get_golfer()
+	ball = player_bay.get_ball()
+	_golfer_home = player_bay.strike_home()
+	_ball_home = player_bay.ball_strike_home()
+	_base_golfer_scale = player_bay.get_base_golfer_scale()
+	_base_ball_scale = player_bay.get_base_ball_scale()
+	if not Engine.is_editor_hint() and golfer:
 		golfer.animation_finished.connect(_on_golfer_animation_finished)
+		_play_golfer_idle()
 
-
-func _setup_ratina_sprites() -> void:
-	if ratina_sprite == null or ratina_ball_sprite == null:
-		return
-	ratina_sprite.sprite_frames = RatinaSpriteFrames.make_golfer_frames()
-	_strip_empty_default_animation(ratina_sprite.sprite_frames)
-	_configure_billboard(ratina_sprite, GOLFER_PIXEL_SIZE)
-	ratina_sprite.offset = RatinaSpriteFrames.FOOT_OFFSET
-	_set_idle_pose(ratina_sprite)
-
-	ratina_ball_sprite.sprite_frames = DinkySpriteFrames.make_ball_frames()
-	_strip_empty_default_animation(ratina_ball_sprite.sprite_frames)
-	_configure_billboard(ratina_ball_sprite, BALL_PIXEL_SIZE)
-	_set_idle_pose(ratina_ball_sprite)
-
-
-func _strip_empty_default_animation(frames: SpriteFrames) -> void:
-	if frames == null:
-		return
-	if frames.has_animation(&"default") and frames.get_frame_count(&"default") == 0:
-		frames.remove_animation(&"default")
-
-
-func _set_idle_pose(sprite: AnimatedSprite3D) -> void:
-	sprite.animation = &"idle"
-	sprite.frame = 0
-	if not Engine.is_editor_hint():
-		sprite.play(&"idle")
+	ratina_bay = RatinaBayCellScene.instantiate()
+	ratina_bay.position = RangeGridScript.ratina_bay_origin()
+	bays.add_child(ratina_bay)
+	if ratina_bay.has_method("set_embedded_rig_active"):
+		ratina_bay.set_embedded_rig_active(false)
+	ratina_sprite = ratina_bay.get_golfer()
+	ratina_ball_sprite = ratina_bay.get_ball()
+	if Engine.is_editor_hint():
+		if ratina_sprite:
+			ratina_sprite.visible = true
+		if ratina_ball_sprite:
+			ratina_ball_sprite.visible = true
 
 
 func _configure_billboard(sprite: SpriteBase3D, pixel_size: float) -> void:
@@ -216,7 +200,7 @@ const PLATE_CAPTURE_OUTPUT := "res://captures/range_bg.png"
 
 func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float = PLATE_CAPTURE_CYCLE_TIME) -> Error:
 	var hidden: Array[Node] = []
-	for node_name in ["Foreground", "ChargeMeter"]:
+	for node_name in ["Foreground", "Bays", "ChargeMeter"]:
 		var node := get_node_or_null(node_name)
 		if node == null or not node.visible:
 			continue
@@ -277,14 +261,16 @@ func apply_atmosphere(cycle_time: float) -> void:
 		sun_light.rotation_degrees = Vector3(lerpf(-70.0, -35.0, day_factor), 35.0, 0.0)
 	if sky_dome:
 		sky_dome.update_atmosphere(cycle_time, snap)
+	if player_bay:
+		player_bay.apply_ground_palette(snap.fairway_light, snap.fairway_dark)
+	if ratina_bay:
+		ratina_bay.apply_ground_palette(snap.fairway_light, snap.fairway_dark)
 	_apply_sprite_atmosphere_tint()
 
 
 func _apply_sprite_atmosphere_tint() -> void:
-	if golfer:
-		golfer.modulate = _sprite_atmosphere_tint
-	if ball:
-		ball.modulate = _sprite_atmosphere_tint
+	if player_bay:
+		player_bay.apply_sprite_tint(_sprite_atmosphere_tint)
 	for flight in _active_flights:
 		var sprite: Node = flight.get("sprite")
 		if sprite is SpriteBase3D and is_instance_valid(sprite):
@@ -456,22 +442,12 @@ func _apply_ratina_layout_if_needed() -> void:
 
 
 func _apply_ratina_unlocked_layout() -> void:
-	_golfer_home = golfer_unlocked_marker.position
-	_ball_home = ball_unlocked_marker.position
-	_base_golfer_scale = golfer_unlocked_marker.scale
-	_base_ball_scale = ball_unlocked_marker.scale
-
-	golfer.position = _golfer_home
-	golfer.scale = _base_golfer_scale
-	ball.position = _ball_home
-	ball.scale = _base_ball_scale
-
 	if charge_meter:
 		charge_meter.position = RATINA_UNLOCKED_CHARGE_METER_POSITION
 	_ratina_strike_text_offset = Balance.RATINA_STRIKE_TEXT_OFFSET
 
-	if _ratina and _ratina.has_method("apply_unlock_layout"):
-		_ratina.apply_unlock_layout(ratina_sprite.scale, ratina_ball_sprite.scale)
+	if _ratina and _ratina.has_method("refresh_strike_homes"):
+		_ratina.refresh_strike_homes()
 
 	if _placement_debug and _ratina and _ratina.has_method("strike_home"):
 		_placement_debug.sync_homes(
@@ -754,7 +730,7 @@ func _setup_ratina_controller() -> void:
 	_ratina = RatinaControllerScript.new()
 	_ratina.name = "RatinaController"
 	add_child(_ratina)
-	_ratina.setup(self)
+	_ratina.setup(self, ratina_bay)
 	if _placement_debug and _ratina.has_method("get_golfer_sprite"):
 		_placement_debug.register_ratina(
 			_ratina.get_golfer_sprite(),
@@ -871,19 +847,20 @@ func _apply_flight_sample(progress: float, flight: Dictionary, path: BallFlight3
 
 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int) -> void:
+	var tee_world := ball.global_position
 	var path := BallFlight3D.build_path(
 		yards,
 		timing_tier,
 		GameState.stats,
 		_swing.last_contact_flavor,
-		_ball_home
+		tee_world
 	)
 
 	_ball_at_tee = false
 	ball.visible = false
 
 	var flight_sprite := _spawn_flight_sprite()
-	flight_sprite.position = _ball_home
+	flight_sprite.global_position = tee_world
 	flight_sprite.play(&"roll")
 	flight_sprite.sprite_frames.set_animation_speed(
 		&"roll",

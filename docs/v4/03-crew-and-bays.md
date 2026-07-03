@@ -23,52 +23,67 @@ v4 introduces exactly one placeable category: the **hitting bay**. The player's 
 
 ## Atomic hitting-cell template
 
-**Canonical prefab:** [`scenes/range/hitting_cell.tscn`](../../scenes/range/hitting_cell.tscn)
+**Editor rig (same scene as player bay):** [`scenes/range/hitting_cell.tscn`](../../scenes/range/hitting_cell.tscn) — alias of the player bay; open either this or `player_bay_cell.tscn` to tune.
 
-This scene is the reusable hitting-bay rig. Future `HittingBayController` (Phase E) should instance this prefab (or equivalent node tree) per bay, offset by grid `cell_to_world()`.
+**Runtime prefabs** (each is a full cell rig: `WorldEnvironment`, `Sun`, `Camera3D`, `Ground`, `GridOverlay`, optional sprites):
 
-**Cell footprint:** one **2×2 yd** square — `X ∈ [-1, +1]`, `Z ∈ [0, -2]` (near edge at `Z = 0`, depth toward `-Z`). Bay origin / tee line at `(0, 0, 0)` on the near-edge center.
+| Prefab | Contents |
+|--------|----------|
+| [`base_cell.tscn`](../../scenes/range/cells/base_cell.tscn) | **Exact copy of `player_bay_cell.tscn` with `Golfer` + `Ball` nodes removed** — same camera, ground, grid, subresources |
+| [`player_bay_cell.tscn`](../../scenes/range/cells/player_bay_cell.tscn) | Identical to `hitting_cell.tscn` — Range Rat + ball |
+| [`ratina_bay_cell.tscn`](../../scenes/range/cells/ratina_bay_cell.tscn) | **Copy of player bay** — only the golfer sprite sheet swapped to Ratina; ball and rig unchanged |
 
-### Sprite layout (author in `hitting_cell.tscn` only)
+Embedded camera/lighting is **active in the editor** so you can align sprites as they will read in-game. When instanced under `range_view`, `set_embedded_rig_active(false)` hides the per-cell rig so the range camera and sun take over.
 
-Tune golfer and ball in the reference rig; `range_view.tscn` is **not** synced until you explicitly port. Both sprites should start on the **near-edge line (`Z = 0`)** — depth into the cell is negative Z only.
+One **2×2 yd** cell. Root origin = bay tee point at the near-edge center `(0, 0, 0)`.
 
-| Node | Notes |
-|------|-------|
-| `Golfer` | Position + `FOOT_OFFSET`; scale `(1.3, 1.3, 1.3)` typical |
-| `Ball` | Address position relative to golfer; scale `(0.55, 0.55, 0.55)` typical |
+| Axis | Cell span |
+|------|-----------|
+| **X** | `-1` … `+1` yd |
+| **Z** | `0` (near / tee line) … `-2` (deep) yd |
+| **Y** | ground at `0` |
 
-**Billboard:** both nodes `billboard = BILLBOARD_ENABLED`, `alpha_cut = DISCARD`, `texture_filter = NEAREST`.
+### Locked sprite layout (local to bay cell root)
 
-### Editor alignment checklist
+Player bay sprites were copied from the locked `hitting_cell.tscn` rig. Ratina bay uses the same starting transforms but can be tuned in `ratina_bay_cell.tscn` without touching the player cell.
 
-Open `hitting_cell.tscn` → tune until golfer feet sit on the near-edge grid line and the ball reads at the strike position:
+| Node | Position (local) | Scale | Other |
+|------|------------------|-------|-------|
+| `Golfer` | `(0.131, 1.692, -0.196)` | `(1.3, 1.3, 1.3)` | offset `(0, -26)`, pixel_size `0.024` |
+| `Ball` | `(0.638, 0.166, -0.565)` | `(0.55, 0.55, 0.55)` | pixel_size `0.021` |
 
-1. `Golfer` → Transform → Position (Y may need small lift for foot contact on ground).
-2. `Golfer` → Offset (pivot at feet via `FOOT_OFFSET`).
-3. `Ball` → Position relative to golfer at address pose.
-4. Toggle `show_grid_overlay` on `HittingCell` root to verify 2-yard alignment.
-5. When locked, read transforms via `golfer_local_offset()` / `ball_local_offset()` on the rig script — port to `range_view` manually in a later step.
+**Billboard:** `BILLBOARD_ENABLED`, `alpha_cut = DISCARD`, `texture_filter = NEAREST`.
 
-Helper methods on the rig script: `golfer_local_offset()`, `ball_local_offset()`, `golfer_local_scale()`, `ball_local_scale()` in [`scripts/range/hitting_cell.gd`](../../scripts/range/hitting_cell.gd).
+### Placing a bay on the range
+
+```
+bay_cell.position = RangeGrid.bay_origin(col, row)
+```
+
+Sprites are authored inside the prefab at local positions; no per-frame layout copy step at runtime.
+
+Player bay: cell `(12, 0)` → origin `(0, 0, 0)` — cell root sits at world origin.
+
+### Re-tuning workflow
+
+1. **Player layout:** edit sprites in `hitting_cell.tscn` (reference rig), then mirror transforms into `player_bay_cell.tscn`.
+2. **Ratina layout:** edit `ratina_bay_cell.tscn` directly — independent of player bay.
+3. **Camera:** tune in `hitting_cell.tscn` only; sync constants to `range_view.tscn` when satisfied.
 
 ## Implementation against current code
 
-### What exists today
-
-- **Reference prefab:** `hitting_cell.tscn` — sole source for atomic cell layout (in progress).
-- **Live scene:** `range_view.tscn` still uses its own hand-placed transforms; not synced from the rig yet.
-- `ratina_controller.gd` — template for generalized `HittingBayController`; duplicated flight pipeline vs. `range_view.gd::_fly_ball()`.
-
-### Suggested approach
-
-1. **Tune atomic cell** in `hitting_cell.tscn` — in progress.
-2. **Port offsets** to `range_view.tscn` once locked.
-3. **Phase E:** extract `HittingBayController` from `ratina_controller.gd`; instance `hitting_cell.tscn` per crew bay at `bay_origin()`.
-4. **Phase F:** generalize `ratina_unlocked` → `hired_bays` collection in `GameState`/`SaveManager`.
+| Asset | Status |
+|-------|--------|
+| `hitting_cell.tscn` | Editor-only camera + layout reference rig |
+| `cell_ground.gd` | Shared 2×2 grass quad builder |
+| `base_cell.tscn` / `base_cell.gd` | Grass-only atomic floor |
+| `player_bay_cell.tscn` / `player_bay_cell.gd` | Player bay prefab |
+| `ratina_bay_cell.tscn` / `ratina_bay_cell.gd` | Ratina bay prefab |
+| `range_view.gd` | Instances bays under `$Bays` at `player_bay_origin()` / `ratina_bay_origin()` |
+| `ratina_controller.gd` | Binds to `ratina_bay_cell` via `setup(range_view, bay_cell)` |
 
 ## Related docs
 
-- Camera / reference rig workflow: [01-camera-and-world.md](01-camera-and-world.md)
-- Grid coordinates: [02-grid-and-placement.md](02-grid-and-placement.md)
+- Camera: [01-camera-and-world.md](01-camera-and-world.md)
+- Grid: [02-grid-and-placement.md](02-grid-and-placement.md)
 - Phasing: [05-migration-and-phasing.md](05-migration-and-phasing.md)

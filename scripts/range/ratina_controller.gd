@@ -38,18 +38,18 @@ var _flight_trail = null
 var _debug_mode := false
 
 
-func setup(range_view: Node3D) -> void:
+func setup(range_view: Node3D, bay_cell: Node) -> void:
 	_range_view = range_view
 	_fx_layer = range_view.get_node_or_null("FxLayer")
 	_camera = range_view.get_flight_camera() if range_view.has_method("get_flight_camera") else null
 	_ball_lay_texture = DinkySpriteFramesScript.ball_lay_texture()
 
-	_golfer = range_view.get_node("Foreground/Ratina") as AnimatedSprite3D
-	_ball = range_view.get_node("Foreground/RatinaBall") as AnimatedSprite3D
-	_home = _golfer.position
-	_ball_home = _ball.position
-	_base_golfer_scale = _golfer.scale
-	_base_ball_scale = _ball.scale
+	_golfer = bay_cell.get_golfer() as AnimatedSprite3D
+	_ball = bay_cell.get_ball() as AnimatedSprite3D
+	_home = bay_cell.strike_home()
+	_ball_home = bay_cell.ball_strike_home()
+	_base_golfer_scale = bay_cell.get_base_golfer_scale()
+	_base_ball_scale = bay_cell.get_base_ball_scale()
 
 	_ball_litter = Node3D.new()
 	_ball_litter.name = "RatinaBallLitter"
@@ -334,12 +334,13 @@ func _launch_ball() -> void:
 
 
 func _fly_ball(yards: float, timing_tier: int, quality: int, payout: float) -> void:
+	var tee_world := _ball.global_position
 	var path := BallFlight3DScript.build_path(
 		yards,
 		timing_tier,
 		GameState.ratina_stats,
 		Balance.ContactFlavor.PURE,
-		_ball_home
+		tee_world
 	)
 
 	_ball_in_flight = true

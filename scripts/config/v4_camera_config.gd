@@ -15,7 +15,7 @@ const LOCKED_BASIS := Basis(
 const HITTING_CELL_DEFAULT_SIZE := 8.0
 
 ## Default camera position for the atomic cell reference rig (tunable; rotation is not).
-const HITTING_CELL_DEFAULT_POSITION := Vector3(1.0608382, 1.3295639, 1.8959681)
+const HITTING_CELL_DEFAULT_POSITION := Vector3(1.5652486, 2.8510237, 4.2030277)
 
 ## Starting ortho size for the full range scene — tune to frame 50×300 yd grid.
 const RANGE_VIEW_DEFAULT_SIZE := 18.0

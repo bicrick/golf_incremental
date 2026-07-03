@@ -276,7 +276,7 @@ func _check_tee_ball_visibility(main: Node, gs: Node) -> bool:
 	await process_frame
 	var range_view: Node3D = main.get_node("RangeView")
 	await _wait_for_tee_ball_ready(range_view, gs.stats)
-	var ball: Node3D = range_view.get_node("Foreground/Ball")
+	var ball: Node3D = range_view.ball
 	if not ball.visible:
 		print("FAIL: tee ball should be visible with full bucket")
 		return false
@@ -327,7 +327,7 @@ func _wait_for_tee_ball_ready(range_view: Node3D, stats: PlayerStats) -> void:
 		if (
 			not range_view._ball_in_flight
 			and range_view._ball_at_tee
-			and range_view.get_node("Foreground/Ball").visible
+			and range_view.ball.visible
 		):
 			return
 

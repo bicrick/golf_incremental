@@ -24,7 +24,7 @@ func _run() -> void:
 
 	var range_view: Node3D = main.get_node("RangeView")
 	var ratina_controller: Node = range_view.get_node_or_null("RatinaController")
-	var ratina_sprite: Node = range_view.get_node_or_null("Foreground/Ratina")
+	var ratina_sprite: Node = range_view.ratina_sprite
 
 	gs.reset_to_fresh()
 	await process_frame
