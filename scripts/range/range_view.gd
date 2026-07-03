@@ -39,7 +39,6 @@ const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.ts
 @onready var fx_layer: Node2D = $FxLayer
 @onready var _camera_controller: RangeCameraController = $CameraController
 @onready var _view_mode_controller: ViewModeController = $ViewModeController
-@onready var _world_clouds: Node3D = $WorldClouds
 
 var ratina_bay: Node3D
 var golfer: AnimatedSprite3D
@@ -344,8 +343,6 @@ func apply_atmosphere(cycle_time: float) -> void:
 		sky_dome.update_atmosphere(cycle_time, snap)
 	if perspective_sky_dome:
 		perspective_sky_dome.update_atmosphere(cycle_time, snap)
-	if _world_clouds and _world_clouds.has_method(&"update_atmosphere"):
-		_world_clouds.update_atmosphere(cycle_time, snap, day_factor)
 	if player_bay:
 		player_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if ratina_bay:

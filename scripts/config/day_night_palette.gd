@@ -14,8 +14,6 @@ const CANVAS_MODULATE_DAY := Color(1.0, 1.0, 1.0, 1.0)
 const CANVAS_MODULATE_NIGHT := Color(0.58, 0.62, 0.78, 1.0)
 
 const DECOR_FADE_SEC := 8.0
-const CLOUD_WINDOW_START := 24.0
-const CLOUD_WINDOW_END := 91.0
 const NIGHT_WINDOW_START := 104.0
 const NIGHT_WINDOW_END := 13.0
 ## Scales how far fairway stripe tints move from day keys toward sampled night keys.
@@ -205,17 +203,6 @@ static func phase_name_at(cycle_time: float) -> String:
 	if t < 104.0:
 		return "night"
 	return "midnight"
-
-
-static func cloud_visibility(cycle_time: float) -> float:
-	var t := fposmod(cycle_time, CYCLE_SEC)
-	return _window_visibility(
-		t,
-		CLOUD_WINDOW_START - DECOR_FADE_SEC,
-		CLOUD_WINDOW_END + DECOR_FADE_SEC,
-		CLOUD_WINDOW_START,
-		CLOUD_WINDOW_END
-	)
 
 
 static func star_visibility(cycle_time: float) -> float:
