@@ -28,7 +28,15 @@ func setup(range_view: Node3D, littered_balls: Node3D, bucket_counter: Control) 
 
 
 func is_active() -> bool:
-	return _active and GameState.is_collect_mode()
+	return _active and GameState.is_collect_mode() and _harvest_view_ready()
+
+
+func _harvest_view_ready() -> bool:
+	if _range_view == null:
+		return false
+	if _range_view.has_method("is_harvest_view_ready"):
+		return _range_view.is_harvest_view_ready()
+	return _active
 
 
 func handle_input(event: InputEvent) -> bool:

@@ -8,6 +8,7 @@
 [ext_resource type="Shader" uid="uid://du5s632oec2js" path="res://scripts/visual/fairway_ground.gdshader" id="4_p8kfu"]
 [ext_resource type="PackedScene" path="res://scenes/visual/range_sky_dome.tscn" id="5_sky_dome"]
 [ext_resource type="PackedScene" uid="uid://br0iki0w8fge0" path="res://scenes/range/cells/player_bay_cell.tscn" id="6_player_bay"]
+[ext_resource type="Script" path="res://scripts/range/view_mode_controller.gd" id="7_view_mode"]
 
 [sub_resource type="Environment" id="Environment_range"]
 background_mode = 1
@@ -134,3 +135,6 @@ polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
 
 [node name="CameraController" type="Node" parent="." unique_id=102786506]
 script = ExtResource("2_camera_controller")
+
+[node name="ViewModeController" type="Node" parent="."]
+script = ExtResource("7_view_mode")

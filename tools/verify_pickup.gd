@@ -55,6 +55,14 @@ func _enter_harvest(gs: Node) -> void:
 	gs._enter_harvest_phase()
 
 
+func _wait_harvest_view(range_view: Node, timeout_ms: int = 2000) -> void:
+	var end := Time.get_ticks_msec() + timeout_ms
+	while Time.get_ticks_msec() < end:
+		if range_view.has_method("is_harvest_view_ready") and range_view.is_harvest_view_ready():
+			return
+		await process_frame
+
+
 func _check_harvest_trigger(gs: Node) -> bool:
 	_reset(gs)
 	var before_phase: String = gs.current_phase
@@ -312,6 +320,7 @@ func _check_phase_integration(main: Node, gs: Node) -> bool:
 		return false
 
 	_enter_harvest(gs)
+	await _wait_harvest_view(range_view)
 	await process_frame
 	if range_view._pickup == null:
 		print("FAIL: pickup controller not initialized")
@@ -359,6 +368,12 @@ func _check_harvest_idle_at_home(main: Node, gs: Node) -> bool:
 		return false
 	if range_view.golfer.animation != &"idle_out_of_balls":
 		print("FAIL: harvest idle should play idle_out_of_balls")
+		return false
+
+	gs.collect_harvest_ball(Vector3.ZERO, 1)
+	await process_frame
+	if range_view.golfer.animation != &"idle_out_of_balls":
+		print("FAIL: harvest idle should stay idle_out_of_balls after collecting balls")
 		return false
 
 	gs.skip_harvest()

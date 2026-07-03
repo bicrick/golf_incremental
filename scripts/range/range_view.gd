@@ -39,6 +39,7 @@ const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.ts
 @onready var contact_ring = $ChargeMeter/BeatRing
 @onready var fx_layer: Node2D = $FxLayer
 @onready var _camera_controller: RangeCameraController = $CameraController
+@onready var _view_mode_controller: ViewModeController = $ViewModeController
 
 var ratina_bay: Node3D
 var golfer: AnimatedSprite3D
@@ -63,8 +64,7 @@ var _sprite_atmosphere_tint: Color = Color.WHITE
 var _ratina_layout_applied: bool = false
 var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 var _surround_home_size: float = -1.0
-var _swing_line_proxy_camera: Camera3D
-var _swing_line_fx_layer: Node2D
+var _view_mode_started := false
 
 
 func _should_use_editor_rig() -> bool:
@@ -86,10 +86,10 @@ func _ready() -> void:
 
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
-	if camera:
+	if _should_use_editor_rig() and camera:
 		camera.make_current()
-	if sky_dome and camera:
-		sky_dome.setup(camera)
+		if sky_dome:
+			sky_dome.setup(camera)
 	apply_atmosphere(24.0)
 
 	if Engine.is_editor_hint():
@@ -101,7 +101,7 @@ func _ready() -> void:
 
 	_setup_player_refs()
 	_camera_controller.setup(camera)
-	_camera_controller.set_enabled(visible)
+	_setup_view_mode_controller()
 
 	if contact_ring:
 		contact_ring.frozen_fade_completed.connect(_on_contact_ring_fade_completed)
@@ -121,12 +121,18 @@ func _ready() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_VISIBILITY_CHANGED and _camera_controller and not Engine.is_editor_hint():
-		_camera_controller.set_enabled(visible)
+	if what != NOTIFICATION_VISIBILITY_CHANGED or Engine.is_editor_hint():
+		return
+	if not visible or _view_mode_started or _view_mode_controller == null:
+		return
+	_view_mode_started = true
+	_view_mode_controller.start_initial_mode()
 
 
 func consume_zoom_event(event: InputEvent) -> bool:
 	if not visible or _camera_controller == null:
+		return false
+	if _view_mode_controller and not _view_mode_controller.can_use_ortho_pan():
 		return false
 	return _camera_controller.consume_zoom_event(event)
 
@@ -134,14 +140,24 @@ func consume_zoom_event(event: InputEvent) -> bool:
 func consume_pan_drag_event(event: InputEvent) -> bool:
 	if not visible or _camera_controller == null:
 		return false
+	if _view_mode_controller and not _view_mode_controller.can_use_ortho_pan():
+		return false
 	return _camera_controller.consume_pan_drag_event(event)
 
 
 func get_camera() -> Camera3D:
+	if _view_mode_controller and _view_mode_controller.get_mode() == ViewModeController.Mode.HARVEST:
+		return camera
+	if perspective_camera:
+		return perspective_camera
 	return camera
 
 
 func get_flight_camera() -> Camera3D:
+	if _view_mode_controller and _view_mode_controller.get_mode() == ViewModeController.Mode.HARVEST:
+		return camera
+	if perspective_camera:
+		return perspective_camera
 	return camera
 
 
@@ -149,58 +165,43 @@ func get_perspective_camera() -> Camera3D:
 	return perspective_camera
 
 
-func bind_swing_line_viewport(sub_viewport: SubViewport) -> void:
-	if perspective_camera == null or sub_viewport == null:
+func is_transitioning() -> bool:
+	return _view_mode_controller != null and _view_mode_controller.is_transitioning()
+
+
+func is_harvest_view_ready() -> bool:
+	return _view_mode_controller != null and _view_mode_controller.is_harvest_view_ready()
+
+
+func _setup_view_mode_controller() -> void:
+	if _view_mode_controller == null:
 		return
-	sub_viewport.own_world_3d = false
-	sub_viewport.world_3d = get_viewport().world_3d
-	sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	if _swing_line_proxy_camera:
-		_swing_line_proxy_camera.queue_free()
-		_swing_line_proxy_camera = null
-	var proxy := Camera3D.new()
-	proxy.name = &"SwingLineProxyCamera"
-	_sync_swing_line_proxy_from_source(proxy)
-	sub_viewport.add_child(proxy)
-	proxy.make_current()
-	_swing_line_proxy_camera = proxy
-	_setup_swing_line_fx_layer(sub_viewport)
-	perspective_camera.current = false
-	if camera:
-		camera.make_current()
-	if perspective_sky_dome and perspective_camera:
-		perspective_sky_dome.setup(perspective_camera)
+	_view_mode_controller.setup(
+		self,
+		perspective_camera,
+		camera,
+		sky_dome,
+		perspective_sky_dome,
+		_camera_controller
+	)
+	var main := get_tree().root.get_node_or_null("Main")
+	if main:
+		var transition := main.get_node_or_null("ViewTransitionLayer/ViewTransition")
+		if transition:
+			_view_mode_controller.bind_transition(transition)
+	_view_mode_controller.set_sky_color_provider(_sample_sky_color)
+	_view_mode_controller.set_has_active_flights_checker(_has_active_flights)
+	EventBus.phase_changed.connect(_view_mode_controller.on_phase_changed)
 
 
-func _sync_swing_line_proxy_from_source(proxy: Camera3D) -> void:
-	if proxy == null or perspective_camera == null:
-		return
-	proxy.global_transform = perspective_camera.global_transform
-	proxy.projection = perspective_camera.projection
-	proxy.fov = perspective_camera.fov
-	proxy.size = perspective_camera.size
-	proxy.near = perspective_camera.near
-	proxy.far = perspective_camera.far
-	proxy.keep_aspect = perspective_camera.keep_aspect
-	proxy.cull_mask = perspective_camera.cull_mask
+func _sample_sky_color() -> Color:
+	if world_environment and world_environment.environment:
+		return world_environment.environment.background_color
+	return DayNightPalette.SKY_DAY
 
 
-func _setup_swing_line_fx_layer(sub_viewport: SubViewport) -> void:
-	if _swing_line_fx_layer and is_instance_valid(_swing_line_fx_layer):
-		if _swing_line_fx_layer.get_parent() == sub_viewport:
-			return
-		_swing_line_fx_layer.queue_free()
-	_swing_line_fx_layer = Node2D.new()
-	_swing_line_fx_layer.name = &"SwingLineFxLayer"
-	sub_viewport.add_child(_swing_line_fx_layer)
-
-
-func get_swing_line_fx_layer() -> Node2D:
-	return _swing_line_fx_layer
-
-
-func get_swing_line_camera() -> Camera3D:
-	return _swing_line_proxy_camera
+func _has_active_flights() -> bool:
+	return not _active_flights.is_empty()
 
 
 func get_fx_reference_ortho_size() -> float:
@@ -392,14 +393,14 @@ func _process(delta: float) -> void:
 	_swing.update(delta)
 	_update_ball_reload()
 	_update_charge_visuals()
-	if _swing_line_proxy_camera and perspective_camera:
-		_sync_swing_line_proxy_from_source(_swing_line_proxy_camera)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
 		return
 	if not visible:
+		return
+	if is_transitioning():
 		return
 	if _camera_controller and _camera_controller.consume_zoom_event(event):
 		get_viewport().set_input_as_handled()
@@ -454,6 +455,8 @@ func _on_swing_charge_updated(windup: float, _in_band: bool, _past_contact: bool
 
 
 func _golfer_idle_anim() -> StringName:
+	if GameState.is_harvest_phase():
+		return &"idle_out_of_balls"
 	if GameState.has_bucket_balls():
 		return &"idle"
 	return &"idle_out_of_balls"
@@ -896,9 +899,6 @@ func _apply_flight_sample(progress: float, flight: Dictionary, path: BallFlight3
 	var trail = flight.get("trail")
 	if trail:
 		trail.track(sprite.global_position)
-	var swing_trail = flight.get("swing_trail")
-	if swing_trail:
-		swing_trail.track(sprite.global_position)
 
 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int) -> void:
@@ -925,7 +925,6 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 	var flight := {
 		"sprite": flight_sprite,
 		"trail": null,
-		"swing_trail": null,
 	}
 	var flight_cam := get_flight_camera()
 	if fx_layer and flight_cam:
@@ -936,13 +935,6 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 			get_fx_reference_ortho_size()
 		)
 		flight["trail"].track(flight_sprite.global_position)
-	if _swing_line_fx_layer and _swing_line_proxy_camera:
-		flight["swing_trail"] = BallFlightTrailScript.begin(
-			_swing_line_fx_layer,
-			_swing_line_proxy_camera,
-			timing_tier
-		)
-		flight["swing_trail"].track(flight_sprite.global_position)
 	_register_flight(flight)
 
 	var tween := flight_sprite.create_tween()
@@ -955,9 +947,6 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		var trail = flight.get("trail")
 		if trail:
 			trail.finish()
-		var swing_trail = flight.get("swing_trail")
-		if swing_trail:
-			swing_trail.finish()
 		if is_instance_valid(flight_sprite):
 			flight_sprite.queue_free()
 		_finish_flight(flight)

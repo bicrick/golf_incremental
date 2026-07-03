@@ -10,20 +10,20 @@
 [ext_resource type="Script" uid="uid://bqqkov8a6pslv" path="res://scripts/main.gd" id="7_main"]
 [ext_resource type="PackedScene" path="res://scenes/ui/settings_panel.tscn" id="8_settings"]
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="9_pause"]
-[ext_resource type="PackedScene" path="res://scenes/ui/swing_line_viewport.tscn" id="10_swing_line"]
+[ext_resource type="PackedScene" path="res://scenes/ui/view_transition.tscn" id="10_view_transition"]
 
 [node name="Main" type="Node" unique_id=785145167]
 script = ExtResource("7_main")
 
 [node name="RangeView" parent="." unique_id=19116026 instance=ExtResource("1_range")]
 
-[node name="SwingLineLayer" type="CanvasLayer" parent="." unique_id=2089890127]
-layer = 5
+[node name="ViewTransitionLayer" type="CanvasLayer" parent="."]
+layer = 8
 
-[node name="SwingLineViewport" parent="SwingLineLayer" instance=ExtResource("10_swing_line")]
-layout_mode = 1
-anchors_preset = -1
-anchor_right = 0.333333
+[node name="ViewTransition" parent="ViewTransitionLayer" instance=ExtResource("10_view_transition")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2

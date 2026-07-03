@@ -9,6 +9,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var ok := true
+	ok = await _test_strike_disables_pan() and ok
 	ok = await _test_drag_pans_camera() and ok
 	ok = await _test_range_view_routes_drag() and ok
 	print("camera_pan_ok=", ok)
@@ -22,12 +23,59 @@ func _spawn_playing_range() -> Node:
 	return main
 
 
-func _test_drag_pans_camera() -> bool:
+func _enter_harvest(gs: Node) -> void:
+	gs.bucket_remaining = 0
+	gs._enter_harvest_phase()
+
+
+func _wait_harvest_view(range_view: Node, timeout_ms: int = 2000) -> void:
+	var end := Time.get_ticks_msec() + timeout_ms
+	while Time.get_ticks_msec() < end:
+		if range_view.has_method("is_harvest_view_ready") and range_view.is_harvest_view_ready():
+			return
+		await process_frame
+
+
+func _test_strike_disables_pan() -> bool:
 	var main: Node = _spawn_playing_range()
 	await process_frame
 	await process_frame
 
 	var range_view: Node3D = main.get_node("RangeView")
+	var controller: Node = range_view.get_node("CameraController")
+	if controller == null:
+		print("FAIL: range view missing camera controller")
+		main.queue_free()
+		return false
+	if controller.is_enabled():
+		print("FAIL: camera controller should be disabled during strike")
+		main.queue_free()
+		return false
+
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_MIDDLE
+	down.pressed = true
+	down.position = Vector2(120.0, 80.0)
+	if range_view.consume_pan_drag_event(down):
+		print("FAIL: strike phase should not consume pan drag")
+		main.queue_free()
+		return false
+
+	main.queue_free()
+	print("OK: strike_disables_pan")
+	return true
+
+
+func _test_drag_pans_camera() -> bool:
+	var main: Node = _spawn_playing_range()
+	await process_frame
+	await process_frame
+
+	var gs: Node = root.get_node("GameState")
+	var range_view: Node3D = main.get_node("RangeView")
+	_enter_harvest(gs)
+	await _wait_harvest_view(range_view)
+
 	var controller: Node = range_view.get_node("CameraController")
 	var camera: Camera3D = range_view.get_node("Camera3D")
 	if controller == null or camera == null:
@@ -35,7 +83,7 @@ func _test_drag_pans_camera() -> bool:
 		main.queue_free()
 		return false
 	if not controller.is_enabled():
-		print("FAIL: camera controller should be enabled during gameplay")
+		print("FAIL: camera controller should be enabled during harvest")
 		main.queue_free()
 		return false
 
@@ -87,7 +135,11 @@ func _test_range_view_routes_drag() -> bool:
 	await process_frame
 	await process_frame
 
+	var gs: Node = root.get_node("GameState")
 	var range_view: Node3D = main.get_node("RangeView")
+	_enter_harvest(gs)
+	await _wait_harvest_view(range_view)
+
 	var camera: Camera3D = range_view.get_node("Camera3D")
 	var start_pos := camera.position
 
