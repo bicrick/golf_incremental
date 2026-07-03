@@ -2,7 +2,7 @@ class_name V4CameraConfig
 extends RefCounted
 ## v4 orthographic camera — rotation is locked project-wide; position and ortho size may vary per scene.
 
-## Locked rotation from `hitting_cell.tscn` (Align Transform With View, 2026-03-06).
+## Locked rotation from `player_bay_cell.tscn` (Align Transform With View, 2026-03-06).
 ## Do not change without re-authoring ground/prop art against the reference rig.
 ## Euler (approx, YXZ): (13.36°, -18.58°, -4.44°) — use LOCKED_BASIS as source of truth.
 const LOCKED_BASIS := Basis(
@@ -11,7 +11,7 @@ const LOCKED_BASIS := Basis(
 	Vector3(-0.3099782, -0.23109649, 0.9222299)
 )
 
-## Default ortho size for the atomic cell reference rig (`hitting_cell.tscn`).
+## Default ortho size for bay cell editor camera (`player_bay_cell.tscn` `EditorOnly/Camera3D`).
 const HITTING_CELL_DEFAULT_SIZE := 8.0
 
 ## Default camera position for the atomic cell reference rig (tunable; rotation is not).

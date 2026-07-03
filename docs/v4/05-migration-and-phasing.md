@@ -22,7 +22,7 @@ Build in order. Each phase should be playable/verifiable before starting the nex
 ### Phase A — Design only (this doc set)
 
 - [x] v4 docs in `docs/v4/`
-- [x] Reference rig `scenes/range/hitting_cell.tscn` + `scripts/range/hitting_cell.gd`
+- [x] Bay cell prefabs `player_bay_cell.tscn` + `ratina_bay_cell.tscn`
 - [ ] Confirm remaining open questions in [00-vision.md](00-vision.md#design-decisions-resolved--in-progress) before Phase F (economy numbers)
 
 ### Phase B — Orthographic camera swap
@@ -31,9 +31,9 @@ Build in order. Each phase should be playable/verifiable before starting the nex
 
 | Task | Files | Status |
 |------|-------|--------|
-| Isolated reference rig with camera + ground + sprites | `scenes/range/hitting_cell.tscn`, `scripts/range/hitting_cell.gd` | done |
-| `Camera3D.projection = PROJECTION_ORTHOGONAL`, locked rotation via `V4CameraConfig` | `v4_camera_config.gd`, `hitting_cell.tscn`, `range_view.tscn` | done |
-| Tune camera position/size in editor (rotation fixed) | `hitting_cell.tscn` exports | cell rig done |
+| Bay cell prefabs (camera in `EditorOnly`, ship floor + sprites) | `player_bay_cell.tscn`, `ratina_bay_cell.tscn`, `bay_cell.gd` | done |
+| `Camera3D.projection = PROJECTION_ORTHOGONAL`, locked rotation via `V4CameraConfig` | `v4_camera_config.gd`, `player_bay_cell.tscn`, `range_view.tscn` | done |
+| Tune cell camera position/size in editor (rotation fixed) | `player_bay_cell.tscn` `EditorOnly/Camera3D` | done |
 | Verify `unproject_position()` screen FX under ortho | `range_view.gd`, `pickup_controller.gd` | manual playtest pending |
 | Port player sprite layout from atomic cell | `player_bay_cell.tscn`, `range_view.gd` | done |
 | Tune range camera position/size for full grid | `range_view.tscn` | tune in editor |
@@ -58,7 +58,7 @@ Build in order. Each phase should be playable/verifiable before starting the nex
 
 | Task | Files | Status |
 |------|-------|--------|
-| Shared `cell_ground.gd` + modular bay prefabs (`base_cell`, `player_bay_cell`, `ratina_bay_cell`) | `scripts/range/cell_ground.gd`, `scenes/range/cells/` | done |
+| Shared `cell_ground.gd` + ship-ready bay prefabs (`player_bay_cell`, `ratina_bay_cell`) | `scripts/range/cell_ground.gd`, `scenes/range/cells/` | done |
 | Player bay via `player_bay_cell.tscn` at `player_bay_origin()` | `player_bay_cell.tscn`, `range_view.gd` | done |
 | Crew bay (Ratina) via `ratina_bay_cell.tscn` at `ratina_bay_origin()` | `ratina_bay_cell.tscn`, `range_view.gd`, `ratina_controller.gd` | done |
 | Placement UI / purchase flow | Phase F | deferred |

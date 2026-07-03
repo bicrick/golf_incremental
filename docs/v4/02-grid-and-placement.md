@@ -57,11 +57,11 @@ Only a **single row on the near edge** (`Z ≈ 0`) is buildable for hitting bays
 
 ### What exists today
 
-- **Reference rig** (`hitting_cell.tscn`): one **2×2 yd** grass cell with border overlay — the atomic unit.
+- **Bay cells:** [`player_bay_cell.tscn`](../../scenes/range/cells/player_bay_cell.tscn) and [`ratina_bay_cell.tscn`](../../scenes/range/cells/ratina_bay_cell.tscn) — 2×2 yd floor + sprites; tune and ship the same file.
 - **Live range ground:** `range_view.gd` builds **50×300 yd** fairway via `FairwayGrassTiles3D.apply_palette()` with `RangeGrid.HALF_WIDTH_YARDS` (25) and `RangeGrid.DEPTH_YARDS` (300).
 - **Forest fences:** `ForestFence.populate()` on `range_view.tscn` `ForestFence` node at full grid width/depth.
 - **Grid helpers:** [`scripts/range/range_grid.gd`](../../scripts/range/range_grid.gd) — `bay_origin()`, `player_bay_origin()`, `ratina_bay_origin()`.
-- **Bay prefabs:** `range_view.gd` instances [`player_bay_cell.tscn`](../../scenes/range/cells/player_bay_cell.tscn) at `RangeGrid.player_bay_origin()` and [`ratina_bay_cell.tscn`](../../scenes/range/cells/ratina_bay_cell.tscn) at `RangeGrid.ratina_bay_origin()`. Each prefab is a 2×2 yd grass floor (`base_cell.tscn`) plus locally authored golfer/ball sprites.
+- **Runtime:** `range_view.gd` instances bay prefabs at `RangeGrid.player_bay_origin()` and `ratina_bay_origin()`.
 
 ### Coordinate convention (implemented)
 

@@ -37,7 +37,7 @@ Still the **range rat superintendent** from v2/v3 — you hit when the bucket al
 | Camera angle | **Locked** | Rotation in `V4CameraConfig.LOCKED_BASIS`; position/size tunable per scene. See [01-camera-and-world.md](01-camera-and-world.md). |
 | Grid scope | **Resolved** | Full range: 25×150 cells (50×300 yd). Buildable bays: near-edge row only. See [02-grid-and-placement.md](02-grid-and-placement.md). |
 | Depth cue under ortho | **Resolved (baseline)** | Flat sprite size; depth via grid position. Revisit if playtest fails. |
-| Atomic cell | **Locked** | `hitting_cell.tscn` — camera rotation + sprite layout captured 2026-03-06. See [03-crew-and-bays.md](03-crew-and-bays.md). |
+| Atomic cell | **Locked** | `player_bay_cell.tscn` — camera + sprite layout. See [03-crew-and-bays.md](03-crew-and-bays.md). |
 | Buildable strip capacity | Open | Planning target 3–6 bays including player; confirm during economy pass. |
 | Context-menu contents | Open | Click empty cell → menu; exact crew types TBD. |
 

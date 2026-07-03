@@ -125,8 +125,6 @@ func _setup_bays() -> void:
 	player_bay = PlayerBayCellScene.instantiate()
 	player_bay.position = RangeGridScript.player_bay_origin()
 	bays.add_child(player_bay)
-	if player_bay.has_method("set_embedded_rig_active"):
-		player_bay.set_embedded_rig_active(false)
 	golfer = player_bay.get_golfer()
 	ball = player_bay.get_ball()
 	_golfer_home = player_bay.strike_home()
@@ -140,8 +138,6 @@ func _setup_bays() -> void:
 	ratina_bay = RatinaBayCellScene.instantiate()
 	ratina_bay.position = RangeGridScript.ratina_bay_origin()
 	bays.add_child(ratina_bay)
-	if ratina_bay.has_method("set_embedded_rig_active"):
-		ratina_bay.set_embedded_rig_active(false)
 	ratina_sprite = ratina_bay.get_golfer()
 	ratina_ball_sprite = ratina_bay.get_ball()
 	if Engine.is_editor_hint():

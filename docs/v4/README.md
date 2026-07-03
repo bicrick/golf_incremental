@@ -25,7 +25,7 @@ Same range rat superintendent, same one-hand contact swing, same bucket/pickup/u
 | Doc | Read if you are working on… |
 |-----|----------------------------|
 | [00-vision.md](00-vision.md) | Pillars, scope boundaries, what v4 is and isn't |
-| [01-camera-and-world.md](01-camera-and-world.md) | Orthographic camera, dimetric angle, **`hitting_cell.tscn` reference rig** |
+| [01-camera-and-world.md](01-camera-and-world.md) | Orthographic camera, dimetric angle, bay cell `EditorOnly/Camera3D` |
 | [02-grid-and-placement.md](02-grid-and-placement.md) | Buildable strip, grid unit, placement UX |
 | [03-crew-and-bays.md](03-crew-and-bays.md) | Generalized hitting-bay entity, multi-bay swinging, lanes |
 | [04-economy-and-progression.md](04-economy-and-progression.md) | How bay purchase/placement plugs into existing economy |

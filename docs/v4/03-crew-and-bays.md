@@ -21,19 +21,31 @@ v4 introduces exactly one placeable category: the **hitting bay**. The player's 
 - Contact-swing timing, tiers, payout formulas — per-bay instances of existing mechanics.
 - Single `GameState` currency — no per-bay wallets.
 
-## Atomic hitting-cell template
+## Bay prefabs (ship what you tune)
 
-**Editor rig (same scene as player bay):** [`scenes/range/hitting_cell.tscn`](../../scenes/range/hitting_cell.tscn) — alias of the player bay; open either this or `player_bay_cell.tscn` to tune.
+Two scenes — open, align sprites, save, run:
 
-**Runtime prefabs** (each is a full cell rig: `WorldEnvironment`, `Sun`, `Camera3D`, `Ground`, `GridOverlay`, optional sprites):
+| Prefab | Purpose |
+|--------|---------|
+| [`player_bay_cell.tscn`](../../scenes/range/cells/player_bay_cell.tscn) | Player bay — Range Rat + ball |
+| [`ratina_bay_cell.tscn`](../../scenes/range/cells/ratina_bay_cell.tscn) | Ratina bay — tune sprites independently |
 
-| Prefab | Contents |
-|--------|----------|
-| [`base_cell.tscn`](../../scenes/range/cells/base_cell.tscn) | **Exact copy of `player_bay_cell.tscn` with `Golfer` + `Ball` nodes removed** — same camera, ground, grid, subresources |
-| [`player_bay_cell.tscn`](../../scenes/range/cells/player_bay_cell.tscn) | Identical to `hitting_cell.tscn` — Range Rat + ball |
-| [`ratina_bay_cell.tscn`](../../scenes/range/cells/ratina_bay_cell.tscn) | **Copy of player bay** — only the golfer sprite sheet swapped to Ratina; ball and rig unchanged |
+### Scene layout
 
-Embedded camera/lighting is **active in the editor** so you can align sprites as they will read in-game. When instanced under `range_view`, `set_embedded_rig_active(false)` hides the per-cell rig so the range camera and sun take over.
+```
+PlayerBayCell / RatinaBayCell  (bay_cell.gd)
+├── EditorOnly                 ← freed at runtime (camera, sun, grid)
+│   ├── WorldEnvironment
+│   ├── Sun
+│   ├── Camera3D
+│   ├── GridOverlay
+│   └── TeeMarker
+├── Ground                     ← 2×2 grass (ships)
+├── Golfer
+└── Ball
+```
+
+Sprite frames are assigned in script; the `.tscn` stores transforms, offset, and scale only.
 
 One **2×2 yd** cell. Root origin = bay tee point at the near-edge center `(0, 0, 0)`.
 
@@ -43,16 +55,13 @@ One **2×2 yd** cell. Root origin = bay tee point at the near-edge center `(0, 0
 | **Z** | `0` (near / tee line) … `-2` (deep) yd |
 | **Y** | ground at `0` |
 
-### Locked sprite layout (local to bay cell root)
+### Editor workflow
 
-Player bay sprites were copied from the locked `hitting_cell.tscn` rig. Ratina bay uses the same starting transforms but can be tuned in `ratina_bay_cell.tscn` without touching the player cell.
+1. Open `player_bay_cell.tscn` or `ratina_bay_cell.tscn`.
+2. Use split viewport + **Preview** on `EditorOnly/Camera3D` to align `Golfer` / `Ball`.
+3. Save — `range_view` instances the same scene at `RangeGrid.bay_origin()`.
 
-| Node | Position (local) | Scale | Other |
-|------|------------------|-------|-------|
-| `Golfer` | `(0.131, 1.692, -0.196)` | `(1.3, 1.3, 1.3)` | offset `(0, -26)`, pixel_size `0.024` |
-| `Ball` | `(0.638, 0.166, -0.565)` | `(0.55, 0.55, 0.55)` | pixel_size `0.021` |
-
-**Billboard:** `BILLBOARD_ENABLED`, `alpha_cut = DISCARD`, `texture_filter = NEAREST`.
+`EditorOnly` is active in the editor; at runtime it is `queue_free()`'d so the range camera and sun take over.
 
 ### Placing a bay on the range
 
@@ -60,27 +69,20 @@ Player bay sprites were copied from the locked `hitting_cell.tscn` rig. Ratina b
 bay_cell.position = RangeGrid.bay_origin(col, row)
 ```
 
-Sprites are authored inside the prefab at local positions; no per-frame layout copy step at runtime.
+Player bay: cell `(12, 0)` → origin `(0, 0, 0)`.
 
-Player bay: cell `(12, 0)` → origin `(0, 0, 0)` — cell root sits at world origin.
-
-### Re-tuning workflow
-
-1. **Player layout:** edit sprites in `hitting_cell.tscn` (reference rig), then mirror transforms into `player_bay_cell.tscn`.
-2. **Ratina layout:** edit `ratina_bay_cell.tscn` directly — independent of player bay.
-3. **Camera:** tune in `hitting_cell.tscn` only; sync constants to `range_view.tscn` when satisfied.
+Ratina bay: cell `(10, 0)` → origin `(-4, 0, 0)`.
 
 ## Implementation against current code
 
 | Asset | Status |
 |-------|--------|
-| `hitting_cell.tscn` | Editor-only camera + layout reference rig |
 | `cell_ground.gd` | Shared 2×2 grass quad builder |
-| `base_cell.tscn` / `base_cell.gd` | Grass-only atomic floor |
-| `player_bay_cell.tscn` / `player_bay_cell.gd` | Player bay prefab |
-| `ratina_bay_cell.tscn` / `ratina_bay_cell.gd` | Ratina bay prefab |
-| `range_view.gd` | Instances bays under `$Bays` at `player_bay_origin()` / `ratina_bay_origin()` |
-| `ratina_controller.gd` | Binds to `ratina_bay_cell` via `setup(range_view, bay_cell)` |
+| `bay_cell.gd` | Ground, editor rig, sprite API |
+| `player_bay_cell.tscn` / `player_bay_cell.gd` | Player bay |
+| `ratina_bay_cell.tscn` / `ratina_bay_cell.gd` | Ratina bay |
+| `range_view.gd` | Instances bays under `$Bays` |
+| `ratina_controller.gd` | `setup(range_view, ratina_bay)` |
 
 ## Related docs
 
