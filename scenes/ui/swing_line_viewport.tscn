@@ -3,12 +3,11 @@
 [ext_resource type="Script" path="res://scripts/ui/swing_line_viewport.gd" id="1_script"]
 
 [node name="SwingLineViewport" type="SubViewportContainer"]
-offset_left = 8.0
-offset_top = 44.0
-offset_right = 108.0
-offset_bottom = 262.0
-grow_horizontal = 0
-grow_vertical = 0
+anchors_preset = -1
+anchor_right = 0.333333
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 stretch = true
 texture_filter = 0

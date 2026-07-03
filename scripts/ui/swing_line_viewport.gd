@@ -1,5 +1,5 @@
 extends SubViewportContainer
-## Bare perspective swing-line feed — no frame. Resize SwingLineViewport in main.tscn.
+## Perspective swing-line overlay — left 25% of screen; main range renders full width underneath.
 
 @onready var _sub_viewport: SubViewport = $SubViewport
 
