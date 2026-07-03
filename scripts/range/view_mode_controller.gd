@@ -1,13 +1,13 @@
 class_name ViewModeController
 extends Node
-## Full-screen strike (perspective) vs harvest (ortho) camera modes with sky crossfade.
+## Full-screen strike (perspective) vs harvest (ortho) camera modes with palette wash crossfade.
 
 enum Mode { STRIKE, HARVEST, TRANSITIONING }
 
 signal view_mode_changed(mode: Mode)
 
-const VIEW_CROSSFADE_IN_SEC := 0.35
-const VIEW_CROSSFADE_OUT_SEC := 0.35
+const VIEW_CROSSFADE_IN_SEC := 0.38
+const VIEW_CROSSFADE_OUT_SEC := 0.42
 const VIEW_HARVEST_DELAY_AFTER_FLIGHTS_SEC := 0.3
 
 var _mode: Mode = Mode.STRIKE
@@ -18,7 +18,7 @@ var _perspective_sky_dome: RangeSkyDome
 var _camera_controller: RangeCameraController
 var _range_view: Node3D
 var _transition: Control
-var _sky_color_provider: Callable = Callable()
+var _cycle_time_provider: Callable = Callable()
 var _has_active_flights: Callable = Callable()
 var _pending_harvest := false
 var _harvest_view_ready := false
@@ -44,8 +44,8 @@ func bind_transition(transition: Control) -> void:
 	_transition = transition
 
 
-func set_sky_color_provider(provider: Callable) -> void:
-	_sky_color_provider = provider
+func set_cycle_time_provider(provider: Callable) -> void:
+	_cycle_time_provider = provider
 
 
 func set_has_active_flights_checker(checker: Callable) -> void:
@@ -120,16 +120,29 @@ func _run_transition(apply_mode: Callable, is_harvest: bool) -> void:
 	var fade_in := _fade_duration(VIEW_CROSSFADE_IN_SEC)
 	var fade_out := _fade_duration(VIEW_CROSSFADE_OUT_SEC)
 	var delay := _fade_duration(VIEW_HARVEST_DELAY_AFTER_FLIGHTS_SEC) if is_harvest else 0.0
-	_run_transition_async(apply_mode, fade_in, fade_out, delay)
+	_run_transition_async(apply_mode, fade_in, fade_out, delay, is_harvest)
 
 
-func _run_transition_async(apply_mode: Callable, fade_in: float, fade_out: float, delay: float) -> void:
+func _run_transition_async(
+	apply_mode: Callable,
+	fade_in: float,
+	fade_out: float,
+	delay: float,
+	entering_harvest: bool
+) -> void:
 	if delay > 0.0:
 		await get_tree().create_timer(delay).timeout
-	var sky := _current_sky_color()
-	await _transition.fade_to_color(sky, fade_in)
+	var cycle_time := _current_cycle_time()
+	var peak_mode := Mode.HARVEST if entering_harvest else Mode.STRIKE
+	var out_mode := Mode.STRIKE if entering_harvest else Mode.HARVEST
+	var peak_wash := ViewTransitionPalette.wash_for_mode(peak_mode, cycle_time)
+	var out_wash := ViewTransitionPalette.wash_for_mode(out_mode, cycle_time)
+	if _transition.has_method(&"crossfade_wash"):
+		await _transition.crossfade_wash(peak_wash, out_wash, fade_in, fade_out)
+	else:
+		await _transition.fade_to_color(peak_wash, fade_in)
+		await _transition.fade_out(fade_out)
 	apply_mode.call()
-	await _transition.fade_out(fade_out)
 	if _mode != Mode.TRANSITIONING:
 		return
 	if _pending_harvest and _mode == Mode.TRANSITIONING:

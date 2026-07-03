@@ -4,6 +4,7 @@ extends Node
 const POOL_SIZE := 3
 const MIX_RATE := 22050
 const MUSIC_DIR := "res://assets/audio/music/"
+const PICKUP_PLINK_PATH := "res://assets/audio/sfx/pickup/throwing-a-coin-into-a-piggy-bank.mp3"
 const BGM_VOLUME_DB := -9.0
 const MUSIC_EXTENSIONS := ["mp3", "ogg", "wav", "flac"]
 
@@ -347,9 +348,17 @@ func _build_streams() -> void:
 	)
 	_streams["play_whoosh"] = _make_thwack(150.0, 0.14, 0.2, 0.5)
 	_streams["play_fanfare"] = _make_chime([440.0, 554.0, 659.0, 880.0, 1108.0], 0.38, 0.24)
-	_streams["pickup_plink"] = _make_chime([880.0, 1175.0, 1568.0], 0.12, 0.28)
+	_streams["pickup_plink"] = _load_pickup_plink_stream()
 	_streams["bucket_full_chime"] = _make_chime([523.0, 659.0, 784.0, 1047.0], 0.32, 0.34)
 	_streams["ambient_wind"] = _make_wind_loop(2.5, 0.06)
+
+
+func _load_pickup_plink_stream() -> AudioStream:
+	var stream: AudioStream = load(PICKUP_PLINK_PATH)
+	if stream == null:
+		push_warning("SfxManager: failed to load pickup plink at %s" % PICKUP_PLINK_PATH)
+		return _make_chime([880.0, 1175.0, 1568.0], 0.12, 0.28)
+	return stream
 
 
 func _load_golf_hit_streams() -> void:
