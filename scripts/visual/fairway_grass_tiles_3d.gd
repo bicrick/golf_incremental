@@ -24,7 +24,8 @@ const DARK_STRIPE_PALETTE_BLEND := 0.45
 static func build_mesh(
 	half_width: float,
 	light_color: Color,
-	dark_color: Color
+	dark_color: Color,
+	depth_yards: float = FAIRWAY_DEPTH_YARDS
 ) -> ArrayMesh:
 	var verts := PackedVector3Array()
 	var colors := PackedColorArray()
@@ -32,7 +33,7 @@ static func build_mesh(
 	var indices := PackedInt32Array()
 
 	var z_near := 0.0
-	var z_far := -FAIRWAY_DEPTH_YARDS
+	var z_far := -depth_yards
 	var stripe_count := ceili(half_width * 2.0 / STRIPE_WIDTH_YARDS)
 
 	for i in stripe_count:
@@ -74,11 +75,12 @@ static func apply_palette(
 	mesh_instance: MeshInstance3D,
 	half_width: float,
 	light_color: Color,
-	dark_color: Color
+	dark_color: Color,
+	depth_yards: float = FAIRWAY_DEPTH_YARDS
 ) -> void:
 	if mesh_instance == null:
 		return
-	mesh_instance.mesh = build_mesh(half_width, light_color, dark_color)
+	mesh_instance.mesh = build_mesh(half_width, light_color, dark_color, depth_yards)
 	if mesh_instance.get_surface_override_material(0) == null:
 		mesh_instance.set_surface_override_material(0, make_material())
 

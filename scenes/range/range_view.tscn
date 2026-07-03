@@ -900,16 +900,19 @@ light_color = Color(1, 0.92, 0.55, 1)
 light_energy = 1.15
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1214699375]
-transform = Transform3D(0.9986295, 0.0010960418, 0.052324485, 0, 0.9997807, -0.02094242, -0.05233596, 0.02091372, 0.9984105, 0.24, 1.24, -2.1134086)
+transform = Transform3D(0.9507437, -0.07534615, 0.30068162, 0, 0.97000897, 0.24306919, -0.3099782, -0.23109649, 0.9222299, 0, 12, 12)
 current = true
-fov = 58.0
+projection = 1
+size = 18.0
 
 [node name="SkyDome" parent="." unique_id=1737236425 instance=ExtResource("4_sky_dome")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.24, 1.24, -2.1134086)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, 12)
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=776523448]
 mesh = SubResource("ArrayMesh_lghmg")
 surface_material_override/0 = SubResource("StandardMaterial3D_uv58k")
+
+[node name="ForestFence" type="Node3D" parent="." unique_id=884729301]
 
 [node name="Foreground" type="Node3D" parent="." unique_id=330800463]
 

@@ -26,6 +26,7 @@ const RatinaControllerScript := preload("res://scripts/range/ratina_controller.g
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
+const RangeGridScript := preload("res://scripts/range/range_grid.gd")
 
 # Range Rat swing: linear wind-up frames 0-7; release at frame 8 (contact);
 # follow-through auto-plays frames 9-16. Idle loops 5 frames from idle sheet.
@@ -36,6 +37,7 @@ const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.g
 @onready var camera: Camera3D = $Camera3D
 @onready var sky_dome: RangeSkyDome = $SkyDome
 @onready var ground: MeshInstance3D = $Ground
+@onready var forest_fence: Node3D = $ForestFence
 @onready var ball: AnimatedSprite3D = $Foreground/Ball
 @onready var golfer: AnimatedSprite3D = $Foreground/Golfer
 @onready var golfer_unlocked_marker: Marker3D = $Foreground/GolferUnlockedMarker
@@ -68,7 +70,9 @@ var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 
 
 func _ready() -> void:
+	_setup_v4_camera()
 	_setup_ground()
+	_setup_fences()
 	_setup_dinky_sprites()
 	_setup_ratina_sprites()
 	_ball_home = ball.position
@@ -171,10 +175,38 @@ func _configure_billboard(sprite: SpriteBase3D, pixel_size: float) -> void:
 	sprite.shaded = false
 
 
+func _setup_v4_camera() -> void:
+	if camera == null:
+		return
+	V4CameraConfig.apply_locked_rotation(
+		camera,
+		V4CameraConfig.RANGE_VIEW_DEFAULT_POSITION,
+		V4CameraConfig.RANGE_VIEW_DEFAULT_SIZE
+	)
+
+
 func _setup_ground() -> void:
 	var snap := DayNightPalette.sample_at(24.0)
+	_apply_ground_palette(snap.fairway_light, snap.fairway_dark)
+
+
+func _apply_ground_palette(light_color: Color, dark_color: Color) -> void:
 	FairwayGrassTiles3D.apply_palette(
-		ground, Balance.FAIRWAY_HALF_WIDTH_YARDS, snap.fairway_light, snap.fairway_dark
+		ground,
+		RangeGridScript.HALF_WIDTH_YARDS,
+		light_color,
+		dark_color,
+		RangeGridScript.DEPTH_YARDS
+	)
+
+
+func _setup_fences() -> void:
+	if forest_fence == null:
+		return
+	ForestFence.populate(
+		forest_fence,
+		RangeGridScript.HALF_WIDTH_YARDS,
+		RangeGridScript.DEPTH_YARDS
 	)
 
 
@@ -233,7 +265,11 @@ func apply_atmosphere(cycle_time: float) -> void:
 		# stays readable without brightening the sky backdrop.
 		env.ambient_light_color = snap.sky.lerp(snap.fairway_light, (1.0 - day_factor) * 0.45)
 	FairwayGrassTiles3D.apply_palette(
-		ground, Balance.FAIRWAY_HALF_WIDTH_YARDS, snap.fairway_light, snap.fairway_dark
+		ground,
+		RangeGridScript.HALF_WIDTH_YARDS,
+		snap.fairway_light,
+		snap.fairway_dark,
+		RangeGridScript.DEPTH_YARDS
 	)
 	if sun_light:
 		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)

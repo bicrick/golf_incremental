@@ -160,13 +160,14 @@ func _check_load_refills_empty_bucket(gs: Node) -> bool:
 func _check_upgrade_refills_bucket(gs: Node) -> bool:
 	_reset_bucket(gs)
 	gs.currency = 1_000_000.0
+	gs.shop_unlocked = true
 	gs.upgrade_levels = {"power": 1}
 	gs._recompute_stats()
 	gs.bucket_remaining = 2
-	if not gs.purchase_upgrade("bucket_size_1"):
-		print("FAIL: bucket_size_1 purchase failed")
+	if not gs.purchase_shop_item("ball_count"):
+		print("FAIL: ball_count purchase failed")
 		return false
-	var expected := CAPACITY + 2
+	var expected := CAPACITY + int(Balance.BALL_COUNT_BONUS_PER_LEVEL)
 	if gs.bucket_capacity != expected:
 		print(
 			"FAIL: bucket_capacity after upgrade expected %d, got %d"
@@ -186,15 +187,16 @@ func _check_upgrade_refills_bucket(gs: Node) -> bool:
 func _check_upgrade_refills_during_harvest(gs: Node) -> bool:
 	_reset_bucket(gs)
 	gs.currency = 1_000_000.0
+	gs.shop_unlocked = true
 	gs.upgrade_levels = {"power": 1}
 	gs._recompute_stats()
 	gs.bucket_remaining = 0
 	gs._enter_harvest_phase()
 	gs.harvest_collected = 3
-	if not gs.purchase_upgrade("bucket_size_1"):
-		print("FAIL: bucket_size_1 purchase failed during harvest")
+	if not gs.purchase_shop_item("ball_count"):
+		print("FAIL: ball_count purchase failed during harvest")
 		return false
-	var expected := CAPACITY + 2
+	var expected := CAPACITY + int(Balance.BALL_COUNT_BONUS_PER_LEVEL)
 	if gs.current_phase != "strike":
 		print("FAIL: bucket upgrade during harvest should return to strike, got %s" % gs.current_phase)
 		return false
