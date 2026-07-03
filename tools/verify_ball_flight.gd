@@ -4,6 +4,7 @@ extends SceneTree
 
 
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
+const HitPoofScript := preload("res://scripts/visual/hit_poof.gd")
 
 
 func _initialize() -> void:
@@ -21,6 +22,8 @@ func _run() -> void:
 	ok = _check_landing_proportional_to_yards() and ok
 	ok = _check_tier_ladder_distance_separation() and ok
 	ok = await _check_flight_trail() and ok
+	ok = await _check_hit_poof_anchor() and ok
+	ok = await _check_hit_poof_zoom_compensation() and ok
 	print("ball_flight_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -339,4 +342,86 @@ func _check_flight_trail() -> bool:
 	trail.finish()
 	if ok:
 		print("OK: flight trail caps points, fades tail-to-head, and survives camera pan")
+	return ok
+
+
+func _check_hit_poof_anchor() -> bool:
+	var ok := true
+	var fx_layer := Node2D.new()
+	root.add_child(fx_layer)
+
+	var camera := Camera3D.new()
+	camera.position = Vector3(0.24, 1.24, -2.016)
+	camera.rotation_degrees = Vector3(1.2, 3.0, 0.0)
+	root.add_child(camera)
+	await process_frame
+
+	var world_pos := Vector3(-0.545, 0.05, -6.395)
+	HitPoofScript.spawn(fx_layer, camera, world_pos, Balance.TimingTier.GOOD)
+	var poof := fx_layer.get_child(fx_layer.get_child_count() - 1)
+	var screen_before: Vector2 = poof.screen_position()
+	camera.position += Vector3(5.0, 0.0, 0.0)
+	await process_frame
+	var screen_after: Vector2 = poof.screen_position()
+	if screen_before.distance_to(screen_after) < 1.0:
+		print(
+			"FAIL: hit poof screen point should move after camera pan (before %s, after %s)"
+			% [screen_before, screen_after]
+		)
+		ok = false
+
+	var expected: Vector2 = fx_layer.to_local(camera.unproject_position(world_pos))
+	if expected.distance_to(poof.screen_position()) > 0.5:
+		print(
+			"FAIL: hit poof mismatch after pan (expected %s, got %s)"
+			% [expected, poof.screen_position()]
+		)
+		ok = false
+
+	poof.queue_free()
+	if ok:
+		print("OK: hit poof reprojects to world anchor during camera pan")
+	return ok
+
+
+func _check_hit_poof_zoom_compensation() -> bool:
+	var ok := true
+	var fx_layer := Node2D.new()
+	root.add_child(fx_layer)
+
+	var camera := Camera3D.new()
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.position = Vector3(0.24, 1.24, -2.016)
+	camera.rotation_degrees = Vector3(1.2, 3.0, 0.0)
+	camera.size = 10.0
+	root.add_child(camera)
+	await process_frame
+
+	var world_pos := Vector3(-0.545, 0.05, -6.395)
+	var reference_size := camera.size
+	HitPoofScript.spawn(
+		fx_layer,
+		camera,
+		world_pos,
+		Balance.TimingTier.GOOD,
+		0,
+		Vector3(0.0, 0.0, -12.0),
+		reference_size
+	)
+	var poof := fx_layer.get_child(fx_layer.get_child_count() - 1)
+	await process_frame
+
+	camera.size = reference_size * 4.0
+	await process_frame
+	var expected_scale := reference_size / camera.size
+	if not is_equal_approx(poof.scale.x, expected_scale):
+		print(
+			"FAIL: hit poof zoom scale %.3f should match reference/current %.3f"
+			% [poof.scale.x, expected_scale]
+		)
+		ok = false
+
+	poof.queue_free()
+	if ok:
+		print("OK: hit poof compensates orthographic zoom")
 	return ok

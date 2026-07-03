@@ -5,15 +5,22 @@ extends Node2D
 const FADE_OUT_SEC := 0.2
 
 var _camera: Camera3D
+var _reference_ortho_size: float = 0.0
 var _line: Line2D
 var _tier_color: Color
 var _world_points: PackedVector3Array = PackedVector3Array()
 var _tracking := true
 
 
-static func begin(parent: Node2D, camera: Camera3D, timing_tier: int = Balance.TimingTier.GOOD) -> Node2D:
+static func begin(
+	parent: Node2D,
+	camera: Camera3D,
+	timing_tier: int = Balance.TimingTier.GOOD,
+	reference_ortho_size: float = 0.0
+) -> Node2D:
 	var trail := BallFlightTrail.new()
 	trail._camera = camera
+	trail._reference_ortho_size = reference_ortho_size if reference_ortho_size > 0.0 else camera.size
 	trail._tier_color = Balance.TIER_COLORS[timing_tier]
 	parent.add_child(trail)
 	trail.z_index = 1
@@ -112,6 +119,8 @@ func _project_to_local(world_pos: Vector3) -> Vector2:
 func _refresh_line() -> void:
 	if _line == null or _camera == null:
 		return
+	var zoom := ScreenFxScale.compensation(_camera, _reference_ortho_size)
+	scale = Vector2.ONE * zoom
 	var locals := PackedVector2Array()
 	locals.resize(_world_points.size())
 	for i in _world_points.size():

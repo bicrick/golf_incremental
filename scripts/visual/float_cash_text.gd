@@ -14,11 +14,13 @@ static func spawn(
 	world_pos: Vector2,
 	amount: float,
 	combo_tier: int = 0,
-	z_index: int = 4
+	z_index: int = 4,
+	fx_scale: float = 1.0
 ) -> void:
 	var fx: Node2D = load("res://scripts/visual/float_cash_text.gd").new()
 	parent.add_child(fx)
 	fx.position = world_pos
+	fx.scale = Vector2.ONE * fx_scale
 	fx.z_as_relative = false
 	fx.z_index = z_index
 	fx._play(amount, combo_tier)

@@ -47,6 +47,10 @@ func is_dragging() -> bool:
 	return _drag_active
 
 
+func reference_ortho_size() -> float:
+	return _start_size
+
+
 func consume_zoom_event(event: InputEvent) -> bool:
 	if not _enabled or _camera == null:
 		return false

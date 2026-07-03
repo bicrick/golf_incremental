@@ -141,6 +141,12 @@ func get_flight_camera() -> Camera3D:
 	return camera
 
 
+func get_fx_reference_ortho_size() -> float:
+	if _camera_controller:
+		return _camera_controller.reference_ortho_size()
+	return _camera_home_size()
+
+
 func get_golfer() -> AnimatedSprite3D:
 	return golfer
 
@@ -533,10 +539,12 @@ func _on_swing_resolved(
 	_flash_beat_ring(tier)
 	HitPoof.spawn(
 		fx_layer,
-		_project_to_screen(ball.global_position),
-		_fairway_screen_dir(ball.global_position),
+		get_flight_camera(),
+		ball.global_position,
 		tier,
-		feedback_tier
+		feedback_tier,
+		Vector3(0.0, 0.0, -12.0),
+		get_fx_reference_ortho_size()
 	)
 	var quality := Economy.quality_for_tier(tier)
 	_spawn_float_text(tier, yards)
@@ -591,11 +599,25 @@ func _fairway_screen_dir(from_world: Vector3) -> Vector2:
 
 
 func show_pickup_cash_float(world_pos: Vector3, payout: float, combo_tier: int) -> void:
-	FloatCashTextScript.spawn(fx_layer, _project_to_screen(world_pos), payout, combo_tier)
+	var cam := get_flight_camera()
+	var fx_scale := ScreenFxScale.compensation(cam, get_fx_reference_ortho_size())
+	FloatCashTextScript.spawn(
+		fx_layer,
+		_project_to_screen(world_pos),
+		payout,
+		combo_tier,
+		4,
+		fx_scale
+	)
 
 
 func _handle_vanished_ball(landing: Vector3, quality: int, yardage: float, is_golden: bool = false) -> void:
-	DistanceTwinkle.spawn(fx_layer, _project_to_screen(landing))
+	DistanceTwinkle.spawn(
+		fx_layer,
+		get_flight_camera(),
+		landing,
+		get_fx_reference_ortho_size()
+	)
 	var payout := GameState.credit_vanished_ball(landing, quality, yardage, 1, is_golden)
 	show_pickup_cash_float(landing, payout, 1)
 	if payout > 0.0:
@@ -624,7 +646,8 @@ func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:
 	var icon := Sprite2D.new()
 	icon.texture = _ball_lay_texture
 	icon.position = start_screen
-	icon.scale = Vector2(0.5, 0.5)
+	var fx_scale := ScreenFxScale.compensation(get_flight_camera(), get_fx_reference_ortho_size())
+	icon.scale = Vector2(0.5, 0.5) * fx_scale
 	fx_layer.add_child(icon)
 	var mid := (start_screen + end_screen) * 0.5 + Vector2(0.0, -PICKUP_FLY_ARC_PX)
 	var tween := icon.create_tween()
@@ -836,7 +859,12 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 	}
 	var flight_cam := get_flight_camera()
 	if fx_layer and flight_cam:
-		flight["trail"] = BallFlightTrailScript.begin(fx_layer, flight_cam, timing_tier)
+		flight["trail"] = BallFlightTrailScript.begin(
+			fx_layer,
+			flight_cam,
+			timing_tier,
+			get_fx_reference_ortho_size()
+		)
 		flight["trail"].track(flight_sprite.global_position)
 	_register_flight(flight)
 

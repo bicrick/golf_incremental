@@ -8,14 +8,50 @@ const STAR_TEX := preload(
 const SPARK_COUNT := 6
 const DURATION_SEC := 0.6
 
+var _camera: Camera3D
+var _world_pos: Vector3
+var _reference_ortho_size: float = 0.0
 
-static func spawn(parent: Node2D, world_pos: Vector2) -> void:
+
+static func spawn(
+	parent: Node2D,
+	camera: Camera3D,
+	world_pos: Vector3,
+	reference_ortho_size: float = 0.0
+) -> void:
 	var fx := DistanceTwinkle.new()
+	fx._camera = camera
+	fx._world_pos = world_pos
+	fx._reference_ortho_size = reference_ortho_size if reference_ortho_size > 0.0 else camera.size
 	parent.add_child(fx)
-	fx.position = world_pos
 	fx.z_index = 4
 	fx.z_as_relative = false
+	fx.set_process(true)
+	fx._update_anchor()
 	fx._play()
+
+
+func _process(_delta: float) -> void:
+	_update_anchor()
+
+
+func _update_anchor() -> void:
+	if _camera == null:
+		return
+	position = _project_to_local(_world_pos)
+	var zoom := ScreenFxScale.compensation(_camera, _reference_ortho_size)
+	scale = Vector2.ONE * zoom
+
+
+func _project_to_local(world_pos: Vector3) -> Vector2:
+	var screen := _camera.unproject_position(world_pos)
+	if get_parent() is Node2D:
+		return get_parent().to_local(screen)
+	return screen
+
+
+func screen_position() -> Vector2:
+	return position
 
 
 func _play() -> void:

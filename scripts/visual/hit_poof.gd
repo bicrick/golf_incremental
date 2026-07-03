@@ -21,30 +21,69 @@ const GRASS_TILES: Array[Vector2i] = [
 	Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1),
 ]
 
+var _camera: Camera3D
+var _world_pos: Vector3
+var _fairway_down_offset: Vector3 = Vector3(0.0, 0.0, -12.0)
+var _reference_ortho_size: float = 0.0
 var _timing_tier: int = Balance.TimingTier.GOOD
 var _rng := RandomNumberGenerator.new()
 
 
 static func spawn(
 	parent: Node2D,
-	world_pos: Vector2,
-	fairway_dir: Vector2,
+	camera: Camera3D,
+	world_pos: Vector3,
 	timing_tier: int = 0,
-	_feedback_tier: int = 0
+	_feedback_tier: int = 0,
+	fairway_down_offset: Vector3 = Vector3(0.0, 0.0, -12.0),
+	reference_ortho_size: float = 0.0
 ) -> void:
 	var fx := HitPoof.new()
+	fx._camera = camera
+	fx._world_pos = world_pos
+	fx._fairway_down_offset = fairway_down_offset
+	fx._reference_ortho_size = reference_ortho_size if reference_ortho_size > 0.0 else camera.size
+	fx._timing_tier = timing_tier
 	parent.add_child(fx)
-	fx.position = world_pos
 	fx.z_as_relative = false
 	fx.z_index = 5
-	fx._timing_tier = timing_tier
-	var dir := fairway_dir
-	if dir.length_squared() < 0.0001:
-		dir = Vector2(0.0, -1.0)
-	else:
-		dir = dir.normalized()
-	fx.rotation = dir.angle() + PI / 2.0
+	fx.set_process(true)
+	fx._update_anchor()
 	fx._play()
+
+
+func _process(_delta: float) -> void:
+	_update_anchor()
+
+
+func _update_anchor() -> void:
+	if _camera == null:
+		return
+	position = _project_to_local(_world_pos)
+	var dir := _fairway_screen_dir()
+	rotation = dir.angle() + PI / 2.0
+	var zoom := ScreenFxScale.compensation(_camera, _reference_ortho_size)
+	scale = Vector2.ONE * zoom
+
+
+func _project_to_local(world_pos: Vector3) -> Vector2:
+	var screen := _camera.unproject_position(world_pos)
+	if get_parent() is Node2D:
+		return get_parent().to_local(screen)
+	return screen
+
+
+func _fairway_screen_dir() -> Vector2:
+	var origin := _project_to_local(_world_pos)
+	var down_line := _project_to_local(_world_pos + _fairway_down_offset)
+	var dir := down_line - origin
+	if dir.length_squared() < 1.0:
+		return Vector2(0.0, -1.0)
+	return dir.normalized()
+
+
+func screen_position() -> Vector2:
+	return position
 
 
 func _play() -> void:

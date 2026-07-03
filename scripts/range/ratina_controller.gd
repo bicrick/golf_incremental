@@ -318,10 +318,12 @@ func _launch_ball() -> void:
 	var contact_screen := _project_to_screen(_ball.global_position)
 	HitPoof.spawn(
 		_fx_layer,
-		contact_screen,
-		_fairway_screen_dir(_ball.global_position),
+		_camera,
+		_ball.global_position,
 		tier,
-		Balance.FeedbackTier.WHISPER
+		Balance.FeedbackTier.WHISPER,
+		Vector3(0.0, 0.0, -12.0),
+		_fx_reference_ortho_size()
 	)
 	FloatStrikeTextScript.spawn(
 		_fx_layer,
@@ -348,7 +350,12 @@ func _fly_ball(yards: float, timing_tier: int, quality: int, payout: float) -> v
 		_flight_trail.finish()
 		_flight_trail = null
 	if _fx_layer and _camera:
-		_flight_trail = BallFlightTrailScript.begin(_fx_layer, _camera, timing_tier)
+		_flight_trail = BallFlightTrailScript.begin(
+			_fx_layer,
+			_camera,
+			timing_tier,
+			_fx_reference_ortho_size()
+		)
 		_flight_trail.track(_ball.global_position)
 	_ball.visible = true
 	_ball.position = _ball_home
@@ -371,8 +378,9 @@ func _fly_ball(yards: float, timing_tier: int, quality: int, payout: float) -> v
 			_flight_trail.finish()
 			_flight_trail = null
 		_spawn_litter_ball(landing, quality)
-		DistanceTwinkle.spawn(_fx_layer, _project_to_screen(landing))
-		FloatCashTextScript.spawn(_fx_layer, _project_to_screen(landing), payout, 1)
+		DistanceTwinkle.spawn(_fx_layer, _camera, landing, _fx_reference_ortho_size())
+		var fx_scale := ScreenFxScale.compensation(_camera, _fx_reference_ortho_size())
+		FloatCashTextScript.spawn(_fx_layer, _project_to_screen(landing), payout, 1, 4, fx_scale)
 		_try_pending_swing()
 	)
 
@@ -462,6 +470,14 @@ func _strike_text_offset() -> Vector2:
 	if _range_view != null and _range_view.has_method("ratina_strike_text_offset"):
 		return _range_view.ratina_strike_text_offset()
 	return Balance.RATINA_STRIKE_TEXT_OFFSET
+
+
+func _fx_reference_ortho_size() -> float:
+	if _range_view != null and _range_view.has_method("get_fx_reference_ortho_size"):
+		return _range_view.get_fx_reference_ortho_size()
+	if _camera:
+		return _camera.size
+	return 8.0
 
 
 func _project_to_screen(world_pos: Vector3) -> Vector2:
