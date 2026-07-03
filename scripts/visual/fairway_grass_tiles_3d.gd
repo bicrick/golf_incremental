@@ -19,6 +19,11 @@ const GRASS_TILE_COL := 0
 const GRASS_TILE_ROW := 0
 ## Blend toward palette fairway_dark (~85% brightness vs light); keeps day/night response.
 const DARK_STRIPE_PALETTE_BLEND := 0.45
+## Flat surround under the striped fairway — fills ortho camera bleed past grid edges.
+const SURROUND_HALF_WIDTH_YARDS := 70.0
+const SURROUND_DEPTH_YARDS := 340.0
+const SURROUND_NEAR_Z := 16.0
+const SURROUND_Y := -0.01
 
 
 static func build_mesh(
@@ -83,6 +88,46 @@ static func apply_palette(
 	mesh_instance.mesh = build_mesh(half_width, light_color, dark_color, depth_yards)
 	if mesh_instance.get_surface_override_material(0) == null:
 		mesh_instance.set_surface_override_material(0, make_material())
+
+
+static func build_surround_mesh(color: Color) -> ArrayMesh:
+	var x0 := -SURROUND_HALF_WIDTH_YARDS
+	var x1 := SURROUND_HALF_WIDTH_YARDS
+	var z_near := SURROUND_NEAR_Z
+	var z_far := -SURROUND_DEPTH_YARDS
+	var verts := PackedVector3Array([
+		Vector3(x0, SURROUND_Y, z_near),
+		Vector3(x1, SURROUND_Y, z_near),
+		Vector3(x1, SURROUND_Y, z_far),
+		Vector3(x0, SURROUND_Y, z_far),
+	])
+	var colors := PackedColorArray([color, color, color, color])
+	var indices := PackedInt32Array([0, 1, 2, 0, 2, 3])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+static func make_surround_material() -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return mat
+
+
+static func apply_surround(mesh_instance: MeshInstance3D, color: Color) -> void:
+	if mesh_instance == null:
+		return
+	mesh_instance.mesh = build_surround_mesh(color)
+	if mesh_instance.get_surface_override_material(0) == null:
+		mesh_instance.set_surface_override_material(0, make_surround_material())
+	mesh_instance.sorting_offset = -1.0
 
 
 static func _uv_for_tile(col: int, row: int) -> Vector4:

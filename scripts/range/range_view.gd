@@ -39,7 +39,7 @@ const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.ts
 @onready var camera: Camera3D = $Camera3D
 @onready var sky_dome: RangeSkyDome = $SkyDome
 @onready var ground: MeshInstance3D = $Ground
-@onready var forest_fence: Node3D = $ForestFence
+@onready var surround_ground: MeshInstance3D = $SurroundGround
 @onready var bays: Node3D = $Bays
 @onready var littered_balls: Node3D = $Foreground/LitteredBalls
 @onready var foreground: Node3D = $Foreground
@@ -76,7 +76,6 @@ var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 func _ready() -> void:
 	_setup_v4_camera()
 	_setup_ground()
-	_setup_fences()
 	_setup_bays()
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
@@ -178,16 +177,8 @@ func _apply_ground_palette(light_color: Color, dark_color: Color) -> void:
 		dark_color,
 		RangeGridScript.DEPTH_YARDS
 	)
-
-
-func _setup_fences() -> void:
-	if forest_fence == null:
-		return
-	ForestFence.populate(
-		forest_fence,
-		RangeGridScript.HALF_WIDTH_YARDS,
-		RangeGridScript.DEPTH_YARDS
-	)
+	var surround_color := light_color.lerp(dark_color, 0.2)
+	FairwayGrassTiles3D.apply_surround(surround_ground, surround_color)
 
 
 const PLATE_CAPTURE_CYCLE_TIME := 40.0
@@ -250,6 +241,10 @@ func apply_atmosphere(cycle_time: float) -> void:
 		snap.fairway_light,
 		snap.fairway_dark,
 		RangeGridScript.DEPTH_YARDS
+	)
+	FairwayGrassTiles3D.apply_surround(
+		surround_ground,
+		snap.fairway_light.lerp(snap.fairway_dark, 0.2)
 	)
 	if sun_light:
 		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)

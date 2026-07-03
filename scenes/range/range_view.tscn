@@ -912,7 +912,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 12, 12)
 mesh = SubResource("ArrayMesh_lghmg")
 surface_material_override/0 = SubResource("StandardMaterial3D_uv58k")
 
-[node name="ForestFence" type="Node3D" parent="." unique_id=884729301]
+[node name="SurroundGround" type="MeshInstance3D" parent="."]
 
 [node name="Foreground" type="Node3D" parent="." unique_id=330800463]
 
