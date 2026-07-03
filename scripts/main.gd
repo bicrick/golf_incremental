@@ -30,6 +30,8 @@ func _on_play_pressed() -> void:
 	range_view.visible = true
 	ui.visible = true
 	_set_gameplay_ui_visible(true)
+	if swing_line_viewport.has_method(&"bind_range_camera"):
+		swing_line_viewport.bind_range_camera()
 
 
 func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:

@@ -88,7 +88,7 @@ size = 13.277695
 
 [node name="PerspectiveCamera" type="Camera3D" parent="." unique_id=120344469]
 transform = Transform3D(0.99857616, -0.002400752, 0.05329074, 0, 0.9989868, 0.04500443, -0.05334479, -0.044940352, 0.9975644, 0.84099174, 1.6275849, -6.18293)
-current = true
+keep_aspect = 1
 fov = 55.5
 
 [node name="SkyDome" parent="." unique_id=1582083225 instance=ExtResource("5_sky_dome")]

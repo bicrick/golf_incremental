@@ -63,6 +63,7 @@ var _sprite_atmosphere_tint: Color = Color.WHITE
 var _ratina_layout_applied: bool = false
 var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 var _surround_home_size: float = -1.0
+var _swing_line_proxy_camera: Camera3D
 
 
 func _should_use_editor_rig() -> bool:
@@ -151,10 +152,35 @@ func bind_swing_line_viewport(sub_viewport: SubViewport) -> void:
 	if perspective_camera == null or sub_viewport == null:
 		return
 	sub_viewport.own_world_3d = false
-	perspective_camera.custom_viewport = sub_viewport
-	perspective_camera.current = true
+	sub_viewport.world_3d = get_viewport().world_3d
+	sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	if _swing_line_proxy_camera:
+		_swing_line_proxy_camera.queue_free()
+		_swing_line_proxy_camera = null
+	var proxy := Camera3D.new()
+	proxy.name = &"SwingLineProxyCamera"
+	_sync_swing_line_proxy_from_source(proxy)
+	sub_viewport.add_child(proxy)
+	proxy.make_current()
+	_swing_line_proxy_camera = proxy
+	perspective_camera.current = false
+	if camera:
+		camera.make_current()
 	if perspective_sky_dome and perspective_camera:
 		perspective_sky_dome.setup(perspective_camera)
+
+
+func _sync_swing_line_proxy_from_source(proxy: Camera3D) -> void:
+	if proxy == null or perspective_camera == null:
+		return
+	proxy.global_transform = perspective_camera.global_transform
+	proxy.projection = perspective_camera.projection
+	proxy.fov = perspective_camera.fov
+	proxy.size = perspective_camera.size
+	proxy.near = perspective_camera.near
+	proxy.far = perspective_camera.far
+	proxy.keep_aspect = perspective_camera.keep_aspect
+	proxy.cull_mask = perspective_camera.cull_mask
 
 
 func get_fx_reference_ortho_size() -> float:
@@ -346,6 +372,8 @@ func _process(delta: float) -> void:
 	_swing.update(delta)
 	_update_ball_reload()
 	_update_charge_visuals()
+	if _swing_line_proxy_camera and perspective_camera:
+		_sync_swing_line_proxy_from_source(_swing_line_proxy_camera)
 
 
 func _unhandled_input(event: InputEvent) -> void:

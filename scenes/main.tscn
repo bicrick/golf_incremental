@@ -35,10 +35,10 @@ layout_mode = 1
 
 [node name="SwingLineViewport" parent="UI/UIRoot" unique_id=211224760 instance=ExtResource("10_swing_line")]
 layout_mode = 0
-offset_left = 31.0
-offset_top = 59.0
-offset_right = 139.0
-offset_bottom = 251.0
+offset_left = 19.0
+offset_top = 45.0
+offset_right = 141.0
+offset_bottom = 263.0
 
 [node name="IconBar" parent="UI/UIRoot" unique_id=391510951 instance=ExtResource("3_icons")]
 layout_mode = 1
