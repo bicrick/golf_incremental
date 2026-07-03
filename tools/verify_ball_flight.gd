@@ -298,7 +298,28 @@ func _check_flight_trail() -> bool:
 		)
 		ok = false
 
+	var first_screen_before: Vector2 = trail.screen_point_at(0)
+	camera.position += Vector3(5.0, 0.0, 0.0)
+	await process_frame
+	var first_screen_after: Vector2 = trail.screen_point_at(0)
+	if first_screen_before.distance_to(first_screen_after) < 1.0:
+		print(
+			"FAIL: trail screen point should move after camera pan (before %s, after %s)"
+			% [first_screen_before, first_screen_after]
+		)
+		ok = false
+	for i in trail.point_count():
+		var expected: Vector2 = fx_layer.to_local(camera.unproject_position(trail.world_point_at(i)))
+		var actual: Vector2 = trail.screen_point_at(i)
+		if expected.distance_to(actual) > 0.5:
+			print(
+				"FAIL: trail point %d mismatch after pan (expected %s, got %s)"
+				% [i, expected, actual]
+			)
+			ok = false
+			break
+
 	trail.finish()
 	if ok:
-		print("OK: flight trail caps points and fades tail-to-head")
+		print("OK: flight trail caps points, fades tail-to-head, and survives camera pan")
 	return ok

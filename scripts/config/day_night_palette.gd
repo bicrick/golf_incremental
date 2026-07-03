@@ -18,6 +18,8 @@ const CLOUD_WINDOW_START := 24.0
 const CLOUD_WINDOW_END := 91.0
 const NIGHT_WINDOW_START := 104.0
 const NIGHT_WINDOW_END := 13.0
+## Scales how far fairway stripe tints move from day keys toward sampled night keys.
+const FAIRWAY_NIGHT_DARKEN_STRENGTH := 0.5
 
 
 class AtmosphereSnapshot:
@@ -258,3 +260,13 @@ static func _smoothstep(t: float) -> float:
 
 static func lerp_color(day: Color, night: Color, night_blend: float) -> Color:
 	return day.lerp(night, clampf(night_blend, 0.0, 1.0))
+
+
+## Fairway mower-stripe tints with night darkening scaled by FAIRWAY_NIGHT_DARKEN_STRENGTH.
+static func fairway_stripe_colors(snap: AtmosphereSnapshot, day_factor: float) -> Array:
+	var day := _day()
+	var night_blend := (1.0 - day_factor) * FAIRWAY_NIGHT_DARKEN_STRENGTH
+	return [
+		day.fairway_light.lerp(snap.fairway_light, night_blend),
+		day.fairway_dark.lerp(snap.fairway_dark, night_blend),
+	]

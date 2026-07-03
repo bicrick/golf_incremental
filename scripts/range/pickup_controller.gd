@@ -22,7 +22,9 @@ func setup(range_view: Node3D, littered_balls: Node3D, bucket_counter: Control) 
 	_littered_balls = littered_balls
 	_bucket_counter = bucket_counter
 	EventBus.phase_changed.connect(_on_phase_changed)
+	EventBus.bucket_changed.connect(_on_bucket_changed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
+	_sync_collect_cursor()
 
 
 func is_active() -> bool:
@@ -67,11 +69,17 @@ func try_complete_harvest() -> void:
 func _on_phase_changed(phase: String) -> void:
 	_active = phase == "harvest"
 	if _active:
-		CursorManager.set_grab_cursor()
 		reset_combo()
 		_mark_all_litter_collectible()
-	else:
-		CursorManager.clear_grab_cursor()
+	_sync_collect_cursor()
+
+
+func _on_bucket_changed(_count: int, _capacity: int) -> void:
+	_sync_collect_cursor()
+
+
+func _sync_collect_cursor() -> void:
+	CursorManager.sync_collect_cursor()
 
 
 func _on_swing_resolved(_yards: float, _tier: int, _payout: float, _feedback: int) -> void:

@@ -280,7 +280,8 @@ func apply_atmosphere(cycle_time: float) -> void:
 		var env := world_environment.environment
 		env.background_color = snap.sky
 		env.ambient_light_color = snap.sky.lerp(snap.fairway_light, (1.0 - day_factor) * 0.45)
-	_apply_ground_palette(snap.fairway_light, snap.fairway_dark)
+	var fairway_colors := DayNightPalette.fairway_stripe_colors(snap, day_factor)
+	_apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if sun_light:
 		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)
 		sun_light.light_energy = lerpf(0.30, 1.15, day_factor)
@@ -288,9 +289,9 @@ func apply_atmosphere(cycle_time: float) -> void:
 	if sky_dome:
 		sky_dome.update_atmosphere(cycle_time, snap)
 	if player_bay:
-		player_bay.apply_ground_palette(snap.fairway_light, snap.fairway_dark)
+		player_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if ratina_bay:
-		ratina_bay.apply_ground_palette(snap.fairway_light, snap.fairway_dark)
+		ratina_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	_apply_sprite_atmosphere_tint()
 
 
@@ -637,11 +638,12 @@ func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:
 
 
 func _spawn_float_text(tier: int, yards: float) -> void:
-	if charge_meter == null:
+	if fx_layer == null or charge_meter == null:
 		return
+	var anchor := fx_layer.to_local(charge_meter.global_position)
 	FloatStrikeTextScript.spawn(
-		charge_meter,
-		Vector2.ZERO,
+		fx_layer,
+		anchor,
 		tier,
 		yards,
 		SWING_RESULT_TEXT_OFFSET

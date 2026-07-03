@@ -1,13 +1,13 @@
 class_name BallFlightTrail
 extends Node2D
-## Subtle screen-space tail behind the ball during flight — short fading Line2D.
+## Screen-space tail behind the ball during flight — world-space samples reprojected each frame.
 
 const TRAIL_COLOR := Color(0.95, 0.92, 0.82, 1.0)
 const FADE_OUT_SEC := 0.2
 
 var _camera: Camera3D
 var _line: Line2D
-var _points: PackedVector2Array = PackedVector2Array()
+var _world_points: PackedVector3Array = PackedVector3Array()
 var _tracking := true
 
 
@@ -18,6 +18,7 @@ static func begin(parent: Node2D, camera: Camera3D) -> Node2D:
 	trail.z_index = 1
 	trail.z_as_relative = false
 	trail._setup_line()
+	trail.set_process(true)
 	return trail
 
 
@@ -36,23 +37,26 @@ func _setup_line() -> void:
 	add_child(_line)
 
 
+func _process(_delta: float) -> void:
+	if _world_points.is_empty() or _camera == null:
+		return
+	_refresh_line()
+
+
 func track(world_pos: Vector3) -> void:
 	if not _tracking or _camera == null:
 		return
-	var screen := _camera.unproject_position(world_pos)
-	var local := screen
-	if get_parent() is Node2D:
-		local = get_parent().to_local(screen)
-	if _points.is_empty():
-		_points.append(local)
+	var local := _project_to_local(world_pos)
+	if _world_points.is_empty():
+		_world_points.append(world_pos)
 		_refresh_line()
 		return
-	var last := _points[_points.size() - 1]
-	if last.distance_to(local) < Balance.FLIGHT_TRAIL_MIN_SAMPLE_PX:
+	var last_local := _project_to_local(_world_points[_world_points.size() - 1])
+	if last_local.distance_to(local) < Balance.FLIGHT_TRAIL_MIN_SAMPLE_PX:
 		return
-	_points.append(local)
-	while _points.size() > Balance.FLIGHT_TRAIL_MAX_POINTS:
-		_points.remove_at(0)
+	_world_points.append(world_pos)
+	while _world_points.size() > Balance.FLIGHT_TRAIL_MAX_POINTS:
+		_world_points.remove_at(0)
 	_refresh_line()
 
 
@@ -66,7 +70,19 @@ func finish() -> void:
 
 
 func point_count() -> int:
-	return _points.size()
+	return _world_points.size()
+
+
+func screen_point_at(index: int) -> Vector2:
+	if _line == null or index < 0 or index >= _line.points.size():
+		return Vector2.ZERO
+	return _line.points[index]
+
+
+func world_point_at(index: int) -> Vector3:
+	if index < 0 or index >= _world_points.size():
+		return Vector3.ZERO
+	return _world_points[index]
 
 
 func tail_alpha() -> float:
@@ -81,6 +97,18 @@ func head_alpha() -> float:
 	return _line.gradient.get_color(1).a
 
 
+func _project_to_local(world_pos: Vector3) -> Vector2:
+	var screen := _camera.unproject_position(world_pos)
+	if get_parent() is Node2D:
+		return get_parent().to_local(screen)
+	return screen
+
+
 func _refresh_line() -> void:
-	if _line:
-		_line.points = _points
+	if _line == null or _camera == null:
+		return
+	var locals := PackedVector2Array()
+	locals.resize(_world_points.size())
+	for i in _world_points.size():
+		locals[i] = _project_to_local(_world_points[i])
+	_line.points = locals
