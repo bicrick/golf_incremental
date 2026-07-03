@@ -137,12 +137,15 @@ func _run_transition_async(
 	var out_mode := Mode.STRIKE if entering_harvest else Mode.HARVEST
 	var peak_wash := ViewTransitionPalette.wash_for_mode(peak_mode, cycle_time)
 	var out_wash := ViewTransitionPalette.wash_for_mode(out_mode, cycle_time)
-	if _transition.has_method(&"crossfade_wash"):
-		await _transition.crossfade_wash(peak_wash, out_wash, fade_in, fade_out)
+	if _transition.has_method(&"fade_in_wash"):
+		await _transition.fade_in_wash(peak_wash, fade_in)
 	else:
 		await _transition.fade_to_color(peak_wash, fade_in)
-		await _transition.fade_out(fade_out)
 	apply_mode.call()
+	if _transition.has_method(&"fade_out_wash"):
+		await _transition.fade_out_wash(out_wash, fade_out)
+	else:
+		await _transition.fade_out(fade_out)
 	if _mode != Mode.TRANSITIONING:
 		return
 	if _pending_harvest and _mode == Mode.TRANSITIONING:
@@ -178,10 +181,10 @@ func _enter_harvest_immediate() -> void:
 	view_mode_changed.emit(_mode)
 
 
-func _current_sky_color() -> Color:
-	if _sky_color_provider.is_valid():
-		return _sky_color_provider.call()
-	return DayNightPalette.SKY_DAY
+func _current_cycle_time() -> float:
+	if _cycle_time_provider.is_valid():
+		return _cycle_time_provider.call()
+	return 24.0
 
 
 func _fade_duration(seconds: float) -> float:

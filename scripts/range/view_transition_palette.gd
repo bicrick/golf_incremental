@@ -6,9 +6,9 @@ extends RefCounted
 static func wash_for_mode(target: ViewModeController.Mode, cycle_time: float) -> Color:
 	var snap := DayNightPalette.sample_at(cycle_time)
 	var day_factor := DayNightPalette.celestial_alpha(cycle_time, false)
-	var stripe_colors := DayNightPalette.fairway_stripe_colors(snap, day_factor)
-	var fairway := stripe_colors[0].lerp(stripe_colors[1], 0.45)
-	var sky := snap.sky
+	var stripe_colors: Array = DayNightPalette.fairway_stripe_colors(snap, day_factor)
+	var fairway: Color = stripe_colors[0].lerp(stripe_colors[1], 0.45)
+	var sky: Color = snap.sky
 
 	var green_bias := lerpf(0.80, 0.50, 1.0 - day_factor)
 	var sky_bias := lerpf(0.65, 0.88, 1.0 - day_factor)
@@ -20,3 +20,7 @@ static func wash_for_mode(target: ViewModeController.Mode, cycle_time: float) ->
 
 static func luminance(color: Color) -> float:
 	return color.r * 0.2126 + color.g * 0.7152 + color.b * 0.0722
+
+
+static func greenness(color: Color) -> float:
+	return color.g / maxf(color.b, 0.001)

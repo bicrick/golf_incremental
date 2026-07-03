@@ -8,7 +8,7 @@
 [ext_resource type="Shader" uid="uid://du5s632oec2js" path="res://scripts/visual/fairway_ground.gdshader" id="4_p8kfu"]
 [ext_resource type="PackedScene" path="res://scenes/visual/range_sky_dome.tscn" id="5_sky_dome"]
 [ext_resource type="PackedScene" uid="uid://br0iki0w8fge0" path="res://scenes/range/cells/player_bay_cell.tscn" id="6_player_bay"]
-[ext_resource type="Script" path="res://scripts/range/view_mode_controller.gd" id="7_view_mode"]
+[ext_resource type="Script" uid="uid://dqw2xmrq7ha6m" path="res://scripts/range/view_mode_controller.gd" id="7_view_mode"]
 
 [sub_resource type="Environment" id="Environment_range"]
 background_mode = 1
@@ -17,20 +17,20 @@ ambient_light_source = 2
 ambient_light_color = Color(0.55, 0.75, 0.92, 1)
 ambient_light_energy = 0.55
 
-[sub_resource type="ArrayMesh" id="ArrayMesh_p8kfu"]
+[sub_resource type="ArrayMesh" id="ArrayMesh_ocobs"]
 _surfaces = [{
-"aabb": AABB(-70, -0.01, -340, 140, 1e-05, 401.61438),
-"attribute_data": PackedByteArray(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 140, 66, 0, 0, 0, 0, 0, 0, 140, 66, 164, 206, 72, 67, 0, 0, 0, 0, 164, 206, 72, 67),
+"aabb": AABB(-70, -0.01, -340, 140, 1e-05, 414.3885),
+"attribute_data": PackedByteArray(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 140, 66, 0, 0, 0, 0, 0, 0, 140, 66, 186, 49, 79, 67, 0, 0, 0, 0, 186, 49, 79, 67),
 "format": 34359742481,
 "index_count": 6,
 "index_data": PackedByteArray(0, 0, 1, 0, 2, 0, 0, 0, 2, 0, 3, 0),
 "primitive": 3,
 "uv_scale": Vector4(0, 0, 0, 0),
 "vertex_count": 4,
-"vertex_data": PackedByteArray(0, 0, 140, 194, 10, 215, 35, 188, 34, 117, 118, 66, 0, 0, 140, 66, 10, 215, 35, 188, 34, 117, 118, 66, 0, 0, 140, 66, 10, 215, 35, 188, 0, 0, 170, 195, 0, 0, 140, 194, 10, 215, 35, 188, 0, 0, 170, 195)
+"vertex_data": PackedByteArray(0, 0, 140, 194, 10, 215, 35, 188, 230, 198, 148, 66, 0, 0, 140, 66, 10, 215, 35, 188, 230, 198, 148, 66, 0, 0, 140, 66, 10, 215, 35, 188, 0, 0, 170, 195, 0, 0, 140, 194, 10, 215, 35, 188, 0, 0, 170, 195)
 }]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_ocobs"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_shseb"]
 render_priority = 0
 shader = ExtResource("4_p8kfu")
 shader_parameter/albedo_tex = ExtResource("2_cp8g3")
@@ -88,9 +88,7 @@ current = true
 size = 13.277695
 
 [node name="PerspectiveCamera" type="Camera3D" parent="." unique_id=120344469]
-transform = Transform3D(0.99857616, -0.002400752, 0.05329074, 0, 0.9989868, 0.04500443, -0.05334479, -0.044940352, 0.9975644, 0.84099174, 1.6275849, -6.18293)
-keep_aspect = 1
-fov = 55.5
+transform = Transform3D(0.9959977, 0.0017635126, 0.08936121, 0, 0.99980533, -0.019730812, -0.08937861, 0.019651845, 0.99580383, 1.1372404, 1.8787439, -6.744128)
 
 [node name="SkyDome" parent="." unique_id=1582083225 instance=ExtResource("5_sky_dome")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 77.093094, 71.31996, 247.45828)
@@ -100,8 +98,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.84099174, 1.6275849, -6.182
 
 [node name="Surround" type="MeshInstance3D" parent="." unique_id=774444904]
 sorting_offset = -1.0
-mesh = SubResource("ArrayMesh_p8kfu")
-surface_material_override/0 = SubResource("ShaderMaterial_ocobs")
+mesh = SubResource("ArrayMesh_ocobs")
+surface_material_override/0 = SubResource("ShaderMaterial_shseb")
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=560799956]
 mesh = SubResource("ArrayMesh_4aak5")
@@ -136,5 +134,5 @@ polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
 [node name="CameraController" type="Node" parent="." unique_id=102786506]
 script = ExtResource("2_camera_controller")
 
-[node name="ViewModeController" type="Node" parent="."]
+[node name="ViewModeController" type="Node" parent="." unique_id=1695263032]
 script = ExtResource("7_view_mode")
