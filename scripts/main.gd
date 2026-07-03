@@ -4,8 +4,9 @@ extends Node
 @onready var range_view: Node3D = $RangeView
 @onready var ui: CanvasLayer = $UI
 @onready var title_screen: CanvasLayer = $TitleScreen
+@onready var swing_line_layer: CanvasLayer = $SwingLineLayer
+@onready var swing_line_viewport: Control = $SwingLineLayer/SwingLineViewport
 @onready var hud: Control = $UI/UIRoot/HUD
-@onready var swing_line_viewport: Control = $UI/UIRoot/SwingLineViewport
 @onready var icon_bar: Control = $UI/UIRoot/IconBar
 @onready var upgrade_panel: Control = $UI/UIRoot/UpgradePanel
 @onready var shop_panel: Control = $UI/UIRoot/ShopPanel
@@ -17,6 +18,7 @@ func _ready() -> void:
 	CursorManager.apply_default_cursors()
 	range_view.visible = false
 	ui.visible = false
+	swing_line_layer.visible = false
 	title_screen.play_pressed.connect(_on_play_pressed)
 	settings_panel.wipe_confirmed.connect(_on_wipe_confirmed)
 	EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
@@ -29,6 +31,7 @@ func _on_play_pressed() -> void:
 		title_screen.reset_for_show()
 	range_view.visible = true
 	ui.visible = true
+	swing_line_layer.visible = true
 	_set_gameplay_ui_visible(true)
 	if swing_line_viewport.has_method(&"bind_range_camera"):
 		swing_line_viewport.bind_range_camera()
@@ -62,7 +65,7 @@ func _on_wipe_confirmed() -> void:
 
 func _set_gameplay_ui_visible(visible: bool) -> void:
 	hud.visible = visible
-	swing_line_viewport.visible = visible
+	swing_line_layer.visible = visible
 	icon_bar.visible = visible
 
 

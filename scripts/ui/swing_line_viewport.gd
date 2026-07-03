@@ -1,14 +1,13 @@
-extends PanelContainer
-## Perspective swing-line feed in a wood-trim panel.
-## Drag SwingLineViewport corners in main.tscn to resize freely (any aspect ratio).
+extends SubViewportContainer
+## Bare perspective swing-line feed — no frame. Resize SwingLineViewport in main.tscn.
 
-@onready var _sub_viewport: SubViewport = $SubViewportContainer/SubViewport
+@onready var _sub_viewport: SubViewport = $SubViewport
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiTheme.apply_wood_panel(self)
-	$SubViewportContainer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	stretch = true
 	_sub_viewport.own_world_3d = false
 	_sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
