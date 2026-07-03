@@ -22,7 +22,12 @@ const DARK_STRIPE_PALETTE_BLEND := 0.45
 ## Flat surround under the striped fairway — fills ortho camera bleed past grid edges.
 const SURROUND_HALF_WIDTH_YARDS := 70.0
 const SURROUND_DEPTH_YARDS := 340.0
-const SURROUND_NEAR_Z := 16.0
+## +Z edge must cover max pan (PAN_MARGIN_Z) + max ortho size + margin at home rig.
+const SURROUND_NEAR_Z := (
+	RangeCameraController.PAN_MARGIN_Z
+	+ maxf(V4CameraConfig.RANGE_HOME_SIZE * 5.0, 40.0)
+	+ 8.0
+)
 const SURROUND_Y := -0.01
 
 

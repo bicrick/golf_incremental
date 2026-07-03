@@ -1,6 +1,10 @@
 class_name RangeCameraController
 extends Node
 ## Runtime pan/zoom for the orthographic range camera. Rotation is fixed at setup.
+##
+## Editor troubleshooting:
+## - Embedded game runner: scroll wheel may go to editor UI; use a separate game window for reliable zoom.
+## - Exact 50/50 dark bottom pane: Godot Input debug toolbar is toggled on — not a scene bug.
 
 const PAN_SPEED_YARDS_PER_SEC := 24.0
 const ZOOM_STEP := 2.0
@@ -26,7 +30,7 @@ func setup(camera: Camera3D, home_position: Vector3, home_size: float) -> void:
 	if _camera:
 		var basis := _camera.global_transform.basis
 		_right_dir = Vector3(basis.x.x, 0.0, basis.x.z).normalized()
-		_forward_dir = Vector3(basis.z.x, 0.0, basis.z.z).normalized()
+		_forward_dir = Vector3(-basis.z.x, 0.0, -basis.z.z).normalized()
 
 
 func set_enabled(enabled: bool) -> void:
