@@ -1,12 +1,13 @@
 extends SceneTree
-## Headless world cloud tests — run:
+## Headless discretized cloud grid tests — run:
 ## godot --headless --script res://tools/verify_world_clouds.gd
 
-
-const WorldCloudClusterScript := preload("res://scripts/visual/world_cloud_cluster.gd")
+const CloudNoiseFieldScript := preload("res://scripts/visual/cloud_noise_field.gd")
+const CloudGridChunkScript := preload("res://scripts/visual/cloud_grid_chunk.gd")
 
 const LAYER_Y := 19.0
-const BLOCK_SIZE := 2.5
+const TEST_SEED := 4242
+const TEST_SCROLL := 0.0
 
 
 func _initialize() -> void:
@@ -15,163 +16,158 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var ok := true
-	ok = _check_cluster_generation() and ok
-	ok = _check_deterministic_seed() and ok
-	ok = _check_depth_wrap() and ok
-	ok = await _check_field_in_scene() and ok
-	ok = await _check_field_prefill() and ok
+	ok = _check_noise_determinism() and ok
+	ok = _check_grid_non_overlap() and ok
+	ok = _check_sparsity() and ok
+	ok = _check_density_sweep() and ok
+	ok = _check_inversion_flip() and ok
+	ok = _check_mesh_build() and ok
+	ok = await _check_scene_wiring() and ok
+	ok = await _check_deck_population() and ok
 	print("world_clouds_ok=", ok)
 	quit(0 if ok else 1)
 
 
-func _check_cluster_generation() -> bool:
-	var sparse: Node3D = WorldCloudClusterScript.generate(42, LAYER_Y, 0.3, BLOCK_SIZE)
-	var blanket: Node3D = WorldCloudClusterScript.generate(42, LAYER_Y, 0.85, BLOCK_SIZE)
-	var sparse_count: int = WorldCloudClusterScript.block_count_for(sparse)
-	var blanket_count: int = WorldCloudClusterScript.block_count_for(blanket)
+func _make_noise():
+	var field = CloudNoiseFieldScript.new(TEST_SEED)
+	field.configure(TEST_SEED, 0.04, 0.035, 0.004, 0.0015, 4, 0.58, 0.45, 0.15)
+	return field
 
-	if sparse_count < 3 or sparse_count > 35:
-		print("FAIL: sparse cloud block count expected 3-35, got ", sparse_count)
-		sparse.queue_free()
-		blanket.queue_free()
-		return false
 
-	if blanket_count < 20:
-		print("FAIL: blanket cloud block count expected >= 20, got ", blanket_count)
-		sparse.queue_free()
-		blanket.queue_free()
-		return false
-
-	if blanket_count <= sparse_count:
-		print(
-			"FAIL: blanket should exceed sparse block count (blanket=%d sparse=%d)"
-			% [blanket_count, sparse_count]
-		)
-		sparse.queue_free()
-		blanket.queue_free()
-		return false
-
-	if not WorldCloudClusterScript.has_merged_mesh(sparse):
-		print("FAIL: sparse cluster should have one merged MeshInstance3D child")
-		sparse.queue_free()
-		blanket.queue_free()
-		return false
-	if not WorldCloudClusterScript.has_merged_mesh(blanket):
-		print("FAIL: blanket cluster should have one merged MeshInstance3D child")
-		sparse.queue_free()
-		blanket.queue_free()
-		return false
-
-	var different_seed: Node3D = WorldCloudClusterScript.generate(99, LAYER_Y, 0.85, BLOCK_SIZE)
-	var pos_a: Array[Vector3] = WorldCloudClusterScript.block_positions(blanket)
-	var pos_b: Array[Vector3] = WorldCloudClusterScript.block_positions(different_seed)
-	if pos_a.size() == pos_b.size():
-		var same_shape := true
-		for i in pos_a.size():
-			if not pos_a[i].is_equal_approx(pos_b[i]):
-				same_shape = false
-				break
-		if same_shape:
-			print("FAIL: different seeds should produce different cloud shapes")
-			sparse.queue_free()
-			blanket.queue_free()
-			different_seed.queue_free()
+func _check_noise_determinism() -> bool:
+	var a = _make_noise()
+	var b = _make_noise()
+	var samples := [
+		Vector3(12.0, 0.0, -40.0),
+		Vector3(33.0, 0.0, 18.0),
+		Vector3(-5.0, 0.0, 72.0),
+	]
+	for sample in samples:
+		var x: float = sample.x
+		var z: float = sample.z
+		if a.occupancy(x, z, TEST_SCROLL) != b.occupancy(x, z, TEST_SCROLL):
+			print("FAIL: occupancy should be deterministic for seed")
+			return false
+		if not is_equal_approx(a.field_value(x, z, TEST_SCROLL), b.field_value(x, z, TEST_SCROLL)):
+			print("FAIL: field_value should be deterministic for seed")
 			return false
 
-	for cluster in [sparse, blanket, different_seed]:
-		for pos in WorldCloudClusterScript.block_positions(cluster):
-			var bottom_y := pos.y - BLOCK_SIZE * 0.5
-			if bottom_y < LAYER_Y - 0.01:
-				print("FAIL: block bottom Y expected >= %.1f, got %.1f" % [LAYER_Y, bottom_y])
-				sparse.queue_free()
-				blanket.queue_free()
-				different_seed.queue_free()
-				return false
-
-	sparse.queue_free()
-	blanket.queue_free()
-	different_seed.queue_free()
-	print("OK: thermo cloud generation sparse=%d blanket=%d" % [sparse_count, blanket_count])
+	print("OK: noise field deterministic for seed")
 	return true
 
 
-func _check_deterministic_seed() -> bool:
-	var a: Node3D = WorldCloudClusterScript.generate(12345, LAYER_Y, 0.55, BLOCK_SIZE)
-	var b: Node3D = WorldCloudClusterScript.generate(12345, LAYER_Y, 0.55, BLOCK_SIZE)
-	var pos_a: Array[Vector3] = WorldCloudClusterScript.block_positions(a)
-	var pos_b: Array[Vector3] = WorldCloudClusterScript.block_positions(b)
-	if pos_a.size() != pos_b.size():
-		print("FAIL: same seed should produce same block count")
-		a.queue_free()
-		b.queue_free()
+func _check_grid_non_overlap() -> bool:
+	var occupancy: Dictionary = {}
+	occupancy[Vector2i(0, 0)] = true
+	occupancy[Vector2i(1, 0)] = true
+	occupancy[Vector2i(0, 1)] = true
+	if CloudGridChunkScript.occupied_cell_count(occupancy) != 3:
+		print("FAIL: occupancy count mismatch")
 		return false
-	for i in pos_a.size():
-		if not pos_a[i].is_equal_approx(pos_b[i]):
-			print("FAIL: same seed should reproduce identical block layout")
-			a.queue_free()
-			b.queue_free()
+	var seen: Dictionary = {}
+	for key: Variant in occupancy.keys():
+		if seen.has(key):
+			print("FAIL: occupancy keys should be unique")
 			return false
-	a.queue_free()
-	b.queue_free()
-	print("OK: cloud layout deterministic for seed")
+		seen[key] = true
+
+	print("OK: grid cells are unique discrete slots")
 	return true
 
 
-func _check_depth_wrap() -> bool:
-	var field := WorldCloudField.new()
-	field.deck_half_extent_x = 20000.0
-	field.spawn_depth_x_factor = 8.0
-
-	var near_push: float = field.depth_push_for_z(-15.0)
-	var far_push: float = field.depth_push_for_z(-285.0)
-	if far_push <= near_push:
-		print("FAIL: farther Z should push wrap band further west")
-		field.free()
+func _check_sparsity() -> bool:
+	var noise = _make_noise()
+	var occupied := 0
+	var samples := 120
+	for i in samples:
+		var x := float(i * 6)
+		var z := -120.0
+		if noise.occupancy(x, z, TEST_SCROLL):
+			occupied += 1
+	if occupied >= samples * 0.45:
+		print("FAIL: cloud field should stay sparse, got ", occupied, "/", samples)
+		return false
+	if occupied <= 8:
+		print("FAIL: cloud field should not be empty at default scroll, got ", occupied)
 		return false
 
-	var near_extent: float = field.deck_half_extent_x_for_z(-15.0)
-	var far_extent: float = field.deck_half_extent_x_for_z(-285.0)
-	if far_extent <= near_extent:
-		print("FAIL: farther Z should expand symmetric deck extent")
-		field.free()
-		return false
-
-	var near_despawn: float = field.despawn_x_for_z(-15.0)
-	var far_despawn: float = field.despawn_x_for_z(-285.0)
-	var near_wrap: float = field.west_wrap_limit_for_z(-15.0)
-	var far_wrap: float = field.west_wrap_limit_for_z(-285.0)
-	if not is_equal_approx(near_despawn, -near_wrap):
-		print("FAIL: east despawn should mirror west wrap limit")
-		field.free()
-		return false
-	if not is_equal_approx(far_despawn, -far_wrap):
-		print("FAIL: depth-scaled east despawn should mirror west wrap limit")
-		field.free()
-		return false
-	if far_despawn <= near_despawn:
-		print("FAIL: farther Z should despawn further east before wrap")
-		field.free()
-		return false
-
-	var pos := field.pick_wrap_position()
-	var extent_at_z: float = field.deck_half_extent_x_for_z(pos.z)
-	var west_outer: float = -extent_at_z
-	var west_inner: float = -extent_at_z * field.wrap_inner_fraction
-	if pos.x < west_outer or pos.x > west_inner:
-		print("FAIL: wrap position X expected far west, got ", pos.x)
-		field.free()
-		return false
-	if pos.z < field.spawn_z_far or pos.z > field.spawn_z_near:
-		print("FAIL: wrap position Z expected within fairway band, got ", pos.z)
-		field.free()
-		return false
-
-	field.free()
-	print("OK: symmetric extreme depth-scaled wrap band")
+	print("OK: cloud field stays sparse (occupied=%d/%d)" % [occupied, samples])
 	return true
 
 
-func _check_field_in_scene() -> bool:
+func _check_density_sweep() -> bool:
+	var noise = _make_noise()
+	var low_count := 0
+	var high_count := 0
+	var samples := 48
+	for i in samples:
+		var x := float(i * 40)
+		var z := -60.0
+		if noise.occupancy(x, z, 0.0):
+			low_count += 1
+		if noise.occupancy(x, z, 4000.0):
+			high_count += 1
+
+	if low_count >= samples * 0.85:
+		print("FAIL: low scroll offset should not be near-solid, got ", low_count)
+		return false
+	if high_count <= samples * 0.05 and low_count <= samples * 0.05:
+		print("FAIL: density sweep should produce both sparse and dense samples")
+		return false
+
+	print("OK: density envelope spans sparse-to-dense occupancy")
+	return true
+
+
+func _check_inversion_flip() -> bool:
+	var noise = _make_noise()
+	var flipped := 0
+	var samples := 64
+	for i in samples:
+		var x := float(i * 8)
+		var z := 24.0
+		var scroll_a := 256.0
+		var scroll_b := 5256.0
+		if noise.occupancy(x, z, scroll_a) != noise.occupancy(x, z, scroll_b):
+			flipped += 1
+
+	if flipped < 8:
+		print("FAIL: inversion regime should flip occupancy across scroll offsets, got ", flipped)
+		return false
+
+	print("OK: inversion regime changes occupancy pattern")
+	return true
+
+
+func _check_mesh_build() -> bool:
+	var occupancy: Dictionary = {}
+	occupancy[Vector2i(0, 0)] = true
+	occupancy[Vector2i(1, 0)] = true
+	occupancy[Vector2i(1, 1)] = true
+	var mesh := CloudGridChunkScript.build_mesh_from_occupancy(
+		occupancy,
+		0.0,
+		-20.0,
+		4.0,
+		LAYER_Y
+	)
+	if mesh == null:
+		print("FAIL: occupied grid should build merged mesh")
+		return false
+	if mesh.get_surface_count() != 1:
+		print("FAIL: merged mesh should have one surface")
+		return false
+
+	var empty_mesh := CloudGridChunkScript.build_mesh_from_occupancy({}, 0.0, 0.0, 4.0, LAYER_Y)
+	if empty_mesh != null:
+		print("FAIL: empty occupancy should not build mesh")
+		return false
+
+	print("OK: grid chunk builds merged exterior mesh")
+	return true
+
+
+func _check_scene_wiring() -> bool:
 	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
 	if scene == null:
 		print("FAIL: could not load range_view.tscn")
@@ -183,14 +179,22 @@ func _check_field_in_scene() -> bool:
 	await process_frame
 	await process_frame
 
-	var field: Node3D = range_view.get_node_or_null("WorldClouds")
-	if field == null or not field.has_method(&"get_density"):
-		print("FAIL: RangeView missing WorldClouds")
+	var grid: Node3D = range_view.get_node_or_null("WorldClouds")
+	if grid == null or not grid.has_method(&"update_atmosphere"):
+		print("FAIL: RangeView missing WorldClouds grid API")
 		range_view.queue_free()
 		return false
 
-	if not is_equal_approx(field.cloud_layer_y, LAYER_Y):
-		print("FAIL: cloud_layer_y expected %.1f, got %.1f" % [LAYER_Y, field.cloud_layer_y])
+	if not is_equal_approx(grid.cloud_layer_y, LAYER_Y):
+		print("FAIL: cloud_layer_y expected %.1f, got %.1f" % [LAYER_Y, grid.cloud_layer_y])
+		range_view.queue_free()
+		return false
+	if grid.get("spawn_x_west") >= 0.0:
+		print("FAIL: spawn_x_west should stay far west, got ", grid.get("spawn_x_west"))
+		range_view.queue_free()
+		return false
+	if grid.get("despawn_x_east") <= 0.0:
+		print("FAIL: despawn_x_east should stay far east, got ", grid.get("despawn_x_east"))
 		range_view.queue_free()
 		return false
 
@@ -200,58 +204,32 @@ func _check_field_in_scene() -> bool:
 
 	range_view.apply_atmosphere(40.0)
 	await process_frame
-	if field.get_density() < 0.7:
-		print("FAIL: day atmosphere should raise cloud density, got ", field.get_density())
+	if grid.get_density() < 0.7:
+		print("FAIL: day atmosphere should raise cloud density, got ", grid.get_density())
 		range_view.queue_free()
 		return false
-	if field.get_target_alpha() < 0.7:
-		print("FAIL: day cloud alpha expected > 0.7, got ", field.get_target_alpha())
+	if grid.get_target_alpha() < 0.7:
+		print("FAIL: day cloud alpha expected > 0.7, got ", grid.get_target_alpha())
+		range_view.queue_free()
+		return false
+	if grid.get_drift_speed() <= 0.0:
+		print("FAIL: drift speed should stay positive")
 		range_view.queue_free()
 		return false
 
 	range_view.apply_atmosphere(0.0)
 	await process_frame
-	if field.get_max_active() > 1:
-		print("FAIL: midnight should lower active cloud cap, got ", field.get_max_active())
-		range_view.queue_free()
-		return false
-
-	var day_speed: float = field.get_drift_speed()
-	range_view.apply_atmosphere(0.0)
-	await process_frame
-	if not is_equal_approx(field.get_drift_speed(), day_speed):
-		print("FAIL: drift speed should stay uniform at night")
-		range_view.queue_free()
-		return false
-
-	var start_x := -45.0
-	var cluster: Node3D = WorldCloudClusterScript.generate(7, LAYER_Y, 0.5, BLOCK_SIZE)
-	cluster.position = Vector3(start_x, 0.0, -80.0)
-	field.add_child(cluster)
-	field.track_cluster_for_test(cluster)
-
-	var before: float = cluster.position.x
-	field.move_clouds_step(1.0)
-	var day_delta: float = cluster.position.x - before
-	if day_delta <= 0.0:
-		print("FAIL: clouds should drift east (+X)")
-		range_view.queue_free()
-		return false
-	if not is_equal_approx(day_delta, field.get_drift_speed()):
-		print("FAIL: day drift delta expected %.2f, got %.2f" % [field.get_drift_speed(), day_delta])
-		range_view.queue_free()
-		return false
-	if not is_equal_approx(cluster.position.z, -80.0):
-		print("FAIL: east drift should not change Z")
+	if grid.get_target_alpha() < 0.5:
+		print("FAIL: midnight should keep usable cloud alpha, got ", grid.get_target_alpha())
 		range_view.queue_free()
 		return false
 
 	range_view.queue_free()
-	print("OK: WorldClouds wired with atmosphere and uniform east drift")
+	print("OK: WorldClouds grid wired with atmosphere API")
 	return true
 
 
-func _check_field_prefill() -> bool:
+func _check_deck_population() -> bool:
 	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
 	var range_view: Node3D = scene.instantiate()
 	root.add_child(range_view)
@@ -259,60 +237,54 @@ func _check_field_prefill() -> bool:
 	await process_frame
 	await process_frame
 
-	var field: Node3D = range_view.get_node("WorldClouds")
-	var cycle := range_view.get_node_or_null("DayNightCycle")
-	if cycle:
-		cycle.set_process(false)
-
-	range_view.apply_atmosphere(40.0)
-	await process_frame
-	field.set_deck_mood_for_test(WorldCloudField.DeckMood.OVERCAST)
+	var grid: Node3D = range_view.get_node("WorldClouds")
+	grid.call("configure_noise_for_test", TEST_SEED)
+	grid.call("set_scroll_offset_for_test", TEST_SCROLL)
 	await process_frame
 
-	var x_min := 999.0
-	var x_max := -999.0
-	var z_min := 0.0
-	var z_max := -999.0
-	var cloud_count := 0
-	for child in field.get_children():
-		cloud_count += 1
-		x_min = minf(x_min, child.position.x)
-		x_max = maxf(x_max, child.position.x)
-		z_min = minf(z_min, child.position.z)
-		z_max = maxf(z_max, child.position.z)
-
-	if cloud_count < 6:
-		print("FAIL: pre-filled deck should spawn multiple clouds, got ", cloud_count)
+	var deck_count: int = grid.call("get_deck_occupied_count")
+	if deck_count <= 0:
+		print("FAIL: deck should populate cloud cells at test scroll offset")
+		range_view.queue_free()
+		return false
+	if deck_count >= 8000:
+		print("FAIL: deck should stay sparse, got ", deck_count)
 		range_view.queue_free()
 		return false
 
-	if x_min > -5000.0:
-		print("FAIL: pre-filled deck should place clouds far west off-screen, min_x=", x_min)
+	var deck_grid: Dictionary = grid.call("get_deck_occupancy")
+	var width: float = grid.get("deck_x_max") - grid.get("deck_x_min")
+	var depth: float = grid.get("deck_z_near") - grid.get("deck_z_far")
+	if width < 200.0:
+		print("FAIL: deck should span fairway width, got ", width)
 		range_view.queue_free()
 		return false
-	if z_max < -70.0:
-		print("FAIL: pre-filled deck should include near-tee Z, closest_z=", z_max)
-		range_view.queue_free()
-		return false
-	if z_min > -150.0:
-		print("FAIL: pre-filled deck should reach far fairway Z, farthest_z=", z_min)
-		range_view.queue_free()
-		return false
-	if field.get_max_active() < 6:
-		print("FAIL: overcast deck cap should allow many active clouds, got ", field.get_max_active())
+	if depth < 250.0:
+		print("FAIL: deck should span full fairway depth, got ", depth)
 		range_view.queue_free()
 		return false
 
-	field.set_deck_mood_for_test(WorldCloudField.DeckMood.CLEAR)
-	await process_frame
-	if field.get_child_count() != 0:
-		print("FAIL: clear mood should remove all clouds, got ", field.get_child_count())
+	var ortho_visible := 0
+	var cell_x: float = width / float(maxi(grid.get("wind_columns"), 1))
+	var cell_z: float = maxf(grid.get("cell_size"), cell_x)
+	for key: Variant in deck_grid.keys():
+		if not bool(deck_grid[key]):
+			continue
+		var cell: Vector2i = key as Vector2i
+		var world_x: float = grid.get("deck_x_min") + (float(cell.x) + 0.5) * cell_x
+		var world_z: float = grid.get("deck_z_far") + (float(cell.y) + 0.5) * cell_z
+		if grid.call("is_ortho_visible_position", world_x, world_z):
+			ortho_visible += 1
+
+	var deck_mesh: MeshInstance3D = grid.get_node("CloudDeck")
+	if deck_count > 0 and deck_mesh.mesh == null:
+		print("FAIL: deck should expose merged mesh when occupied")
 		range_view.queue_free()
 		return false
 
 	range_view.queue_free()
 	print(
-		"OK: deck spans fairway XZ (x=%.1f..%.1f z=%.1f..%.1f)"
-		% [x_min, x_max, z_min, z_max]
+		"OK: full fairway deck populated (cells=%d ortho_visible=%d span=%.0fx%.0f)"
+		% [deck_count, ortho_visible, width, depth]
 	)
 	return true

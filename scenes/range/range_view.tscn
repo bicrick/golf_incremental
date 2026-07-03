@@ -9,7 +9,7 @@
 [ext_resource type="PackedScene" path="res://scenes/visual/range_sky_dome.tscn" id="5_sky_dome"]
 [ext_resource type="PackedScene" uid="uid://br0iki0w8fge0" path="res://scenes/range/cells/player_bay_cell.tscn" id="6_player_bay"]
 [ext_resource type="Script" uid="uid://dqw2xmrq7ha6m" path="res://scripts/range/view_mode_controller.gd" id="7_view_mode"]
-[ext_resource type="Script" path="res://scripts/visual/world_cloud_field.gd" id="8_world_clouds"]
+[ext_resource type="Script" path="res://scripts/visual/world_cloud_grid.gd" id="8_world_clouds"]
 
 [sub_resource type="Environment" id="Environment_range"]
 background_mode = 1
@@ -79,14 +79,23 @@ surface_material_override/0 = SubResource("ShaderMaterial_pel0d")
 [node name="WorldClouds" type="Node3D" parent="."]
 script = ExtResource("8_world_clouds")
 cloud_layer_y = 19.0
-max_clouds_day = 14
-spawn_interval_sec = 5.0
+cell_size = 4.0
+wind_columns = 100
 drift_speed = 2.5
-deck_half_extent_x = 20000.0
-wrap_inner_fraction = 0.35
-spawn_depth_x_factor = 8.0
-spawn_z_near = -15.0
-spawn_z_far = -285.0
+scale_x = 0.04
+scale_z = 0.035
+density_scale = 0.004
+inversion_scale = 0.0015
+fbm_octaves = 4
+sparse_threshold = 0.58
+dense_threshold = 0.45
+empty_density_cutoff = 0.15
+spawn_x_west = -25000.0
+despawn_x_east = 25000.0
+deck_x_min = -80.0
+deck_x_max = 160.0
+deck_z_near = 8.0
+deck_z_far = -300.0
 
 [node name="Foreground" type="Node3D" parent="." unique_id=475863636]
 
