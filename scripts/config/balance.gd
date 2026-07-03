@@ -105,10 +105,10 @@ const FLIGHT_TIME_MIN_SEC: float = 0.30
 const FLIGHT_TIME_MAX_SEC: float = 3.2
 
 ## Screen-space ball flight trail (scripts/visual/ball_flight_trail.gd).
-const FLIGHT_TRAIL_MAX_POINTS := 8
-const FLIGHT_TRAIL_MIN_SAMPLE_PX := 3.0
-const FLIGHT_TRAIL_WIDTH := 1.5
-const FLIGHT_TRAIL_HEAD_ALPHA := 0.35
+const FLIGHT_TRAIL_MAX_POINTS := 14
+const FLIGHT_TRAIL_MIN_SAMPLE_PX := 2.0
+const FLIGHT_TRAIL_WIDTH := 2.25
+const FLIGHT_TRAIL_HEAD_ALPHA := 0.55
 
 enum TimingTier { PERFECT, GREAT, GOOD, OKAY, BAD, MISS }
 enum ContactFlavor { PURE, SLIGHTLY_FAT, THIN, CHUNK }

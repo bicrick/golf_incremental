@@ -348,7 +348,7 @@ func _fly_ball(yards: float, timing_tier: int, quality: int, payout: float) -> v
 		_flight_trail.finish()
 		_flight_trail = null
 	if _fx_layer and _camera:
-		_flight_trail = BallFlightTrailScript.begin(_fx_layer, _camera)
+		_flight_trail = BallFlightTrailScript.begin(_fx_layer, _camera, timing_tier)
 		_flight_trail.track(_ball.global_position)
 	_ball.visible = true
 	_ball.position = _ball_home

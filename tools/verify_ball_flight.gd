@@ -274,7 +274,7 @@ func _check_flight_trail() -> bool:
 	root.add_child(camera)
 	await process_frame
 
-	var trail = BallFlightTrailScript.begin(fx_layer, camera)
+	var trail = BallFlightTrailScript.begin(fx_layer, camera, Balance.TimingTier.PERFECT)
 	var origin := Vector3(-0.545, 0.05, -6.395)
 	for step in 12:
 		var z := origin.z - float(step) * 8.0
@@ -297,6 +297,23 @@ func _check_flight_trail() -> bool:
 			% [trail.tail_alpha(), trail.head_alpha()]
 		)
 		ok = false
+
+	var expected_perfect: Color = Balance.TIER_COLORS[Balance.TimingTier.PERFECT]
+	if not trail.trail_color().is_equal_approx(expected_perfect):
+		print(
+			"FAIL: Perfect trail color %s should match tier color %s"
+			% [trail.trail_color(), expected_perfect]
+		)
+		ok = false
+
+	var bad_trail = BallFlightTrailScript.begin(fx_layer, camera, Balance.TimingTier.BAD)
+	if not bad_trail.trail_color().is_equal_approx(Balance.TIER_COLORS[Balance.TimingTier.BAD]):
+		print(
+			"FAIL: Bad trail color %s should match tier color %s"
+			% [bad_trail.trail_color(), Balance.TIER_COLORS[Balance.TimingTier.BAD]]
+		)
+		ok = false
+	bad_trail.queue_free()
 
 	var first_screen_before: Vector2 = trail.screen_point_at(0)
 	camera.position += Vector3(5.0, 0.0, 0.0)

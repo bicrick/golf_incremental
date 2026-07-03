@@ -2,18 +2,19 @@ class_name BallFlightTrail
 extends Node2D
 ## Screen-space tail behind the ball during flight — world-space samples reprojected each frame.
 
-const TRAIL_COLOR := Color(0.95, 0.92, 0.82, 1.0)
 const FADE_OUT_SEC := 0.2
 
 var _camera: Camera3D
 var _line: Line2D
+var _tier_color: Color
 var _world_points: PackedVector3Array = PackedVector3Array()
 var _tracking := true
 
 
-static func begin(parent: Node2D, camera: Camera3D) -> Node2D:
+static func begin(parent: Node2D, camera: Camera3D, timing_tier: int = Balance.TimingTier.GOOD) -> Node2D:
 	var trail := BallFlightTrail.new()
 	trail._camera = camera
+	trail._tier_color = Balance.TIER_COLORS[timing_tier]
 	parent.add_child(trail)
 	trail.z_index = 1
 	trail.z_as_relative = false
@@ -25,14 +26,14 @@ static func begin(parent: Node2D, camera: Camera3D) -> Node2D:
 func _setup_line() -> void:
 	_line = Line2D.new()
 	_line.width = Balance.FLIGHT_TRAIL_WIDTH
-	_line.default_color = TRAIL_COLOR
+	_line.default_color = _tier_color
 	_line.antialiased = false
 	_line.joint_mode = Line2D.LINE_JOINT_ROUND
 	_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
 	_line.end_cap_mode = Line2D.LINE_CAP_ROUND
 	var gradient := Gradient.new()
-	gradient.set_color(0, Color(TRAIL_COLOR.r, TRAIL_COLOR.g, TRAIL_COLOR.b, 0.0))
-	gradient.set_color(1, Color(TRAIL_COLOR.r, TRAIL_COLOR.g, TRAIL_COLOR.b, Balance.FLIGHT_TRAIL_HEAD_ALPHA))
+	gradient.set_color(0, Color(_tier_color.r, _tier_color.g, _tier_color.b, 0.0))
+	gradient.set_color(1, Color(_tier_color.r, _tier_color.g, _tier_color.b, Balance.FLIGHT_TRAIL_HEAD_ALPHA))
 	_line.gradient = gradient
 	add_child(_line)
 
@@ -95,6 +96,10 @@ func head_alpha() -> float:
 	if _line == null or _line.gradient == null:
 		return 0.0
 	return _line.gradient.get_color(1).a
+
+
+func trail_color() -> Color:
+	return _tier_color
 
 
 func _project_to_local(world_pos: Vector3) -> Vector2:

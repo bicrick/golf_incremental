@@ -827,7 +827,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 	}
 	var flight_cam := get_flight_camera()
 	if fx_layer and flight_cam:
-		flight["trail"] = BallFlightTrailScript.begin(fx_layer, flight_cam)
+		flight["trail"] = BallFlightTrailScript.begin(fx_layer, flight_cam, timing_tier)
 		flight["trail"].track(flight_sprite.global_position)
 	_register_flight(flight)
 
