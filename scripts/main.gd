@@ -62,6 +62,12 @@ func _set_gameplay_ui_visible(visible: bool) -> void:
 	icon_bar.visible = visible
 
 
+func set_capture_ui_visible(visible: bool) -> void:
+	if not ui.visible:
+		return
+	_set_gameplay_ui_visible(visible)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("reload_game"):
 		if range_view.visible:

@@ -189,16 +189,8 @@ func _setup_view_mode_controller() -> void:
 		var transition := main.get_node_or_null("ViewTransitionLayer/ViewTransition")
 		if transition:
 			_view_mode_controller.bind_transition(transition)
-	_view_mode_controller.set_cycle_time_provider(_cycle_elapsed)
 	_view_mode_controller.set_has_active_flights_checker(_has_active_flights)
 	EventBus.phase_changed.connect(_view_mode_controller.on_phase_changed)
-
-
-func _cycle_elapsed() -> float:
-	var cycle := get_node_or_null("DayNightCycle")
-	if cycle and cycle.has_method(&"cycle_elapsed"):
-		return cycle.cycle_elapsed()
-	return 24.0
 
 
 func _has_active_flights() -> bool:

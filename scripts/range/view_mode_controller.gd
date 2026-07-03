@@ -1,13 +1,12 @@
 class_name ViewModeController
 extends Node
-## Full-screen strike (perspective) vs harvest (ortho) camera modes with palette wash crossfade.
+## Full-screen strike (perspective) vs harvest (ortho) camera modes with snapshot dissolve.
 
 enum Mode { STRIKE, HARVEST, TRANSITIONING }
 
 signal view_mode_changed(mode: Mode)
 
-const VIEW_CROSSFADE_IN_SEC := 0.38
-const VIEW_CROSSFADE_OUT_SEC := 0.42
+const VIEW_DISSOLVE_SEC := 0.30
 const VIEW_HARVEST_DELAY_AFTER_FLIGHTS_SEC := 0.3
 
 var _mode: Mode = Mode.STRIKE
@@ -18,7 +17,6 @@ var _perspective_sky_dome: RangeSkyDome
 var _camera_controller: RangeCameraController
 var _range_view: Node3D
 var _transition: Control
-var _cycle_time_provider: Callable = Callable()
 var _has_active_flights: Callable = Callable()
 var _pending_harvest := false
 var _harvest_view_ready := false
@@ -42,10 +40,6 @@ func setup(
 
 func bind_transition(transition: Control) -> void:
 	_transition = transition
-
-
-func set_cycle_time_provider(provider: Callable) -> void:
-	_cycle_time_provider = provider
 
 
 func set_has_active_flights_checker(checker: Callable) -> void:
@@ -117,35 +111,21 @@ func _run_transition(apply_mode: Callable, is_harvest: bool) -> void:
 	_mode = Mode.TRANSITIONING
 	_harvest_view_ready = false
 	view_mode_changed.emit(_mode)
-	var fade_in := _fade_duration(VIEW_CROSSFADE_IN_SEC)
-	var fade_out := _fade_duration(VIEW_CROSSFADE_OUT_SEC)
+	var dissolve := _fade_duration(VIEW_DISSOLVE_SEC)
 	var delay := _fade_duration(VIEW_HARVEST_DELAY_AFTER_FLIGHTS_SEC) if is_harvest else 0.0
-	_run_transition_async(apply_mode, fade_in, fade_out, delay, is_harvest)
+	_run_transition_async(apply_mode, dissolve, delay)
 
 
-func _run_transition_async(
-	apply_mode: Callable,
-	fade_in: float,
-	fade_out: float,
-	delay: float,
-	entering_harvest: bool
-) -> void:
+func _run_transition_async(apply_mode: Callable, dissolve: float, delay: float) -> void:
 	if delay > 0.0:
 		await get_tree().create_timer(delay).timeout
-	var cycle_time := _current_cycle_time()
-	var peak_mode := Mode.HARVEST if entering_harvest else Mode.STRIKE
-	var out_mode := Mode.STRIKE if entering_harvest else Mode.HARVEST
-	var peak_wash := ViewTransitionPalette.wash_for_mode(peak_mode, cycle_time)
-	var out_wash := ViewTransitionPalette.wash_for_mode(out_mode, cycle_time)
-	if _transition.has_method(&"fade_in_wash"):
-		await _transition.fade_in_wash(peak_wash, fade_in)
-	else:
-		await _transition.fade_to_color(peak_wash, fade_in)
+	if dissolve > 0.0 and _transition.has_method(&"capture_from_viewport"):
+		await _transition.capture_from_viewport()
 	apply_mode.call()
-	if _transition.has_method(&"fade_out_wash"):
-		await _transition.fade_out_wash(out_wash, fade_out)
-	else:
-		await _transition.fade_out(fade_out)
+	if dissolve > 0.0:
+		await get_tree().process_frame
+	if _transition.has_method(&"dissolve_out"):
+		await _transition.dissolve_out(dissolve)
 	if _mode != Mode.TRANSITIONING:
 		return
 	if _pending_harvest and _mode == Mode.TRANSITIONING:
@@ -179,12 +159,6 @@ func _enter_harvest_immediate() -> void:
 	if _camera_controller and _range_view and _range_view.visible:
 		_camera_controller.set_enabled(true)
 	view_mode_changed.emit(_mode)
-
-
-func _current_cycle_time() -> float:
-	if _cycle_time_provider.is_valid():
-		return _cycle_time_provider.call()
-	return 24.0
 
 
 func _fade_duration(seconds: float) -> float:

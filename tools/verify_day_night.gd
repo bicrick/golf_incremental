@@ -11,7 +11,6 @@ func _run() -> void:
 	var ok := true
 	ok = _check_cycle_duration() and ok
 	ok = _check_phase_sampling() and ok
-	ok = _check_view_wash_colors() and ok
 	ok = _check_smooth_transitions() and ok
 	ok = _check_celestial_arc() and ok
 	ok = await _check_atmosphere_application() and ok
@@ -58,26 +57,6 @@ func _check_phase_sampling() -> bool:
 		return false
 
 	print("OK: phase sampling at day/dusk/midnight")
-	return true
-
-
-func _check_view_wash_colors() -> bool:
-	var day_harvest := ViewTransitionPalette.wash_for_mode(ViewModeController.Mode.HARVEST, 40.0)
-	var day_strike := ViewTransitionPalette.wash_for_mode(ViewModeController.Mode.STRIKE, 40.0)
-	if ViewTransitionPalette.greenness(day_harvest) <= ViewTransitionPalette.greenness(day_strike):
-		print("FAIL: day harvest wash should be greener (higher G/B) than day strike wash")
-		return false
-
-	var midnight_harvest := ViewTransitionPalette.wash_for_mode(ViewModeController.Mode.HARVEST, 0.0)
-	if ViewTransitionPalette.luminance(midnight_harvest) >= ViewTransitionPalette.luminance(day_harvest):
-		print("FAIL: midnight harvest wash should be darker than day harvest wash")
-		return false
-
-	if ViewTransitionPalette.luminance(midnight_harvest) >= ViewTransitionPalette.luminance(DayNightPalette.SKY_DAY):
-		print("FAIL: midnight harvest wash should be darker than SKY_DAY")
-		return false
-
-	print("OK: view wash colors day/night sane")
 	return true
 
 
