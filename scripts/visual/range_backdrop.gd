@@ -40,11 +40,21 @@ static func populate(
 
 
 static func apply_tint(mesh_instance: MeshInstance3D, tint: Color) -> void:
+	apply_palette_tints(mesh_instance, tint, tint)
+
+
+static func apply_palette_tints(
+	mesh_instance: MeshInstance3D,
+	grass_tint: Color,
+	foliage_tint: Color
+) -> void:
 	if mesh_instance == null:
 		return
 	var mat := mesh_instance.get_surface_override_material(0) as ShaderMaterial
 	if mat:
-		mat.set_shader_parameter(&"albedo_color", tint)
+		mat.set_shader_parameter(&"grass_tint", grass_tint)
+		mat.set_shader_parameter(&"foliage_tint", foliage_tint)
+		mat.set_shader_parameter(&"albedo_color", Color.WHITE)
 
 
 static func _make_material(tex: Texture2D) -> ShaderMaterial:
@@ -52,6 +62,8 @@ static func _make_material(tex: Texture2D) -> ShaderMaterial:
 	mat.shader = BACKDROP_SHADER
 	mat.set_shader_parameter(&"albedo_tex", tex)
 	mat.set_shader_parameter(&"albedo_color", Color.WHITE)
+	mat.set_shader_parameter(&"grass_tint", Color.WHITE)
+	mat.set_shader_parameter(&"foliage_tint", Color.WHITE)
 	mat.render_priority = -64
 	return mat
 

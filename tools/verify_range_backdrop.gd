@@ -7,6 +7,7 @@ const RANGE_VIEW_SCENE := preload("res://scenes/range/range_view.tscn")
 func _initialize() -> void:
 	var ok := true
 	ok = _verify_populate() and ok
+	ok = _verify_palette_tints() and ok
 	print("range_backdrop_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -41,9 +42,38 @@ func _verify_populate() -> bool:
 		print("FAIL: backdrop mesh has no surfaces")
 		return false
 
-	RangeBackdrop.apply_tint(mesh_instance, Color(0.7, 0.8, 0.9, 1.0))
-	if mat.get_shader_parameter(&"albedo_color") != Color(0.7, 0.8, 0.9, 1.0):
-		print("FAIL: apply_tint did not update material color")
+	return true
+
+
+func _verify_palette_tints() -> bool:
+	var mesh_instance := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	mesh_instance.mesh = plane
+	var mat := ShaderMaterial.new()
+	mat.shader = RangeBackdrop.BACKDROP_SHADER
+	mesh_instance.set_surface_override_material(0, mat)
+
+	var grass := Color(0.9, 0.99, 0.12, 1.0)
+	var foliage := Color(1.0, 1.0, 1.0, 1.0)
+	RangeBackdrop.apply_palette_tints(mesh_instance, grass, foliage)
+
+	if mat.get_shader_parameter(&"grass_tint") != grass:
+		print("FAIL: apply_palette_tints did not update grass_tint")
+		return false
+	if mat.get_shader_parameter(&"foliage_tint") != foliage:
+		print("FAIL: apply_palette_tints did not update foliage_tint")
+		return false
+	if mat.get_shader_parameter(&"albedo_color") != Color.WHITE:
+		print("FAIL: apply_palette_tints should reset albedo_color to white")
 		return false
 
+	RangeBackdrop.apply_tint(mesh_instance, Color(0.7, 0.8, 0.9, 1.0))
+	if mat.get_shader_parameter(&"grass_tint") != Color(0.7, 0.8, 0.9, 1.0):
+		print("FAIL: apply_tint legacy wrapper did not update grass_tint")
+		return false
+	if mat.get_shader_parameter(&"foliage_tint") != Color(0.7, 0.8, 0.9, 1.0):
+		print("FAIL: apply_tint legacy wrapper did not update foliage_tint")
+		return false
+
+	print("OK: backdrop palette tint uniforms")
 	return true

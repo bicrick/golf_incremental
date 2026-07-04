@@ -61,10 +61,10 @@ static func _snap(
 static func _midnight() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.06, 0.08, 0.22),
-		Color(0.12, 0.18, 0.16),
-		Color(0.30, 0.42, 0.34),
-		Color(0.38, 0.52, 0.42),
-		Color(0.28, 0.40, 0.32),
+		Color(0.34, 0.33, 0.42),
+		Color(0.68, 0.72, 0.13),
+		Color(0.75, 0.70, 0.11),
+		Color(0.49, 0.65, 0.12),
 		Color(0.48, 0.50, 0.66)
 	)
 
@@ -72,10 +72,10 @@ static func _midnight() -> AtmosphereSnapshot:
 static func _dawn() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.58, 0.66, 0.82),
-		Color(0.30, 0.46, 0.36),
-		Color(0.36, 0.52, 0.30),
-		Color(0.48, 0.68, 0.40),
-		Color(0.32, 0.46, 0.27),
+		Color(0.86, 0.84, 0.95),
+		Color(0.81, 0.89, 0.11),
+		Color(0.95, 0.92, 0.11),
+		Color(0.56, 0.74, 0.10),
 		Color(0.88, 0.86, 0.92)
 	)
 
@@ -83,10 +83,10 @@ static func _dawn() -> AtmosphereSnapshot:
 static func _day() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.55, 0.75, 0.92),
-		Color(0.35, 0.55, 0.38),
-		Color(0.40, 0.58, 0.32),
-		Color(0.54, 0.76, 0.44),
-		Color(0.36, 0.52, 0.28),
+		Color(1.0, 1.0, 1.0),
+		Color(0.90, 0.99, 0.12),
+		Color(1.07, 1.03, 0.12),
+		Color(0.63, 0.84, 0.10),
 		Color(1.0, 1.0, 1.0)
 	)
 
@@ -94,10 +94,10 @@ static func _day() -> AtmosphereSnapshot:
 static func _dusk() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.70, 0.56, 0.48),
-		Color(0.36, 0.46, 0.32),
-		Color(0.38, 0.54, 0.30),
-		Color(0.50, 0.68, 0.38),
-		Color(0.34, 0.48, 0.27),
+		Color(1.03, 0.84, 0.84),
+		Color(0.86, 0.92, 0.11),
+		Color(0.99, 0.92, 0.10),
+		Color(0.59, 0.78, 0.10),
 		Color(0.94, 0.90, 0.84)
 	)
 
@@ -105,10 +105,10 @@ static func _dusk() -> AtmosphereSnapshot:
 static func _night() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.10, 0.14, 0.32),
-		Color(0.18, 0.28, 0.22),
-		Color(0.34, 0.48, 0.36),
-		Color(0.44, 0.62, 0.48),
-		Color(0.32, 0.46, 0.36),
+		Color(0.51, 0.51, 0.58),
+		Color(0.77, 0.82, 0.14),
+		Color(0.87, 0.84, 0.13),
+		Color(0.56, 0.74, 0.12),
 		Color(0.58, 0.62, 0.78)
 	)
 
@@ -294,11 +294,27 @@ static func lerp_color(day: Color, night: Color, night_blend: float) -> Color:
 	return day.lerp(night, clampf(night_blend, 0.0, 1.0))
 
 
+static func _phase_tint(day_color: Color, snap_color: Color, day_factor: float) -> Color:
+	var night_blend := (1.0 - day_factor) * FAIRWAY_NIGHT_DARKEN_STRENGTH
+	return day_color.lerp(snap_color, night_blend)
+
+
 ## Fairway mower-stripe tints with night darkening scaled by FAIRWAY_NIGHT_DARKEN_STRENGTH.
 static func fairway_stripe_colors(snap: AtmosphereSnapshot, day_factor: float) -> Array:
 	var day := _day()
-	var night_blend := (1.0 - day_factor) * FAIRWAY_NIGHT_DARKEN_STRENGTH
 	return [
-		day.fairway_light.lerp(snap.fairway_light, night_blend),
-		day.fairway_dark.lerp(snap.fairway_dark, night_blend),
+		_phase_tint(day.fairway_light, snap.fairway_light, day_factor),
+		_phase_tint(day.fairway_dark, snap.fairway_dark, day_factor),
 	]
+
+
+## Backdrop grass band — average stripe tint (matches ground horizon fade).
+static func backdrop_grass_tint(snap: AtmosphereSnapshot, day_factor: float) -> Color:
+	var stripes := fairway_stripe_colors(snap, day_factor)
+	return (stripes[0] + stripes[1]) * 0.5
+
+
+## Backdrop treeline/foliage band — same night-blend curve as fairway stripes.
+static func backdrop_foliage_tint(snap: AtmosphereSnapshot, day_factor: float) -> Color:
+	var day := _day()
+	return _phase_tint(day.hills, snap.hills, day_factor)
