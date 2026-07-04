@@ -1,23 +1,22 @@
 @tool
 class_name RangeSkyDome
 extends Node3D
-## Camera-following sky dome — gradient sky shader, pixel sun/moon billboards, star field.
-## @tool: builds its dome mesh/celestials in the editor too, so it's visible
-## in the 3D viewport instead of empty until Play mode runs _ready().
+## Camera-following sky dome — gradient sky, shader-painted sun/moon, star field.
+## @tool: builds dome mesh in the editor so sky is visible without Play mode.
 
 const DOME_RADIUS := 500.0
-const CELESTIAL_DISTANCE := 480.0
-const SUN_PIXEL_SIZE := 0.28
-const MOON_PIXEL_SIZE := 0.26
+## ~10° apparent diameter (5° half-angle).
+const SUN_ANGULAR_SIZE := deg_to_rad(5.0)
+const MOON_ANGULAR_SIZE := deg_to_rad(4.5)
 const SKY_SHADER := preload("res://shaders/range_sky_dome.gdshader")
 const SUN_TEXTURE := preload("res://assets/sprites/sky/sun.png")
 const MOON_TEXTURE := preload("res://assets/sprites/sky/moon.png")
 
 var _follow_camera: Camera3D
 var _shader_mat: ShaderMaterial
-var _sun: Sprite3D
-var _moon: Sprite3D
 var _star_alpha: float = 0.0
+var _sun_alpha: float = 0.0
+var _sun_world_position: Vector3 = Vector3.ZERO
 
 
 func setup(camera: Camera3D) -> void:
@@ -29,12 +28,15 @@ func get_star_alpha() -> float:
 
 
 func get_sun_alpha() -> float:
-	return _sun.modulate.a if _sun else 0.0
+	return _sun_alpha
+
+
+func get_sun_world_position() -> Vector3:
+	return _sun_world_position
 
 
 func _ready() -> void:
 	_build_dome()
-	_build_celestials()
 
 
 func _process(_delta: float) -> void:
@@ -43,16 +45,39 @@ func _process(_delta: float) -> void:
 
 
 func update_atmosphere(cycle_time: float, snap: DayNightPalette.AtmosphereSnapshot) -> void:
-	if _shader_mat:
-		var horizon := snap.sky.lightened(0.12)
-		var zenith := snap.sky.darkened(0.08)
-		_shader_mat.set_shader_parameter(&"sky_horizon_color", horizon)
-		_shader_mat.set_shader_parameter(&"sky_top_color", zenith)
-		_star_alpha = DayNightPalette.star_visibility(cycle_time)
-		_shader_mat.set_shader_parameter(&"star_alpha", _star_alpha)
+	if _shader_mat == null:
+		return
 
-	_update_celestial(_sun, cycle_time, false, DayNightPalette.SUN_COLOR)
-	_update_celestial(_moon, cycle_time, true, DayNightPalette.MOON_COLOR)
+	var horizon := snap.sky.lightened(0.12)
+	var zenith := snap.sky.darkened(0.08)
+	_shader_mat.set_shader_parameter(&"sky_horizon_color", horizon)
+	_shader_mat.set_shader_parameter(&"sky_top_color", zenith)
+	_star_alpha = DayNightPalette.star_visibility(cycle_time)
+	_shader_mat.set_shader_parameter(&"star_alpha", _star_alpha)
+
+	var viewer := global_position
+	if _follow_camera:
+		viewer = _follow_camera.global_position
+
+	var sun_dir := DayNightPalette.celestial_view_direction(cycle_time, false, viewer)
+	_sun_world_position = viewer + sun_dir * (DOME_RADIUS - 20.0)
+	_sun_alpha = DayNightPalette.celestial_alpha(cycle_time, false)
+	var moon_alpha := DayNightPalette.celestial_alpha(cycle_time, true)
+
+	_shader_mat.set_shader_parameter(&"sun_direction", sun_dir)
+	_shader_mat.set_shader_parameter(&"sun_color", DayNightPalette.SUN_COLOR)
+	_shader_mat.set_shader_parameter(&"sun_alpha", _sun_alpha)
+	_shader_mat.set_shader_parameter(&"sun_angular_size", SUN_ANGULAR_SIZE)
+	_shader_mat.set_shader_parameter(&"sun_texture", SUN_TEXTURE)
+
+	_shader_mat.set_shader_parameter(
+		&"moon_direction",
+		DayNightPalette.celestial_view_direction(cycle_time, true, viewer)
+	)
+	_shader_mat.set_shader_parameter(&"moon_color", DayNightPalette.MOON_COLOR)
+	_shader_mat.set_shader_parameter(&"moon_alpha", moon_alpha)
+	_shader_mat.set_shader_parameter(&"moon_angular_size", MOON_ANGULAR_SIZE)
+	_shader_mat.set_shader_parameter(&"moon_texture", MOON_TEXTURE)
 
 
 func _build_dome() -> void:
@@ -67,6 +92,10 @@ func _build_dome() -> void:
 	_shader_mat.set_shader_parameter(&"star_alpha", 0.0)
 	_shader_mat.set_shader_parameter(&"sky_horizon_color", DayNightPalette.SKY_DAY.lightened(0.12))
 	_shader_mat.set_shader_parameter(&"sky_top_color", DayNightPalette.SKY_DAY.darkened(0.08))
+	_shader_mat.set_shader_parameter(&"sun_texture", SUN_TEXTURE)
+	_shader_mat.set_shader_parameter(&"moon_texture", MOON_TEXTURE)
+	_shader_mat.set_shader_parameter(&"sun_angular_size", SUN_ANGULAR_SIZE)
+	_shader_mat.set_shader_parameter(&"moon_angular_size", MOON_ANGULAR_SIZE)
 	_shader_mat.render_priority = -128
 
 	var dome := MeshInstance3D.new()
@@ -75,44 +104,3 @@ func _build_dome() -> void:
 	dome.material_override = _shader_mat
 	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(dome)
-
-
-func _build_celestials() -> void:
-	_sun = _make_celestial_sprite(&"Sun", SUN_TEXTURE, SUN_PIXEL_SIZE)
-	_moon = _make_celestial_sprite(&"Moon", MOON_TEXTURE, MOON_PIXEL_SIZE)
-	add_child(_sun)
-	add_child(_moon)
-
-
-func _make_celestial_sprite(node_name: StringName, texture: Texture2D, pixel_size: float) -> Sprite3D:
-	var sprite := Sprite3D.new()
-	sprite.name = node_name
-	sprite.texture = texture
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.pixel_size = pixel_size
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	sprite.shaded = false
-	sprite.modulate = Color(1.0, 1.0, 1.0, 0.0)
-	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	return sprite
-
-
-func _update_celestial(sprite: Sprite3D, cycle_time: float, is_moon: bool, tint: Color) -> void:
-	if sprite == null:
-		return
-	var direction := _celestial_direction(cycle_time, is_moon)
-	sprite.position = direction * CELESTIAL_DISTANCE
-	var alpha := DayNightPalette.celestial_alpha(cycle_time, is_moon)
-	sprite.modulate = Color(tint.r, tint.g, tint.b, alpha)
-	sprite.visible = alpha > 0.01
-
-
-## Arc spans camera left horizon → zenith → right horizon so sun/moon cross the frame.
-func _celestial_direction(cycle_time: float, is_moon: bool) -> Vector3:
-	var angle := DayNightPalette.celestial_angle(cycle_time, is_moon)
-	if _follow_camera == null:
-		return DayNightPalette.celestial_direction_3d(cycle_time, is_moon)
-	var right := _follow_camera.global_transform.basis.x.normalized()
-	var up := Vector3.UP
-	return (right * -cos(angle) + up * sin(angle)).normalized()

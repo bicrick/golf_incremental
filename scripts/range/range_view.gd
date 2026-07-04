@@ -88,7 +88,7 @@ func _ready() -> void:
 		camera.make_current()
 		if sky_dome:
 			sky_dome.setup(camera)
-	apply_atmosphere(24.0)
+	apply_atmosphere(60.0)
 
 	if Engine.is_editor_hint():
 		if ratina_sprite:
@@ -328,7 +328,7 @@ func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float
 func apply_atmosphere(cycle_time: float) -> void:
 	var snap := DayNightPalette.sample_at(cycle_time)
 	_sprite_atmosphere_tint = snap.canvas_modulate
-	var day_factor := DayNightPalette.celestial_alpha(cycle_time, false)
+	var day_factor := DayNightPalette.day_light_factor(cycle_time)
 	if world_environment and world_environment.environment:
 		var env := world_environment.environment
 		env.background_color = snap.sky

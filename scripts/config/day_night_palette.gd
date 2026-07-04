@@ -14,8 +14,12 @@ const CANVAS_MODULATE_DAY := Color(1.0, 1.0, 1.0, 1.0)
 const CANVAS_MODULATE_NIGHT := Color(0.58, 0.62, 0.78, 1.0)
 
 const DECOR_FADE_SEC := 8.0
-const NIGHT_WINDOW_START := 104.0
-const NIGHT_WINDOW_END := 13.0
+## Even 120s cycle — four 30s phases: night → dawn → day → dusk → night.
+const PHASE_SEC := 30.0
+const SUN_WINDOW_START := PHASE_SEC
+const SUN_WINDOW_END := PHASE_SEC * 3.0
+const NIGHT_WINDOW_START := SUN_WINDOW_END
+const NIGHT_WINDOW_END := SUN_WINDOW_START
 ## Scales how far fairway stripe tints move from day keys toward sampled night keys.
 const FAIRWAY_NIGHT_DARKEN_STRENGTH := 0.5
 
@@ -30,11 +34,9 @@ class AtmosphereSnapshot:
 	var moon_sky_cutout: Color
 
 
-const CELESTIAL_ARC_CENTER := Vector2(240.0, 98.0)
-const CELESTIAL_ARC_RADIUS_X := 210.0
-const CELESTIAL_ARC_RADIUS_Y := 74.0
-const CELESTIAL_HORIZON_FADE := 0.08
-const MOON_ORBIT_OFFSET := 0.25
+## Sun/moon share one vertical orbit (east → up → west → down). Moon is 180° opposite.
+const MOON_ORBIT_OFFSET := PI
+const CELESTIAL_ORBIT_TILT_Z := 0.55
 
 
 static func _snap(
@@ -115,11 +117,9 @@ static func _night() -> AtmosphereSnapshot:
 static func _keyframes() -> Array[Dictionary]:
 	return [
 		{"time": 0.0, "snap": _midnight()},
-		{"time": 13.0, "snap": _dawn()},
-		{"time": 24.0, "snap": _day()},
-		{"time": 77.0, "snap": _day()},
-		{"time": 91.0, "snap": _dusk()},
-		{"time": 104.0, "snap": _night()},
+		{"time": PHASE_SEC, "snap": _dawn()},
+		{"time": PHASE_SEC * 2.0, "snap": _day()},
+		{"time": PHASE_SEC * 3.0, "snap": _dusk()},
 		{"time": CYCLE_SEC, "snap": _midnight()},
 	]
 
@@ -150,59 +150,104 @@ static func lerp_snapshots(a: AtmosphereSnapshot, b: AtmosphereSnapshot, weight:
 	return s
 
 
-## Orbit progress 0→1; moon follows the same path offset by a quarter cycle.
-static func _orbit_progress(cycle_time: float, is_moon: bool) -> float:
-	var t := fposmod(cycle_time, CYCLE_SEC)
+static func _orbit_phase(cycle_time: float) -> float:
+	return fposmod(cycle_time, CYCLE_SEC) / CYCLE_SEC
+
+
+## Midnight = nadir, dawn/dusk = horizon, noon = zenith.
+static func _sun_orbit_angle(cycle_time: float) -> float:
+	return _orbit_phase(cycle_time) * TAU - PI / 2.0
+
+
+static func _body_orbit_angle(cycle_time: float, is_moon: bool) -> float:
+	var angle := _sun_orbit_angle(cycle_time)
 	if is_moon:
-		t = fposmod(t + CYCLE_SEC * MOON_ORBIT_OFFSET, CYCLE_SEC)
-	return t / CYCLE_SEC
+		angle += MOON_ORBIT_OFFSET
+	return angle
 
 
-static func celestial_angle(cycle_time: float, is_moon: bool) -> float:
-	var orbit := _orbit_progress(cycle_time, is_moon)
-	if orbit <= 0.5:
-		# Visible upper arc: east horizon (PI) → zenith → west horizon (0).
-		return lerpf(PI, 0.0, orbit * 2.0)
-	# Lower arc: below hills, not rendered.
-	return lerpf(0.0, -PI, (orbit - 0.5) * 2.0)
+static func _is_daytime(cycle_time: float) -> bool:
+	var t := fposmod(cycle_time, CYCLE_SEC)
+	return t >= SUN_WINDOW_START and t < SUN_WINDOW_END
 
 
-static func celestial_position(cycle_time: float, is_moon: bool) -> Vector2:
-	var angle := celestial_angle(cycle_time, is_moon)
-	return Vector2(
-		CELESTIAL_ARC_CENTER.x + cos(angle) * CELESTIAL_ARC_RADIUS_X,
-		CELESTIAL_ARC_CENTER.y - sin(angle) * CELESTIAL_ARC_RADIUS_Y
-	)
+static func _is_above_horizon(cycle_time: float, is_moon: bool) -> bool:
+	return sin(_body_orbit_angle(cycle_time, is_moon)) > 0.0
 
 
-## Unit direction on the sky dome — east horizon → zenith → west horizon arc.
-static func celestial_direction_3d(cycle_time: float, is_moon: bool) -> Vector3:
-	var angle := celestial_angle(cycle_time, is_moon)
-	return Vector3(cos(angle), sin(angle), 0.35).normalized()
+static func _sun_orbit_progress(cycle_time: float) -> float:
+	var t := fposmod(cycle_time, CYCLE_SEC)
+	if t < SUN_WINDOW_START or t >= SUN_WINDOW_END:
+		return -1.0
+	return (t - SUN_WINDOW_START) / (SUN_WINDOW_END - SUN_WINDOW_START)
+
+
+static func celestial_view_direction(
+	cycle_time: float,
+	is_moon: bool,
+	_viewer_position: Vector3
+) -> Vector3:
+	var angle := _body_orbit_angle(cycle_time, is_moon)
+	var x := cos(angle)
+	var y := sin(angle)
+	var z := -CELESTIAL_ORBIT_TILT_Z * y
+	return Vector3(x, y, z).normalized()
 
 
 static func celestial_alpha(cycle_time: float, is_moon: bool) -> float:
-	if _orbit_progress(cycle_time, is_moon) > 0.5:
+	if not _is_above_horizon(cycle_time, is_moon):
 		return 0.0
-	var elevation := sin(celestial_angle(cycle_time, is_moon))
-	if elevation <= CELESTIAL_HORIZON_FADE:
+	if is_moon:
+		return 1.0 if not _is_daytime(cycle_time) else 0.0
+	return 1.0 if _is_daytime(cycle_time) else 0.0
+
+
+static func celestial_elevation(cycle_time: float, is_moon: bool) -> float:
+	return maxf(sin(_body_orbit_angle(cycle_time, is_moon)), 0.0)
+
+
+static func celestial_angle(cycle_time: float, is_moon: bool) -> float:
+	return _body_orbit_angle(cycle_time, is_moon)
+
+
+static func celestial_direction_3d(cycle_time: float, is_moon: bool) -> Vector3:
+	return celestial_view_direction(cycle_time, is_moon, Vector3.ZERO)
+
+
+static func celestial_position(cycle_time: float, is_moon: bool) -> Vector2:
+	var direction := celestial_view_direction(cycle_time, is_moon, Vector3.ZERO)
+	return Vector2(direction.x, direction.y)
+
+
+static func day_light_factor(cycle_time: float) -> float:
+	var progress := _sun_orbit_progress(cycle_time)
+	if progress < 0.0:
 		return 0.0
-	return clampf((elevation - CELESTIAL_HORIZON_FADE) / 0.42, 0.0, 1.0)
+	return sin(progress * PI)
+
+
+static func celestial_view_offset(
+	cycle_time: float,
+	is_moon: bool,
+	camera: Camera3D
+) -> Vector2:
+	if camera == null:
+		return Vector2.ZERO
+	var direction := celestial_view_direction(cycle_time, is_moon, camera.global_position)
+	var right := camera.global_transform.basis.x.normalized()
+	var cam_up := camera.global_transform.basis.y.normalized()
+	return Vector2(direction.dot(right), direction.dot(cam_up))
 
 
 static func phase_name_at(cycle_time: float) -> String:
 	var t := fposmod(cycle_time, CYCLE_SEC)
-	if t < 13.0:
-		return "midnight_dawn"
-	if t < 24.0:
-		return "dawn"
-	if t < 77.0:
-		return "day"
-	if t < 91.0:
-		return "dusk"
-	if t < 104.0:
+	if t < PHASE_SEC:
 		return "night"
-	return "midnight"
+	if t < PHASE_SEC * 2.0:
+		return "dawn"
+	if t < PHASE_SEC * 3.0:
+		return "day"
+	return "night"
 
 
 static func star_visibility(cycle_time: float) -> float:

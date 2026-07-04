@@ -2,6 +2,9 @@ extends SceneTree
 ## Headless day/night cycle tests — run:
 ## godot --headless --script res://tools/verify_day_night.gd
 
+const DAY_TIME := 60.0
+const NIGHT_TIME := 0.0
+
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -13,6 +16,7 @@ func _run() -> void:
 	ok = _check_phase_sampling() and ok
 	ok = _check_smooth_transitions() and ok
 	ok = _check_celestial_arc() and ok
+	ok = await _check_celestial_placement() and ok
 	ok = await _check_atmosphere_application() and ok
 	ok = await _check_ground_mesh_stability() and ok
 	ok = await _check_sun_light_scene() and ok
@@ -26,35 +30,38 @@ func _check_cycle_duration() -> bool:
 	if DayNightPalette.CYCLE_SEC != 120.0:
 		print("FAIL: CYCLE_SEC expected 120, got ", DayNightPalette.CYCLE_SEC)
 		return false
+	if DayNightPalette.PHASE_SEC != 30.0:
+		print("FAIL: PHASE_SEC expected 30, got ", DayNightPalette.PHASE_SEC)
+		return false
 	print("OK: 120s multi-phase cycle")
 	return true
 
 
 func _check_phase_sampling() -> bool:
-	var day_snap := DayNightPalette.sample_at(40.0)
+	var day_snap := DayNightPalette.sample_at(DAY_TIME)
 	if not day_snap.sky.is_equal_approx(DayNightPalette.SKY_DAY):
-		print("FAIL: mid-day sky mismatch at t=40")
+		print("FAIL: mid-day sky mismatch at t=", DAY_TIME)
 		return false
 
-	var midnight_moon_alpha := DayNightPalette.celestial_alpha(0.0, true)
-	var midnight_sun_alpha := DayNightPalette.celestial_alpha(0.0, false)
+	var midnight_moon_alpha := DayNightPalette.celestial_alpha(NIGHT_TIME, true)
+	var midnight_sun_alpha := DayNightPalette.celestial_alpha(NIGHT_TIME, false)
 	if midnight_sun_alpha > 0.15:
-		print("FAIL: sun should be near horizon at midnight, alpha=", midnight_sun_alpha)
+		print("FAIL: sun should be below horizon at midnight, alpha=", midnight_sun_alpha)
 		return false
 	if midnight_moon_alpha < 0.7:
 		print("FAIL: moon should be high at midnight, alpha=", midnight_moon_alpha)
 		return false
 
-	var dusk_snap := DayNightPalette.sample_at(84.0)
+	var dusk_snap := DayNightPalette.sample_at(DayNightPalette.PHASE_SEC * 3.0)
 	if dusk_snap.sky.r <= day_snap.sky.r:
 		print("FAIL: dusk sky should be warmer/brighter red than day")
 		return false
 
-	if DayNightPalette.phase_name_at(45.0) != "day":
-		print("FAIL: phase_name_at(45) expected day")
+	if DayNightPalette.phase_name_at(75.0) != "day":
+		print("FAIL: phase_name_at(75) expected day")
 		return false
-	if DayNightPalette.phase_name_at(98.0) != "night":
-		print("FAIL: phase_name_at(98) expected night")
+	if DayNightPalette.phase_name_at(105.0) != "night":
+		print("FAIL: phase_name_at(105) expected night")
 		return false
 
 	print("OK: phase sampling at day/dusk/midnight")
@@ -77,9 +84,9 @@ func _check_smooth_transitions() -> bool:
 		print("FAIL: per-second sky jump too large (", max_step, ")")
 		return false
 
-	var dawn_mid := DayNightPalette.sample_at(6.0)
+	var dawn_mid := DayNightPalette.sample_at(DayNightPalette.PHASE_SEC * 0.5)
 	var midnight := DayNightPalette.sample_at(0.0)
-	var day := DayNightPalette.sample_at(40.0)
+	var day := DayNightPalette.sample_at(DAY_TIME)
 	if dawn_mid.sky.g <= midnight.sky.g or dawn_mid.sky.g >= day.sky.g:
 		print("FAIL: dawn midpoint not between midnight and day")
 		return false
@@ -89,22 +96,72 @@ func _check_smooth_transitions() -> bool:
 
 
 func _check_celestial_arc() -> bool:
-	var moon_at_day := DayNightPalette.celestial_alpha(50.0, true)
-	if moon_at_day > 0.2:
-		print("FAIL: moon should be below horizon during day, alpha=", moon_at_day)
+	var moon_at_day := DayNightPalette.celestial_alpha(DAY_TIME, true)
+	if moon_at_day > 0.15:
+		print("FAIL: moon should be hidden during day, alpha=", moon_at_day)
 		return false
 
-	var sun_at_day := DayNightPalette.celestial_alpha(50.0, false)
+	var sun_at_day := DayNightPalette.celestial_alpha(DAY_TIME, false)
 	if sun_at_day < 0.7:
-		print("FAIL: sun should be visible during day, alpha=", sun_at_day)
+		print("FAIL: sun should be visible at noon, alpha=", sun_at_day)
 		return false
 
-	var sun_at_midnight := DayNightPalette.celestial_alpha(0.0, false)
+	var sun_at_midnight := DayNightPalette.celestial_alpha(NIGHT_TIME, false)
 	if sun_at_midnight > 0.15:
-		print("FAIL: sun should be near-absent at midnight, alpha=", sun_at_midnight)
+		print("FAIL: sun should be below horizon at midnight, alpha=", sun_at_midnight)
 		return false
 
-	print("OK: sun/moon visibility follows day/night cycle")
+	var moon_elev_midnight := DayNightPalette.celestial_elevation(NIGHT_TIME, true)
+	if moon_elev_midnight < 0.85:
+		print("FAIL: moon should be high at midnight, elev=", moon_elev_midnight)
+		return false
+
+	print("OK: sun by day, moon by night, below horizon when down")
+	return true
+
+
+func _check_celestial_placement() -> bool:
+	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
+	if scene == null:
+		print("FAIL: could not load range_view.tscn for celestial placement")
+		return false
+
+	var range_view: Node3D = scene.instantiate()
+	root.add_child(range_view)
+	range_view.visible = true
+	await process_frame
+
+	var sun_noon := DayNightPalette.celestial_view_direction(DAY_TIME, false, Vector3.ZERO)
+	if sun_noon.y < 0.85:
+		print("FAIL: noon sun should be near zenith, y=", sun_noon.y)
+		range_view.queue_free()
+		return false
+
+	var sun_midnight := DayNightPalette.celestial_view_direction(NIGHT_TIME, false, Vector3.ZERO)
+	if sun_midnight.y > -0.5:
+		print("FAIL: midnight sun should be below horizon, y=", sun_midnight.y)
+		range_view.queue_free()
+		return false
+
+	var moon_midnight := DayNightPalette.celestial_view_direction(NIGHT_TIME, true, Vector3.ZERO)
+	if moon_midnight.y < 0.85:
+		print("FAIL: midnight moon should be opposite the sun, y=", moon_midnight.y)
+		range_view.queue_free()
+		return false
+
+	for check_time in [0.0, 30.0, 60.0, 90.0]:
+		var sun_v := DayNightPalette.celestial_view_direction(check_time, false, Vector3.ZERO)
+		var moon_v := DayNightPalette.celestial_view_direction(check_time, true, Vector3.ZERO)
+		if absf(sun_v.dot(moon_v) + 1.0) > 0.15:
+			print(
+				"FAIL: sun/moon should stay 180° apart at t=%.0f, dot=%.3f"
+				% [check_time, sun_v.dot(moon_v)]
+			)
+			range_view.queue_free()
+			return false
+
+	range_view.queue_free()
+	print("OK: vertical orbit with rise/set and 180° opposition")
 	return true
 
 
@@ -124,10 +181,10 @@ func _check_atmosphere_application() -> bool:
 		range_view.queue_free()
 		return false
 
-	range_view.apply_atmosphere(40.0)
+	range_view.apply_atmosphere(DAY_TIME)
 	var world_env: WorldEnvironment = range_view.get_node("WorldEnvironment")
 	if not world_env.environment.background_color.is_equal_approx(DayNightPalette.SKY_DAY):
-		print("FAIL: background not day-colored at t=40")
+		print("FAIL: background not day-colored at t=", DAY_TIME)
 		range_view.queue_free()
 		return false
 
@@ -166,7 +223,7 @@ func _check_ground_mesh_stability() -> bool:
 		range_view.queue_free()
 		return false
 
-	range_view.apply_atmosphere(40.0)
+	range_view.apply_atmosphere(DAY_TIME)
 	await process_frame
 	range_view.apply_atmosphere(0.0)
 	await process_frame
@@ -196,7 +253,7 @@ func _check_sun_light_scene() -> bool:
 
 	var sun: DirectionalLight3D = range_view.get_node("Sun")
 
-	range_view.apply_atmosphere(40.0)
+	range_view.apply_atmosphere(DAY_TIME)
 	var day_energy := sun.light_energy
 	range_view.apply_atmosphere(0.0)
 	var night_energy := sun.light_energy
@@ -244,11 +301,7 @@ func _check_sky_dome() -> bool:
 		range_view.queue_free()
 		return false
 
-	range_view.apply_atmosphere(50.0)
-	if not sky_dome.has_method(&"get_sun_alpha"):
-		print("FAIL: SkyDome missing get_sun_alpha")
-		range_view.queue_free()
-		return false
+	range_view.apply_atmosphere(DAY_TIME)
 	if sky_dome.get_sun_alpha() < 0.5:
 		print("FAIL: sun should be visible during day, alpha=", sky_dome.get_sun_alpha())
 		range_view.queue_free()
@@ -260,11 +313,7 @@ func _check_sky_dome() -> bool:
 		range_view.queue_free()
 		return false
 
-	range_view.apply_atmosphere(110.0)
-	if not sky_dome.has_method(&"get_star_alpha"):
-		print("FAIL: SkyDome missing get_star_alpha")
-		range_view.queue_free()
-		return false
+	range_view.apply_atmosphere(105.0)
 	if sky_dome.get_star_alpha() <= 0.0:
 		print("FAIL: stars should be visible at night, alpha=", sky_dome.get_star_alpha())
 		range_view.queue_free()
@@ -304,7 +353,7 @@ func _check_gameplay_ui_atmosphere() -> bool:
 		main.queue_free()
 		return false
 
-	range_view.apply_atmosphere(40.0)
+	range_view.apply_atmosphere(DAY_TIME)
 	await process_frame
 	if not gameplay_chrome.modulate.is_equal_approx(Color.WHITE):
 		print(
