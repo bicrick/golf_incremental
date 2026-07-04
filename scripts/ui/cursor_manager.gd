@@ -8,8 +8,8 @@ const CURSOR_GRAB_PATH := "res://assets/cursors/cursor_grab.png"
 
 ## Cursor shape every selectable/clickable Control should request via
 ## `mouse_default_cursor_shape` so hovering shows the hand cursor instead of
-## silently falling back to the CURSOR_ARROW shape. During collect mode both
-## shapes are rebound to the grab cursor — see sync_collect_cursor().
+## silently falling back to the CURSOR_ARROW shape. During collect mode the
+## default pointer is the open hand; pan drag temporarily switches to grab.
 const SELECTABLE_CURSOR_SHAPE := Control.CURSOR_POINTING_HAND
 
 static var _arrow_texture: Texture2D
@@ -27,11 +27,17 @@ static func apply_default_cursors() -> void:
 	Input.set_custom_mouse_cursor(_hand_texture, Input.CURSOR_POINTING_HAND, _hand_hotspot)
 
 
+static func set_hand_cursor() -> void:
+	_ensure_loaded()
+	Input.set_custom_mouse_cursor(_hand_texture, Input.CURSOR_ARROW, _hand_hotspot)
+	Input.set_custom_mouse_cursor(_hand_texture, Input.CURSOR_POINTING_HAND, _hand_hotspot)
+
+
 static func set_grab_cursor() -> void:
 	_ensure_loaded()
 	Input.set_custom_mouse_cursor(_grab_texture, Input.CURSOR_ARROW, _grab_hotspot)
 	# Selectable UI controls request CURSOR_POINTING_HAND — rebind it too so
-	# collect mode always shows the grabbing glove, not the open hand.
+	# pan drag always shows the grabbing glove, not the open hand.
 	Input.set_custom_mouse_cursor(_grab_texture, Input.CURSOR_POINTING_HAND, _grab_hotspot)
 
 
@@ -43,7 +49,7 @@ static func clear_grab_cursor() -> void:
 
 static func sync_collect_cursor() -> void:
 	if GameState.is_collect_mode():
-		set_grab_cursor()
+		set_hand_cursor()
 	else:
 		clear_grab_cursor()
 

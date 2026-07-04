@@ -10,6 +10,7 @@ func _run() -> void:
 	var sfx: Node = load("res://scripts/audio/sfx_manager.gd").new()
 	root.add_child(sfx)
 	await process_frame
+	sfx._music_enabled = true
 
 	var tracks: Array = sfx.get_music_tracks()
 	print("OK: track_count=", tracks.size())

@@ -72,6 +72,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			SaveManager.reset_and_reload()
 		return
+	if _try_debug_capture_input(event):
+		return
 	if not event.is_action_pressed("ui_cancel"):
 		return
 	if not _is_in_gameplay():
@@ -82,6 +84,53 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _is_in_gameplay() -> bool:
 	return ui.visible and range_view.visible or _is_overlay_panel_open()
+
+
+func _try_debug_capture_input(event: InputEvent) -> bool:
+	if not OS.is_debug_build():
+		return false
+	if not event is InputEventKey:
+		return false
+	var key := event as InputEventKey
+	if not key.pressed or key.echo or key.keycode != KEY_S:
+		return false
+	if key.ctrl_pressed or key.meta_pressed or key.alt_pressed:
+		return false
+	if not range_view.visible or title_screen.visible:
+		return false
+	if not range_view.has_method(&"capture_plate"):
+		return false
+	get_viewport().set_input_as_handled()
+	_debug_capture_plate_async()
+	return true
+
+
+func _debug_capture_plate_async() -> void:
+	var ui_visible := ui.visible
+	var settings_layer := get_node_or_null("SettingsLayer") as CanvasLayer
+	var settings_visible := settings_layer.visible if settings_layer else true
+
+	ui.visible = false
+	if settings_layer:
+		settings_layer.visible = false
+
+	var cycle_time := 40.0
+	var cycle := range_view.get_node_or_null("DayNightCycle")
+	if cycle != null and cycle.has_method(&"cycle_elapsed"):
+		cycle_time = cycle.cycle_elapsed()
+
+	var output_path: String = range_view.PLATE_CAPTURE_OUTPUT
+	var err: Error = await range_view.capture_plate(output_path, cycle_time)
+
+	ui.visible = ui_visible
+	if settings_layer:
+		settings_layer.visible = settings_visible
+
+	var path := ProjectSettings.globalize_path(output_path)
+	if err == OK:
+		print("[Main] Range plate saved: ", path)
+	else:
+		print("[Main] Range plate capture failed (", err, "): ", path)
 
 
 func _handle_escape() -> void:

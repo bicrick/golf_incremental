@@ -565,7 +565,7 @@ func _update_charge_visuals() -> void:
 		ball.scale = _base_ball_scale
 
 	if golfer:
-		golfer.position = _golfer_home + Vector3(0.0, lerpf(0.0, 0.03, windup), lerpf(0.0, -0.03, windup))
+		golfer.position = _golfer_home
 
 
 func _flash_beat_ring(tier: int) -> void:

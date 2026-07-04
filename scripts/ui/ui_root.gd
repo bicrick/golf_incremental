@@ -17,6 +17,10 @@ func _bind_viewport() -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	var range_view := get_node_or_null("../../RangeView")
-	if range_view and range_view.has_method(&"consume_zoom_event"):
-		if range_view.consume_zoom_event(event):
-			accept_event()
+	if range_view == null:
+		return
+	if range_view.has_method(&"consume_pan_drag_event") and range_view.consume_pan_drag_event(event):
+		accept_event()
+		return
+	if range_view.has_method(&"consume_zoom_event") and range_view.consume_zoom_event(event):
+		accept_event()
