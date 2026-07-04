@@ -9,6 +9,8 @@ uniform vec4 tile_uv_bounds;
 uniform float tile_size_yards = 2.0;
 uniform float half_width_yards = 25.0;
 uniform int ground_mode = 0;
+/// Discard live fairway geometry past this world Z so the painted backdrop takes over.
+uniform float ground_far_clip_z = -1000.0;
 
 varying vec3 world_vertex;
 
@@ -17,6 +19,10 @@ void vertex() {
 }
 
 void fragment() {
+	if (world_vertex.z < ground_far_clip_z) {
+		discard;
+	}
+
 	vec2 local_uv = fract(UV);
 	vec2 atlas_uv = mix(tile_uv_bounds.xy, tile_uv_bounds.zw, local_uv);
 	vec4 tex = texture(albedo_tex, atlas_uv);

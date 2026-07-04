@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://scenes/visual/range_sky_dome.tscn" id="5_sky_dome"]
 [ext_resource type="PackedScene" uid="uid://br0iki0w8fge0" path="res://scenes/range/cells/player_bay_cell.tscn" id="6_player_bay"]
 [ext_resource type="Script" uid="uid://dqw2xmrq7ha6m" path="res://scripts/range/view_mode_controller.gd" id="7_view_mode"]
+[ext_resource type="Script" uid="uid://b4xlbcun05quq" path="res://scripts/visual/range_backdrop_node.gd" id="8_backdrop_node"]
 
 [sub_resource type="Environment" id="Environment_range"]
 background_mode = 1
@@ -34,8 +35,8 @@ _surfaces = [{
 render_priority = 0
 shader = ExtResource("4_p8kfu")
 shader_parameter/albedo_tex = ExtResource("2_cp8g3")
-shader_parameter/fairway_light = Color(0.54, 0.76, 0.44, 1)
-shader_parameter/fairway_dark = Color(0.36, 0.52, 0.28, 1)
+shader_parameter/fairway_light = Color(0.4696, 0.66336, 0.40208, 1)
+shader_parameter/fairway_dark = Color(0.31584, 0.45376, 0.2752, 1)
 shader_parameter/apron_tint = Color(1, 1, 1, 1)
 shader_parameter/tile_uv_bounds = Vector4(0.00125, 0.002232143, 0.03875, 0.069196425)
 shader_parameter/tile_size_yards = 2.0
@@ -64,16 +65,21 @@ size = 13.277695
 
 [node name="PerspectiveCamera" type="Camera3D" parent="." unique_id=120344469]
 transform = Transform3D(0.9959977, 0.0017635126, 0.08936121, 0, 0.99980533, -0.019730812, -0.08937861, 0.019651845, 0.99580383, 1.1372404, 1.8787439, -6.744128)
+current = true
 
 [node name="SkyDome" parent="." unique_id=1582083225 instance=ExtResource("5_sky_dome")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 77.093094, 71.31996, 247.45828)
 
 [node name="PerspectiveSkyDome" parent="." unique_id=1597684650 instance=ExtResource("5_sky_dome")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.84099174, 1.6275849, -6.18293)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1372404, 1.8787439, -6.744128)
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=560799956]
 mesh = SubResource("ArrayMesh_4aak5")
 surface_material_override/0 = SubResource("ShaderMaterial_pel0d")
+
+[node name="Backdrop" type="Node3D" parent="." unique_id=1982736451]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.884946, -5.202821, 12.664688)
+script = ExtResource("8_backdrop_node")
 
 [node name="Foreground" type="Node3D" parent="." unique_id=475863636]
 

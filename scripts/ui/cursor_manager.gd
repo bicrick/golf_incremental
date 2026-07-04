@@ -1,15 +1,15 @@
 class_name CursorManager
 extends RefCounted
-## Custom pixel cursors — default pointer, button hover, and harvest grab.
+## Central cursor resolver — one place decides arrow / hand / grab from game state.
+##
+## Priority: pan grab > collect hand (harvest view ready) > default arrow.
+## UI Controls use mouse_default_cursor_shape = CURSOR_POINTING_HAND; both shapes
+## are rebound together so viewport and button hover stay in sync.
 
 const CURSOR_ARROW_PATH := "res://assets/cursors/cursor_arrow.png"
 const CURSOR_HAND_PATH := "res://assets/cursors/cursor_hand.png"
 const CURSOR_GRAB_PATH := "res://assets/cursors/cursor_grab.png"
 
-## Cursor shape every selectable/clickable Control should request via
-## `mouse_default_cursor_shape` so hovering shows the hand cursor instead of
-## silently falling back to the CURSOR_ARROW shape. During collect mode the
-## default pointer is the open hand; pan drag temporarily switches to grab.
 const SELECTABLE_CURSOR_SHAPE := Control.CURSOR_POINTING_HAND
 
 static var _arrow_texture: Texture2D
@@ -19,47 +19,97 @@ static var _arrow_hotspot := Vector2.ZERO
 static var _hand_hotspot := Vector2.ZERO
 static var _grab_hotspot := Vector2.ZERO
 static var _initialized := false
+static var _bound := false
+static var _pan_dragging := false
+static var _harvest_view_ready: Callable = func(): return false
+static var _applied_kind: StringName = &"arrow"
+static var _game_state: Node
+
+
+static func bind_gameplay(range_view: Node3D) -> void:
+	_pan_dragging = false
+	if range_view.has_method(&"is_harvest_view_ready"):
+		_harvest_view_ready = range_view.is_harvest_view_ready
+	_game_state = range_view.get_node_or_null("/root/GameState")
+	if _bound:
+		refresh()
+		return
+	_bound = true
+	var event_bus: Node = range_view.get_node_or_null("/root/EventBus")
+	if event_bus:
+		if not event_bus.phase_changed.is_connected(_on_phase_changed):
+			event_bus.phase_changed.connect(_on_phase_changed)
+		if not event_bus.bucket_changed.is_connected(_on_bucket_changed):
+			event_bus.bucket_changed.connect(_on_bucket_changed)
+	var view_mode_controller := range_view.get_node_or_null("ViewModeController")
+	if view_mode_controller and view_mode_controller.has_signal(&"view_mode_changed"):
+		view_mode_controller.view_mode_changed.connect(func(_mode): refresh())
+	refresh()
 
 
 static func apply_default_cursors() -> void:
+	refresh()
+
+
+static func set_pan_dragging(active: bool) -> void:
+	if _pan_dragging == active:
+		return
+	_pan_dragging = active
+	refresh()
+
+
+static func refresh() -> void:
+	if _pan_dragging:
+		_apply_grab()
+	elif _is_collect_mode() and _harvest_view_ready.is_valid() and _harvest_view_ready.call():
+		_apply_hand()
+	else:
+		_apply_arrow()
+
+
+static func _is_collect_mode() -> bool:
+	return _game_state != null and _game_state.is_collect_mode()
+
+
+static func debug_applied_kind() -> StringName:
+	return _applied_kind
+
+
+static func debug_set_harvest_view_ready(callable: Callable) -> void:
+	_harvest_view_ready = callable
+
+
+static func mark_selectable(control: Control) -> void:
+	control.mouse_default_cursor_shape = SELECTABLE_CURSOR_SHAPE
+
+
+static func _on_phase_changed(_phase: String) -> void:
+	refresh()
+
+
+static func _on_bucket_changed(_count: int, _capacity: int) -> void:
+	refresh()
+
+
+static func _apply_arrow() -> void:
 	_ensure_loaded()
 	Input.set_custom_mouse_cursor(_arrow_texture, Input.CURSOR_ARROW, _arrow_hotspot)
 	Input.set_custom_mouse_cursor(_hand_texture, Input.CURSOR_POINTING_HAND, _hand_hotspot)
+	_applied_kind = &"arrow"
 
 
-static func set_hand_cursor() -> void:
+static func _apply_hand() -> void:
 	_ensure_loaded()
 	Input.set_custom_mouse_cursor(_hand_texture, Input.CURSOR_ARROW, _hand_hotspot)
 	Input.set_custom_mouse_cursor(_hand_texture, Input.CURSOR_POINTING_HAND, _hand_hotspot)
+	_applied_kind = &"hand"
 
 
-static func set_grab_cursor() -> void:
+static func _apply_grab() -> void:
 	_ensure_loaded()
 	Input.set_custom_mouse_cursor(_grab_texture, Input.CURSOR_ARROW, _grab_hotspot)
-	# Selectable UI controls request CURSOR_POINTING_HAND — rebind it too so
-	# pan drag always shows the grabbing glove, not the open hand.
 	Input.set_custom_mouse_cursor(_grab_texture, Input.CURSOR_POINTING_HAND, _grab_hotspot)
-
-
-static func clear_grab_cursor() -> void:
-	_ensure_loaded()
-	Input.set_custom_mouse_cursor(_arrow_texture, Input.CURSOR_ARROW, _arrow_hotspot)
-	Input.set_custom_mouse_cursor(_hand_texture, Input.CURSOR_POINTING_HAND, _hand_hotspot)
-
-
-static func sync_collect_cursor() -> void:
-	if GameState.is_collect_mode():
-		set_hand_cursor()
-	else:
-		clear_grab_cursor()
-
-
-## Marks a Control as selectable so hovering it shows the hand cursor.
-## Use for controls built at runtime; static scene Buttons should instead set
-## mouse_default_cursor_shape = 2 (Control.CURSOR_POINTING_HAND) directly in
-## the .tscn file.
-static func mark_selectable(control: Control) -> void:
-	control.mouse_default_cursor_shape = SELECTABLE_CURSOR_SHAPE
+	_applied_kind = &"grab"
 
 
 static func _ensure_loaded() -> void:
@@ -91,7 +141,6 @@ static func _hotspot_for(image: Image) -> Vector2:
 	var opaque := _opaque_bounds(image)
 	if opaque.size == Vector2.ZERO:
 		return Vector2.ZERO
-	# Top-left of visible art — natural tip for arrow / top of palm for hands.
 	return opaque.position
 
 

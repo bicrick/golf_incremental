@@ -12,7 +12,7 @@ extends Node
 
 
 func _ready() -> void:
-	CursorManager.apply_default_cursors()
+	CursorManager.bind_gameplay(range_view)
 	range_view.visible = false
 	ui.visible = false
 	title_screen.play_pressed.connect(_on_play_pressed)

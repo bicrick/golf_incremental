@@ -15,6 +15,8 @@ const PICKUP_FLY_DURATION_SEC := 0.35
 const PICKUP_FLY_ARC_PX := 36.0
 const PLATE_CAPTURE_CYCLE_TIME := 40.0
 const PLATE_CAPTURE_OUTPUT := "res://captures/range_bg.png"
+## Live striped ground is clipped here; painted backdrop covers the horizon beyond.
+const GROUND_FAR_CLIP_Z := -268.0
 
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
 const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
@@ -30,6 +32,7 @@ const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.ts
 @onready var sky_dome: RangeSkyDome = $SkyDome
 @onready var perspective_sky_dome: RangeSkyDome = $PerspectiveSkyDome
 @onready var ground: MeshInstance3D = $Ground
+@onready var backdrop: Node3D = $Backdrop
 @onready var bays: Node3D = $Bays
 @onready var littered_balls: Node3D = $Foreground/LitteredBalls
 @onready var foreground: Node3D = $Foreground
@@ -63,6 +66,8 @@ var _sprite_atmosphere_tint: Color = Color.WHITE
 var _ratina_layout_applied: bool = false
 var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 var _view_mode_started := false
+var _backdrop_mesh: MeshInstance3D
+var _editor_backdrop_camera_xform: Transform3D = Transform3D()
 
 
 func _should_use_editor_rig() -> bool:
@@ -74,20 +79,28 @@ func _should_use_editor_rig() -> bool:
 
 func _enter_tree() -> void:
 	if _should_use_editor_rig():
-		_refresh_preview()
+		call_deferred("_refresh_preview")
 
 
 func _ready() -> void:
-	_ball_lay_texture = DinkySpriteFrames.ball_lay_texture()
+	if not Engine.is_editor_hint():
+		_ball_lay_texture = DinkySpriteFrames.ball_lay_texture()
 	_refresh_preview()
-	_setup_ratina_bay()
+	if not Engine.is_editor_hint():
+		_setup_ratina_bay()
 
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
-	if _should_use_editor_rig() and camera:
-		camera.make_current()
-		if sky_dome:
-			sky_dome.setup(camera)
+	if _should_use_editor_rig():
+		if perspective_sky_dome and perspective_camera:
+			perspective_sky_dome.setup(perspective_camera)
+		if perspective_camera:
+			perspective_camera.make_current()
+		elif camera:
+			camera.make_current()
+			if sky_dome:
+				sky_dome.setup(camera)
+		set_process(_should_use_editor_rig())
 	apply_atmosphere(60.0)
 
 	if Engine.is_editor_hint():
@@ -188,6 +201,7 @@ func _setup_view_mode_controller() -> void:
 		if transition:
 			_view_mode_controller.bind_transition(transition)
 	_view_mode_controller.set_has_active_flights_checker(_has_active_flights)
+	_view_mode_controller.view_mode_changed.connect(_on_view_mode_changed)
 	EventBus.phase_changed.connect(_view_mode_controller.on_phase_changed)
 
 
@@ -239,6 +253,7 @@ func _setup_ratina_bay() -> void:
 
 func _refresh_preview() -> void:
 	_build_ground()
+	_build_backdrop()
 	_setup_camera()
 	_setup_player_bay()
 
@@ -261,15 +276,44 @@ func _build_ground() -> void:
 
 
 func _ensure_ground_meshes() -> void:
-	CellGround.ensure_grid_mesh(
-		ground,
-		RangeGrid.GRID_WIDTH_CELLS,
-		RangeGrid.GRID_DEPTH_CELLS
+	ground.mesh = FairwayGrassTiles3D.build_plane_mesh(
+		-RangeGrid.HALF_WIDTH_YARDS,
+		RangeGrid.HALF_WIDTH_YARDS,
+		0.0,
+		-RangeGrid.DEPTH_YARDS
 	)
+	if ground.get_surface_override_material(0) == null:
+		ground.set_surface_override_material(0, FairwayGrassTiles3D.make_fairway_material())
 
 
 func _apply_ground_palette(light_color: Color, dark_color: Color) -> void:
 	CellGround.apply_palette_uniforms(ground, light_color, dark_color)
+	var mat := ground.get_surface_override_material(0) as ShaderMaterial
+	if mat:
+		mat.set_shader_parameter(&"ground_far_clip_z", GROUND_FAR_CLIP_Z)
+
+
+func _build_backdrop() -> void:
+	var backdrop_node := get_node_or_null("Backdrop") as Node3D
+	var cam := get_node_or_null("PerspectiveCamera") as Camera3D
+	if backdrop_node == null or cam == null:
+		return
+	_backdrop_mesh = RangeBackdrop.populate(backdrop_node, cam)
+	if not Engine.is_editor_hint() and backdrop_node.visible and _view_mode_controller != null:
+		_update_backdrop_visibility(_view_mode_controller.get_mode())
+	elif Engine.is_editor_hint():
+		backdrop_node.visible = true
+		_editor_backdrop_camera_xform = cam.transform
+
+
+func _update_backdrop_visibility(mode: ViewModeController.Mode) -> void:
+	if backdrop == null:
+		return
+	backdrop.visible = mode == ViewModeController.Mode.STRIKE
+
+
+func _on_view_mode_changed(mode: ViewModeController.Mode) -> void:
+	_update_backdrop_visibility(mode)
 
 
 func _camera_home_size() -> float:
@@ -347,6 +391,8 @@ func apply_atmosphere(cycle_time: float) -> void:
 		player_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if ratina_bay:
 		ratina_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
+	if _backdrop_mesh:
+		RangeBackdrop.apply_tint(_backdrop_mesh, _sprite_atmosphere_tint)
 	_apply_sprite_atmosphere_tint()
 	EventBus.atmosphere_tint_changed.emit(_sprite_atmosphere_tint)
 
@@ -367,7 +413,10 @@ func _apply_sprite_atmosphere_tint() -> void:
 
 
 func _process(delta: float) -> void:
-	if Engine.is_editor_hint():
+	if _should_use_editor_rig():
+		var cam := get_node_or_null("PerspectiveCamera") as Camera3D
+		if cam != null and not cam.transform.is_equal_approx(_editor_backdrop_camera_xform):
+			_build_backdrop()
 		return
 	_swing.update(delta)
 	_update_ball_reload()

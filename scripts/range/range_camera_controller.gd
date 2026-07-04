@@ -95,7 +95,7 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 				return true
 			_pending = false
 			_drag_active = true
-			CursorManager.set_grab_cursor()
+			CursorManager.set_pan_dragging(true)
 		if _drag_active:
 			_apply_drag_motion(motion.position)
 			_last_drag_screen = motion.position
@@ -163,7 +163,7 @@ func _ground_at_screen(screen_pos: Vector2) -> Variant:
 func _end_drag() -> void:
 	_drag_active = false
 	_pending = false
-	CursorManager.sync_collect_cursor()
+	CursorManager.set_pan_dragging(false)
 
 
 func _process(delta: float) -> void:
