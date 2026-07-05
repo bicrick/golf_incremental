@@ -18,7 +18,7 @@ All landed balls still occupy a **similar screen region** once projected by the 
 Implications:
 
 - Pickup mini-game clicks project each litter's real `Vector3` world position to screen space via `Camera3D.unproject_position()` — overlapping screen-projections still happen at depth, so pickup uses "collect nearest-to-camera under cursor" (depth-sorted) rather than hit-area inflation tricks.
-- Do not expect left/right field coverage for litter gameplay — `Balance.LANDING_SCATTER_YARDS` keeps X-scatter small relative to `-Z` depth.
+- Do not expect left/right field coverage for litter gameplay at short carry — offline angle scales yard miss with depth down `-Z`.
 - Target zones (v2.2+) use **depth bands down `-Z`** and small `X` scatter — not wide fairway width.
 
 ## Contact flavor → flight and depth
@@ -53,18 +53,19 @@ Long carry beyond these bands comes from distance/power upgrades (`base_yards`, 
 
 - `BallFlight3D.resolve_visual_yards(yards, timing_tier)` returns `yards` unmodified (clamped only to non-negative) — replaces the old `Economy.visual_depth_t()` / `BallFlightRenderer.yards_to_p()` screen-space compression and the later world-space floor/cap.
 - `BallFlight3D.apex_ratio_for(contact_flavor, timing_tier)` applies the flavor's base apex ratio (`Balance.FLIGHT_APEX_RATIO`) plus a small multiplier for Perfect/Great so the cleanest pure-flavor hits arc a bit higher than a plain Good.
-- `Balance.VISUAL_MAX_YARDS` (300) still normalizes depth fraction for scatter-range scaling, but landing position is a real `Vector3` computed directly from yards, not a perspective sample.
+- `Balance.VISUAL_MAX_YARDS` (300) still used elsewhere; landing position is a real `Vector3` computed directly from yards and offline angle.
 
 Constants in `balance.gd` (implemented):
 
 | Constant | Purpose |
 |----------|---------|
-| `LANDING_SCATTER_YARDS` | Max lateral (`X`) scatter on landing, yards |
+| `LANDING_MAX_OFFLINE_DEG` | Max launch angle (degrees) at worst timing — yard miss = `carry * tan(angle)` |
+| `TIER_OFFLINE_DEG_EARLY` / `TIER_OFFLINE_DEG_LATE` | Offline angle anchors at each timing tier boundary |
 | `FLIGHT_MIN_APEX_YARDS` | Minimum apex so even a tiny whiff arcs slightly above ground |
 
 ## Scatter on landing
 
-`BallFlight3D.build_path()` applies a real `X`-axis scatter (`Balance.LANDING_SCATTER_YARDS`, scaled by depth fraction) rather than a screen-space horizontal jitter — same "keep it small relative to depth" goal, now literally a `Vector3` offset. Optional future: **stack offset** — new litter sprite nudges along `X` if too close to existing litter in world space (fan pattern).
+`BallFlight3D.build_path()` maps release timing to an **offline launch angle** in degrees via a tier ladder in `ChargeSwing.offline_degrees_from_hold()` — same ms stops as `evaluate_timing` and the contact ring. Early release pulls left (`-X`), late release pushes right (`+X`). Each tier (Perfect / Great / Good / Okay / Bad) gets a distinct angle band from `Balance.TIER_OFFLINE_DEG_EARLY` / `TIER_OFFLINE_DEG_LATE`; worst timing caps at `Balance.LANDING_MAX_OFFLINE_DEG` (30° per side). Yard miss at landing is `visual_yards * tan(offline_deg)` — same timing error produces the same angle regardless of carry, so long shots spread wider in yards by design. Only an exact contact release is dead straight. Autonomous swings (Ratina) omit hold timing and stay on centerline. Optional future: **stack offset** — new litter sprite nudges along `X` if too close to existing litter in world space (fan pattern).
 
 ## Arc and juice
 

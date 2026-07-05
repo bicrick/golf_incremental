@@ -6,8 +6,8 @@ extends RefCounted
 ## projection, so this class only has to solve real physics.
 ##
 ## World convention: 1 world unit = 1 yard. Ball starts at `origin`
-## (tee position) and flies toward -Z, with side scatter on X and
-## arc height on Y.
+## (tee position) and flies toward -Z, with lateral offset on X from
+## release timing (offline angle) and arc height on Y.
 
 
 class FlightPath:
@@ -19,6 +19,7 @@ class FlightPath:
 	var yards: float = 0.0
 	var visual_yards: float = 0.0
 	var apex_height: float = 0.0
+	var offline_degrees: float = 0.0
 
 
 ## Visual flight distance always equals gameplay yards exactly — no floor or
@@ -39,13 +40,25 @@ static func apex_ratio_for(contact_flavor: int, timing_tier: int = -1) -> float:
 	return ratio
 
 
+## Offline launch angle from release timing — early pulls left (-deg), late pushes right (+deg).
+## Tier-ladder keyed to the same ms stops as evaluate_timing.
+static func offline_degrees_from_timing(hold_sec: float, stats: PlayerStats) -> float:
+	return ChargeSwing.new().offline_degrees_from_hold(hold_sec, stats)
+
+
+static func side_yards_from_offline_degrees(visual_yards: float, offline_degrees: float) -> float:
+	if absf(offline_degrees) < 0.0001 or visual_yards <= 0.0:
+		return 0.0
+	return visual_yards * tan(deg_to_rad(offline_degrees))
+
+
 static func build_path(
 	yards: float,
 	timing_tier: int,
-	_stats: PlayerStats,
+	stats: PlayerStats,
 	contact_flavor: int = Balance.ContactFlavor.PURE,
 	origin: Vector3 = Vector3.ZERO,
-	rng: RandomNumberGenerator = null
+	hold_sec: float = -1.0
 ) -> FlightPath:
 	var path := FlightPath.new()
 	path.origin = origin
@@ -65,13 +78,10 @@ static func build_path(
 	# exactly at flight_time even when the raw physics time got clamped.
 	v_y0 = 0.5 * g * path.flight_time
 
-	var depth_frac := clampf(path.visual_yards / maxf(Balance.VISUAL_MAX_YARDS, 1.0), 0.0, 1.0)
-	var scatter_range := Balance.LANDING_SCATTER_YARDS * lerpf(0.5, 1.0, depth_frac)
-	var side_yards := 0.0
-	if rng:
-		side_yards = rng.randf_range(-scatter_range, scatter_range)
-	else:
-		side_yards = randf_range(-scatter_range, scatter_range)
+	path.offline_degrees = 0.0
+	if hold_sec >= 0.0:
+		path.offline_degrees = offline_degrees_from_timing(hold_sec, stats)
+	var side_yards := side_yards_from_offline_degrees(path.visual_yards, path.offline_degrees)
 
 	var v_z0 := path.visual_yards / path.flight_time
 	var v_x0 := side_yards / path.flight_time

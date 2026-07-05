@@ -20,6 +20,7 @@ func _run() -> void:
 	ok = _check_flight_time_monotonic() and ok
 	ok = _check_flight_time_bounds() and ok
 	ok = _check_landing_proportional_to_yards() and ok
+	ok = _check_timing_lateral_offset() and ok
 	ok = _check_tier_ladder_distance_separation() and ok
 	ok = await _check_flight_trail() and ok
 	ok = await _check_flight_trail_zoom_anchor() and ok
@@ -206,6 +207,148 @@ func _check_landing_proportional_to_yards() -> bool:
 	return ok
 
 
+func _check_timing_lateral_offset() -> bool:
+	var ok := true
+	var stats := Balance.default_stats()
+	var contact := Balance.CONTACT_WINDUP_SEC
+	var origin := Vector3(1.0, 0.0, 2.0)
+
+	for yards in [30.0, 150.0]:
+		var at_contact := BallFlight3D.build_path(
+			yards, Balance.TimingTier.PERFECT, stats, Balance.ContactFlavor.PURE, origin, contact
+		)
+		if absf(at_contact.landing.x - origin.x) > 0.001 or absf(at_contact.offline_degrees) > 0.001:
+			print(
+				"FAIL: exact contact at %.0fyd should land straight (x=%.4f deg=%.4f)"
+				% [yards, at_contact.landing.x - origin.x, at_contact.offline_degrees]
+			)
+			ok = false
+
+	var early_great_hold := contact - 0.030
+	var short_path := BallFlight3D.build_path(
+		30.0, Balance.TimingTier.GREAT, stats, Balance.ContactFlavor.PURE, origin, early_great_hold
+	)
+	var long_path := BallFlight3D.build_path(
+		150.0, Balance.TimingTier.GREAT, stats, Balance.ContactFlavor.PURE, origin, early_great_hold
+	)
+	if not is_equal_approx(short_path.offline_degrees, long_path.offline_degrees):
+		print(
+			"FAIL: same hold should produce same offline angle (30yd=%.4f° 150yd=%.4f°)"
+			% [short_path.offline_degrees, long_path.offline_degrees]
+		)
+		ok = false
+
+	var short_lateral := absf(short_path.landing.x - origin.x)
+	var long_lateral := absf(long_path.landing.x - origin.x)
+	if long_lateral <= short_lateral * 4.0:
+		print(
+			"FAIL: longer carry should miss more in yards (30yd=%.3f 150yd=%.3f)"
+			% [short_lateral, long_lateral]
+		)
+		ok = false
+
+	var early_perfect_hold := contact - 0.010
+	var early_perfect := BallFlight3D.build_path(
+		150.0, Balance.TimingTier.PERFECT, stats, Balance.ContactFlavor.PURE, origin, early_perfect_hold
+	)
+	if early_perfect.landing.x >= origin.x - 0.001:
+		print("FAIL: 10ms early Perfect should drift left")
+		ok = false
+
+	if early_great_hold != early_perfect_hold:
+		var early_great := BallFlight3D.build_path(
+			150.0, Balance.TimingTier.GREAT, stats, Balance.ContactFlavor.PURE, origin, early_great_hold
+		)
+		if early_great.landing.x >= early_perfect.landing.x + 0.001:
+			print("FAIL: 30ms early Great should drift farther left than 10ms early Perfect")
+			ok = false
+
+	var late_bad_hold := contact + stats.timing_window_late_bad_max_sec * 0.75
+	var late_bad := BallFlight3D.build_path(
+		150.0, Balance.TimingTier.BAD, stats, Balance.ContactFlavor.SLIGHTLY_FAT, origin, late_bad_hold
+	)
+	if late_bad.landing.x <= origin.x + 0.001:
+		print("FAIL: late Bad should drift right")
+		ok = false
+
+	var max_early_hold := contact - (stats.timing_window_bad_ms + 10.0) / 1000.0
+	var max_early := BallFlight3D.build_path(
+		150.0, Balance.TimingTier.MISS, stats, Balance.ContactFlavor.THIN, origin, max_early_hold
+	)
+	if absf(max_early.offline_degrees) < Balance.LANDING_MAX_OFFLINE_DEG - 0.05:
+		print(
+			"FAIL: worst early timing should reach max offline angle (got %.2f° max %.2f°)"
+			% [absf(max_early.offline_degrees), Balance.LANDING_MAX_OFFLINE_DEG]
+		)
+		ok = false
+
+	var bad_edge_hold := contact - stats.timing_window_bad_ms / 1000.0
+	var bad_edge := BallFlight3D.build_path(
+		150.0, Balance.TimingTier.BAD, stats, Balance.ContactFlavor.SLIGHTLY_FAT, origin, bad_edge_hold
+	)
+	var bad_anchor: float = Balance.TIER_OFFLINE_DEG_EARLY[Balance.TimingTier.BAD]
+	if absf(absf(bad_edge.offline_degrees) - bad_anchor) > 0.05:
+		print(
+			"FAIL: bad-window edge should hit BAD offline anchor (got %.2f° expected %.2f°)"
+			% [absf(bad_edge.offline_degrees), bad_anchor]
+		)
+		ok = false
+
+	var tier_holds := [
+		{"tier": Balance.TimingTier.PERFECT, "hold": contact - stats.timing_window_perfect_ms * 0.5 / 1000.0},
+		{
+			"tier": Balance.TimingTier.GREAT,
+			"hold": contact - (stats.timing_window_perfect_ms + stats.timing_window_great_ms) * 0.5 / 1000.0,
+		},
+		{
+			"tier": Balance.TimingTier.GOOD,
+			"hold": contact - (stats.timing_window_great_ms + stats.timing_window_good_ms) * 0.5 / 1000.0,
+		},
+		{
+			"tier": Balance.TimingTier.OKAY,
+			"hold": contact - (stats.timing_window_good_ms + stats.timing_window_okay_ms) * 0.5 / 1000.0,
+		},
+		{
+			"tier": Balance.TimingTier.BAD,
+			"hold": contact - (stats.timing_window_okay_ms + stats.timing_window_bad_ms) * 0.5 / 1000.0,
+		},
+	]
+	var prev_angle := -1.0
+	for sample in tier_holds:
+		var path := BallFlight3D.build_path(
+			150.0, sample["tier"], stats, Balance.ContactFlavor.PURE, origin, sample["hold"]
+		)
+		var angle := absf(path.offline_degrees)
+		if angle <= prev_angle + 0.05:
+			print(
+				"FAIL: tier offline angles should increase Perfect < Great < Good < Okay < Bad (prev=%.2f° %s=%.2f°)"
+				% [prev_angle, Balance.TIER_NAMES[sample["tier"]], angle]
+			)
+			ok = false
+		prev_angle = angle
+
+	var old_sqrt_deg := Balance.LANDING_MAX_OFFLINE_DEG * pow(
+		0.030 / (stats.timing_window_bad_ms / 1000.0), 0.5
+	)
+	if absf(long_path.offline_degrees) <= old_sqrt_deg * 1.05:
+		print(
+			"FAIL: tier ladder should spread Great beyond old sqrt curve (ladder=%.2f° sqrt=%.2f°)"
+			% [absf(long_path.offline_degrees), old_sqrt_deg]
+		)
+		ok = false
+
+	var repeat := BallFlight3D.build_path(
+		150.0, Balance.TimingTier.GOOD, stats, Balance.ContactFlavor.PURE, origin, early_great_hold
+	)
+	if not is_equal_approx(repeat.offline_degrees, long_path.offline_degrees):
+		print("FAIL: same hold should produce deterministic offline angle")
+		ok = false
+
+	if ok:
+		print("OK: tier-ladder offline angles, yard miss scales with carry (max %.0f°)" % Balance.LANDING_MAX_OFFLINE_DEG)
+	return ok
+
+
 ## The distance ladder should visibly separate, not cluster around one value.
 ## Samples sit at the midpoint of each tier's early-release window so the
 ## comparison reflects a typical hit in that tier, not its worst edge.
@@ -244,7 +387,7 @@ func _check_tier_ladder_distance_separation() -> bool:
 		var quality := charge.timing_quality(hold, stats)
 		var yards := Economy.yards_from_quality(quality, stats)
 		var flavor := charge.contact_flavor(sample["tier"], hold, stats)
-		var path := BallFlight3D.build_path(yards, sample["tier"], stats, flavor)
+		var path := BallFlight3D.build_path(yards, sample["tier"], stats, flavor, Vector3.ZERO, hold)
 		var dist := path.visual_yards
 		distances.append(dist)
 		report.append("%s=%.1fyd" % [Balance.TIER_NAMES[sample["tier"]], dist])
