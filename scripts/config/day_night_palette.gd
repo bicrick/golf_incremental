@@ -22,6 +22,8 @@ const NIGHT_WINDOW_START := SUN_WINDOW_END
 const NIGHT_WINDOW_END := SUN_WINDOW_START
 ## Scales how far fairway stripe tints move from day keys toward sampled night keys.
 const FAIRWAY_NIGHT_DARKEN_STRENGTH := 0.5
+## Extra backdrop darkening at night — same timing as (1 - day_factor).
+const BACKDROP_NIGHT_DARKEN := 0.25
 
 
 class AtmosphereSnapshot:
@@ -308,13 +310,17 @@ static func fairway_stripe_colors(snap: AtmosphereSnapshot, day_factor: float) -
 	]
 
 
-## Backdrop grass band — average stripe tint (matches ground horizon fade).
+## Backdrop grass band — average stripe tint.
 static func backdrop_grass_tint(snap: AtmosphereSnapshot, day_factor: float) -> Color:
 	var stripes := fairway_stripe_colors(snap, day_factor)
-	return (stripes[0] + stripes[1]) * 0.5
+	return ((stripes[0] + stripes[1]) * 0.5).darkened(backdrop_night_darken(day_factor))
 
 
-## Backdrop treeline/foliage band — same night-blend curve as fairway stripes.
+## Backdrop treeline/foliage band — hills palette.
 static func backdrop_foliage_tint(snap: AtmosphereSnapshot, day_factor: float) -> Color:
 	var day := _day()
-	return _phase_tint(day.hills, snap.hills, day_factor)
+	return _phase_tint(day.hills, snap.hills, day_factor).darkened(backdrop_night_darken(day_factor))
+
+
+static func backdrop_night_darken(day_factor: float) -> float:
+	return (1.0 - clampf(day_factor, 0.0, 1.0)) * BACKDROP_NIGHT_DARKEN
