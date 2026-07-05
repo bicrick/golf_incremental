@@ -40,6 +40,9 @@ func _test_constants() -> bool:
 			% RangeRat.IDLE_OUT_OF_BALLS_FRAME_COUNT
 		)
 		ok = false
+	if RangeRat.RETURN_FRAME_COUNT != 7:
+		print("FAIL: RETURN_FRAME_COUNT expected 7, got %d" % RangeRat.RETURN_FRAME_COUNT)
+		ok = false
 	return ok
 
 
@@ -113,6 +116,25 @@ func _test_sprite_frames() -> bool:
 	var oob_tex: Texture2D = frames.get_frame_texture(&"idle_out_of_balls", 0)
 	if oob_tex == null:
 		print("FAIL: idle_out_of_balls frame 0 texture is null")
+		ok = false
+	if frames.get_frame_count(&"return_to_address") != RangeRat.RETURN_FRAME_COUNT:
+		print(
+			"FAIL: return_to_address has %d frames, expected %d"
+			% [frames.get_frame_count(&"return_to_address"), RangeRat.RETURN_FRAME_COUNT]
+		)
+		ok = false
+	if frames.get_animation_loop(&"return_to_address"):
+		print("FAIL: return_to_address animation should not loop")
+		ok = false
+	if frames.get_animation_speed(&"return_to_address") != RangeRat.RETURN_FPS:
+		print(
+			"FAIL: return_to_address speed expected %.1f, got %.1f"
+			% [RangeRat.RETURN_FPS, frames.get_animation_speed(&"return_to_address")]
+		)
+		ok = false
+	var return_tex: Texture2D = frames.get_frame_texture(&"return_to_address", 0)
+	if return_tex == null:
+		print("FAIL: return_to_address frame 0 texture is null")
 		ok = false
 	return ok
 

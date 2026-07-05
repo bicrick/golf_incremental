@@ -31,11 +31,13 @@ func _idle_anim_for_bucket(has_balls: bool) -> StringName:
 
 
 func _should_sync_out_of_balls_idle(
-	holding_finish: bool,
 	golfer_anim: StringName,
-	follow_playing: bool
+	follow_playing: bool,
+	return_playing: bool
 ) -> bool:
 	if golfer_anim == &"follow" and follow_playing:
+		return false
+	if golfer_anim == &"return_to_address" and return_playing:
 		return false
 	if golfer_anim == &"swing":
 		return false
@@ -72,16 +74,19 @@ func _check_idle_anim_selection() -> bool:
 
 func _check_sync_guard_when_out_of_balls() -> bool:
 	var ok := true
-	if not _should_sync_out_of_balls_idle(true, &"follow", false):
-		print("FAIL: holding finish should not block out-of-balls idle sync")
-		ok = false
-	if _should_sync_out_of_balls_idle(false, &"follow", true):
+	if _should_sync_out_of_balls_idle(&"follow", true, false):
 		print("FAIL: active follow-through should defer out-of-balls idle sync")
 		ok = false
-	if not _should_sync_out_of_balls_idle(false, &"follow", false):
+	if not _should_sync_out_of_balls_idle(&"follow", false, false):
 		print("FAIL: finished follow should allow out-of-balls idle sync")
 		ok = false
-	if _should_sync_out_of_balls_idle(false, &"swing", false):
+	if _should_sync_out_of_balls_idle(&"return_to_address", false, true):
+		print("FAIL: active return_to_address should defer out-of-balls idle sync")
+		ok = false
+	if not _should_sync_out_of_balls_idle(&"return_to_address", false, false):
+		print("FAIL: finished return_to_address should allow out-of-balls idle sync")
+		ok = false
+	if _should_sync_out_of_balls_idle(&"swing", false, false):
 		print("FAIL: swing anim should defer out-of-balls idle sync")
 		ok = false
 	return ok

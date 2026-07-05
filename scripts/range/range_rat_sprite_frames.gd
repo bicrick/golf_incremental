@@ -6,6 +6,7 @@ const BASE := "res://assets/sprites/range_rat"
 const IDLE_SHEET := BASE + "/range-rat-idle-sheet.png"
 const IDLE_OUT_OF_BALLS_SHEET := BASE + "/range-rat-idle-out-of-balls-sheet.png"
 const SWING_SHEET := BASE + "/range-rat-swing-sheet.png"
+const RETURN_SHEET := BASE + "/return-to-address.png"
 
 const FRAME_SIZE := 52
 const IDLE_COLS := 3
@@ -21,6 +22,9 @@ const CONTACT_FRAME := 8
 const FOLLOW_START := 9
 const FOLLOW_END := 16
 const FOLLOW_FPS := 12.0
+const RETURN_COLS := 3
+const RETURN_FRAME_COUNT := 7
+const RETURN_FPS := 10.0
 const FOOT_OFFSET := Vector2(0.0, -float(FRAME_SIZE) * 0.5)
 
 
@@ -42,6 +46,7 @@ static func make_golfer_frames() -> SpriteFrames:
 	var idle_sheet: Texture2D = load(IDLE_SHEET)
 	var idle_out_sheet: Texture2D = load(IDLE_OUT_OF_BALLS_SHEET)
 	var swing_sheet: Texture2D = load(SWING_SHEET)
+	var return_sheet: Texture2D = load(RETURN_SHEET)
 
 	frames.add_animation(&"idle")
 	frames.set_animation_loop(&"idle", true)
@@ -74,5 +79,14 @@ static func make_golfer_frames() -> SpriteFrames:
 	frames.set_animation_speed(&"joy", 6.0)
 	frames.add_frame(&"joy", make_atlas_frame(swing_sheet, SWING_COLS, FOLLOW_END))
 	frames.add_frame(&"joy", make_atlas_frame(swing_sheet, SWING_COLS, FOLLOW_END - 1))
+
+	frames.add_animation(&"return_to_address")
+	frames.set_animation_loop(&"return_to_address", false)
+	frames.set_animation_speed(&"return_to_address", RETURN_FPS)
+	for i in RETURN_FRAME_COUNT:
+		frames.add_frame(
+			&"return_to_address",
+			make_atlas_frame(return_sheet, RETURN_COLS, i)
+		)
 
 	return frames

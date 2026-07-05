@@ -55,7 +55,6 @@ var _golfer_home: Vector3
 var _base_ball_scale: Vector3 = Vector3.ONE
 var _base_golfer_scale: Vector3 = Vector3.ONE
 var _golfer_joy_active: bool = false
-var _golfer_holding_finish: bool = false
 var _ball_in_flight: bool = false
 var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
@@ -457,7 +456,6 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_swing_charging_changed(charging: bool) -> void:
 	if charging:
 		_golfer_joy_active = false
-		_golfer_holding_finish = false
 		golfer.stop()
 		golfer.animation = &"swing"
 		golfer.frame = 0
@@ -510,6 +508,7 @@ func _golfer_idle_blocked() -> bool:
 		or golfer.animation == &"joy"
 		or golfer.animation == &"swing"
 		or (golfer.animation == &"follow" and golfer.is_playing())
+		or (golfer.animation == &"return_to_address" and golfer.is_playing())
 	)
 
 
@@ -539,12 +538,6 @@ func _apply_ratina_unlocked_layout() -> void:
 func _sync_golfer_idle_from_bucket() -> void:
 	if golfer == null or _golfer_idle_blocked():
 		return
-	if GameState.has_bucket_balls():
-		if _golfer_holding_finish and not _ball_at_tee:
-			return
-		_golfer_holding_finish = false
-	else:
-		_golfer_holding_finish = false
 	_play_golfer_idle()
 
 
@@ -552,9 +545,11 @@ func _on_golfer_animation_finished() -> void:
 	if golfer.animation == &"joy":
 		_golfer_joy_active = false
 		if not _swing.is_charging():
-			_play_golfer_idle()
+			_play_return_to_address()
 	elif golfer.animation == &"follow":
-		_hold_swing_finish()
+		_play_return_to_address()
+	elif golfer.animation == &"return_to_address":
+		_play_golfer_idle()
 
 
 func _clear_frozen_charge_ring() -> void:
@@ -655,26 +650,24 @@ func _on_swing_resolved(
 
 
 func _play_golfer_joy() -> void:
-	_golfer_holding_finish = false
 	_golfer_joy_active = true
 	golfer.play(&"joy")
 
 
-func _hold_swing_finish() -> void:
-	if not GameState.has_bucket_balls() or _ball_at_tee:
-		_golfer_holding_finish = false
-		_play_golfer_idle()
+func _play_return_to_address() -> void:
+	if golfer == null:
 		return
-	_golfer_holding_finish = true
-	golfer.stop()
-	golfer.animation = &"follow"
-	golfer.frame = golfer.sprite_frames.get_frame_count(&"follow") - 1
+	golfer.speed_scale = 1.0
+	golfer.play(&"return_to_address")
 
 
 func _release_swing_finish() -> void:
-	_golfer_holding_finish = false
-	if not _golfer_idle_blocked():
-		_play_golfer_idle()
+	if golfer == null:
+		return
+	if golfer.animation == &"return_to_address":
+		golfer.stop()
+		golfer.speed_scale = 1.0
+	_play_golfer_idle()
 
 
 func _play_swing_followthrough() -> void:
