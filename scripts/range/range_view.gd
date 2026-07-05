@@ -392,11 +392,8 @@ func apply_atmosphere(cycle_time: float) -> void:
 	if ratina_bay:
 		ratina_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if _backdrop_mesh:
-		RangeBackdrop.apply_palette_tints(
-			_backdrop_mesh,
-			DayNightPalette.backdrop_grass_tint(snap, day_factor),
-			DayNightPalette.backdrop_foliage_tint(snap, day_factor)
-		)
+		var backdrop_tint := DayNightPalette.backdrop_tint(snap, day_factor)
+		RangeBackdrop.apply_palette_tints(_backdrop_mesh, backdrop_tint, backdrop_tint)
 	_apply_sprite_atmosphere_tint()
 	EventBus.atmosphere_tint_changed.emit(_sprite_atmosphere_tint)
 
