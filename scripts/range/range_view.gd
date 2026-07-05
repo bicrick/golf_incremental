@@ -309,7 +309,8 @@ func _build_backdrop() -> void:
 func _update_backdrop_visibility(mode: ViewModeController.Mode) -> void:
 	if backdrop == null:
 		return
-	backdrop.visible = mode == ViewModeController.Mode.STRIKE
+	# Keep rendering through the strike→harvest dissolve snapshot; hide only in ortho pickup view.
+	backdrop.visible = mode != ViewModeController.Mode.HARVEST
 
 
 func _on_view_mode_changed(mode: ViewModeController.Mode) -> void:
