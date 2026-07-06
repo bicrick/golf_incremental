@@ -931,8 +931,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		timing_tier,
 		GameState.stats,
 		_swing.last_contact_flavor,
-		tee_world,
-		_swing.last_hold_sec
+		tee_world
 	)
 
 	_ball_at_tee = false

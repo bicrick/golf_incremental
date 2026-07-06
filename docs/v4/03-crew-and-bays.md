@@ -13,7 +13,7 @@ v4 introduces exactly one placeable category: the **hitting bay**. The player's 
 ### Lanes
 
 - Each bay fires down its **own nominal parallel lane** on `-Z`, offset on `X` by grid cell position.
-- Lanes are reference lines, not hard rails — `Balance.LANDING_MAX_OFFLINE_DEG` offline angle can drift shots into neighboring lanes (intentional).
+- Lanes are reference lines, not hard rails — `Balance.LANDING_SCATTER_YARDS` lateral scatter can drift shots into neighboring lanes (intentional).
 - Pickup uses world positions only; no per-lane litter logic needed.
 
 ### What doesn't change

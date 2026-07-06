@@ -96,25 +96,8 @@ const FLIGHT_APEX_RATIO: Dictionary = {
 	3: 0.07,  # CHUNK — short fat hop
 }
 const FLIGHT_MIN_APEX_YARDS: float = 0.15
-## Max offline launch angle (degrees) at worst timing — yard miss scales with carry.
-const LANDING_MAX_OFFLINE_DEG: float = 30.0
-## Offline angle (degrees) at each early-release tier boundary — piecewise ladder in ChargeSwing.
-const TIER_OFFLINE_DEG_EARLY: Dictionary = {
-	Balance.TimingTier.PERFECT: 0.0,
-	Balance.TimingTier.GREAT: 8.0,
-	Balance.TimingTier.GOOD: 16.0,
-	Balance.TimingTier.OKAY: 22.0,
-	Balance.TimingTier.BAD: 27.0,
-	Balance.TimingTier.MISS: 30.0,
-}
-## Offline angle (degrees) at each late-release tier boundary.
-const TIER_OFFLINE_DEG_LATE: Dictionary = {
-	Balance.TimingTier.GREAT: 0.0,
-	Balance.TimingTier.GOOD: 10.0,
-	Balance.TimingTier.OKAY: 18.0,
-	Balance.TimingTier.BAD: 25.0,
-	Balance.TimingTier.MISS: 30.0,
-}
+## Lateral scatter on landing (world yards), scaled by depth fraction of VISUAL_MAX_YARDS.
+const LANDING_SCATTER_YARDS: float = 3.0
 ## Fairway corridor half-width in yards — used for ground stripes, fence placement, bounds.
 const FAIRWAY_HALF_WIDTH_YARDS: float = 15.0
 ## Flight duration clamp (seconds) — arcade pacing, independent of raw physics extremes.
