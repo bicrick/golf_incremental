@@ -23,6 +23,7 @@ const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.g
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
 const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.tscn")
 const EmptyBayCellScene := preload("res://scenes/range/cells/empty_bay_cell.tscn")
+const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var sun_light: DirectionalLight3D = $Sun
@@ -294,7 +295,8 @@ func _ensure_empty_bays_container() -> Node3D:
 func _configure_placed_bay(bay: Node3D) -> void:
 	var bay_ground := bay.get_node_or_null("Ground") as MeshInstance3D
 	if bay_ground:
-		bay_ground.visible = false
+		bay_ground.visible = true
+		BayMatGroundScript.apply_to_mesh(bay_ground)
 
 
 func _setup_player_bay() -> void:
@@ -433,8 +435,18 @@ func apply_atmosphere(cycle_time: float) -> void:
 	if _backdrop_mesh:
 		var backdrop_tint := DayNightPalette.backdrop_tint(snap, day_factor)
 		RangeBackdrop.apply_palette_tints(_backdrop_mesh, backdrop_tint, backdrop_tint)
+	_apply_divider_brightness(day_factor)
 	_apply_sprite_atmosphere_tint()
 	EventBus.atmosphere_tint_changed.emit(_sprite_atmosphere_tint)
+
+
+func _apply_divider_brightness(day_factor: float) -> void:
+	if player_bay and player_bay.has_method("apply_divider_brightness"):
+		player_bay.apply_divider_brightness(day_factor)
+	if _empty_bays_container:
+		for bay in _empty_bays_container.get_children():
+			if bay.has_method("apply_divider_brightness"):
+				bay.apply_divider_brightness(day_factor)
 
 
 func _apply_sprite_atmosphere_tint() -> void:

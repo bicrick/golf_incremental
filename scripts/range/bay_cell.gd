@@ -5,11 +5,15 @@ extends Node3D
 ## standalone; instanced bays and runtime loads strip it.
 
 const CellGroundScript := preload("res://scripts/range/cell_ground.gd")
+const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 const CELL_SIZE_YARDS := CellGroundScript.CELL_SIZE_YARDS
 const CELL_HALF_YARDS := CellGroundScript.CELL_HALF_YARDS
 const BALL_PIXEL_SIZE := 0.021
 const GOLFER_PIXEL_SIZE := 0.024
 const DIVIDER_LIFT := 0.02
+const DIVIDER_BASE_COLOR := Color.WHITE
+const DIVIDER_DAY_BRIGHTNESS := 1.0
+const DIVIDER_NIGHT_BRIGHTNESS := 0.58
 
 @export_group("Camera (editor tuning)")
 @export var camera_size: float = 8.0:
@@ -108,7 +112,8 @@ func get_base_ball_scale() -> Vector3:
 
 
 func apply_palette(light_color: Color, dark_color: Color) -> void:
-	CellGroundScript.apply_to_mesh(_ground, light_color, dark_color)
+	var ground := _ground if _ground else get_node_or_null("Ground") as MeshInstance3D
+	BayMatGroundScript.apply_to_mesh(ground, light_color, dark_color)
 
 
 func apply_ground_palette(light_color: Color, dark_color: Color) -> void:
@@ -120,6 +125,24 @@ func apply_sprite_tint(tint: Color) -> void:
 		_golfer.modulate = tint
 	if _ball:
 		_ball.modulate = tint
+
+
+func apply_divider_brightness(day_factor: float) -> void:
+	_set_side_divider_brightness(get_node_or_null("SideDividerLeft") as MeshInstance3D, day_factor)
+	_set_side_divider_brightness(get_node_or_null("SideDividerRight") as MeshInstance3D, day_factor)
+
+
+func _set_side_divider_brightness(mesh_instance: MeshInstance3D, day_factor: float) -> void:
+	if mesh_instance == null:
+		return
+	var mat := mesh_instance.get_surface_override_material(0) as StandardMaterial3D
+	if mat:
+		mat.albedo_color = _divider_brightness_color(day_factor)
+
+
+func _divider_brightness_color(day_factor: float) -> Color:
+	var brightness := lerpf(DIVIDER_NIGHT_BRIGHTNESS, DIVIDER_DAY_BRIGHTNESS, clampf(day_factor, 0.0, 1.0))
+	return Color(brightness, brightness, brightness)
 
 
 func _get_camera() -> Camera3D:
@@ -151,15 +174,13 @@ func _setup_editor_environment() -> void:
 
 func _setup_ground() -> void:
 	var ground := _ground if _ground else get_node_or_null("Ground") as MeshInstance3D
-	if ground == null:
-		return
-	var snap := DayNightPalette.sample_at(24.0)
-	CellGroundScript.apply_to_mesh(ground, snap.fairway_light, snap.fairway_dark)
+	BayMatGroundScript.apply_to_mesh(ground)
 
 
 func _setup_side_dividers() -> void:
 	_apply_side_divider(get_node_or_null("SideDividerLeft") as MeshInstance3D, -CELL_HALF_YARDS)
 	_apply_side_divider(get_node_or_null("SideDividerRight") as MeshInstance3D, CELL_HALF_YARDS)
+	apply_divider_brightness(DayNightPalette.day_light_factor(24.0))
 
 
 func _apply_side_divider(mesh_instance: MeshInstance3D, x_edge: float) -> void:
@@ -168,7 +189,7 @@ func _apply_side_divider(mesh_instance: MeshInstance3D, x_edge: float) -> void:
 	mesh_instance.mesh = _build_side_divider_mesh(x_edge)
 	if mesh_instance.get_surface_override_material(0) == null:
 		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color.WHITE
+		mat.albedo_color = DIVIDER_BASE_COLOR
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		mesh_instance.set_surface_override_material(0, mat)

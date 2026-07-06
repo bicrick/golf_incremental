@@ -10,3 +10,5 @@ script = ExtResource("1_script")
 [node name="SideDividerLeft" type="MeshInstance3D" parent="."]
 
 [node name="SideDividerRight" type="MeshInstance3D" parent="."]
+
+[node name="MatLip" type="MeshInstance3D" parent="."]
