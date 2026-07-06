@@ -10,8 +10,8 @@ const DEPTH_YARDS := 300.0
 
 ## Player bay — midline column, row 5 (10 yd into fairway from near edge).
 const PLAYER_CELL := Vector2i(9, 5)
-## Ratina default bay — two cells left of player, same depth row.
-const RATINA_CELL := Vector2i(7, 5)
+## Ratina default bay — one cell left of player, same depth row.
+const RATINA_CELL := Vector2i(8, 5)
 
 
 static func cell_x_bounds(col: int) -> Vector2:
