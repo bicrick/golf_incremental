@@ -70,3 +70,14 @@ static func _build_dashed_ring(radius: float) -> ArrayMesh:
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arrays)
 	return mesh
+
+
+static func litter_ground_xz(sprite: Sprite3D) -> Vector2:
+	var pos := sprite.global_position
+	return Vector2(pos.x, pos.z)
+
+
+static func screen_radius_px(camera: Camera3D, ground: Vector3, world_radius: float) -> float:
+	var center := camera.unproject_position(ground)
+	var edge := camera.unproject_position(ground + Vector3(world_radius, 0.0, 0.0))
+	return maxf(4.0, center.distance_to(edge))

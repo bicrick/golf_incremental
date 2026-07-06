@@ -87,9 +87,9 @@ Add in v2.1 per [07-implementation-phases.md](07-implementation-phases.md).
 | `EventBus` | `ball_collected`, `bucket_completed`, `phase_changed` |
 | Save | Bucket count resets on load OK for v2.0; optional persist later |
 
-## Range picker hit test
+## Range picker circle
 
-Collection uses a **world-space circle** on the fairway (not per-ball screen hitboxes). Baseline radius is ~ball size (`Balance.RANGE_PICKER_BASE_RADIUS_YARDS`). **Range Picker** upgrade adds `range_picker_radius_bonus` per level. Multiple fly-to-bucket icons can run concurrently — no input lock between pickups.
+A **dashed ground ring** follows the mouse on the fairway and acts as the cursor (OS pointer hidden during harvest). Pickup uses the same ground ray as the ring center.
 
 ## Related docs
 

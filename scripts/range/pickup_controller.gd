@@ -98,8 +98,10 @@ func _pick_litter_at(screen_pos: Vector2) -> Sprite3D:
 	var hit: Variant = RangeGroundRay.hit(camera, screen_pos)
 	if hit == null:
 		return null
-	var center: Vector3 = hit
-	var radius := Balance.range_picker_radius_yards(GameState.stats)
+	var pick_ground: Vector3 = hit
+	var pick_xz := Vector2(pick_ground.x, pick_ground.z)
+	var world_radius := Balance.range_picker_radius_yards(GameState.stats)
+	var hit_radius := world_radius + Balance.RANGE_PICKER_HIT_SLACK_YARDS
 	var best: Sprite3D = null
 	var best_dist := INF
 	for child in _littered_balls.get_children():
@@ -110,19 +112,23 @@ func _pick_litter_at(screen_pos: Vector2) -> Sprite3D:
 		var sprite := child as Sprite3D
 		if camera.is_position_behind(sprite.global_position):
 			continue
-		var dist := _xz_distance(sprite.global_position, center)
-		if dist > radius:
+		var ball_xz := RangePickerIndicator.litter_ground_xz(sprite)
+		var world_dist := ball_xz.distance_to(pick_xz)
+		var ball_ground := Vector3(sprite.global_position.x, 0.0, sprite.global_position.z)
+		var ball_screen := camera.unproject_position(sprite.global_position)
+		var screen_radius := RangePickerIndicator.screen_radius_px(
+			camera, ball_ground, hit_radius
+		)
+		var screen_dist := screen_pos.distance_to(ball_screen)
+		var in_world := world_dist <= hit_radius
+		var in_screen := screen_dist <= screen_radius
+		if not in_world and not in_screen:
 			continue
+		var dist := world_dist if in_world else screen_dist
 		if dist < best_dist:
 			best_dist = dist
 			best = sprite
 	return best
-
-
-static func _xz_distance(a: Vector3, b: Vector3) -> float:
-	var dx := a.x - b.x
-	var dz := a.z - b.z
-	return sqrt(dx * dx + dz * dz)
 
 
 func _collect_litter(litter: Sprite3D) -> void:

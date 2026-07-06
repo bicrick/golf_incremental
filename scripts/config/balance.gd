@@ -16,6 +16,8 @@ const COMBO_MULT_PER_TIER: float = 0.10
 ## Harvest range picker — world-radius circle on the fairway (yards).
 const RANGE_PICKER_BASE_RADIUS_YARDS: float = 0.19
 const RANGE_PICKER_RADIUS_PER_LEVEL: float = 0.04
+## Extra world slack so balls near the ring edge register as hits.
+const RANGE_PICKER_HIT_SLACK_YARDS: float = 0.03
 
 # v2 Phase E — contact swing (release at frame-8 contact, not hold-to-peak)
 const CONTACT_WINDUP_SEC: float = 0.5
