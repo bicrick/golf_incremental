@@ -27,7 +27,6 @@ const SHORT_NAMES: Dictionary = {
 	"quick_reset": "RST",
 	"tip_jar": "TIP",
 	"combo_bonus": "CMB",
-	"quick_hands": "HND",
 	"magnetic_glove": "MAG",
 }
 

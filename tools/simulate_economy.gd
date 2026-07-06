@@ -15,7 +15,7 @@ const OPENING_PATH: Array[String] = [
 
 const ROUND_ROBIN: Array[String] = [
 	"base_pay", "power", "distance_pay", "quality", "pickup",
-	"metronome", "tip_jar", "combo_bonus", "quick_hands",
+	"metronome", "tip_jar", "combo_bonus",
 	"iron_set", "great_eye", "quick_reset", "magnetic_glove",
 ]
 

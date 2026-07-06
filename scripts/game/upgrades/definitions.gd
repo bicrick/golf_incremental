@@ -97,18 +97,11 @@ static func _init_defs() -> void:
 			"pickup", {"upgrade_id": "pickup", "level": 1}, Vector2(306, 114)
 		),
 		_def(
-			"quick_hands", Balance.UpgradeBranch.PICKUP, "Quick Hands",
-			"Longer combo window between harvest clicks.",
-			10, 18.0, 1.32,
-			[{"type": "add", "stat": "combo_window_bonus_sec", "value_per_level": 0.15}],
-			"pickup", {"upgrade_id": "pickup", "level": 1}, Vector2(342, 114)
-		),
-		_def(
 			"magnetic_glove", Balance.UpgradeBranch.PICKUP, "Magnetic Glove",
 			"Future — balls pull toward cursor. (Stub)",
 			1, 48.0, 2.0,
 			[{"type": "binary", "stat": "magnetic_glove", "value": 1}],
-			"quick_hands", {"upgrade_id": "quick_hands", "level": 1}, Vector2(342, 166)
+			"combo_bonus", {"upgrade_id": "combo_bonus", "level": 1}, Vector2(342, 166)
 		),
 	]
 	for d in defs:

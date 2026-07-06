@@ -88,7 +88,7 @@ Add in v2.1 per [07-implementation-phases.md](07-implementation-phases.md).
 
 ## Click hitbox in perspective
 
-Far balls are smaller — use **minimum 24px screen hit radius** regardless of sprite scale.
+Hit radius matches ~95% of the ball's projected screen size (4px floor for tiny far sprites). Clicks must land on or very near the ball. Multiple fly-to-bucket icons can run concurrently — no input lock between pickups.
 
 ## Related docs
 

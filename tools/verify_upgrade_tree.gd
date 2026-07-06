@@ -11,8 +11,8 @@ func _run() -> void:
 	var ok := true
 
 	var defs := UpgradeDefinitions.all()
-	if defs.size() != 13:
-		print("FAIL: expected 13 upgrades, got ", defs.size())
+	if defs.size() != 12:
+		print("FAIL: expected 12 upgrades, got ", defs.size())
 		ok = false
 	var base_pay := UpgradeDefinitions.get_def("base_pay")
 	if base_pay.is_empty() or base_pay.get("parent_id", "x") != "":
@@ -24,8 +24,8 @@ func _run() -> void:
 		if def.get("parent_id", "") != "base_pay":
 			print("FAIL: %s should branch from base_pay" % head)
 			ok = false
-	if UpgradeDefinitions.connections().size() != 12:
-		print("FAIL: expected 12 tree connections, got ", UpgradeDefinitions.connections().size())
+	if UpgradeDefinitions.connections().size() != 11:
+		print("FAIL: expected 11 tree connections, got ", UpgradeDefinitions.connections().size())
 		ok = false
 
 	var main: Node = load("res://scenes/main.tscn").instantiate()
@@ -142,8 +142,8 @@ func _run() -> void:
 			print("FAIL: expected 4 revealed nodes after base_pay, got ", visible_after_base)
 			ok = false
 
-		if nodes_root.get_child_count() != 13:
-			print("FAIL: expected 13 tree nodes built, got ", nodes_root.get_child_count())
+		if nodes_root.get_child_count() != 12:
+			print("FAIL: expected 12 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
 		panel.close()

@@ -5,7 +5,8 @@ extends Node
 ## range camera. The "fly to bucket" juice stays a 2D screen-space icon
 ## (owned by RangeView) since the bucket counter is UI.
 
-const MIN_HIT_RADIUS_PX := 24.0
+const MIN_HIT_RADIUS_PX := 4.0
+const HIT_RADIUS_SCALE := 0.95
 
 var _range_view: Node3D
 var _littered_balls: Node3D
@@ -14,7 +15,6 @@ var _active := false
 var _combo := 1
 var _best_combo := 1
 var _last_collect_msec := -999999
-var _collecting := false
 
 
 func setup(range_view: Node3D, littered_balls: Node3D, bucket_counter: Control) -> void:
@@ -40,8 +40,6 @@ func _harvest_view_ready() -> bool:
 func handle_input(event: InputEvent) -> bool:
 	if not _active:
 		return false
-	if _collecting:
-		return false
 	if not event is InputEventMouseButton:
 		return false
 	var click := event as InputEventMouseButton
@@ -66,8 +64,6 @@ func get_bucket_target_screen() -> Vector2:
 
 
 func try_complete_harvest() -> void:
-	if _collecting:
-		return
 	if GameState.is_harvest_complete():
 		_finish_harvest()
 
@@ -143,13 +139,13 @@ func _hit_radius_for(sprite: Sprite3D, camera: Camera3D) -> float:
 	var edge := camera.unproject_position(
 		sprite.global_position + camera.global_transform.basis.x * world_radius
 	)
-	return maxf(MIN_HIT_RADIUS_PX, center.distance_to(edge))
+	var visual_radius := center.distance_to(edge)
+	return maxf(MIN_HIT_RADIUS_PX, visual_radius * HIT_RADIUS_SCALE)
 
 
 func _collect_litter(litter: Sprite3D) -> void:
 	if not is_instance_valid(litter):
 		return
-	_collecting = true
 	litter.set_meta("collectible", false)
 	var world_pos := litter.global_position
 	var camera := _camera()
@@ -169,6 +165,8 @@ func _collect_litter(litter: Sprite3D) -> void:
 	if payout > 0.0:
 		EventBus.pickup_payout.emit(payout, combo_tier)
 	_fly_to_bucket(start_screen)
+	if GameState.is_harvest_complete():
+		_finish_harvest()
 
 
 func _advance_combo() -> int:
@@ -193,10 +191,7 @@ func _bucket_target_screen() -> Vector2:
 func _fly_to_bucket(start_screen: Vector2) -> void:
 	var end_screen := _bucket_target_screen()
 	if _range_view.has_method("spawn_pickup_fly_icon"):
-		await _range_view.spawn_pickup_fly_icon(start_screen, end_screen)
-	_collecting = false
-	if GameState.is_harvest_complete():
-		_finish_harvest()
+		_range_view.spawn_pickup_fly_icon(start_screen, end_screen)
 
 
 func _finish_harvest() -> void:
