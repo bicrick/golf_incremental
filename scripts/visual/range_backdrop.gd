@@ -8,6 +8,10 @@ const BACKDROP_SHADER := preload("res://shaders/range_backdrop.gdshader")
 const DEFAULT_DISTANCE_YARDS := 290.0
 ## Nudge the quad along camera-up so the painted treeline meets the fairway horizon.
 const HORIZON_OFFSET_YARDS := -1.0
+## Fixed reference aspect for the backdrop quad. The quad is built at 16:9 so the
+## editor preview matches the 16:9 game window exactly — never reshaped by the
+## live editor viewport, so what you align in the editor is what you get in the game.
+const REFERENCE_ASPECT := 16.0 / 9.0
 
 
 static func populate(
@@ -69,8 +73,9 @@ static func _make_material(tex: Texture2D) -> ShaderMaterial:
 
 
 static func _build_camera_quad(camera: Camera3D, distance_yards: float, container: Node3D) -> ArrayMesh:
-	var viewport_size := _viewport_size(camera)
-	var aspect := viewport_size.x / maxf(float(viewport_size.y), 1.0)
+	# Use the fixed reference aspect so the quad is identical in the editor and at
+	# runtime — never adjusted from the live viewport.
+	var aspect := REFERENCE_ASPECT
 	var half_fov := deg_to_rad(camera.fov * 0.5)
 	var height := 2.0 * distance_yards * tan(half_fov)
 	var width := height * aspect
@@ -118,12 +123,3 @@ static func _camera_transform_relative_to(container: Node3D, camera: Camera3D) -
 	if parent is Node3D and camera.get_parent() == parent:
 		return parent.transform.affine_inverse() * camera.transform
 	return camera.transform
-
-
-static func _viewport_size(camera: Camera3D) -> Vector2i:
-	var viewport := camera.get_viewport()
-	if viewport:
-		var size := Vector2i(viewport.get_visible_rect().size)
-		if size.x > 1 and size.y > 1:
-			return size
-	return Vector2i(480, 270)
