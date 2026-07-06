@@ -9,6 +9,7 @@ const CELL_SIZE_YARDS := CellGroundScript.CELL_SIZE_YARDS
 const CELL_HALF_YARDS := CellGroundScript.CELL_HALF_YARDS
 const BALL_PIXEL_SIZE := 0.021
 const GOLFER_PIXEL_SIZE := 0.024
+const DIVIDER_LIFT := 0.02
 
 @export_group("Camera (editor tuning)")
 @export var camera_size: float = 8.0:
@@ -31,8 +32,14 @@ const GOLFER_PIXEL_SIZE := 0.024
 		_rebuild_grid_overlay()
 
 @onready var _ground: MeshInstance3D = $Ground
-@onready var _golfer: AnimatedSprite3D = $Golfer
-@onready var _ball: AnimatedSprite3D = $Ball
+
+var _golfer: AnimatedSprite3D
+var _ball: AnimatedSprite3D
+
+
+func _cache_sprite_nodes() -> void:
+	_golfer = get_node_or_null("Golfer") as AnimatedSprite3D
+	_ball = get_node_or_null("Ball") as AnimatedSprite3D
 
 
 func _should_use_editor_rig() -> bool:
@@ -43,11 +50,13 @@ func _should_use_editor_rig() -> bool:
 
 
 func _enter_tree() -> void:
+	_cache_sprite_nodes()
 	if _should_use_editor_rig():
 		_refresh_editor_preview()
 
 
 func _ready() -> void:
+	_cache_sprite_nodes()
 	_refresh_editor_preview()
 	if _should_use_editor_rig():
 		var cam := _get_camera()
@@ -62,6 +71,7 @@ func _ready() -> void:
 func _refresh_editor_preview() -> void:
 	_setup_ground()
 	_setup_sprites()
+	_setup_side_dividers()
 	if _should_use_editor_rig():
 		_setup_editor_environment()
 		_apply_camera()
@@ -145,6 +155,60 @@ func _setup_ground() -> void:
 		return
 	var snap := DayNightPalette.sample_at(24.0)
 	CellGroundScript.apply_to_mesh(ground, snap.fairway_light, snap.fairway_dark)
+
+
+func _setup_side_dividers() -> void:
+	_apply_side_divider(get_node_or_null("SideDividerLeft") as MeshInstance3D, -CELL_HALF_YARDS)
+	_apply_side_divider(get_node_or_null("SideDividerRight") as MeshInstance3D, CELL_HALF_YARDS)
+
+
+func _apply_side_divider(mesh_instance: MeshInstance3D, x_edge: float) -> void:
+	if mesh_instance == null:
+		return
+	mesh_instance.mesh = _build_side_divider_mesh(x_edge)
+	if mesh_instance.get_surface_override_material(0) == null:
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color.WHITE
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mesh_instance.set_surface_override_material(0, mat)
+
+
+func _build_side_divider_mesh(x_edge: float) -> ArrayMesh:
+	var half := GOLFER_PIXEL_SIZE * 0.5
+	var x0 := x_edge - half
+	var x1 := x_edge + half
+	var y0 := DIVIDER_LIFT
+	var y1 := y0 + GOLFER_PIXEL_SIZE
+	var z_near := 0.0
+	var z_far := -CELL_SIZE_YARDS
+
+	var verts := PackedVector3Array([
+		Vector3(x0, y0, z_near),
+		Vector3(x1, y0, z_near),
+		Vector3(x1, y1, z_near),
+		Vector3(x0, y1, z_near),
+		Vector3(x0, y0, z_far),
+		Vector3(x1, y0, z_far),
+		Vector3(x1, y1, z_far),
+		Vector3(x0, y1, z_far),
+	])
+	var indices := PackedInt32Array([
+		0, 1, 2, 0, 2, 3,
+		5, 4, 7, 5, 7, 6,
+		4, 0, 3, 4, 3, 7,
+		1, 5, 6, 1, 6, 2,
+		3, 2, 6, 3, 6, 7,
+		4, 5, 1, 4, 1, 0,
+	])
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 
 func _apply_camera() -> void:

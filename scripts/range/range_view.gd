@@ -22,6 +22,7 @@ const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
 const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.tscn")
+const EmptyBayCellScene := preload("res://scenes/range/cells/empty_bay_cell.tscn")
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var sun_light: DirectionalLight3D = $Sun
@@ -65,6 +66,7 @@ var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 var _view_mode_started := false
 var _backdrop_mesh: MeshInstance3D
 var _editor_backdrop_camera_xform: Transform3D = Transform3D()
+var _empty_bays_container: Node3D
 
 
 func _should_use_editor_rig() -> bool:
@@ -253,15 +255,53 @@ func _refresh_preview() -> void:
 	_build_backdrop()
 	_setup_camera()
 	_setup_player_bay()
+	_setup_empty_bays()
+
+
+func _setup_empty_bays() -> void:
+	if bays == null:
+		return
+	var container := _ensure_empty_bays_container()
+	for child in container.get_children():
+		container.remove_child(child)
+		child.queue_free()
+	for cell: Vector2i in RangeGrid.empty_bay_cells_on_player_row():
+		var bay := EmptyBayCellScene.instantiate()
+		bay.position = RangeGrid.bay_origin(cell.x, cell.y)
+		container.add_child(bay)
+		_configure_placed_bay(bay)
+		if Engine.is_editor_hint():
+			var root := get_tree().edited_scene_root
+			if root:
+				bay.owner = root
+
+
+func _ensure_empty_bays_container() -> Node3D:
+	if _empty_bays_container != null and is_instance_valid(_empty_bays_container):
+		return _empty_bays_container
+	_empty_bays_container = bays.get_node_or_null("EmptyBays") as Node3D
+	if _empty_bays_container == null:
+		_empty_bays_container = Node3D.new()
+		_empty_bays_container.name = "EmptyBays"
+		bays.add_child(_empty_bays_container)
+		if Engine.is_editor_hint():
+			var root := get_tree().edited_scene_root
+			if root:
+				_empty_bays_container.owner = root
+	return _empty_bays_container
+
+
+func _configure_placed_bay(bay: Node3D) -> void:
+	var bay_ground := bay.get_node_or_null("Ground") as MeshInstance3D
+	if bay_ground:
+		bay_ground.visible = false
 
 
 func _setup_player_bay() -> void:
 	if player_bay == null:
 		return
 	player_bay.position = RangeGrid.player_bay_origin()
-	var bay_ground := player_bay.get_node_or_null("Ground") as MeshInstance3D
-	if bay_ground:
-		bay_ground.visible = false
+	_configure_placed_bay(player_bay)
 
 
 func _build_ground() -> void:
@@ -386,6 +426,10 @@ func apply_atmosphere(cycle_time: float) -> void:
 		player_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if ratina_bay:
 		ratina_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
+	if _empty_bays_container:
+		for bay in _empty_bays_container.get_children():
+			if bay.has_method("apply_ground_palette"):
+				bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if _backdrop_mesh:
 		var backdrop_tint := DayNightPalette.backdrop_tint(snap, day_factor)
 		RangeBackdrop.apply_palette_tints(_backdrop_mesh, backdrop_tint, backdrop_tint)

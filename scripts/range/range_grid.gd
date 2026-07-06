@@ -41,3 +41,20 @@ static func player_bay_origin() -> Vector3:
 
 static func ratina_bay_origin() -> Vector3:
 	return bay_origin(RATINA_CELL.x, RATINA_CELL.y)
+
+
+static func is_edge_col(col: int) -> bool:
+	return col == 0 or col == GRID_WIDTH_CELLS - 1
+
+
+static func empty_bay_cells_on_player_row() -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var row := PLAYER_CELL.y
+	for col in GRID_WIDTH_CELLS:
+		if is_edge_col(col):
+			continue
+		var cell := Vector2i(col, row)
+		if cell == PLAYER_CELL or cell == RATINA_CELL:
+			continue
+		result.append(cell)
+	return result

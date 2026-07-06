@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://bvlapxpxrakay"]
+
+[ext_resource type="Script" path="res://scripts/range/empty_bay_cell.gd" id="1_script"]
+
+[node name="EmptyBayCell" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+
+[node name="SideDividerLeft" type="MeshInstance3D" parent="."]
+
+[node name="SideDividerRight" type="MeshInstance3D" parent="."]
