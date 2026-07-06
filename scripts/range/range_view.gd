@@ -17,6 +17,7 @@ const PLATE_CAPTURE_CYCLE_TIME := 40.0
 const PLATE_CAPTURE_OUTPUT := "res://captures/range_bg.png"
 
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
+const RangePickerIndicatorScript := preload("res://scripts/range/range_picker_indicator.gd")
 const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.gd")
@@ -59,6 +60,7 @@ var _ball_in_flight: bool = false
 var _ball_at_tee: bool = true
 var _ball_lay_texture: Texture2D
 var _pickup: Node
+var _picker_indicator: Node3D
 var _ratina: Node
 var _active_flights: Array[Dictionary] = []
 var _sprite_atmosphere_tint: Color = Color.WHITE
@@ -852,6 +854,17 @@ func _setup_pickup_controller() -> void:
 	)
 	if bucket_counter:
 		_pickup.setup(self, littered_balls, bucket_counter)
+	_setup_range_picker_indicator()
+
+
+func _setup_range_picker_indicator() -> void:
+	_picker_indicator = RangePickerIndicatorScript.new()
+	_picker_indicator.name = "RangePickerIndicator"
+	foreground.add_child(_picker_indicator)
+	_picker_indicator.setup(
+		func() -> Camera3D: return get_flight_camera(),
+		func() -> bool: return _pickup != null and _pickup.is_active()
+	)
 
 
 func _setup_ratina_controller() -> void:

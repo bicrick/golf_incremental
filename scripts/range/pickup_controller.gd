@@ -1,12 +1,8 @@
 class_name PickupController
 extends Node
-## Harvest-phase click pickup — litter lives in real 3D world space; hit
-## testing projects each litter's world position to screen space via the
-## range camera. The "fly to bucket" juice stays a 2D screen-space icon
-## (owned by RangeView) since the bucket counter is UI.
-
-const MIN_HIT_RADIUS_PX := 4.0
-const HIT_RADIUS_SCALE := 0.95
+## Harvest-phase range picker — click on the fairway to collect one litter ball
+## inside the picker circle (closest to circle center wins). Fly-to-bucket juice
+## stays 2D screen-space (owned by RangeView).
 
 var _range_view: Node3D
 var _littered_balls: Node3D
@@ -99,7 +95,13 @@ func _pick_litter_at(screen_pos: Vector2) -> Sprite3D:
 	var camera := _camera()
 	if camera == null:
 		return null
-	var candidates: Array[Dictionary] = []
+	var hit: Variant = RangeGroundRay.hit(camera, screen_pos)
+	if hit == null:
+		return null
+	var center: Vector3 = hit
+	var radius := Balance.range_picker_radius_yards(GameState.stats)
+	var best: Sprite3D = null
+	var best_dist := INF
 	for child in _littered_balls.get_children():
 		if not child is Sprite3D:
 			continue
@@ -108,39 +110,19 @@ func _pick_litter_at(screen_pos: Vector2) -> Sprite3D:
 		var sprite := child as Sprite3D
 		if camera.is_position_behind(sprite.global_position):
 			continue
-		var proj := camera.unproject_position(sprite.global_position)
-		var dist := screen_pos.distance_to(proj)
-		var hit_radius := _hit_radius_for(sprite, camera)
-		if dist > hit_radius:
+		var dist := _xz_distance(sprite.global_position, center)
+		if dist > radius:
 			continue
-		candidates.append({
-			"sprite": sprite,
-			"dist": dist,
-			"depth": camera.global_position.distance_squared_to(sprite.global_position),
-		})
-	if candidates.is_empty():
-		return null
-	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		if absf(float(a["depth"]) - float(b["depth"])) > 0.0001:
-			return a["depth"] < b["depth"]
-		return a["dist"] < b["dist"]
-	)
-	return candidates[0]["sprite"] as Sprite3D
+		if dist < best_dist:
+			best_dist = dist
+			best = sprite
+	return best
 
 
-## Hit radius in screen pixels — projects a world-space offset near the
-## sprite to measure how big it currently reads on screen at this depth.
-func _hit_radius_for(sprite: Sprite3D, camera: Camera3D) -> float:
-	var world_radius := 0.16
-	if sprite.texture:
-		world_radius = maxf(sprite.texture.get_size().x, sprite.texture.get_size().y) \
-			* sprite.pixel_size * 0.5
-	var center := camera.unproject_position(sprite.global_position)
-	var edge := camera.unproject_position(
-		sprite.global_position + camera.global_transform.basis.x * world_radius
-	)
-	var visual_radius := center.distance_to(edge)
-	return maxf(MIN_HIT_RADIUS_PX, visual_radius * HIT_RADIUS_SCALE)
+static func _xz_distance(a: Vector3, b: Vector3) -> float:
+	var dx := a.x - b.x
+	var dz := a.z - b.z
+	return sqrt(dx * dx + dz * dz)
 
 
 func _collect_litter(litter: Sprite3D) -> void:

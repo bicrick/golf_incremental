@@ -81,8 +81,8 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 			return stats.combo_mult_per_tier
 		"combo_window_bonus_sec":
 			return stats.combo_window_bonus_sec
-		"magnetic_glove":
-			return stats.magnetic_glove
+		"range_picker_radius_bonus":
+			return stats.range_picker_radius_bonus
 		"base_yards":
 			return stats.base_yards
 		"carry_multiplier":
@@ -152,8 +152,8 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 			stats.combo_mult_per_tier = value
 		"combo_window_bonus_sec":
 			stats.combo_window_bonus_sec = value
-		"magnetic_glove":
-			stats.magnetic_glove = value
+		"range_picker_radius_bonus":
+			stats.range_picker_radius_bonus = value
 		"base_yards":
 			stats.base_yards = value
 		"carry_multiplier":

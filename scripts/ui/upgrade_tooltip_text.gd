@@ -103,8 +103,6 @@ static func _binary_unlock_label(stat_name: String) -> String:
 			return "Pay: unlock tier bonus at pickup"
 		"pickup_bonus_unlocked":
 			return "Pickup: unlock harvest bonuses"
-		"magnetic_glove":
-			return "Pickup: magnetic glove (soon)"
 		_:
 			return "Unlock %s" % stat_name
 
@@ -119,7 +117,7 @@ static func _axis_prefix(stat_name: String) -> String:
 			return "Timing:"
 		"consistency", "yard_quality_floor":
 			return "Quality:"
-		"pickup_multiplier", "pickup_flat_bonus", "combo_mult_per_tier", "combo_window_bonus_sec", "pickup_bonus_unlocked":
+		"pickup_multiplier", "pickup_flat_bonus", "combo_mult_per_tier", "combo_window_bonus_sec", "pickup_bonus_unlocked", "range_picker_radius_bonus":
 			return "Pickup:"
 		_:
 			return ""
@@ -155,6 +153,9 @@ static func _format_stat_value(stat_name: String, stats: PlayerStats, compact: b
 			return "+%.0f%%" % (stats.combo_mult_per_tier * 100.0)
 		"combo_window_bonus_sec":
 			return "+%.1fs" % stats.combo_window_bonus_sec
+		"range_picker_radius_bonus":
+			var radius := Balance.range_picker_radius_yards(stats)
+			return "%.2f yd" % radius if compact else "Circle: %.2f yd" % radius
 		_:
 			return ""
 

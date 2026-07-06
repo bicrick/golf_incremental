@@ -11,9 +11,9 @@ func _run() -> void:
 	var ok := true
 	ok = await _test_strike_arrow() and ok
 	ok = await _test_harvest_before_view_ready() and ok
-	ok = await _test_collect_hand_when_view_ready() and ok
-	ok = await _test_pan_grab_overrides_hand() and ok
-	ok = await _test_pan_end_restores_hand() and ok
+	ok = await _test_collect_range_picker_when_view_ready() and ok
+	ok = await _test_pan_grab_overrides_range_picker() and ok
+	ok = await _test_pan_end_restores_range_picker() and ok
 	print("cursor_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -76,7 +76,7 @@ func _test_harvest_before_view_ready() -> bool:
 	return true
 
 
-func _test_collect_hand_when_view_ready() -> bool:
+func _test_collect_range_picker_when_view_ready() -> bool:
 	var main: Node = await _spawn_main()
 	main._on_play_pressed()
 	await process_frame
@@ -87,16 +87,16 @@ func _test_collect_hand_when_view_ready() -> bool:
 	_enter_harvest(gs)
 	await _wait_harvest_view(range_view)
 	CursorManager.refresh()
-	if CursorManager.debug_applied_kind() != &"hand":
-		print("FAIL: collect mode with harvest view ready should show hand cursor")
+	if CursorManager.debug_applied_kind() != &"range_picker":
+		print("FAIL: collect mode with harvest view ready should show range picker cursor")
 		main.queue_free()
 		return false
 	main.queue_free()
-	print("OK: collect_hand_when_view_ready")
+	print("OK: collect_range_picker_when_view_ready")
 	return true
 
 
-func _test_pan_grab_overrides_hand() -> bool:
+func _test_pan_grab_overrides_range_picker() -> bool:
 	var main: Node = await _spawn_main()
 	main._on_play_pressed()
 	await process_frame
@@ -107,8 +107,8 @@ func _test_pan_grab_overrides_hand() -> bool:
 	_enter_harvest(gs)
 	await _wait_harvest_view(range_view)
 	CursorManager.refresh()
-	if CursorManager.debug_applied_kind() != &"hand":
-		print("FAIL: pre-pan setup should be hand cursor")
+	if CursorManager.debug_applied_kind() != &"range_picker":
+		print("FAIL: pre-pan setup should be range picker cursor")
 		main.queue_free()
 		return false
 
@@ -118,11 +118,11 @@ func _test_pan_grab_overrides_hand() -> bool:
 		main.queue_free()
 		return false
 	main.queue_free()
-	print("OK: pan_grab_overrides_hand")
+	print("OK: pan_grab_overrides_range_picker")
 	return true
 
 
-func _test_pan_end_restores_hand() -> bool:
+func _test_pan_end_restores_range_picker() -> bool:
 	var main: Node = await _spawn_main()
 	main._on_play_pressed()
 	await process_frame
@@ -135,10 +135,10 @@ func _test_pan_end_restores_hand() -> bool:
 	CursorManager.refresh()
 	CursorManager.set_pan_dragging(true)
 	CursorManager.set_pan_dragging(false)
-	if CursorManager.debug_applied_kind() != &"hand":
-		print("FAIL: ending pan drag should restore hand in collect mode")
+	if CursorManager.debug_applied_kind() != &"range_picker":
+		print("FAIL: ending pan drag should restore range picker in collect mode")
 		main.queue_free()
 		return false
 	main.queue_free()
-	print("OK: pan_end_restores_hand")
+	print("OK: pan_end_restores_range_picker")
 	return true

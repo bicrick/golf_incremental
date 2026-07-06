@@ -27,7 +27,7 @@ const SHORT_NAMES: Dictionary = {
 	"quick_reset": "RST",
 	"tip_jar": "TIP",
 	"combo_bonus": "CMB",
-	"magnetic_glove": "MAG",
+	"range_picker": "RPK",
 }
 
 const COLOR_BG := Color(0.18, 0.15, 0.12, 0.92)

@@ -1,22 +1,25 @@
 class_name CursorManager
 extends RefCounted
-## Central cursor resolver — one place decides arrow / hand / grab from game state.
+## Central cursor resolver — one place decides arrow / range picker / grab from game state.
 ##
-## Priority: pan grab > collect hand (harvest view ready) > default arrow.
+## Priority: pan grab > range picker (harvest view ready) > default arrow.
 ## UI Controls use mouse_default_cursor_shape = CURSOR_POINTING_HAND; both shapes
 ## are rebound together so viewport and button hover stay in sync.
 
 const CURSOR_ARROW_PATH := "res://assets/cursors/cursor_arrow.png"
 const CURSOR_HAND_PATH := "res://assets/cursors/cursor_hand.png"
+const CURSOR_RANGE_PICKER_PATH := "res://assets/cursors/cursor_range_picker.png"
 const CURSOR_GRAB_PATH := "res://assets/cursors/cursor_grab.png"
 
 const SELECTABLE_CURSOR_SHAPE := Control.CURSOR_POINTING_HAND
 
 static var _arrow_texture: Texture2D
 static var _hand_texture: Texture2D
+static var _range_picker_texture: Texture2D
 static var _grab_texture: Texture2D
 static var _arrow_hotspot := Vector2.ZERO
 static var _hand_hotspot := Vector2.ZERO
+static var _range_picker_hotspot := Vector2.ZERO
 static var _grab_hotspot := Vector2.ZERO
 static var _initialized := false
 static var _bound := false
@@ -62,7 +65,7 @@ static func refresh() -> void:
 	if _pan_dragging:
 		_apply_grab()
 	elif _is_collect_mode() and _harvest_view_ready.is_valid() and _harvest_view_ready.call():
-		_apply_hand()
+		_apply_range_picker()
 	else:
 		_apply_arrow()
 
@@ -98,11 +101,11 @@ static func _apply_arrow() -> void:
 	_applied_kind = &"arrow"
 
 
-static func _apply_hand() -> void:
+static func _apply_range_picker() -> void:
 	_ensure_loaded()
-	Input.set_custom_mouse_cursor(_hand_texture, Input.CURSOR_ARROW, _hand_hotspot)
-	Input.set_custom_mouse_cursor(_hand_texture, Input.CURSOR_POINTING_HAND, _hand_hotspot)
-	_applied_kind = &"hand"
+	Input.set_custom_mouse_cursor(_range_picker_texture, Input.CURSOR_ARROW, _range_picker_hotspot)
+	Input.set_custom_mouse_cursor(_range_picker_texture, Input.CURSOR_POINTING_HAND, _range_picker_hotspot)
+	_applied_kind = &"range_picker"
 
 
 static func _apply_grab() -> void:
@@ -121,6 +124,9 @@ static func _ensure_loaded() -> void:
 	var hand := _load_cursor(CURSOR_HAND_PATH)
 	_hand_texture = hand["texture"]
 	_hand_hotspot = hand["hotspot"]
+	var range_picker := _load_cursor(CURSOR_RANGE_PICKER_PATH)
+	_range_picker_texture = range_picker["texture"]
+	_range_picker_hotspot = range_picker["hotspot"]
 	var grab := _load_cursor(CURSOR_GRAB_PATH)
 	_grab_texture = grab["texture"]
 	_grab_hotspot = grab["hotspot"]

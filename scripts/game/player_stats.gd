@@ -36,7 +36,7 @@ extends Resource
 @export var pickup_flat_bonus: float = 0.0
 @export var combo_mult_per_tier: float = 0.0
 @export var combo_window_bonus_sec: float = 0.0
-@export var magnetic_glove: float = 0.0
+@export var range_picker_radius_bonus: float = 0.0
 
 # Equipment (Shop)
 @export var club_multiplier: float = 1.0
@@ -90,7 +90,7 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.pickup_flat_bonus = from.pickup_flat_bonus
 	copy.combo_mult_per_tier = from.combo_mult_per_tier
 	copy.combo_window_bonus_sec = from.combo_window_bonus_sec
-	copy.magnetic_glove = from.magnetic_glove
+	copy.range_picker_radius_bonus = from.range_picker_radius_bonus
 	copy.club_multiplier = from.club_multiplier
 	copy.ball_multiplier = from.ball_multiplier
 	copy.golden_ball_chance = from.golden_ball_chance

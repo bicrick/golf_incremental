@@ -13,6 +13,10 @@ const BUCKET_COMPLETE_BONUS: float = 5.0
 const COMBO_WINDOW_SEC: float = 0.8
 const COMBO_MULT_PER_TIER: float = 0.10
 
+## Harvest range picker — world-radius circle on the fairway (yards).
+const RANGE_PICKER_BASE_RADIUS_YARDS: float = 0.19
+const RANGE_PICKER_RADIUS_PER_LEVEL: float = 0.04
+
 # v2 Phase E — contact swing (release at frame-8 contact, not hold-to-peak)
 const CONTACT_WINDUP_SEC: float = 0.5
 const CONTACT_DECAY_SEC: float = 0.6
@@ -167,10 +171,14 @@ static func default_stats() -> PlayerStats:
 	stats.pickup_flat_bonus = 0.0
 	stats.combo_mult_per_tier = 0.0
 	stats.combo_window_bonus_sec = 0.0
-	stats.magnetic_glove = 0.0
+	stats.range_picker_radius_bonus = 0.0
 	stats.golden_ball_chance = 0.0
 	stats.golden_ball_payout_multiplier = GOLDEN_BALL_PAYOUT_MULTIPLIER
 	return stats
+
+
+static func range_picker_radius_yards(stats: PlayerStats) -> float:
+	return RANGE_PICKER_BASE_RADIUS_YARDS + stats.range_picker_radius_bonus
 
 
 static func default_ratina_stats() -> PlayerStats:

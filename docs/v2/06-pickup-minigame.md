@@ -18,12 +18,13 @@ Litter sprites cluster **up-screen** along fairway stripes (see screenshot refer
 
 ## Interaction (v2.0 — ship this first)
 
-1. Each litter sprite is **clickable** (Area2D or manual hit test with generous radius)
-2. If multiple under cursor: collect **topmost** (highest z) or nearest to click
-3. On collect:
+1. **Range picker cursor** (shag-bag) replaces the hand pointer during harvest
+2. A **dashed circle** on the ground under the cursor shows collection radius (~ball-sized at start)
+3. **One click = one ball** inside the circle; if multiple overlap, collect the ball **closest to circle center**
+4. On collect:
    - Ball tweens in arc toward **bucket UI** (bottom corner)
    - Plink SFX, bucket counter ++, combo timer refresh
-4. When `collected == capacity`:
+5. When `collected == capacity`:
    - Bucket full chime
    - Summary: balls collected, best combo, pickup $
    - Clear remaining litter nodes
@@ -72,7 +73,7 @@ Adjust so first upgrade affordable after **2–4 full cycles**.
 - Gopher steal timer
 - Gnome auto-collect
 - Rat walk to ball
-- Hold-to-sweep magnetic glove
+- Hold-to-sweep vacuum cleaner (future upgrade tier)
 - Separate pickup scene / modal
 
 Add in v2.1 per [07-implementation-phases.md](07-implementation-phases.md).
@@ -86,9 +87,9 @@ Add in v2.1 per [07-implementation-phases.md](07-implementation-phases.md).
 | `EventBus` | `ball_collected`, `bucket_completed`, `phase_changed` |
 | Save | Bucket count resets on load OK for v2.0; optional persist later |
 
-## Click hitbox in perspective
+## Range picker hit test
 
-Hit radius matches ~95% of the ball's projected screen size (4px floor for tiny far sprites). Clicks must land on or very near the ball. Multiple fly-to-bucket icons can run concurrently — no input lock between pickups.
+Collection uses a **world-space circle** on the fairway (not per-ball screen hitboxes). Baseline radius is ~ball size (`Balance.RANGE_PICKER_BASE_RADIUS_YARDS`). **Range Picker** upgrade adds `range_picker_radius_bonus` per level. Multiple fly-to-bucket icons can run concurrently — no input lock between pickups.
 
 ## Related docs
 

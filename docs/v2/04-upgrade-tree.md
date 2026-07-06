@@ -24,11 +24,10 @@ flowchart TB
   metronome --> quickReset[Quick Reset]
   pickup --> tipJar[Tip Jar]
   pickup --> comboBonus[Combo Bonus]
-  pickup --> quickHands[Quick Hands]
-  quickHands --> magneticGlove[Magnetic Glove]
+  pickup --> rangePicker[Range Picker]
 ```
 
-## Nodes (13 total)
+## Nodes (12 total)
 
 | Node | Branch | Effect | Player fantasy |
 |------|--------|--------|------------------|
@@ -43,8 +42,7 @@ flowchart TB
 | `pickup` | Pickup | unlock + × `pickup_multiplier` | Harvest bonuses |
 | `tip_jar` | Pickup | +`pickup_flat_bonus` | Flat pickup $ |
 | `combo_bonus` | Pickup | +`combo_mult_per_tier` | Fast harvest mult |
-| `quick_hands` | Pickup | +combo window | Combo QoL |
-| `magnetic_glove` | Pickup | stub | Future |
+| `range_picker` | Pickup | +`range_picker_radius_bonus` | Larger harvest circle |
 
 Tooltips on flight nodes lead with **Perfect carry yards** (e.g. `Carry: 72 yd → 76 yd`).
 
