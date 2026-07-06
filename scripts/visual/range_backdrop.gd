@@ -5,9 +5,15 @@ extends RefCounted
 
 const TEXTURE_PATH := "res://assets/sprites/background/range_backdrop.png"
 const BACKDROP_SHADER := preload("res://shaders/range_backdrop.gdshader")
-const DEFAULT_DISTANCE_YARDS := 290.0
+## Far behind the ground mesh (300 yd deep) so live geometry can never reach or
+## clip through the backdrop plane, but still inside the 500 yd sky dome.
+## The quad is frustum-sized, so screen-space appearance is independent of this.
+const DEFAULT_DISTANCE_YARDS := 450.0
+## Distance the editor alignment (Backdrop node offset, horizon nudge) was tuned at.
+const ALIGNMENT_TUNED_DISTANCE_YARDS := 290.0
 ## Nudge the quad along camera-up so the painted treeline meets the fairway horizon.
-const HORIZON_OFFSET_YARDS := -1.0
+## Scaled with distance so the on-screen shift stays identical.
+const HORIZON_OFFSET_YARDS := -1.0 * (DEFAULT_DISTANCE_YARDS / ALIGNMENT_TUNED_DISTANCE_YARDS)
 ## Fixed reference aspect for the backdrop quad. The quad is built at 16:9 so the
 ## editor preview matches the 16:9 game window exactly — never reshaped by the
 ## live editor viewport, so what you align in the editor is what you get in the game.

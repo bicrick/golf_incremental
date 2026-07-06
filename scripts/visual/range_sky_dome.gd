@@ -4,7 +4,11 @@ extends Node3D
 ## Camera-following sky dome — gradient sky, shader-painted sun/moon, star field.
 ## @tool: builds dome mesh in the editor so sky is visible without Play mode.
 
-const DOME_RADIUS := 500.0
+## Large enough that the sphere's lower surface crosses the ground plane far
+## beyond the 300 yd range (a 500 yd dome centered on the elevated ortho camera
+## used to slice through the ground at ~Z -240, painting sky over the fairway's
+## final yards). Still well inside the default 4000 camera far plane.
+const DOME_RADIUS := 1500.0
 ## ~10° apparent diameter (5° half-angle).
 const SUN_ANGULAR_SIZE := deg_to_rad(5.0)
 const MOON_ANGULAR_SIZE := deg_to_rad(4.5)

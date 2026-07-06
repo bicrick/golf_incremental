@@ -42,7 +42,6 @@ shader_parameter/tile_uv_bounds = Vector4(0.00125, 0.002232143, 0.03875, 0.06919
 shader_parameter/tile_size_yards = 2.0
 shader_parameter/half_width_yards = 19.0
 shader_parameter/ground_mode = 0
-shader_parameter/ground_far_clip_z = -268.0
 
 [node name="RangeView" type="Node3D" unique_id=1348612978]
 script = ExtResource("1_script")
@@ -79,7 +78,7 @@ mesh = SubResource("ArrayMesh_shseb")
 surface_material_override/0 = SubResource("ShaderMaterial_pel0d")
 
 [node name="Backdrop" type="Node3D" parent="." unique_id=1982736451]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18.465084, -5.202821, 12.664688)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.652716, -8.073343, 19.652099)
 script = ExtResource("8_backdrop_node")
 
 [node name="Foreground" type="Node3D" parent="." unique_id=475863636]

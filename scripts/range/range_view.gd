@@ -15,8 +15,6 @@ const PICKUP_FLY_DURATION_SEC := 0.35
 const PICKUP_FLY_ARC_PX := 36.0
 const PLATE_CAPTURE_CYCLE_TIME := 40.0
 const PLATE_CAPTURE_OUTPUT := "res://captures/range_bg.png"
-## Live striped ground is clipped here; painted backdrop covers the horizon beyond.
-const GROUND_FAR_CLIP_Z := -268.0
 
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
 const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
@@ -287,9 +285,6 @@ func _ensure_ground_meshes() -> void:
 
 func _apply_ground_palette(light_color: Color, dark_color: Color) -> void:
 	CellGround.apply_palette_uniforms(ground, light_color, dark_color)
-	var mat := ground.get_surface_override_material(0) as ShaderMaterial
-	if mat:
-		mat.set_shader_parameter(&"ground_far_clip_z", GROUND_FAR_CLIP_Z)
 
 
 func _build_backdrop() -> void:
