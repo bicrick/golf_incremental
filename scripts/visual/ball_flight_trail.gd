@@ -8,6 +8,7 @@ var _camera: Camera3D
 var _reference_ortho_size: float = 0.0
 var _line: Line2D
 var _tier_color: Color
+var _width_mult: float = 1.0
 var _world_points: PackedVector3Array = PackedVector3Array()
 var _tracking := true
 
@@ -16,12 +17,18 @@ static func begin(
 	parent: Node2D,
 	camera: Camera3D,
 	timing_tier: int = Balance.TimingTier.GOOD,
-	reference_ortho_size: float = 0.0
+	reference_ortho_size: float = 0.0,
+	color_override: Color = Color.TRANSPARENT
 ) -> Node2D:
 	var trail := BallFlightTrail.new()
 	trail._camera = camera
 	trail._reference_ortho_size = reference_ortho_size if reference_ortho_size > 0.0 else camera.size
-	trail._tier_color = Balance.TIER_COLORS[timing_tier]
+	if color_override.a > 0.0:
+		trail._tier_color = color_override
+		trail._width_mult = Balance.GOLDEN_TRAIL_WIDTH_MULT
+	else:
+		trail._tier_color = Balance.TIER_COLORS[timing_tier]
+		trail._width_mult = 1.0
 	parent.add_child(trail)
 	trail.z_index = 1
 	trail.z_as_relative = false
@@ -120,7 +127,7 @@ func _refresh_line() -> void:
 	if _line == null or _camera == null:
 		return
 	var zoom := ScreenFxScale.compensation(_camera, _reference_ortho_size)
-	_line.width = Balance.FLIGHT_TRAIL_WIDTH * zoom
+	_line.width = Balance.FLIGHT_TRAIL_WIDTH * zoom * _width_mult
 	var locals := PackedVector2Array()
 	locals.resize(_world_points.size())
 	for i in _world_points.size():

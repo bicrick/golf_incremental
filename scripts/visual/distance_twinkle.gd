@@ -11,18 +11,21 @@ const DURATION_SEC := 0.6
 var _camera: Camera3D
 var _world_pos: Vector3
 var _reference_ortho_size: float = 0.0
+var _golden: bool = false
 
 
 static func spawn(
 	parent: Node2D,
 	camera: Camera3D,
 	world_pos: Vector3,
-	reference_ortho_size: float = 0.0
+	reference_ortho_size: float = 0.0,
+	golden: bool = false
 ) -> void:
 	var fx := DistanceTwinkle.new()
 	fx._camera = camera
 	fx._world_pos = world_pos
 	fx._reference_ortho_size = reference_ortho_size if reference_ortho_size > 0.0 else camera.size
+	fx._golden = golden
 	parent.add_child(fx)
 	fx.z_index = 4
 	fx.z_as_relative = false
@@ -59,7 +62,7 @@ func _play() -> void:
 	rng.randomize()
 
 	var flash := Polygon2D.new()
-	flash.color = Color(1.0, 0.98, 0.82, 0.85)
+	flash.color = Color(1.0, 0.82, 0.22, 0.9) if _golden else Color(1.0, 0.98, 0.82, 0.85)
 	flash.polygon = PackedVector2Array([
 		Vector2(-3, 0), Vector2(0, -3), Vector2(3, 0), Vector2(0, 3),
 	])
@@ -70,6 +73,15 @@ func _play() -> void:
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	flash_tween.parallel().tween_property(flash, "modulate:a", 0.0, 0.28)
 
+	if not _golden:
+		_spawn_stars(rng)
+
+	var cleanup := create_tween()
+	cleanup.tween_interval(DURATION_SEC)
+	cleanup.tween_callback(queue_free)
+
+
+func _spawn_stars(rng: RandomNumberGenerator) -> void:
 	for i in SPARK_COUNT:
 		var star := Sprite2D.new()
 		star.texture = STAR_TEX
@@ -90,7 +102,3 @@ func _play() -> void:
 		pop.parallel().tween_property(star, "modulate", Color(1.0, 0.98, 0.72, 1.0), 0.08)
 		pop.chain().tween_property(star, "modulate:a", 0.0, 0.32)
 		pop.parallel().tween_property(star, "scale", Vector2(0.15, 0.15), 0.32)
-
-	var cleanup := create_tween()
-	cleanup.tween_interval(DURATION_SEC)
-	cleanup.tween_callback(queue_free)

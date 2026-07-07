@@ -15,7 +15,8 @@ static func spawn(
 	amount: float,
 	combo_tier: int = 0,
 	z_index: int = 4,
-	fx_scale: float = 1.0
+	fx_scale: float = 1.0,
+	color_override: Color = Color.TRANSPARENT
 ) -> void:
 	var fx: Node2D = load("res://scripts/visual/float_cash_text.gd").new()
 	parent.add_child(fx)
@@ -23,7 +24,7 @@ static func spawn(
 	fx.scale = Vector2.ONE * fx_scale
 	fx.z_as_relative = false
 	fx.z_index = z_index
-	fx._play(amount, combo_tier)
+	fx._play(amount, combo_tier, color_override)
 
 
 static func format_amount(amount: float) -> String:
@@ -38,12 +39,12 @@ static func format_amount(amount: float) -> String:
 	return "%.2f" % amount
 
 
-func _play(amount: float, _combo_tier: int) -> void:
+func _play(amount: float, _combo_tier: int, color_override: Color = Color.TRANSPARENT) -> void:
 	var label := Label.new()
 	label.text = "+$%s" % format_amount(amount)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	PixelFont.apply_label(label, 8)
-	label.modulate = COLOR_CASH
+	label.modulate = color_override if color_override.a > 0.0 else COLOR_CASH
 	label.position = LABEL_OFFSET
 	add_child(label)
 

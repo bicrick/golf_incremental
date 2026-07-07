@@ -10,7 +10,6 @@ const RATINA_UNLOCKED_CHARGE_METER_POSITION := Vector2(225.0, 185.143)
 const SWING_RESULT_TEXT_OFFSET := Vector2(0.0, -38.0)
 const BALL_PIXEL_SIZE := 0.021
 const VANISH_DISTANCE_YARDS := 220.0
-const GOLDEN_BALL_TINT := Color(1.0, 0.88, 0.28, 1.0)
 const PICKUP_FLY_DURATION_SEC := 0.35
 const PICKUP_FLY_ARC_PX := 36.0
 const PLATE_CAPTURE_CYCLE_TIME := 40.0
@@ -22,6 +21,7 @@ const RatinaControllerScript := preload("res://scripts/range/ratina_controller.g
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
+const GoldenBallAuraScript := preload("res://scripts/visual/golden_ball_aura.gd")
 const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.tscn")
 const EmptyBayCellScene := preload("res://scenes/range/cells/empty_bay_cell.tscn")
 const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
@@ -58,6 +58,8 @@ var _base_golfer_scale: Vector3 = Vector3.ONE
 var _golfer_joy_active: bool = false
 var _ball_in_flight: bool = false
 var _ball_at_tee: bool = true
+var _tee_ball_is_golden: bool = false
+var _tee_ball_prepared: bool = false
 var _ball_lay_texture: Texture2D
 var _pickup: Node
 var _picker_indicator: Node3D
@@ -454,14 +456,19 @@ func _apply_divider_brightness(day_factor: float) -> void:
 func _apply_sprite_atmosphere_tint() -> void:
 	if player_bay:
 		player_bay.apply_sprite_tint(_sprite_atmosphere_tint)
+	if ball and _ball_at_tee and is_instance_valid(ball):
+		ball.modulate = _ball_modulate(_tee_ball_is_golden)
 	for flight in _active_flights:
 		var sprite: Node = flight.get("sprite")
 		if sprite is SpriteBase3D and is_instance_valid(sprite):
-			(sprite as SpriteBase3D).modulate = _sprite_atmosphere_tint
+			(sprite as SpriteBase3D).modulate = _ball_modulate(flight.get("is_golden", false))
 	if littered_balls:
 		for child in littered_balls.get_children():
 			if child is SpriteBase3D:
-				(child as SpriteBase3D).modulate = _sprite_atmosphere_tint
+				if child.get_meta("ball_golden", false):
+					child.modulate = Balance.GOLDEN_BALL_TINT
+				else:
+					child.modulate = _sprite_atmosphere_tint
 	if _ratina and _ratina.has_method("apply_atmosphere_tint"):
 		_ratina.apply_atmosphere_tint(_sprite_atmosphere_tint)
 
@@ -743,16 +750,30 @@ func _fairway_screen_dir(from_world: Vector3) -> Vector2:
 	return dir.normalized()
 
 
-func show_pickup_cash_float(world_pos: Vector3, payout: float, combo_tier: int) -> void:
+func show_pickup_cash_float(
+	world_pos: Vector3,
+	payout: float,
+	combo_tier: int,
+	is_golden: bool = false
+) -> void:
 	var cam := get_flight_camera()
 	var fx_scale := ScreenFxScale.compensation(cam, get_fx_reference_ortho_size())
+	var text_color := Balance.GOLDEN_BALL_TINT if is_golden else Color.TRANSPARENT
+	if is_golden and fx_layer and cam:
+		GoldenBallAuraScript.spawn_pickup(
+			fx_layer,
+			cam,
+			world_pos,
+			get_fx_reference_ortho_size()
+		)
 	FloatCashTextScript.spawn(
 		fx_layer,
 		_project_to_screen(world_pos),
 		payout,
 		combo_tier,
 		4,
-		fx_scale
+		fx_scale,
+		text_color
 	)
 
 
@@ -761,10 +782,11 @@ func _handle_vanished_ball(landing: Vector3, quality: int, yardage: float, is_go
 		fx_layer,
 		get_flight_camera(),
 		landing,
-		get_fx_reference_ortho_size()
+		get_fx_reference_ortho_size(),
+		is_golden
 	)
 	var payout := GameState.credit_vanished_ball(landing, quality, yardage, 1, is_golden)
-	show_pickup_cash_float(landing, payout, 1)
+	show_pickup_cash_float(landing, payout, 1, is_golden)
 	if payout > 0.0:
 		EventBus.pickup_payout.emit(payout, 1)
 	SfxManager.play_pickup_plink(1)
@@ -880,6 +902,7 @@ func _sync_tee_ball_from_bucket() -> void:
 	if not GameState.has_bucket_balls():
 		ball.visible = false
 		_ball_at_tee = false
+		_tee_ball_prepared = false
 		_clear_frozen_charge_ring()
 		_set_idle_ring()
 		_sync_golfer_idle_from_bucket()
@@ -888,6 +911,10 @@ func _sync_tee_ball_from_bucket() -> void:
 		ball.visible = true
 		ball.position = _ball_home
 		ball.scale = _base_ball_scale
+		if not _tee_ball_prepared:
+			_prepare_tee_ball()
+		else:
+			ball.modulate = _ball_modulate(_tee_ball_is_golden)
 		if ball.animation != &"roll":
 			ball.play(&"idle")
 
@@ -914,6 +941,7 @@ func _respawn_ball_at_tee() -> void:
 	ball.scale = _base_ball_scale
 	ball.play(&"idle")
 	_ball_at_tee = true
+	_prepare_tee_ball()
 	_set_idle_ring()
 	_release_swing_finish()
 	_sync_golfer_idle_from_bucket()
@@ -931,7 +959,7 @@ func _leave_litter_ball(
 	litter.position = land_position
 	litter.scale = land_scale
 	_configure_billboard(litter, BALL_PIXEL_SIZE)
-	litter.modulate = GOLDEN_BALL_TINT if is_golden else _sprite_atmosphere_tint
+	litter.modulate = Balance.GOLDEN_BALL_TINT if is_golden else _sprite_atmosphere_tint
 	litter.set_meta("collectible", true)
 	litter.set_meta("ball_quality", quality)
 	litter.set_meta("ball_yardage", yardage)
@@ -952,6 +980,19 @@ func _roll_is_golden() -> bool:
 	if chance <= 0.0:
 		return false
 	return randf() < chance
+
+
+func _prepare_tee_ball() -> void:
+	_tee_ball_is_golden = _roll_is_golden()
+	_tee_ball_prepared = true
+	if ball:
+		ball.modulate = _ball_modulate(_tee_ball_is_golden)
+
+
+func _ball_modulate(is_golden: bool) -> Color:
+	if is_golden:
+		return Balance.GOLDEN_BALL_TINT
+	return _sprite_atmosphere_tint
 
 
 func _sync_ball_in_flight_flag() -> void:
@@ -997,12 +1038,15 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		_swing.last_contact_flavor,
 		tee_world
 	)
+	var is_golden := _tee_ball_is_golden
+	_tee_ball_prepared = false
 
 	_ball_at_tee = false
 	ball.visible = false
 
 	var flight_sprite := _spawn_flight_sprite()
 	flight_sprite.global_position = tee_world
+	flight_sprite.modulate = _ball_modulate(is_golden)
 	flight_sprite.play(&"roll")
 	flight_sprite.sprite_frames.set_animation_speed(
 		&"roll",
@@ -1012,6 +1056,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 	var flight := {
 		"sprite": flight_sprite,
 		"trail": null,
+		"is_golden": is_golden,
 	}
 	var flight_cam := get_flight_camera()
 	if fx_layer and flight_cam:
@@ -1037,7 +1082,6 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		if is_instance_valid(flight_sprite):
 			flight_sprite.queue_free()
 		_finish_flight(flight)
-		var is_golden := _roll_is_golden()
 		if path.visual_yards <= VANISH_DISTANCE_YARDS:
 			_leave_litter_ball(landing, _base_ball_scale, quality, yards, is_golden)
 		else:

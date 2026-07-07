@@ -149,7 +149,7 @@ func _collect_litter(litter: Sprite3D) -> void:
 	)
 	SfxManager.play_pickup_plink(combo_tier)
 	if _range_view.has_method("show_pickup_cash_float"):
-		_range_view.show_pickup_cash_float(world_pos, payout, combo_tier)
+		_range_view.show_pickup_cash_float(world_pos, payout, combo_tier, is_golden)
 	if payout > 0.0:
 		EventBus.pickup_payout.emit(payout, combo_tier)
 	_fly_to_bucket(start_screen)

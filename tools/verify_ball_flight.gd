@@ -319,6 +319,17 @@ func _check_flight_trail() -> bool:
 		ok = false
 	bad_trail.queue_free()
 
+	var golden_trail = BallFlightTrailScript.begin(
+		fx_layer, camera, Balance.TimingTier.GOOD, 0.0, Balance.GOLDEN_TRAIL_COLOR
+	)
+	if not golden_trail.trail_color().is_equal_approx(Balance.GOLDEN_TRAIL_COLOR):
+		print(
+			"FAIL: golden trail color %s should match %s"
+			% [golden_trail.trail_color(), Balance.GOLDEN_TRAIL_COLOR]
+		)
+		ok = false
+	golden_trail.queue_free()
+
 	var first_screen_before: Vector2 = trail.screen_point_at(0)
 	camera.position += Vector3(5.0, 0.0, 0.0)
 	await process_frame

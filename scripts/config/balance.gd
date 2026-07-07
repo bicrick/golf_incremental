@@ -134,6 +134,10 @@ const UPGRADE_COST_LEVEL_STRETCH: float = 0.165
 const GOLDEN_BALL_BASE_CHANCE: float = 0.05
 const GOLDEN_BALL_CHANCE_PER_LEVEL: float = 0.02
 const GOLDEN_BALL_PAYOUT_MULTIPLIER: float = 2.0
+const GOLDEN_BALL_TINT := Color(1.0, 0.78, 0.12, 1.0)
+const GOLDEN_TRAIL_COLOR := Color(1.0, 0.82, 0.18, 1.0)
+const GOLDEN_SPARKLE_COLOR := Color(1.0, 0.92, 0.45, 1.0)
+const GOLDEN_TRAIL_WIDTH_MULT: float = 1.35
 ## Extra balls per bucket per More Balls shop level.
 const BALL_COUNT_BONUS_PER_LEVEL: float = 1.0
 
