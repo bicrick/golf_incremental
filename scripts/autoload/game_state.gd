@@ -385,6 +385,28 @@ func consume_bucket_ball() -> bool:
 	return true
 
 
+## Unlike the player, Ratina keeps swinging while the player is in collect
+## mode — she draws from the stashed (unhit) balls set aside on harvest entry
+## instead of being gated by the phase.
+func ratina_has_ball_to_hit() -> bool:
+	if current_phase == "harvest":
+		return harvest_stash > 0
+	return bucket_remaining > 0
+
+
+func consume_ratina_bucket_ball() -> bool:
+	if current_phase == "harvest":
+		if harvest_stash <= 0:
+			return false
+		harvest_stash -= 1
+		return true
+	if bucket_remaining <= 0:
+		return false
+	bucket_remaining -= 1
+	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
+	return true
+
+
 ## Voluntarily enters collect mode from strike (any time, any ball count).
 ## Balls still unhit in the bucket are stashed and merged back in on exit.
 func try_enter_harvest() -> bool:

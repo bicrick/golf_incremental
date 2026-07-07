@@ -180,14 +180,13 @@ func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
 	_refresh_cooldown_timer()
 
 
-func _on_phase_changed(phase: String) -> void:
-	if phase == "harvest":
-		_swing_timer.stop()
-		_phase_timer.stop()
-		_pending_swing = false
-	elif _active and not _debug_mode and not _swinging and not _ball_in_flight:
+func _on_phase_changed(_new_phase: String) -> void:
+	## She keeps hitting through the player's collect mode — only her own
+	## bucket/stash availability (via _can_swing) gates her, not the phase.
+	if _active and not _debug_mode and not _swinging and not _ball_in_flight:
 		_refresh_cooldown_timer()
-		_start_waiting_phase()
+		if _swing_timer.is_stopped() and not _pending_swing:
+			_start_waiting_phase()
 
 
 func _on_bucket_changed(_count: int, _capacity: int) -> void:
@@ -243,12 +242,7 @@ func _sync_visibility() -> void:
 
 
 func _can_swing() -> bool:
-	return (
-		_active
-		and not _debug_mode
-		and not GameState.is_harvest_phase()
-		and GameState.has_bucket_balls()
-	)
+	return _active and not _debug_mode and GameState.ratina_has_ball_to_hit()
 
 
 func _cooldown_sec() -> float:
@@ -327,7 +321,7 @@ func _on_golfer_frame_changed() -> void:
 
 
 func _launch_ball() -> void:
-	if not GameState.consume_bucket_ball():
+	if not GameState.consume_ratina_bucket_ball():
 		_abort_swing_no_ball()
 		return
 	_start_cooldown_timer()

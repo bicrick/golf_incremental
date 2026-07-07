@@ -174,6 +174,8 @@ func _run() -> void:
 	else:
 		print("OK: ratina swing consumes bucket and defers payout to collection")
 
+	ok = _test_ratina_swings_during_harvest(gs, ratina_controller) and ok
+
 	var upgrade_panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
 	if upgrade_panel.has_method("open"):
 		upgrade_panel.open()
@@ -191,6 +193,41 @@ func _run() -> void:
 	else:
 		print("FAIL: verify_ratina")
 		quit(1)
+
+
+## Player collect mode should not stop Ratina — she keeps hitting from the
+## stashed (unhit) balls while the player collects litter.
+func _test_ratina_swings_during_harvest(gs: Node, ratina_controller: Node) -> bool:
+	gs.current_phase = "strike"
+	gs.bucket_remaining = 3
+	gs.harvest_stash = 0
+	if not gs.try_enter_harvest():
+		print("FAIL: try_enter_harvest should succeed from strike")
+		return false
+	if gs.harvest_stash != 3:
+		print("FAIL: harvest_stash expected 3, got %d" % gs.harvest_stash)
+		gs.exit_harvest_early()
+		return false
+	if not ratina_controller.call("_can_swing"):
+		print("FAIL: Ratina should still be able to swing during harvest with stashed balls")
+		gs.exit_harvest_early()
+		return false
+	if not gs.consume_ratina_bucket_ball():
+		print("FAIL: consume_ratina_bucket_ball should draw from harvest_stash")
+		gs.exit_harvest_early()
+		return false
+	if gs.harvest_stash != 2:
+		print("FAIL: consume_ratina_bucket_ball should decrement harvest_stash, got %d" % gs.harvest_stash)
+		gs.exit_harvest_early()
+		return false
+	gs.harvest_stash = 0
+	if ratina_controller.call("_can_swing"):
+		print("FAIL: Ratina should be blocked once harvest_stash is exhausted")
+		gs.exit_harvest_early()
+		return false
+	gs.exit_harvest_early()
+	print("OK: Ratina keeps swinging from the stash during the player's collect mode")
+	return true
 
 
 func _test_swing_sprite_frames() -> bool:
