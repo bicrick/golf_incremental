@@ -67,6 +67,10 @@ extends Resource
 @export var rattling_walk_speed: float = 3.2
 @export var rattling_pickup_speed_multiplier: float = 1.0
 @export var rattling_golden_bonus_chance: float = 0.0
+## Final multiplier on top of the inherited ball value (Rattlings deliver
+## the exact payout the ball's original owner would have earned — this is
+## purely the Rattling tree's own "Payout Bonus" upgrade layered on top).
+@export var rattling_payout_multiplier: float = 1.0
 
 
 static func duplicate_stats(from: PlayerStats) -> PlayerStats:
@@ -113,4 +117,5 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.rattling_walk_speed = from.rattling_walk_speed
 	copy.rattling_pickup_speed_multiplier = from.rattling_pickup_speed_multiplier
 	copy.rattling_golden_bonus_chance = from.rattling_golden_bonus_chance
+	copy.rattling_payout_multiplier = from.rattling_payout_multiplier
 	return copy

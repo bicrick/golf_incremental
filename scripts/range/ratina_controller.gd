@@ -231,7 +231,15 @@ func _sync_visibility() -> void:
 	if _golfer:
 		_golfer.visible = _active
 	if _ball:
-		_ball.visible = _active and not _ball_in_flight
+		## Frequent EventBus.stats_changed emissions (e.g. Rattling collections)
+		## route through here — never resurrect the ball mid-WAITING, or it
+		## shows the last flight's looping "roll" frames frozen in place.
+		var should_show_ball := _active and not _ball_in_flight and _phase != Phase.WAITING
+		if should_show_ball and not _ball.visible:
+			_ball.position = _ball_home
+			_ball.scale = _base_ball_scale
+			_ball.play(&"idle")
+		_ball.visible = should_show_ball
 
 
 func _can_swing() -> bool:
