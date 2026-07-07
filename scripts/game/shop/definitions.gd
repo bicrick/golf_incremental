@@ -13,7 +13,8 @@ static func _init_defs() -> void:
 		_def(
 			"ball_count", "More Balls",
 			"Carry more balls per bucket before harvest.",
-			10, 15.0, 1.35,
+			Balance.BUCKET_CAPACITY_MAX - Balance.BUCKET_CAPACITY_DEFAULT,
+			4.0, 1.18,
 			[{"type": "add", "stat": "bucket_capacity_bonus", "value_per_level": Balance.BALL_COUNT_BONUS_PER_LEVEL}]
 		),
 		_def(

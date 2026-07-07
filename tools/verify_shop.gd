@@ -84,6 +84,8 @@ func _run() -> void:
 	else:
 		print("OK: ball_count increases bucket capacity")
 
+	ok = _check_ball_count_max_capacity(gs) and ok
+
 	if not gs.purchase_shop_item("golden_ball"):
 		print("FAIL: could not purchase golden_ball Lv.1")
 		ok = false
@@ -175,3 +177,29 @@ func _run() -> void:
 
 	print("shop_ok=", ok)
 	quit(0 if ok else 1)
+
+
+func _check_ball_count_max_capacity(gs: Node) -> bool:
+	gs.reset_to_fresh()
+	gs.currency = 1_000_000.0
+	gs.shop_unlocked = true
+	var def: Dictionary = ShopDefinitions.get_def("ball_count")
+	var max_level: int = int(def.get("max_level", 0))
+	if max_level != Balance.BUCKET_CAPACITY_MAX - Balance.BUCKET_CAPACITY_DEFAULT:
+		print(
+			"FAIL: ball_count max_level expected %d, got %d"
+			% [Balance.BUCKET_CAPACITY_MAX - Balance.BUCKET_CAPACITY_DEFAULT, max_level]
+		)
+		return false
+	for _i in max_level:
+		if not gs.purchase_shop_item("ball_count"):
+			print("FAIL: could not purchase ball_count to max level")
+			return false
+	if gs.get_bucket_capacity() != Balance.BUCKET_CAPACITY_MAX:
+		print(
+			"FAIL: max ball_count should reach capacity %d, got %d"
+			% [Balance.BUCKET_CAPACITY_MAX, gs.get_bucket_capacity()]
+		)
+		return false
+	print("OK: ball_count shop reaches max bucket capacity %d" % Balance.BUCKET_CAPACITY_MAX)
+	return true

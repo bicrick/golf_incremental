@@ -1,5 +1,5 @@
 extends Node3D
-## Autonomous second golfer — timer-driven swings, ball flight, income per hit.
+## Autonomous second golfer — timer-driven swings, shared bucket + litter pool.
 
 const BALL_PIXEL_SIZE := 0.021
 const GOLFER_PIXEL_SIZE := 0.024
@@ -7,13 +7,11 @@ const GOLFER_PIXEL_SIZE := 0.024
 const DinkySpriteFramesScript := preload("res://scripts/range/dinky_sprite_frames.gd")
 const BallFlight3DScript := preload("res://scripts/range/ball_flight_3d.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
-const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.gd")
 
 var _range_view: Node3D
 var _golfer: AnimatedSprite3D
 var _ball: AnimatedSprite3D
-var _ball_litter: Node3D
 var _fx_layer: Node2D
 var _camera: Camera3D
 
@@ -21,7 +19,6 @@ var _home: Vector3
 var _ball_home: Vector3
 var _base_ball_scale: Vector3 = Vector3.ONE
 var _base_golfer_scale: Vector3 = Vector3.ONE
-var _ball_lay_texture: Texture2D
 var _atmosphere_tint: Color = Color.WHITE
 
 enum Phase { ADDRESS, WAITING, SWING }
@@ -42,7 +39,6 @@ func setup(range_view: Node3D, bay_cell: Node) -> void:
 	_range_view = range_view
 	_fx_layer = range_view.get_node_or_null("FxLayer")
 	_camera = range_view.get_flight_camera() if range_view.has_method("get_flight_camera") else null
-	_ball_lay_texture = DinkySpriteFramesScript.ball_lay_texture()
 
 	_golfer = bay_cell.get_golfer() as AnimatedSprite3D
 	_ball = bay_cell.get_ball() as AnimatedSprite3D
@@ -50,10 +46,6 @@ func setup(range_view: Node3D, bay_cell: Node) -> void:
 	_ball_home = bay_cell.ball_strike_home()
 	_base_golfer_scale = bay_cell.get_base_golfer_scale()
 	_base_ball_scale = bay_cell.get_base_ball_scale()
-
-	_ball_litter = Node3D.new()
-	_ball_litter.name = "RatinaBallLitter"
-	range_view.get_node("Foreground").add_child(_ball_litter)
 
 	_golfer.visible = false
 	_golfer.animation_finished.connect(_on_golfer_animation_finished)
@@ -75,6 +67,8 @@ func setup(range_view: Node3D, bay_cell: Node) -> void:
 
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
+	EventBus.phase_changed.connect(_on_phase_changed)
+	EventBus.bucket_changed.connect(_on_bucket_changed)
 	_refresh_active_state()
 
 
@@ -178,20 +172,29 @@ func apply_atmosphere_tint(tint: Color) -> void:
 		_ball.modulate = tint
 
 
-func _configure_billboard(sprite: SpriteBase3D, pixel_size: float) -> void:
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.pixel_size = pixel_size
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-	sprite.shaded = false
-
-
 func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
 	_refresh_active_state()
 
 
 func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
 	_refresh_cooldown_timer()
+
+
+func _on_phase_changed(phase: String) -> void:
+	if phase == "harvest":
+		_swing_timer.stop()
+		_phase_timer.stop()
+		_pending_swing = false
+	elif _active and not _debug_mode and not _swinging and not _ball_in_flight:
+		_refresh_cooldown_timer()
+		_start_waiting_phase()
+
+
+func _on_bucket_changed(_count: int, _capacity: int) -> void:
+	if not _can_swing():
+		return
+	if not _swinging and not _ball_in_flight and _swing_timer.is_stopped():
+		_refresh_cooldown_timer()
 
 
 func _refresh_active_state() -> void:
@@ -213,8 +216,6 @@ func _refresh_active_state() -> void:
 		if _flight_trail:
 			_flight_trail.finish()
 			_flight_trail = null
-		for child in _ball_litter.get_children():
-			child.queue_free()
 		return
 	_refresh_cooldown_timer()
 	_start_waiting_phase()
@@ -233,6 +234,15 @@ func _sync_visibility() -> void:
 		_ball.visible = _active and not _ball_in_flight
 
 
+func _can_swing() -> bool:
+	return (
+		_active
+		and not _debug_mode
+		and not GameState.is_harvest_phase()
+		and GameState.has_bucket_balls()
+	)
+
+
 func _cooldown_sec() -> float:
 	return maxf(GameState.ratina_stats.swing_cooldown_ms / 1000.0, 0.35)
 
@@ -242,7 +252,7 @@ func _update_timer_interval() -> void:
 
 
 func _refresh_cooldown_timer() -> void:
-	if not _active or _debug_mode:
+	if not _active or _debug_mode or not _can_swing():
 		return
 	_update_timer_interval()
 	if _swinging or _ball_in_flight:
@@ -281,6 +291,9 @@ func _try_pending_swing() -> void:
 
 
 func _perform_swing() -> void:
+	if not _can_swing():
+		_pending_swing = false
+		return
 	_swinging = true
 	_contact_fired = false
 	_phase = Phase.SWING
@@ -306,13 +319,15 @@ func _on_golfer_frame_changed() -> void:
 
 
 func _launch_ball() -> void:
+	if not GameState.consume_bucket_ball():
+		_abort_swing_no_ball()
+		return
 	_start_cooldown_timer()
 	var tier := RatinaSwingResolver.roll_tier(GameState.ratina_stats.consistency)
 	var strike_quality: float = Balance.TIER_MULTS[tier]
 	var quality := Economy.quality_for_tier(tier)
 	var yards := Economy.yards_from_quality(strike_quality, GameState.ratina_stats)
-	var payout := GameState.credit_ratina_ball(yards, quality)
-	EventBus.ratina_swing_resolved.emit(yards, tier, payout)
+	EventBus.ratina_swing_resolved.emit(yards, tier, 0.0)
 	SfxManager.play_ratina_hit(tier)
 
 	var contact_screen := _project_to_screen(_ball.global_position)
@@ -332,10 +347,25 @@ func _launch_ball() -> void:
 		yards,
 		_strike_text_offset()
 	)
-	_fly_ball(yards, tier, quality, payout)
+	_fly_ball(yards, tier, quality)
 
 
-func _fly_ball(yards: float, timing_tier: int, quality: int, payout: float) -> void:
+func _abort_swing_no_ball() -> void:
+	_swinging = false
+	_contact_fired = false
+	_ball_in_flight = false
+	_pending_swing = false
+	if _flight_trail:
+		_flight_trail.finish()
+		_flight_trail = null
+	if _ball:
+		_ball.visible = false
+	if _golfer:
+		_golfer.play(&"waiting")
+	_phase = Phase.WAITING
+
+
+func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 	var tee_world := _ball.global_position
 	var path := BallFlight3DScript.build_path(
 		yards,
@@ -377,33 +407,28 @@ func _fly_ball(yards: float, timing_tier: int, quality: int, payout: float) -> v
 		if _flight_trail:
 			_flight_trail.finish()
 			_flight_trail = null
-		_spawn_litter_ball(landing, quality)
+		_resolve_landing(landing, quality, yards, path.visual_yards)
 		DistanceTwinkle.spawn(_fx_layer, _camera, landing, _fx_reference_ortho_size())
-		var fx_scale := ScreenFxScale.compensation(_camera, _fx_reference_ortho_size())
-		FloatCashTextScript.spawn(_fx_layer, _project_to_screen(landing), payout, 1, 4, fx_scale)
 		_try_pending_swing()
 	)
+
+
+func _resolve_landing(landing: Vector3, quality: int, yards: float, visual_yards: float) -> void:
+	if _range_view == null:
+		return
+	if visual_yards <= Balance.VANISH_DISTANCE_YARDS:
+		if _range_view.has_method("leave_litter_ball"):
+			_range_view.leave_litter_ball(
+				landing, _base_ball_scale, quality, yards, false, "ratina"
+			)
+	elif _range_view.has_method("show_vanished_ball_fx"):
+		_range_view.show_vanished_ball_fx(landing, quality, yards, false, "ratina")
 
 
 func _apply_flight_sample(progress: float, path: BallFlight3D.FlightPath) -> void:
 	_ball.global_position = BallFlight3DScript.sample(progress, path)
 	if _flight_trail:
 		_flight_trail.track(_ball.global_position)
-
-
-func _spawn_litter_ball(land_position: Vector3, _quality: int) -> void:
-	var litter := Sprite3D.new()
-	litter.texture = _ball_lay_texture
-	litter.position = land_position
-	litter.scale = _base_ball_scale
-	_configure_billboard(litter, BALL_PIXEL_SIZE)
-	litter.modulate = _atmosphere_tint
-	_ball_litter.add_child(litter)
-	var despawn := get_tree().create_timer(Balance.RATINA_BALL_DESPAWN_SEC)
-	despawn.timeout.connect(func():
-		if is_instance_valid(litter):
-			litter.queue_free()
-	)
 
 
 func _on_golfer_animation_finished() -> void:
@@ -431,7 +456,7 @@ func _complete_swing_anim() -> void:
 func _start_waiting_phase() -> void:
 	if not _active or _debug_mode or _swinging:
 		return
-	if _swing_timer.is_stopped():
+	if _can_swing() and _swing_timer.is_stopped():
 		_start_cooldown_timer()
 	_phase = Phase.WAITING
 	_golfer.play(&"waiting")
@@ -484,12 +509,3 @@ func _project_to_screen(world_pos: Vector3) -> Vector2:
 	if _camera == null:
 		return Vector2.ZERO
 	return _camera.unproject_position(world_pos)
-
-
-func _fairway_screen_dir(from_world: Vector3) -> Vector2:
-	var origin := _project_to_screen(from_world)
-	var down_line := _project_to_screen(from_world + Vector3(0.0, 0.0, -12.0))
-	var dir := down_line - origin
-	if dir.length_squared() < 1.0:
-		return Vector2(0.0, -1.0)
-	return dir.normalized()

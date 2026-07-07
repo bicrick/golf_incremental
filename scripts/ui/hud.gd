@@ -24,6 +24,7 @@ func _ready() -> void:
 	call_deferred("_layout_top_left")
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.rattling_ball_collected.connect(_on_rattling_ball_collected)
+	EventBus.ratina_ball_collected.connect(_on_ratina_ball_collected)
 	_update_currency(GameState.currency)
 
 
@@ -38,6 +39,14 @@ func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:
 
 
 func _on_rattling_ball_collected(amount: float) -> void:
+	_show_collection_income(amount)
+
+
+func _on_ratina_ball_collected(amount: float) -> void:
+	_show_collection_income(amount)
+
+
+func _show_collection_income(amount: float) -> void:
 	SfxManager.play_pickup_plink(1)
 	_rattling_income_label.text = "+$%s" % _format(amount)
 	if _rattling_income_tween and _rattling_income_tween.is_valid():

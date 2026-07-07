@@ -26,6 +26,7 @@ var _faded_out := false
 var _ball_quality: int = 1
 var _ball_yardage: float = 0.0
 var _ball_golden: bool = false
+var _ball_source: String = "player"
 var _carrying_ball := false
 
 
@@ -56,6 +57,7 @@ func start(litter: Sprite3D, walk_speed: float, atmosphere_tint: Color) -> void:
 	_ball_quality = litter.get_meta("ball_quality", 1)
 	_ball_yardage = litter.get_meta("ball_yardage", GameState.stats.base_yards)
 	_ball_golden = litter.get_meta("ball_golden", false)
+	_ball_source = litter.get_meta("ball_source", "player")
 
 	var target := litter.global_position
 	_z = target.z
@@ -145,7 +147,7 @@ func _begin_walk_back(carrying: bool) -> void:
 
 func _complete() -> void:
 	if _carrying_ball:
-		GameState.credit_rattling_ball(_ball_quality, _ball_yardage, _ball_golden)
+		GameState.credit_rattling_ball(_ball_quality, _ball_yardage, _ball_golden, _ball_source)
 	finished.emit(self)
 
 

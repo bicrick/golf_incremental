@@ -9,7 +9,7 @@ const CHARGE_METER_POSITION := Vector2(236.0, 185.143)
 const RATINA_UNLOCKED_CHARGE_METER_POSITION := Vector2(225.0, 185.143)
 const SWING_RESULT_TEXT_OFFSET := Vector2(0.0, -38.0)
 const BALL_PIXEL_SIZE := 0.021
-const VANISH_DISTANCE_YARDS := 220.0
+const VANISH_DISTANCE_YARDS := Balance.VANISH_DISTANCE_YARDS
 const PICKUP_FLY_DURATION_SEC := 0.35
 const PICKUP_FLY_ARC_PX := 36.0
 const PLATE_CAPTURE_CYCLE_TIME := 40.0
@@ -825,6 +825,16 @@ func show_pickup_cash_float(
 
 
 func _handle_vanished_ball(landing: Vector3, quality: int, yardage: float, is_golden: bool = false) -> void:
+	show_vanished_ball_fx(landing, quality, yardage, is_golden, "player")
+
+
+func show_vanished_ball_fx(
+	landing: Vector3,
+	quality: int,
+	yardage: float,
+	is_golden: bool = false,
+	source: String = "player"
+) -> void:
 	DistanceTwinkle.spawn(
 		fx_layer,
 		get_flight_camera(),
@@ -832,7 +842,11 @@ func _handle_vanished_ball(landing: Vector3, quality: int, yardage: float, is_go
 		get_fx_reference_ortho_size(),
 		is_golden
 	)
-	var payout := GameState.credit_vanished_ball(landing, quality, yardage, 1, is_golden)
+	var payout: float
+	if source == "ratina":
+		payout = GameState.credit_ratina_vanished_ball(landing, quality, yardage, 1, is_golden)
+	else:
+		payout = GameState.credit_vanished_ball(landing, quality, yardage, 1, is_golden)
 	show_pickup_cash_float(landing, payout, 1, is_golden)
 	if payout > 0.0:
 		EventBus.pickup_payout.emit(payout, 1)
@@ -1014,12 +1028,13 @@ func _respawn_ball_at_tee() -> void:
 	_sync_golfer_idle_from_bucket()
 
 
-func _leave_litter_ball(
+func leave_litter_ball(
 	land_position: Vector3,
 	land_scale: Vector3,
 	quality: int,
 	yardage: float,
-	is_golden: bool = false
+	is_golden: bool = false,
+	source: String = "player"
 ) -> void:
 	var litter := Sprite3D.new()
 	litter.texture = _ball_lay_texture
@@ -1031,7 +1046,18 @@ func _leave_litter_ball(
 	litter.set_meta("ball_quality", quality)
 	litter.set_meta("ball_yardage", yardage)
 	litter.set_meta("ball_golden", is_golden)
+	litter.set_meta("ball_source", source)
 	littered_balls.add_child(litter)
+
+
+func _leave_litter_ball(
+	land_position: Vector3,
+	land_scale: Vector3,
+	quality: int,
+	yardage: float,
+	is_golden: bool = false
+) -> void:
+	leave_litter_ball(land_position, land_scale, quality, yardage, is_golden, "player")
 
 
 func _configure_billboard(sprite: SpriteBase3D, pixel_size: float) -> void:

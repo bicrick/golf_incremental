@@ -128,7 +128,7 @@ func _run() -> void:
 	var swing_state := {
 		"fired": false,
 		"yards": 0.0,
-		"payout": 0.0,
+		"payout": -1.0,
 	}
 	var on_swing := func(yards: float, _tier: int, payout: float) -> void:
 		swing_state["fired"] = true
@@ -137,12 +137,26 @@ func _run() -> void:
 	var event_bus: Node = root.get_node("EventBus")
 	event_bus.ratina_swing_resolved.connect(on_swing)
 
-	var currency_before_hit: float = gs.currency
 	var tier: int = RatinaSwingResolver.roll_tier(gs.ratina_stats.consistency)
 	var quality: int = Economy.quality_for_tier(tier)
 	var yards: float = Economy.yards_from_quality(Balance.TIER_MULTS[tier], gs.ratina_stats)
-	var payout: float = gs.credit_ratina_ball(yards, quality)
-	event_bus.ratina_swing_resolved.emit(yards, tier, payout)
+
+	var currency_before_collect: float = gs.currency
+	var collect_payout: float = gs.credit_ratina_ball(yards, quality)
+	if collect_payout <= 0.0:
+		print("FAIL: credit_ratina_ball should return positive payout")
+		ok = false
+	elif gs.currency <= currency_before_collect:
+		print("FAIL: credit_ratina_ball should add currency on collection")
+		ok = false
+	else:
+		print("OK: credit_ratina_ball awards cash on collection")
+
+	var bucket_before: int = gs.bucket_remaining
+	if not gs.consume_bucket_ball():
+		print("FAIL: consume_bucket_ball should succeed with balls remaining")
+		ok = false
+	event_bus.ratina_swing_resolved.emit(yards, tier, 0.0)
 	await process_frame
 
 	if not swing_state["fired"]:
@@ -151,14 +165,14 @@ func _run() -> void:
 	elif float(swing_state["yards"]) <= 0.0:
 		print("FAIL: ratina swing yards should be positive")
 		ok = false
-	elif float(swing_state["payout"]) <= 0.0:
-		print("FAIL: ratina swing payout should be positive")
+	elif not is_equal_approx(float(swing_state["payout"]), 0.0):
+		print("FAIL: ratina_swing_resolved payout should be 0 at contact (deferred to collection)")
 		ok = false
-	elif gs.currency <= currency_before_hit:
-		print("FAIL: credit_ratina_ball should add currency")
+	elif gs.bucket_remaining != bucket_before - 1:
+		print("FAIL: ratina swing should consume one bucket ball")
 		ok = false
 	else:
-		print("OK: ratina hit credits currency via swing resolve")
+		print("OK: ratina swing consumes bucket and defers payout to collection")
 
 	var upgrade_panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
 	if upgrade_panel.has_method("open"):

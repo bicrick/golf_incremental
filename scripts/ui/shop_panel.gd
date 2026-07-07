@@ -116,7 +116,7 @@ func _refresh_rattling_card() -> void:
 
 func _refresh_ratina_card() -> void:
 	_ratina_name.text = "Ratina"
-	_ratina_desc.text = "Hire the range star. Unlocks her upgrade tab (passive income coming soon)."
+	_ratina_desc.text = "Hire the range star. Swings from your bucket — Rattlings collect her litter for cash."
 	if GameState.ratina_unlocked:
 		_ratina_level.text = "Hired"
 		_ratina_buy.text = "HIRED"

@@ -201,6 +201,34 @@ func _check_credit_accounting(gs: Node) -> bool:
 	gs.reset_to_fresh()
 	if ok:
 		print("OK: credit_rattling_ball awards cash and credits the bucket in both phases")
+
+	ok = _check_ratina_source_collect(gs) and ok
+	return ok
+
+
+func _check_ratina_source_collect(gs: Node) -> bool:
+	var ok := true
+	gs.reset_to_fresh()
+	gs.current_phase = "strike"
+	gs.bucket_remaining = 3
+	var before_ratina_earnings: float = gs.lifetime.get("ratina_lifetime_earnings", 0.0)
+	var before_rattling_earnings: float = gs.lifetime.get("rattling_lifetime_earnings", 0.0)
+	var before_currency: float = gs.currency
+	var payout: float = gs.credit_rattling_ball(4, 30.0, false, "ratina")
+	if payout <= 0.0:
+		print("FAIL: ratina-source rattling collect returned non-positive payout")
+		ok = false
+	if not is_equal_approx(gs.currency - before_currency, payout):
+		print("FAIL: ratina-source rattling collect did not add payout to currency")
+		ok = false
+	if gs.lifetime.get("ratina_lifetime_earnings", 0.0) <= before_ratina_earnings:
+		print("FAIL: ratina-source collect should increment ratina_lifetime_earnings")
+		ok = false
+	if gs.lifetime.get("rattling_lifetime_earnings", 0.0) != before_rattling_earnings:
+		print("FAIL: ratina-source collect should not increment rattling_lifetime_earnings")
+		ok = false
+	if ok:
+		print("OK: rattling collect of ratina litter pays via ratina_stats")
 	return ok
 
 
@@ -318,5 +346,46 @@ func _check_controller_pickup_cycle(main: Node, gs: Node) -> bool:
 		ok = false
 	if ok:
 		print("OK: Rattling claims litter, walks it back, and credits cash")
+
+	## Golden litter should pay out the golden multiplier end-to-end, not
+	## just when calling credit_rattling_ball() directly.
+	gs.rattlings_unlocked = true
+	gs.rattling_stats.rattling_count = 1.0
+	gs.rattling_stats.rattling_walk_speed = 500.0
+	gs.rattling_stats.rattling_pickup_speed_multiplier = 50.0
+	gs.rattling_stats.rattling_golden_bonus_chance = 0.0
+	var normal_payout := Economy.resolve_pickup_ball_payout(4, 30.0, 1, gs.rattling_stats)
+	var expected_golden_payout: float = normal_payout * gs.rattling_stats.golden_ball_payout_multiplier
+
+	var golden_litter := Sprite3D.new()
+	golden_litter.set_meta("collectible", true)
+	golden_litter.set_meta("ball_quality", 4)
+	golden_litter.set_meta("ball_yardage", 30.0)
+	golden_litter.set_meta("ball_golden", true)
+	littered_balls.add_child(golden_litter)
+	golden_litter.global_position = Vector3(0.0, 0.0, -10.0)
+	await process_frame
+
+	var before_golden_currency: float = gs.currency
+	start_msec = Time.get_ticks_msec()
+	var golden_collected := false
+	while Time.get_ticks_msec() - start_msec < 3000:
+		await process_frame
+		if gs.currency > before_golden_currency and not is_instance_valid(golden_litter):
+			golden_collected = true
+			break
+
+	if not golden_collected:
+		print("FAIL: Rattling did not fetch the golden litter ball within 3s")
+		ok = false
+	elif not is_equal_approx(gs.currency - before_golden_currency, expected_golden_payout):
+		print(
+			"FAIL: golden litter should pay %.4f, got %.4f"
+			% [expected_golden_payout, gs.currency - before_golden_currency]
+		)
+		ok = false
+	elif ok:
+		print("OK: Rattling respects the golden ball payout multiplier end-to-end")
+
 	gs.reset_to_fresh()
 	return ok

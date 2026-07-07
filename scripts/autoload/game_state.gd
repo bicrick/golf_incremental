@@ -176,11 +176,20 @@ func get_ratina_upgrade_cost(id: String) -> float:
 	)
 
 
-func credit_ratina_ball(yardage: float, quality: int) -> float:
-	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, 1, ratina_stats)
+func credit_ratina_ball(yardage: float, quality: int, combo_tier: int = 1) -> float:
+	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, combo_tier, ratina_stats)
 	add_currency(payout)
 	lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout
+	EventBus.ratina_ball_collected.emit(payout)
 	return payout
+
+
+func _stats_for_rattling_collect(source: String) -> PlayerStats:
+	return ratina_stats if source == "ratina" else rattling_stats
+
+
+func _stats_for_harvest_collect(source: String) -> PlayerStats:
+	return ratina_stats if source == "ratina" else stats
 
 
 func get_rattling_upgrade_level(id: String) -> int:
@@ -220,23 +229,30 @@ func get_rattling_upgrade_cost(id: String) -> float:
 
 ## Awards cash for a ball a Rattling carried back to the forest, and credits
 ## the ball toward the bucket refill (same accounting as vanished balls).
-func credit_rattling_ball(quality: int, yardage: float, is_golden: bool = false) -> float:
+func credit_rattling_ball(
+	quality: int,
+	yardage: float,
+	is_golden: bool = false,
+	source: String = "player"
+) -> float:
 	var golden := is_golden
-	if not golden and rattling_stats.rattling_golden_bonus_chance > 0.0:
+	var collect_stats := _stats_for_rattling_collect(source)
+	if source == "player" and not golden and rattling_stats.rattling_golden_bonus_chance > 0.0:
 		golden = randf() < rattling_stats.rattling_golden_bonus_chance
-	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, 1, rattling_stats)
+	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, 1, collect_stats)
 	if golden:
-		payout *= rattling_stats.golden_ball_payout_multiplier
+		payout *= collect_stats.golden_ball_payout_multiplier
 	add_currency(payout)
-	lifetime["rattling_lifetime_earnings"] = lifetime.get("rattling_lifetime_earnings", 0.0) + payout
+	if source == "ratina":
+		lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout
+		EventBus.ratina_ball_collected.emit(payout)
+	else:
+		lifetime["rattling_lifetime_earnings"] = lifetime.get("rattling_lifetime_earnings", 0.0) + payout
+		EventBus.rattling_ball_collected.emit(payout)
 	if current_phase == "harvest":
 		harvest_collected += 1
 	else:
-		## Unlike the vanish auto-collect, a Rattling physically carries the
-		## ball back — hand it straight back into the bucket so it's
-		## immediately available to hit again, capped at capacity.
 		bucket_remaining = mini(bucket_remaining + 1, bucket_capacity)
-	EventBus.rattling_ball_collected.emit(payout)
 	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
 	return payout
 
@@ -322,7 +338,10 @@ func reset_to_fresh() -> void:
 
 
 func get_bucket_capacity() -> int:
-	return Balance.BUCKET_CAPACITY_DEFAULT + int(stats.bucket_capacity_bonus)
+	return mini(
+		Balance.BUCKET_CAPACITY_DEFAULT + int(stats.bucket_capacity_bonus),
+		Balance.BUCKET_CAPACITY_MAX
+	)
 
 
 func has_bucket_balls() -> bool:
@@ -381,19 +400,24 @@ func collect_harvest_ball(
 	combo_tier: int,
 	quality: int = 1,
 	yardage: float = 0.0,
-	is_golden: bool = false
+	is_golden: bool = false,
+	source: String = "player"
 ) -> float:
 	if current_phase != "harvest":
 		return 0.0
 	if harvest_collected >= _harvest_target():
 		return 0.0
-	var effective_yardage := yardage if yardage > 0.0 else stats.base_yards
+	var collect_stats := _stats_for_harvest_collect(source)
+	var effective_yardage := yardage if yardage > 0.0 else collect_stats.base_yards
 	var payout := Economy.resolve_pickup_ball_payout(
-		quality, effective_yardage, combo_tier, stats
+		quality, effective_yardage, combo_tier, collect_stats
 	)
 	if is_golden:
-		payout *= stats.golden_ball_payout_multiplier
+		payout *= collect_stats.golden_ball_payout_multiplier
 	add_currency(payout)
+	if source == "ratina":
+		lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout
+		EventBus.ratina_ball_collected.emit(payout)
 	harvest_collected += 1
 	EventBus.ball_collected.emit(world_pos, combo_tier)
 	EventBus.bucket_changed.emit(harvest_collected, bucket_capacity)
@@ -418,6 +442,31 @@ func credit_vanished_ball(
 		harvest_collected += 1
 	else:
 		pending_vanish_collects += 1
+	EventBus.ball_collected.emit(world_pos, combo_tier)
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	return payout
+
+
+func credit_ratina_vanished_ball(
+	world_pos: Vector3,
+	quality: int,
+	yardage: float,
+	combo_tier: int = 1,
+	is_golden: bool = false
+) -> float:
+	var effective_yardage := yardage if yardage > 0.0 else ratina_stats.base_yards
+	var payout := Economy.resolve_pickup_ball_payout(
+		quality, effective_yardage, combo_tier, ratina_stats
+	)
+	if is_golden:
+		payout *= ratina_stats.golden_ball_payout_multiplier
+	add_currency(payout)
+	lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout
+	if current_phase == "harvest":
+		harvest_collected += 1
+	else:
+		pending_vanish_collects += 1
+	EventBus.ratina_ball_collected.emit(payout)
 	EventBus.ball_collected.emit(world_pos, combo_tier)
 	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
 	return payout

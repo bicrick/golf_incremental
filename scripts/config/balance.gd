@@ -7,6 +7,8 @@ const AUTOSAVE_INTERVAL_SEC: float = 30.0
 
 ## v2 Phase C — balls per strike burst before harvest.
 const BUCKET_CAPACITY_DEFAULT: int = 6
+## Pro Shop More Balls ceiling (default + max shop levels).
+const BUCKET_CAPACITY_MAX: int = 30
 
 ## v2 Phase D — pickup mini-game economy.
 const BUCKET_COMPLETE_BONUS: float = 5.0
@@ -148,6 +150,9 @@ const GOLDEN_SPARKLE_COLOR := Color(1.0, 0.92, 0.45, 1.0)
 const GOLDEN_TRAIL_WIDTH_MULT: float = 1.35
 ## Extra balls per bucket per More Balls shop level.
 const BALL_COUNT_BONUS_PER_LEVEL: float = 1.0
+
+## Short-shot litter cutoff — shots beyond this visual distance vanish instead of littering.
+const VANISH_DISTANCE_YARDS: float = 220.0
 
 ## Ratina — autonomous second golfer.
 const RATINA_BALL_DESPAWN_SEC: float = 6.0

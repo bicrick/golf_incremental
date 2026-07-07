@@ -31,6 +31,7 @@ func _run() -> void:
 	ok = _check_load_refills_empty_bucket(gs) and ok
 	ok = _check_upgrade_refills_bucket(gs) and ok
 	ok = _check_upgrade_refills_during_harvest(gs) and ok
+	ok = _check_max_shop_capacity(gs) and ok
 	ok = await _check_tee_ball_visibility(main, gs) and ok
 	ok = await _check_space_does_not_refill(main, gs) and ok
 	_cleanup_save()
@@ -219,6 +220,25 @@ func _check_upgrade_refills_during_harvest(gs: Node) -> bool:
 		print("FAIL: has_bucket_balls false after harvest upgrade refill")
 		return false
 	print("OK: bucket upgrade during harvest refills to %d/%d" % [gs.bucket_remaining, gs.bucket_capacity])
+	return true
+
+
+func _check_max_shop_capacity(gs: Node) -> bool:
+	_reset_bucket(gs)
+	gs.currency = 1_000_000.0
+	gs.shop_unlocked = true
+	var max_level: int = Balance.BUCKET_CAPACITY_MAX - Balance.BUCKET_CAPACITY_DEFAULT
+	for _i in max_level:
+		if not gs.purchase_shop_item("ball_count"):
+			print("FAIL: could not max out ball_count shop levels")
+			return false
+	if gs.bucket_capacity != Balance.BUCKET_CAPACITY_MAX:
+		print(
+			"FAIL: max shop bucket_capacity expected %d, got %d"
+			% [Balance.BUCKET_CAPACITY_MAX, gs.bucket_capacity]
+		)
+		return false
+	print("OK: More Balls shop caps bucket at %d" % Balance.BUCKET_CAPACITY_MAX)
 	return true
 
 

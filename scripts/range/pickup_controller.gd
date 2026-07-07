@@ -144,8 +144,9 @@ func _collect_litter(litter: Sprite3D) -> void:
 	var quality: int = litter.get_meta("ball_quality", 1)
 	var yardage: float = litter.get_meta("ball_yardage", GameState.stats.base_yards)
 	var is_golden: bool = litter.get_meta("ball_golden", false)
+	var source: String = litter.get_meta("ball_source", "player")
 	var payout := GameState.collect_harvest_ball(
-		world_pos, combo_tier, quality, yardage, is_golden
+		world_pos, combo_tier, quality, yardage, is_golden, source
 	)
 	SfxManager.play_pickup_plink(combo_tier)
 	if _range_view.has_method("show_pickup_cash_float"):
