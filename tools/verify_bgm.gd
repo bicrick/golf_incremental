@@ -58,6 +58,11 @@ func _run() -> void:
 			print("FAIL: title BGM should not loop")
 			quit(1)
 			return
+	elif music.stream is AudioStreamWAV:
+		if music.stream.loop_mode != AudioStreamWAV.LOOP_DISABLED:
+			print("FAIL: title BGM should not loop")
+			quit(1)
+			return
 
 	if not music.finished.is_connected(sfx._on_music_finished):
 		print("FAIL: title BGM should use rotation handler")
@@ -88,6 +93,11 @@ func _run() -> void:
 			return
 	elif music.stream is AudioStreamOggVorbis:
 		if music.stream.loop:
+			print("FAIL: gameplay BGM should not loop")
+			quit(1)
+			return
+	elif music.stream is AudioStreamWAV:
+		if music.stream.loop_mode != AudioStreamWAV.LOOP_DISABLED:
 			print("FAIL: gameplay BGM should not loop")
 			quit(1)
 			return

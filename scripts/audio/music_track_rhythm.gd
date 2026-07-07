@@ -8,10 +8,11 @@ const DEFAULT_OFFSET_SEC := 0.0
 
 const _TRACKS: Dictionary = {
 	"res://assets/audio/music/8-Bit Memories.mp3": {"bpm": 128.0, "offset_sec": 0.0},
-	"res://assets/audio/music/Night Range.mp3": {"bpm": 92.0, "offset_sec": 0.0},
-	"res://assets/audio/music/Range Rat Main Theme.mp3": {"bpm": 118.0, "offset_sec": 0.0},
-	"res://assets/audio/music/Sunrise Pulse.mp3": {"bpm": 120.0, "offset_sec": 0.0},
-	"res://assets/audio/music/Sunrise Resolve.mp3": {"bpm": 108.0, "offset_sec": 0.0},
+	"res://assets/audio/music/Night Range.wav": {"bpm": 92.0, "offset_sec": 0.0},
+	"res://assets/audio/music/Range Rat Main Theme.wav": {"bpm": 118.0, "offset_sec": 0.0},
+	"res://assets/audio/music/Sunrise Pulse.wav": {"bpm": 120.0, "offset_sec": 0.0},
+	"res://assets/audio/music/Sunrise Resolve.wav": {"bpm": 108.0, "offset_sec": 0.0},
+	"res://assets/audio/music/Ticklish Blips.wav": {"bpm": 112.0, "offset_sec": 0.0},
 	"res://assets/audio/music/Warm Memories.mp3": {"bpm": 96.0, "offset_sec": 0.0},
 	"res://assets/audio/music/旅立ちの街.mp3": {"bpm": 110.0, "offset_sec": 0.0},
 }

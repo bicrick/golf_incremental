@@ -15,4 +15,4 @@ Assets: assets/imported/rpg_ui_kit/
 
 Background music (assets/audio/music/):
 - 8-Bit Memories — title screen
-- Night Range, Range Rat Main Theme, 旅立ちの街 — gameplay rotation
+- Night Range, Range Rat Main Theme, Sunrise Pulse, Sunrise Resolve, Ticklish Blips, Warm Memories, 旅立ちの街 — gameplay rotation
