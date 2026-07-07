@@ -189,8 +189,70 @@ func _run() -> void:
 	panel.close()
 	await process_frame
 
+	ok = await _check_upgrades_button_clickable_during_harvest(main, gs, panel, icon_bar_node) and ok
+
 	print("upgrade_tree_ok=", ok)
 	quit(0 if ok else 1)
+
+
+## Regression test: the ortho pan controller used to swallow every left-click
+## press during collect mode before it reached the GUI, making the upgrades
+## (and shop) buttons unclickable. Injects a real mouse click through
+## Input.parse_input_event so it exercises the same _input()-before-GUI path
+## that caused the bug.
+func _check_upgrades_button_clickable_during_harvest(
+	main: Node, gs: Node, panel: Control, icon_bar_node: Node
+) -> bool:
+	gs.reset_to_fresh()
+	gs.currency = Balance.UPGRADES_UNLOCK_COST
+	gs.upgrades_unlocked = true
+	if icon_bar_node.has_method("_refresh_upgrades_lock_state"):
+		icon_bar_node._refresh_upgrades_lock_state()
+	panel.close()
+	await process_frame
+	var range_view: Node3D = main.get_node("RangeView")
+
+	gs.bucket_remaining = 0
+	gs.try_enter_harvest()
+	var end := Time.get_ticks_msec() + 2000
+	while Time.get_ticks_msec() < end:
+		if range_view.has_method("is_harvest_view_ready") and range_view.is_harvest_view_ready():
+			break
+		await process_frame
+	await process_frame
+
+	var target: Vector2 = icon_bar_node.upgrades_button.get_global_rect().get_center()
+	var motion := InputEventMouseMotion.new()
+	motion.position = target
+	motion.global_position = target
+	Input.parse_input_event(motion)
+	await process_frame
+	_parse_mouse_button_test(target, true)
+	await process_frame
+	_parse_mouse_button_test(target, false)
+	await process_frame
+	await process_frame
+
+	gs.exit_harvest_early()
+	await process_frame
+
+	if not panel.visible:
+		print("FAIL: upgrades button click during harvest should open UpgradePanel")
+		panel.close()
+		return false
+	panel.close()
+	await process_frame
+	print("OK: upgrades button remains clickable during harvest (collect mode)")
+	return true
+
+
+func _parse_mouse_button_test(position: Vector2, pressed: bool) -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.position = position
+	event.global_position = position
+	Input.parse_input_event(event)
 
 
 func _count_visible_nodes(nodes_root: Control) -> int:

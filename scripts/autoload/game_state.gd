@@ -17,6 +17,7 @@ var bucket_remaining: int = -1
 var bucket_capacity: int = 0
 var current_phase: String = "strike"
 var harvest_collected: int = 0
+var harvest_stash: int = 0
 var pending_vanish_collects: int = 0
 
 var lifetime: Dictionary = {
@@ -122,6 +123,7 @@ func purchase_shop_item(id: String) -> bool:
 		bucket_remaining = bucket_capacity
 		if current_phase == "harvest":
 			harvest_collected = 0
+			harvest_stash = 0
 			current_phase = "strike"
 			EventBus.phase_changed.emit("strike")
 	EventBus.shop_item_purchased.emit(id, level + 1)
@@ -270,6 +272,7 @@ func purchase_upgrade(id: String) -> bool:
 		bucket_remaining = bucket_capacity
 		if current_phase == "harvest":
 			harvest_collected = 0
+			harvest_stash = 0
 			current_phase = "strike"
 			EventBus.phase_changed.emit("strike")
 	EventBus.upgrade_purchased.emit(id, level + 1, int(def["branch"]))
@@ -302,6 +305,7 @@ func reset_to_fresh() -> void:
 	bucket_remaining = bucket_capacity
 	current_phase = "strike"
 	harvest_collected = 0
+	harvest_stash = 0
 	pending_vanish_collects = 0
 	lifetime = {
 		"total_swings": 0,
@@ -333,27 +337,42 @@ func is_harvest_phase() -> bool:
 	return current_phase == "harvest"
 
 
+## Collect target for the current harvest — capacity minus balls already
+## stashed (unhit) when the player voluntarily entered collect mode.
+func _harvest_target() -> int:
+	return maxi(bucket_capacity - harvest_stash, 0)
+
+
 func is_collect_mode() -> bool:
-	return is_harvest_phase() and harvest_collected < bucket_capacity
+	return is_harvest_phase() and harvest_collected < _harvest_target()
 
 
 func is_harvest_complete() -> bool:
-	return current_phase == "harvest" and harvest_collected >= bucket_capacity
+	return current_phase == "harvest" and harvest_collected >= _harvest_target()
 
 
 func consume_bucket_ball() -> bool:
 	if current_phase == "harvest":
-		if harvest_collected <= 0:
-			return false
-		harvest_collected -= 1
-		EventBus.bucket_changed.emit(harvest_collected, bucket_capacity)
-		return true
+		return false
 	if bucket_remaining <= 0:
 		return false
 	bucket_remaining -= 1
 	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
-	if bucket_remaining <= 0:
-		_enter_harvest_phase()
+	return true
+
+
+## Voluntarily enters collect mode from strike (any time, any ball count).
+## Balls still unhit in the bucket are stashed and merged back in on exit.
+func try_enter_harvest() -> bool:
+	if current_phase == "harvest":
+		return false
+	harvest_stash = bucket_remaining
+	bucket_remaining = 0
+	harvest_collected = pending_vanish_collects
+	pending_vanish_collects = 0
+	current_phase = "harvest"
+	EventBus.phase_changed.emit("harvest")
+	EventBus.bucket_changed.emit(harvest_collected, bucket_capacity)
 	return true
 
 
@@ -366,7 +385,7 @@ func collect_harvest_ball(
 ) -> float:
 	if current_phase != "harvest":
 		return 0.0
-	if harvest_collected >= bucket_capacity:
+	if harvest_collected >= _harvest_target():
 		return 0.0
 	var effective_yardage := yardage if yardage > 0.0 else stats.base_yards
 	var payout := Economy.resolve_pickup_ball_payout(
@@ -404,36 +423,32 @@ func credit_vanished_ball(
 	return payout
 
 
+## Bucket has reached its collect target — full refill, litter cleared by caller.
 func complete_harvest(_best_combo: int) -> float:
 	if current_phase != "harvest":
 		return 0.0
-	_exit_harvest_to_strike(0.0)
-	return 0.0
-
-
-func skip_harvest() -> void:
-	if current_phase != "harvest":
-		return
-	_exit_harvest_to_strike(0.0)
-
-
-func _exit_harvest_to_strike(bonus: float) -> void:
 	harvest_collected = 0
+	harvest_stash = 0
 	pending_vanish_collects = 0
 	bucket_remaining = bucket_capacity
 	current_phase = "strike"
-	if bonus > 0.0:
-		EventBus.bucket_completed.emit(bonus)
 	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
 	EventBus.phase_changed.emit("strike")
+	return 0.0
 
 
-func _enter_harvest_phase() -> void:
-	current_phase = "harvest"
-	harvest_collected = pending_vanish_collects
+## Voluntary early return to hitting mode — stashed + collected balls merge
+## back into the bucket; litter is left behind on the fairway.
+func exit_harvest_early() -> void:
+	if current_phase != "harvest":
+		return
+	bucket_remaining = mini(harvest_stash + harvest_collected, bucket_capacity)
+	harvest_stash = 0
+	harvest_collected = 0
 	pending_vanish_collects = 0
-	EventBus.phase_changed.emit("harvest")
-	EventBus.bucket_changed.emit(harvest_collected, bucket_capacity)
+	current_phase = "strike"
+	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
+	EventBus.phase_changed.emit("strike")
 
 
 func _bucket_display_count() -> int:

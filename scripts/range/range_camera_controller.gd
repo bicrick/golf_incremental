@@ -72,6 +72,8 @@ func consume_zoom_event(event: InputEvent) -> bool:
 func consume_pan_drag_event(event: InputEvent) -> bool:
 	if not _enabled or _camera == null:
 		return false
+	if not _drag_active and UiInput.is_interactive_control_under_mouse(get_viewport()):
+		return false
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index != drag_button:

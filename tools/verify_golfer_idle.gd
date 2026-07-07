@@ -54,7 +54,7 @@ func _check_has_bucket_balls(gs: Node) -> bool:
 	if gs.has_bucket_balls():
 		print("FAIL: empty bucket in strike should not have bucket balls")
 		ok = false
-	gs._enter_harvest_phase()
+	gs.try_enter_harvest()
 	if gs.has_bucket_balls():
 		print("FAIL: harvest phase should not have bucket balls")
 		ok = false

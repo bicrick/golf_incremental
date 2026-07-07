@@ -2,9 +2,9 @@
 
 ## Trigger
 
-- `bucket_count == 0` after a resolved swing
-- Strike input (Space) disabled
-- UI: **"Bucket empty — collect your balls"**
+- **Voluntary**, not forced: a left-click on the gameplay background (anywhere that isn't a UI button) enters harvest at any time in strike, with any ball count — including 0.
+- Balls still unhit in the bucket are **stashed** (`GameState.harvest_stash`) and merge back in when the player returns to strike.
+- Strike input (Space) is disabled while in harvest — clicking Space instead exits harvest (see Exit below).
 
 ## Visual (down-the-line)
 
@@ -24,11 +24,20 @@ Litter sprites cluster **up-screen** along fairway stripes (see screenshot refer
 4. On collect:
    - Ball tweens in arc toward **bucket UI** (bottom corner)
    - Plink SFX, bucket counter ++, combo timer refresh
-5. When `collected == capacity`:
+5. When `stash + collected == capacity` (bucket fully replenished):
    - Bucket full chime
    - Summary: balls collected, best combo, pickup $
    - Clear remaining litter nodes
-   - Return to **strike phase**, bucket refilled
+   - Return to **strike phase**, bucket refilled to full capacity
+
+## Exit (voluntary or forced)
+
+| Exit | Trigger | Result |
+|------|---------|--------|
+| **Early** | Hit button (icon bar) or **Space** | Return to strike now; `bucket_remaining = stash + collected` — litter stays on the fairway |
+| **Full** | Auto, when `stash + collected` reaches bucket capacity | Return to strike; bucket refills to full capacity, remaining litter clears |
+
+No swinging in harvest, ever — Space always exits to strike instead of starting a swing, regardless of how many balls have been collected.
 
 ## Vanish horizon (auto-collect)
 
@@ -65,6 +74,7 @@ Adjust so first upgrade affordable after **2–4 full cycles**.
 
 - Bucket icon with fill `n/capacity`
 - Combo counter
+- **Hit button** (icon bar, bottom-right, next to the bucket counter) — visible only during harvest; returns to strike immediately, same as pressing Space
 - Phase label: `STRIKE` / `COLLECT`
 - Pixel font via existing `PixelFont`
 

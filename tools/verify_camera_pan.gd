@@ -26,7 +26,7 @@ func _spawn_playing_range() -> Node:
 
 func _enter_harvest(gs: Node) -> void:
 	gs.bucket_remaining = 0
-	gs._enter_harvest_phase()
+	gs.try_enter_harvest()
 
 
 func _wait_harvest_view(range_view: Node, timeout_ms: int = 2000) -> void:

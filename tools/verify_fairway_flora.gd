@@ -154,7 +154,7 @@ func _check_view_mode_visibility() -> bool:
 
 	var gs: Node = root.get_node("GameState")
 	gs.bucket_remaining = 0
-	gs._enter_harvest_phase()
+	gs.try_enter_harvest()
 
 	var end := Time.get_ticks_msec() + 2000
 	while Time.get_ticks_msec() < end:

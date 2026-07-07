@@ -14,6 +14,8 @@ const CORNER_GAP := 4
 const HOVER_BOB_AMPLITUDE := 1.5
 const HOVER_BOB_FREQ := 2.4
 
+@onready var hit_button: Button = $BottomRight/HitWrap/HitButton
+@onready var _hit_wrap: PanelContainer = $BottomRight/HitWrap
 @onready var shop_button: Button = $TopRight/TopRightRow/ShopWrap/ShopButton
 @onready var upgrades_button: Button = $TopRight/TopRightRow/UpgradesWrap/UpgradesButton
 @onready var _shop_glyph: Control = $TopRight/TopRightRow/ShopWrap/ShopButton/Glyph
@@ -37,6 +39,7 @@ func _ready() -> void:
 	var ui_root := get_parent().get_parent()
 	_upgrade_panel = ui_root.get_node_or_null("UpgradePanel")
 	_shop_panel = ui_root.get_node_or_null("ShopPanel")
+	hit_button.pressed.connect(_on_hit_pressed)
 	shop_button.pressed.connect(_on_shop_pressed)
 	upgrades_button.pressed.connect(_on_upgrades_pressed)
 	shop_button.mouse_entered.connect(_on_shop_mouse_entered)
@@ -45,11 +48,15 @@ func _ready() -> void:
 	upgrades_button.mouse_exited.connect(_on_upgrades_mouse_exited)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
+	EventBus.phase_changed.connect(_on_phase_changed)
+	_style_hit_wrap()
+	_style_hit_button()
 	_style_shop_wrap()
 	_style_upgrades_wrap()
 	_style_shop_button()
 	_style_upgrades_button()
 	_layout_top_right_corner()
+	_refresh_hit_visibility()
 	shop_button.tooltip_text = ""
 	upgrades_button.tooltip_text = ""
 	call_deferred("_capture_button_rest_positions")
@@ -67,6 +74,20 @@ func _on_upgrade_purchased(id: String, _level: int, _branch: int) -> void:
 	if id == "base_pay":
 		_refresh_shop_lock_state()
 		_layout_top_right_corner()
+
+
+func _on_phase_changed(_phase: String) -> void:
+	_refresh_hit_visibility()
+
+
+## Hit button only appears in collect mode — lets the player return to hitting
+## with any ball count (stashed + collected balls merge back into the bucket).
+func _refresh_hit_visibility() -> void:
+	_hit_wrap.visible = GameState.is_harvest_phase()
+
+
+func _on_hit_pressed() -> void:
+	GameState.exit_harvest_early()
 
 
 func _refresh_shop_lock_state() -> void:
@@ -253,6 +274,11 @@ func _apply_wrap_panel_style(wrap: PanelContainer, hovering: bool = false, press
 	wrap.add_theme_stylebox_override(&"panel", _make_wrap_panel_style(hovering, pressed))
 
 
+func _style_hit_wrap() -> void:
+	_hit_wrap.custom_minimum_size = Vector2(_wrap_outer_size())
+	_apply_wrap_panel_style(_hit_wrap)
+
+
 func _style_shop_wrap() -> void:
 	_apply_wrap_panel_style(_shop_wrap)
 
@@ -268,6 +294,10 @@ func _style_icon_button(button: Button) -> void:
 	button.add_theme_stylebox_override("hover", empty)
 	button.add_theme_stylebox_override("pressed", empty)
 	button.add_theme_stylebox_override("disabled", empty)
+
+
+func _style_hit_button() -> void:
+	_style_icon_button(hit_button)
 
 
 func _style_shop_button() -> void:

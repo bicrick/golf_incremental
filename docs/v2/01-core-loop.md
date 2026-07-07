@@ -11,9 +11,11 @@ flowchart LR
     Swing --> Litter[Litter on fairway]
     Litter --> B
   end
-  B -->|empty| harvest[Harvest phase]
-  harvest --> Refill[Bucket refilled]
+  B -->|background click| harvest[Harvest phase]
+  harvest -->|Hit button or Space| strikeReturn[Strike, partial bucket]
+  harvest -->|bucket fully replenished| Refill[Bucket refilled]
   Refill --> Spend[Upgrades / range]
+  strikeReturn --> strike
   Spend --> strike
 ```
 
@@ -29,15 +31,15 @@ flowchart LR
 | Ball consumed | 1 per resolved swing |
 | Litter | Each landing adds sprite to fairway cluster |
 
-When bucket hits **0**, strike input disabled → harvest phase.
+Switching to harvest is **voluntary**, not forced by an empty bucket. A left-click anywhere on the gameplay background (not on a UI button) enters harvest at any time, with any ball count — including 0. Any balls still unhit are stashed and merge back into the bucket when the player returns to strike.
 
 ### 2. Harvest phase (pickup mini-game)
 
 See [06-pickup-minigame.md](06-pickup-minigame.md).
 
-Summary: click litter on fairway → tween into bucket UI → combo bonus → bucket full → return to strike.
+Summary: click litter on fairway → tween into bucket UI → combo bonus. The player can hit the **Hit button** (or press **Space**) at any time to return to strike with whatever they've collected so far — stashed + collected balls merge back into the bucket. The only *forced* return happens when the bucket is fully replenished (stash + collected balls reach capacity), which also clears any remaining litter and refills to full capacity.
 
-**v2.0 MVP:** click pickup only. No gophers, no gnome.
+**v2.0 MVP:** click pickup only. No gophers, no gnome. No swinging while in harvest — collect mode is pickup-only.
 
 ### 3. Spend phase (implicit)
 
@@ -125,7 +127,7 @@ Extend `EventBus` when implementing:
 
 - ~~Hold begins charge and power curve~~ → contact release at frame 9
 - ~~Infinite tee reload~~ → bucket + pickup refill
-- Add: bucket empty triggers harvest
+- ~~Bucket empty triggers harvest~~ → harvest is voluntary (background click); empty bucket alone no longer forces a mode switch
 - ~~Visual carry floor on OK+ contacts~~ → removed; flight is always proportional to actual yards
 
 ## Related docs

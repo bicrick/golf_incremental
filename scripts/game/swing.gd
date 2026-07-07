@@ -35,6 +35,8 @@ func can_swing(stats: PlayerStats) -> bool:
 func start_charge() -> void:
 	if phase != Phase.IDLE:
 		return
+	if GameState.is_harvest_phase():
+		return
 	if not GameState.has_bucket_balls():
 		return
 	if not can_swing(GameState.stats):

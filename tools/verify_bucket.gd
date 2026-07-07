@@ -191,7 +191,7 @@ func _check_upgrade_refills_during_harvest(gs: Node) -> bool:
 	gs.upgrade_levels = {"power": 1}
 	gs._recompute_stats()
 	gs.bucket_remaining = 0
-	gs._enter_harvest_phase()
+	gs.try_enter_harvest()
 	gs.harvest_collected = 3
 	if not gs.purchase_shop_item("ball_count"):
 		print("FAIL: ball_count purchase failed during harvest")
@@ -253,7 +253,7 @@ func _check_space_does_not_refill(main: Node, gs: Node) -> bool:
 	await process_frame
 	var range_view: Node = main.get_node("RangeView")
 	gs.bucket_remaining = 0
-	gs._enter_harvest_phase()
+	gs.try_enter_harvest()
 	await process_frame
 	_send_space(range_view, true)
 	await process_frame

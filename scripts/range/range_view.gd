@@ -511,8 +511,31 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _camera_controller and _camera_controller.consume_pan_drag_event(event):
 		get_viewport().set_input_as_handled()
 		return
+	if GameState.is_harvest_phase():
+		_handle_harvest_input(event)
+	else:
+		_handle_strike_input(event)
+
+
+## Collect mode: pickup click only. Space returns to hitting mode (same as the
+## Hit button) — no swinging while collecting, regardless of ball count.
+func _handle_harvest_input(event: InputEvent) -> void:
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if not key.echo and key.pressed and key.keycode == KEY_SPACE:
+			get_viewport().set_input_as_handled()
+			GameState.exit_harvest_early()
+		return
 	if _pickup and _pickup.handle_input(event):
 		get_viewport().set_input_as_handled()
+
+
+## Hitting mode: Space swings when the bucket has balls. A left-click on the
+## gameplay background (not on a button) voluntarily enters collect mode.
+func _handle_strike_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		if _try_background_click_to_collect(event as InputEventMouseButton):
+			get_viewport().set_input_as_handled()
 		return
 	if not GameState.has_bucket_balls():
 		return
@@ -525,6 +548,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		_swing.start_charge()
 	else:
 		_swing.release_strike()
+
+
+func _try_background_click_to_collect(click: InputEventMouseButton) -> bool:
+	if click.button_index != MOUSE_BUTTON_LEFT or not click.pressed:
+		return false
+	if _swing.is_charging():
+		return false
+	if UiInput.is_interactive_control_under_mouse(get_viewport()):
+		return false
+	return GameState.try_enter_harvest()
 
 
 func _on_swing_charging_changed(charging: bool) -> void:
