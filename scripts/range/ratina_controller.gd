@@ -416,7 +416,6 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 			_flight_trail.finish()
 			_flight_trail = null
 		_resolve_landing(landing, quality, yards, path.visual_yards)
-		DistanceTwinkle.spawn(_fx_layer, _camera, landing, _fx_reference_ortho_size())
 		_try_pending_swing()
 	)
 
