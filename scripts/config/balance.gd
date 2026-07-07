@@ -170,8 +170,6 @@ const RATTLING_PIXEL_SIZE: float = 0.015
 const RATTLING_GROUND_Y: float = 0.42861152
 const RATTLING_SPAWN_STAGGER_SEC: float = 0.6
 const RATTLING_FADE_SEC: float = 0.5
-const RATTLING_BASE_AMOUNT: float = 0.06
-const RATTLING_PAY_PER_YARD: float = 0.006
 ## More Rattlings upgrade — extra active agent per level (level 0 = 1 owned).
 const RATTLING_COUNT_BONUS_PER_LEVEL: float = 1.0
 
@@ -231,16 +229,15 @@ static func default_ratina_stats() -> PlayerStats:
 	return stats
 
 
+## Rattlings don't have an economy of their own — they inherit the exact
+## payout the ball's original owner (player or Ratina) would have earned,
+## using that owner's own stats/upgrades. These fields are purely the
+## Rattling tree's own mechanical/bonus knobs layered on top of delivery.
 static func default_rattling_stats() -> PlayerStats:
 	var stats := PlayerStats.new()
-	stats.base_amount = RATTLING_BASE_AMOUNT
-	stats.pay_per_yard = RATTLING_PAY_PER_YARD
-	stats.quality_multiplier = 1.0
-	stats.yardage_term_unlocked = 1.0
-	stats.quality_term_unlocked = 1.0
-	stats.golden_ball_payout_multiplier = GOLDEN_BALL_PAYOUT_MULTIPLIER
 	stats.rattling_count = 1.0
 	stats.rattling_walk_speed = 3.2
 	stats.rattling_pickup_speed_multiplier = 1.0
 	stats.rattling_golden_bonus_chance = 0.0
+	stats.rattling_payout_multiplier = 1.0
 	return stats

@@ -116,7 +116,7 @@ func _check_upgrade_effects(gs: Node) -> bool:
 	gs._recompute_stats()
 	var base_count: float = gs.rattling_stats.rattling_count
 	var base_speed: float = gs.rattling_stats.rattling_walk_speed
-	var base_amount: float = gs.rattling_stats.base_amount
+	var base_payout_mult: float = gs.rattling_stats.rattling_payout_multiplier
 	gs.currency = 500.0
 
 	if not gs.purchase_rattling_upgrade("rattling_more"):
@@ -136,8 +136,8 @@ func _check_upgrade_effects(gs: Node) -> bool:
 	if not gs.purchase_rattling_upgrade("rattling_payout"):
 		print("FAIL: could not purchase rattling_payout")
 		ok = false
-	elif gs.rattling_stats.base_amount <= base_amount:
-		print("FAIL: rattling_payout did not increase base_amount")
+	elif gs.rattling_stats.rattling_payout_multiplier <= base_payout_mult:
+		print("FAIL: rattling_payout did not increase rattling_payout_multiplier")
 		ok = false
 
 	if not gs.purchase_rattling_upgrade("rattling_quick_paws"):
@@ -192,10 +192,13 @@ func _check_credit_accounting(gs: Node) -> bool:
 		ok = false
 
 	gs.rattling_stats.rattling_golden_bonus_chance = 1.0
-	var normal_payout := Economy.resolve_pickup_ball_payout(4, 30.0, 1, gs.rattling_stats)
+	var normal_payout := Economy.resolve_pickup_ball_payout(4, 30.0, 1, gs.stats)
+	var expected_golden: float = (
+		normal_payout * gs.stats.golden_ball_payout_multiplier * gs.rattling_stats.rattling_payout_multiplier
+	)
 	var golden_payout: float = gs.credit_rattling_ball(4, 30.0, false)
-	if not is_equal_approx(golden_payout, normal_payout * gs.rattling_stats.golden_ball_payout_multiplier):
-		print("FAIL: keen nose golden bonus should double payout when guaranteed")
+	if not is_equal_approx(golden_payout, expected_golden):
+		print("FAIL: keen nose golden bonus should apply the player's golden multiplier")
 		ok = false
 
 	gs.reset_to_fresh()
@@ -354,8 +357,10 @@ func _check_controller_pickup_cycle(main: Node, gs: Node) -> bool:
 	gs.rattling_stats.rattling_walk_speed = 500.0
 	gs.rattling_stats.rattling_pickup_speed_multiplier = 50.0
 	gs.rattling_stats.rattling_golden_bonus_chance = 0.0
-	var normal_payout := Economy.resolve_pickup_ball_payout(4, 30.0, 1, gs.rattling_stats)
-	var expected_golden_payout: float = normal_payout * gs.rattling_stats.golden_ball_payout_multiplier
+	var normal_payout := Economy.resolve_pickup_ball_payout(4, 30.0, 1, gs.stats)
+	var expected_golden_payout: float = (
+		normal_payout * gs.stats.golden_ball_payout_multiplier * gs.rattling_stats.rattling_payout_multiplier
+	)
 
 	var golden_litter := Sprite3D.new()
 	golden_litter.set_meta("collectible", true)

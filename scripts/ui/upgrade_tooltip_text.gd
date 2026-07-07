@@ -125,6 +125,8 @@ static func _axis_prefix(stat_name: String) -> String:
 			return "Speed:"
 		"rattling_golden_bonus_chance":
 			return "Golden:"
+		"rattling_payout_multiplier":
+			return "Pay:"
 		_:
 			return ""
 
@@ -170,6 +172,8 @@ static func _format_stat_value(stat_name: String, stats: PlayerStats, compact: b
 			return "×%.2f" % stats.rattling_pickup_speed_multiplier
 		"rattling_golden_bonus_chance":
 			return "%.0f%%" % (stats.rattling_golden_bonus_chance * 100.0)
+		"rattling_payout_multiplier":
+			return "×%.2f" % stats.rattling_payout_multiplier
 		_:
 			return ""
 

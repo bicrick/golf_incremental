@@ -184,8 +184,12 @@ func credit_ratina_ball(yardage: float, quality: int, combo_tier: int = 1) -> fl
 	return payout
 
 
+## Rattlings just deliver the ball — the payout is whatever the ball's
+## original owner (player or Ratina) would have earned for it themselves,
+## using that owner's own stats/upgrades. rattling_stats holds no payout
+## formula of its own; only the Rattling tree's own bonus knobs.
 func _stats_for_rattling_collect(source: String) -> PlayerStats:
-	return ratina_stats if source == "ratina" else rattling_stats
+	return ratina_stats if source == "ratina" else stats
 
 
 func _stats_for_harvest_collect(source: String) -> PlayerStats:
@@ -242,6 +246,7 @@ func credit_rattling_ball(
 	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, 1, collect_stats)
 	if golden:
 		payout *= collect_stats.golden_ball_payout_multiplier
+	payout *= maxf(rattling_stats.rattling_payout_multiplier, 0.0)
 	add_currency(payout)
 	if source == "ratina":
 		lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout

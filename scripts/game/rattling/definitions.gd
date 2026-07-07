@@ -28,7 +28,7 @@ static func _init_defs() -> void:
 			"rattling_payout", Balance.UpgradeBranch.QUALITY, "Payout Bonus",
 			"Rattlings hand over more cash per ball fetched.",
 			20, 8.0, 1.32,
-			[{"type": "multiply", "stat": "base_amount", "value_per_level": 1.12}],
+			[{"type": "multiply", "stat": "rattling_payout_multiplier", "value_per_level": 1.12}],
 			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}, Vector2(213, 62)
 		),
 		_def(
