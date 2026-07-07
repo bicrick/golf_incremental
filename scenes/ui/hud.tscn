@@ -19,13 +19,27 @@ offset_top = 10.0
 grow_horizontal = 0
 grow_vertical = 0
 
-[node name="CurrencyPanel" type="PanelContainer" parent="Margin"]
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="CurrencyPanel" type="PanelContainer" parent="Margin/VBox"]
 layout_mode = 2
 
-[node name="CurrencyLabel" type="Label" parent="Margin/CurrencyPanel"]
+[node name="CurrencyLabel" type="Label" parent="Margin/VBox/CurrencyPanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.92, 0.98, 1)
 theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
 theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 12
 text = "$0"
+
+[node name="RattlingIncomeLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 14)
+theme_override_colors/font_color = Color(1.0, 0.88, 0.25, 1)
+theme_override_colors/font_outline_color = Color(0.2, 0.15, 0.1, 0.8)
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 10
+text = ""
+horizontal_alignment = 0

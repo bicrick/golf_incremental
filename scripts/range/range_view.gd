@@ -137,7 +137,6 @@ func _ready() -> void:
 	EventBus.bucket_changed.connect(_on_bucket_changed)
 	EventBus.phase_changed.connect(_on_phase_changed)
 	EventBus.stats_changed.connect(_on_stats_changed)
-	EventBus.rattling_ball_collected.connect(_on_rattling_ball_collected)
 	call_deferred("_sync_tee_ball_from_bucket")
 	call_deferred("_setup_pickup_controller")
 	call_deferred("_setup_ratina_controller")
@@ -929,18 +928,6 @@ func _debug_spawn_test_rattling() -> void:
 		GameState.rattling_stats.rattling_count = 1
 	_leave_litter_ball(Vector3(0.0, 0.0, -12.0), _base_ball_scale, 3, 12.0, false)
 	print("[debug] Rattlings force-unlocked; spawned a test litter ball at z=-12 for pickup.")
-
-
-func _on_rattling_ball_collected(payout: float) -> void:
-	SfxManager.play_pickup_plink(1)
-	var currency_label: Control = get_tree().root.get_node_or_null(
-		"Main/UI/UIRoot/GameplayChrome/HUD/Margin/CurrencyPanel/CurrencyLabel"
-	)
-	if currency_label == null or fx_layer == null:
-		return
-	var anchor := currency_label.get_global_rect()
-	var spawn_pos := Vector2(anchor.get_center().x, anchor.position.y + anchor.size.y + 6.0)
-	FloatCashTextScript.spawn(fx_layer, spawn_pos, payout, 1, 6)
 
 
 func _sync_tee_ball_from_bucket() -> void:
