@@ -45,6 +45,15 @@ const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 @onready var _camera_controller: RangeCameraController = $CameraController
 @onready var _view_mode_controller: ViewModeController = $ViewModeController
 
+## Editor-only debug hook: with the game running, select RangeView in the
+## Remote scene tree and tick this checkbox in the Inspector to force-unlock
+## Rattlings and drop a test ball for one to fetch. Never used in-game.
+@export var debug_spawn_test_rattling: bool = false:
+	set(value):
+		debug_spawn_test_rattling = false
+		if value and not Engine.is_editor_hint() and is_inside_tree():
+			_debug_spawn_test_rattling()
+
 var ratina_bay: Node3D
 var golfer: AnimatedSprite3D
 var ball: AnimatedSprite3D
@@ -128,6 +137,7 @@ func _ready() -> void:
 	EventBus.bucket_changed.connect(_on_bucket_changed)
 	EventBus.phase_changed.connect(_on_phase_changed)
 	EventBus.stats_changed.connect(_on_stats_changed)
+	EventBus.rattling_ball_collected.connect(_on_rattling_ball_collected)
 	call_deferred("_sync_tee_ball_from_bucket")
 	call_deferred("_setup_pickup_controller")
 	call_deferred("_setup_ratina_controller")
@@ -907,6 +917,30 @@ func _setup_rattling_controller() -> void:
 	add_child(_rattling_controller)
 	_rattling_controller.setup(self, foreground, littered_balls)
 	_rattling_controller.apply_atmosphere_tint(_sprite_atmosphere_tint)
+
+
+## Debug-only: force-unlocks Rattlings (no currency spent) and drops a test
+## litter ball on the fairway centerline for one to walk out and fetch.
+func _debug_spawn_test_rattling() -> void:
+	if not GameState.rattlings_unlocked:
+		GameState.rattlings_unlocked = true
+		EventBus.stats_changed.emit(GameState.stats, GameState.currency)
+	if GameState.rattling_stats.rattling_count < 1:
+		GameState.rattling_stats.rattling_count = 1
+	_leave_litter_ball(Vector3(0.0, 0.0, -12.0), _base_ball_scale, 3, 12.0, false)
+	print("[debug] Rattlings force-unlocked; spawned a test litter ball at z=-12 for pickup.")
+
+
+func _on_rattling_ball_collected(payout: float) -> void:
+	SfxManager.play_pickup_plink(1)
+	var currency_label: Control = get_tree().root.get_node_or_null(
+		"Main/UI/UIRoot/GameplayChrome/HUD/Margin/CurrencyPanel/CurrencyLabel"
+	)
+	if currency_label == null or fx_layer == null:
+		return
+	var anchor := currency_label.get_global_rect()
+	var spawn_pos := Vector2(anchor.get_center().x, anchor.position.y + anchor.size.y + 6.0)
+	FloatCashTextScript.spawn(fx_layer, spawn_pos, payout, 1, 6)
 
 
 func _sync_tee_ball_from_bucket() -> void:

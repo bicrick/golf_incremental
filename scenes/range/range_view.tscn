@@ -10,6 +10,10 @@
 [ext_resource type="PackedScene" uid="uid://br0iki0w8fge0" path="res://scenes/range/cells/player_bay_cell.tscn" id="6_player_bay"]
 [ext_resource type="Script" uid="uid://dqw2xmrq7ha6m" path="res://scripts/range/view_mode_controller.gd" id="7_view_mode"]
 [ext_resource type="Script" uid="uid://b4xlbcun05quq" path="res://scripts/visual/range_backdrop_node.gd" id="8_backdrop_node"]
+[ext_resource type="Script" uid="uid://bac3jbe7oc87a" path="res://scripts/range/rattling_placeholder.gd" id="9_rattling_placeholder"]
+[ext_resource type="Texture2D" uid="uid://b43kfonrkc5j3" path="res://assets/sprites/rattling/rattling.png" id="10_rattling_idle"]
+[ext_resource type="PackedScene" uid="uid://bvlapxpxrakay" path="res://scenes/range/cells/empty_bay_cell.tscn" id="10_rruw7"]
+[ext_resource type="Script" uid="uid://bucvu41qwwc7y" path="res://scripts/range/empty_bay_cell.gd" id="11_1ger1"]
 
 [sub_resource type="Environment" id="Environment_range"]
 background_mode = 1
@@ -18,7 +22,7 @@ ambient_light_source = 2
 ambient_light_color = Color(0.55, 0.75, 0.92, 1)
 ambient_light_energy = 0.55
 
-[sub_resource type="ArrayMesh" id="ArrayMesh_shseb"]
+[sub_resource type="ArrayMesh" id="ArrayMesh_ynish"]
 _surfaces = [{
 "aabb": AABB(-19, 0, -300, 38, 1e-05, 300),
 "attribute_data": PackedByteArray(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 152, 65, 0, 0, 0, 0, 0, 0, 152, 65, 0, 0, 22, 67, 0, 0, 0, 0, 0, 0, 22, 67),
@@ -74,21 +78,92 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 77.093094, 71.31996, 247.4582
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1372404, 1.8787439, -6.744128)
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=560799956]
-mesh = SubResource("ArrayMesh_shseb")
+mesh = SubResource("ArrayMesh_ynish")
 surface_material_override/0 = SubResource("ShaderMaterial_pel0d")
 
 [node name="Backdrop" type="Node3D" parent="." unique_id=1982736451]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.652716, -8.073343, 19.652099)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.652716, -8.073343, 19.6521)
 script = ExtResource("8_backdrop_node")
 
 [node name="Foreground" type="Node3D" parent="." unique_id=475863636]
 
 [node name="LitteredBalls" type="Node3D" parent="Foreground" unique_id=1647154836]
 
+[node name="RattlingPlaceholder" type="Sprite3D" parent="Foreground" unique_id=2125049969]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.42861152, -13.185896)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("10_rattling_idle")
+script = ExtResource("9_rattling_placeholder")
+
 [node name="Bays" type="Node3D" parent="." unique_id=787420339]
 
 [node name="PlayerBay" parent="Bays" unique_id=1111170110 instance=ExtResource("6_player_bay")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
+
+[node name="EmptyBays" type="Node3D" parent="Bays" unique_id=1724694882]
+
+[node name="EmptyBayCell" type="Node3D" parent="Bays/EmptyBays" unique_id=1667728624 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24741" type="Node3D" parent="Bays/EmptyBays" unique_id=447324842 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24742" type="Node3D" parent="Bays/EmptyBays" unique_id=1565481311 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24743" type="Node3D" parent="Bays/EmptyBays" unique_id=2045334451 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24744" type="Node3D" parent="Bays/EmptyBays" unique_id=1620461486 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24745" type="Node3D" parent="Bays/EmptyBays" unique_id=1042354818 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24746" type="Node3D" parent="Bays/EmptyBays" unique_id=1560311564 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24747" type="Node3D" parent="Bays/EmptyBays" unique_id=335184308 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24748" type="Node3D" parent="Bays/EmptyBays" unique_id=1355054487 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24749" type="Node3D" parent="Bays/EmptyBays" unique_id=1811761523 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24750" type="Node3D" parent="Bays/EmptyBays" unique_id=478730660 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24751" type="Node3D" parent="Bays/EmptyBays" unique_id=1172078253 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24752" type="Node3D" parent="Bays/EmptyBays" unique_id=420640913 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24753" type="Node3D" parent="Bays/EmptyBays" unique_id=1090053622 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, -10)
+script = ExtResource("11_1ger1")
+
+[node name="@Node3D@24754" type="Node3D" parent="Bays/EmptyBays" unique_id=1978736968 instance=ExtResource("10_rruw7")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, -10)
+script = ExtResource("11_1ger1")
 
 [node name="ChargeMeter" type="Node2D" parent="." unique_id=136516399]
 position = Vector2(236, 185.143)

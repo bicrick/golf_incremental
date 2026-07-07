@@ -230,7 +230,10 @@ func credit_rattling_ball(quality: int, yardage: float, is_golden: bool = false)
 	if current_phase == "harvest":
 		harvest_collected += 1
 	else:
-		pending_vanish_collects += 1
+		## Unlike the vanish auto-collect, a Rattling physically carries the
+		## ball back — hand it straight back into the bucket so it's
+		## immediately available to hit again, capped at capacity.
+		bucket_remaining = mini(bucket_remaining + 1, bucket_capacity)
 	EventBus.rattling_ball_collected.emit(payout)
 	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
 	return payout

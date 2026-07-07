@@ -159,7 +159,10 @@ const RATINA_STRIKE_TEXT_OFFSET := Vector2(-27.0, -20.0)
 const RATINA_ADDRESS_PREP_SEC: float = 0.75
 
 ## Rattlings — forest-edge gnome-rats that fetch littered balls.
-const RATTLING_PIXEL_SIZE: float = 0.021
+const RATTLING_PIXEL_SIZE: float = 0.015
+## World-space ground height Rattlings walk along, calibrated in-editor
+## against the RattlingPlaceholder node in range_view.tscn (Foreground).
+const RATTLING_GROUND_Y: float = 0.42861152
 const RATTLING_SPAWN_STAGGER_SEC: float = 0.6
 const RATTLING_FADE_SEC: float = 0.5
 const RATTLING_BASE_AMOUNT: float = 0.06

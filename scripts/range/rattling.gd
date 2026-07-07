@@ -10,6 +10,9 @@ enum State { WALKING_OUT, PICKING_UP, WALKING_BACK }
 
 const RattlingSpriteFramesScript := preload("res://scripts/range/rattling_sprite_frames.gd")
 const ARRIVE_EPSILON := 0.05
+## Walking animation plays at 2x so the little feet look busy — this only
+## scales the AnimatedSprite3D playback, not `_walk_speed` (actual movement).
+const WALK_ANIM_SPEED_SCALE := 2.0
 
 var _sprite: AnimatedSprite3D
 var _state: State = State.WALKING_OUT
@@ -34,7 +37,10 @@ func _ready() -> void:
 	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	_sprite.shaded = false
-	_sprite.offset = RattlingSpriteFramesScript.FOOT_OFFSET
+	## Center-anchored (no foot offset) to match the calibrated
+	## RattlingPlaceholder in range_view.tscn — Balance.RATTLING_GROUND_Y is
+	## tuned for a centered sprite, not a feet-at-origin one.
+	_sprite.offset = Vector2.ZERO
 	_sprite.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	_sprite.frame_changed.connect(_on_frame_changed)
 	_sprite.animation_finished.connect(_on_animation_finished)
@@ -56,12 +62,13 @@ func start(litter: Sprite3D, walk_speed: float, atmosphere_tint: Color) -> void:
 	_target_x = target.x
 	_edge_x = -Balance.FAIRWAY_HALF_WIDTH_YARDS if target.x < 0.0 else Balance.FAIRWAY_HALF_WIDTH_YARDS
 
-	global_position = Vector3(_edge_x, 0.0, _z)
+	global_position = Vector3(_edge_x, Balance.RATTLING_GROUND_Y, _z)
 	_sprite.modulate = Color(atmosphere_tint.r, atmosphere_tint.g, atmosphere_tint.b, 0.0)
 	_state = State.WALKING_OUT
 	_carrying_ball = false
 	_faded_out = false
 	_apply_facing(_target_x - _edge_x)
+	_sprite.speed_scale = WALK_ANIM_SPEED_SCALE
 	_sprite.play(&"walk")
 	_fade_alpha_to(1.0, atmosphere_tint)
 
@@ -131,7 +138,7 @@ func _on_animation_finished() -> void:
 func _begin_walk_back(carrying: bool) -> void:
 	_carrying_ball = carrying
 	_state = State.WALKING_BACK
-	_sprite.speed_scale = 1.0
+	_sprite.speed_scale = WALK_ANIM_SPEED_SCALE
 	_apply_facing(_edge_x - global_position.x)
 	_sprite.play(&"walk_ball" if carrying else &"walk")
 

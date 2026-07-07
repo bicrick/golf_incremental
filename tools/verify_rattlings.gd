@@ -165,7 +165,8 @@ func _check_credit_accounting(gs: Node) -> bool:
 	gs._recompute_stats()
 
 	gs.current_phase = "strike"
-	gs.pending_vanish_collects = 0
+	gs.bucket_capacity = 6
+	gs.bucket_remaining = 3
 	var before_currency: float = gs.currency
 	var payout: float = gs.credit_rattling_ball(4, 30.0, false)
 	if payout <= 0.0:
@@ -174,8 +175,13 @@ func _check_credit_accounting(gs: Node) -> bool:
 	if not is_equal_approx(gs.currency - before_currency, payout):
 		print("FAIL: credit_rattling_ball did not add payout to currency")
 		ok = false
-	if gs.pending_vanish_collects != 1:
-		print("FAIL: strike-phase rattling collect should credit pending_vanish_collects")
+	if gs.bucket_remaining != 4:
+		print("FAIL: strike-phase rattling collect should hand the ball back into bucket_remaining")
+		ok = false
+	gs.bucket_remaining = gs.bucket_capacity
+	gs.credit_rattling_ball(4, 30.0, false)
+	if gs.bucket_remaining != gs.bucket_capacity:
+		print("FAIL: bucket_remaining should not exceed bucket_capacity")
 		ok = false
 
 	gs.current_phase = "harvest"
