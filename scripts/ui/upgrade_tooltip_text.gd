@@ -119,6 +119,12 @@ static func _axis_prefix(stat_name: String) -> String:
 			return "Quality:"
 		"pickup_multiplier", "pickup_flat_bonus", "combo_mult_per_tier", "combo_window_bonus_sec", "pickup_bonus_unlocked", "range_picker_radius_bonus":
 			return "Pickup:"
+		"rattling_count":
+			return "Crew:"
+		"rattling_walk_speed", "rattling_pickup_speed_multiplier":
+			return "Speed:"
+		"rattling_golden_bonus_chance":
+			return "Golden:"
 		_:
 			return ""
 
@@ -156,6 +162,14 @@ static func _format_stat_value(stat_name: String, stats: PlayerStats, compact: b
 		"range_picker_radius_bonus":
 			var radius := Balance.range_picker_radius_yards(stats)
 			return "%.2f yd" % radius if compact else "Circle: %.2f yd" % radius
+		"rattling_count":
+			return "x%d" % int(stats.rattling_count)
+		"rattling_walk_speed":
+			return "%.1fyd/s" % stats.rattling_walk_speed
+		"rattling_pickup_speed_multiplier":
+			return "×%.2f" % stats.rattling_pickup_speed_multiplier
+		"rattling_golden_bonus_chance":
+			return "%.0f%%" % (stats.rattling_golden_bonus_chance * 100.0)
 		_:
 			return ""
 

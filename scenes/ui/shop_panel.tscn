@@ -107,3 +107,38 @@ layout_mode = 2
 size_flags_vertical = 4
 mouse_default_cursor_shape = 2
 text = "$100"
+
+[node name="RattlingCard" type="PanelContainer" parent="Content/Items"]
+custom_minimum_size = Vector2(440, 52)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Content/Items/RattlingCard"]
+layout_mode = 2
+
+[node name="Row" type="HBoxContainer" parent="Content/Items/RattlingCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Info" type="VBoxContainer" parent="Content/Items/RattlingCard/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="NameLabel" type="Label" parent="Content/Items/RattlingCard/Margin/Row/Info"]
+layout_mode = 2
+text = "Rattlings"
+
+[node name="DescLabel" type="Label" parent="Content/Items/RattlingCard/Margin/Row/Info"]
+layout_mode = 2
+autowrap_mode = 2
+text = "Forest gnome-rats fetch littered balls for cash."
+
+[node name="LevelLabel" type="Label" parent="Content/Items/RattlingCard/Margin/Row/Info"]
+layout_mode = 2
+text = "Unlocks the Rattling upgrade tree"
+
+[node name="BuyButton" type="Button" parent="Content/Items/RattlingCard/Margin/Row"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_default_cursor_shape = 2
+text = "$10"

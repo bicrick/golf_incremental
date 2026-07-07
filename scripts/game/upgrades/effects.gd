@@ -109,6 +109,14 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 			return stats.passive_payout_multiplier
 		"consistency":
 			return stats.consistency
+		"rattling_count":
+			return stats.rattling_count
+		"rattling_walk_speed":
+			return stats.rattling_walk_speed
+		"rattling_pickup_speed_multiplier":
+			return stats.rattling_pickup_speed_multiplier
+		"rattling_golden_bonus_chance":
+			return stats.rattling_golden_bonus_chance
 		_:
 			push_warning("UpgradeEffects: unknown stat '%s'" % stat_name)
 			return 0.0
@@ -180,5 +188,13 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 			stats.passive_payout_multiplier = value
 		"consistency":
 			stats.consistency = value
+		"rattling_count":
+			stats.rattling_count = value
+		"rattling_walk_speed":
+			stats.rattling_walk_speed = value
+		"rattling_pickup_speed_multiplier":
+			stats.rattling_pickup_speed_multiplier = value
+		"rattling_golden_bonus_chance":
+			stats.rattling_golden_bonus_chance = value
 		_:
 			push_warning("UpgradeEffects: unknown stat '%s'" % stat_name)

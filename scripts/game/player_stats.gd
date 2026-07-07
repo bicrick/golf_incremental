@@ -62,6 +62,12 @@ extends Resource
 # Ratina — autonomous swing consistency (0..1, only used by Ratina tree)
 @export var consistency: float = 0.0
 
+# Rattling — forest-edge ball collectors (only used by Rattling tree)
+@export var rattling_count: float = 1.0
+@export var rattling_walk_speed: float = 3.2
+@export var rattling_pickup_speed_multiplier: float = 1.0
+@export var rattling_golden_bonus_chance: float = 0.0
+
 
 static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	var copy := PlayerStats.new()
@@ -103,4 +109,8 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.passive_swings_per_second = from.passive_swings_per_second
 	copy.passive_payout_multiplier = from.passive_payout_multiplier
 	copy.consistency = from.consistency
+	copy.rattling_count = from.rattling_count
+	copy.rattling_walk_speed = from.rattling_walk_speed
+	copy.rattling_pickup_speed_multiplier = from.rattling_pickup_speed_multiplier
+	copy.rattling_golden_bonus_chance = from.rattling_golden_bonus_chance
 	return copy

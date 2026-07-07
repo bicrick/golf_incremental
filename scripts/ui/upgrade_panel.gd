@@ -3,6 +3,7 @@ extends Control
 
 const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
 const RATINA_NODE_SCENE := preload("res://scenes/ui/ratina_tree_node.tscn")
+const RATTLING_NODE_SCENE := preload("res://scenes/ui/rattling_tree_node.tscn")
 
 const COLOR_LINE := Color(0.55, 0.48, 0.32, 0.85)
 const COLOR_LINE_LOCKED := Color(0.35, 0.32, 0.28, 0.5)
@@ -15,16 +16,23 @@ const COLOR_LINE_LOCKED := Color(0.35, 0.32, 0.28, 0.5)
 @onready var ratina_connectors: Control = $Content/RatinaPlaceholder/RatinaTreeCanvas/Connectors
 @onready var ratina_nodes_root: Control = $Content/RatinaPlaceholder/RatinaTreeCanvas/Nodes
 @onready var ratina_stats_label: Label = $Content/RatinaPlaceholder/StatsLabel
+@onready var rattling_placeholder: Control = $Content/RattlingPlaceholder
+@onready var rattling_tree_canvas: Control = $Content/RattlingPlaceholder/RattlingTreeCanvas
+@onready var rattling_connectors: Control = $Content/RattlingPlaceholder/RattlingTreeCanvas/Connectors
+@onready var rattling_nodes_root: Control = $Content/RattlingPlaceholder/RattlingTreeCanvas/Nodes
+@onready var rattling_stats_label: Label = $Content/RattlingPlaceholder/StatsLabel
 @onready var title_label: Label = $Content/Header/Title
 @onready var currency_label: Label = $Content/Header/CurrencyLabel
 @onready var back_button: Button = $Content/Header/BackButton
 @onready var tab_upgrades: Button = $Content/Header/TabRow/UpgradesTab
 @onready var tab_ratina: Button = $Content/Header/TabRow/RatinaTab
+@onready var tab_rattling: Button = $Content/Header/TabRow/RattlingTab
 
 var _is_open := false
 var _active_tab := "upgrades"
 var _nodes: Dictionary = {}
 var _ratina_nodes: Dictionary = {}
+var _rattling_nodes: Dictionary = {}
 
 
 func _ready() -> void:
@@ -32,14 +40,17 @@ func _ready() -> void:
 	back_button.pressed.connect(close)
 	tab_upgrades.pressed.connect(_on_upgrades_tab_pressed)
 	tab_ratina.pressed.connect(_on_ratina_tab_pressed)
+	tab_rattling.pressed.connect(_on_rattling_tab_pressed)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
+	EventBus.rattling_upgrade_purchased.connect(_on_rattling_upgrade_purchased)
 	_apply_fonts()
 	_style_back_button()
 	_style_tabs()
 	_build_tree()
 	_build_ratina_tree()
+	_build_rattling_tree()
 	_refresh_all()
 
 
@@ -100,20 +111,46 @@ func _on_ratina_tab_pressed() -> void:
 	_refresh_tab_visibility()
 
 
+func _on_rattling_tab_pressed() -> void:
+	if not GameState.rattlings_unlocked:
+		return
+	_active_tab = "rattling"
+	_refresh_tab_visibility()
+
+
 func _refresh_tab_visibility() -> void:
 	var show_ratina_tab := GameState.ratina_unlocked
+	var show_rattling_tab := GameState.rattlings_unlocked
 	tab_ratina.visible = show_ratina_tab
+	tab_rattling.visible = show_rattling_tab
 	tree_canvas.visible = _active_tab == "upgrades"
 	ratina_placeholder.visible = _active_tab == "ratina" and show_ratina_tab
-	title_label.text = "Upgrade Tree" if _active_tab == "upgrades" else "Ratina"
+	rattling_placeholder.visible = _active_tab == "rattling" and show_rattling_tab
+	title_label.text = _tab_title(_active_tab)
 	tab_upgrades.button_pressed = _active_tab == "upgrades"
 	tab_ratina.button_pressed = _active_tab == "ratina"
+	tab_rattling.button_pressed = _active_tab == "rattling"
 	if _active_tab == "ratina" and not show_ratina_tab:
 		_active_tab = "upgrades"
+	elif _active_tab == "rattling" and not show_rattling_tab:
+		_active_tab = "upgrades"
+	if _active_tab == "upgrades":
 		tree_canvas.visible = true
 		ratina_placeholder.visible = false
+		rattling_placeholder.visible = false
 		title_label.text = "Upgrade Tree"
 	_refresh_ratina_stats_label()
+	_refresh_rattling_stats_label()
+
+
+func _tab_title(tab: String) -> String:
+	match tab:
+		"ratina":
+			return "Ratina"
+		"rattling":
+			return "Rattlings"
+		_:
+			return "Upgrade Tree"
 
 
 func _build_ratina_tree() -> void:
@@ -189,6 +226,79 @@ func _draw_ratina_connectors() -> void:
 		_draw_organic_connector_on(ratina_connectors, from_point, to_point, color)
 
 
+func _build_rattling_tree() -> void:
+	for child in rattling_nodes_root.get_children():
+		child.queue_free()
+	_rattling_nodes.clear()
+	for def in RattlingUpgradeDefinitions.all():
+		var node: PanelContainer = RATTLING_NODE_SCENE.instantiate()
+		rattling_nodes_root.add_child(node)
+		node.setup(def)
+		node.position = def["tree_pos"]
+		node.purchase_requested.connect(_on_rattling_purchase_requested)
+		_rattling_nodes[def["id"]] = node
+	rattling_connectors.draw.connect(_draw_rattling_connectors)
+
+
+func _is_rattling_node_revealed(id: String) -> bool:
+	var def := RattlingUpgradeDefinitions.get_def(id)
+	if def.is_empty():
+		return false
+	if def.get("parent_id", "").is_empty():
+		return true
+	return RattlingUpgradeDefinitions.is_unlocked(id, GameState.rattling_upgrade_levels)
+
+
+func _refresh_rattling_tree() -> void:
+	_refresh_rattling_stats_label()
+	for id in _rattling_nodes:
+		var node: PanelContainer = _rattling_nodes[id]
+		var revealed := _is_rattling_node_revealed(id)
+		node.visible = revealed
+		if revealed:
+			node.refresh()
+	rattling_connectors.queue_redraw()
+
+
+func _refresh_rattling_stats_label() -> void:
+	if rattling_stats_label == null:
+		return
+	var count := int(GameState.rattling_stats.rattling_count)
+	var noun := "Rattling" if count == 1 else "Rattlings"
+	rattling_stats_label.text = "%d %s working the forest edge · %.1f yd/s" % [
+		count, noun, GameState.rattling_stats.rattling_walk_speed
+	]
+
+
+func _on_rattling_purchase_requested(id: String) -> void:
+	if not GameState.purchase_rattling_upgrade(id):
+		return
+	_refresh_rattling_tree()
+	currency_label.text = "$%s" % _format_currency(GameState.currency)
+
+
+func _on_rattling_upgrade_purchased(_id: String, _level: int) -> void:
+	if _is_open and _active_tab == "rattling":
+		_refresh_rattling_tree()
+
+
+func _draw_rattling_connectors() -> void:
+	for link in RattlingUpgradeDefinitions.connections():
+		var from_id: String = link["from"]
+		var to_id: String = link["to"]
+		if not _rattling_nodes.has(from_id) or not _rattling_nodes.has(to_id):
+			continue
+		if not _is_rattling_node_revealed(from_id) or not _is_rattling_node_revealed(to_id):
+			continue
+		var from_node: PanelContainer = _rattling_nodes[from_id]
+		var to_node: PanelContainer = _rattling_nodes[to_id]
+		var from_point: Vector2 = _connection_point(from_node, to_node.get_center())
+		var to_point: Vector2 = _connection_point(to_node, from_node.get_center())
+		var unlocked := RattlingUpgradeDefinitions.is_unlocked(to_id, GameState.rattling_upgrade_levels)
+		var color := COLOR_LINE if unlocked else COLOR_LINE_LOCKED
+		_draw_organic_connector_on(rattling_connectors, from_point, to_point, color)
+
+
 func _build_tree() -> void:
 	for child in nodes_root.get_children():
 		child.queue_free()
@@ -223,6 +333,7 @@ func _refresh_all() -> void:
 			node.refresh()
 	connectors.queue_redraw()
 	_refresh_ratina_tree()
+	_refresh_rattling_tree()
 
 
 func _on_purchase_requested(id: String) -> void:
@@ -244,6 +355,8 @@ func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:
 	connectors.queue_redraw()
 	if _active_tab == "ratina":
 		_refresh_ratina_tree()
+	elif _active_tab == "rattling":
+		_refresh_rattling_tree()
 
 
 func _on_upgrade_purchased(_id: String, _level: int, _branch: int) -> void:
@@ -303,14 +416,17 @@ func _apply_fonts() -> void:
 	PixelFont.apply_label(title_label, 10)
 	PixelFont.apply_label(currency_label, 8)
 	PixelFont.apply_label(ratina_stats_label, 7)
+	PixelFont.apply_label(rattling_stats_label, 7)
 	tab_upgrades.add_theme_font_override(&"font", PixelFont.font_for_size(7))
 	tab_upgrades.add_theme_font_size_override(&"font_size", 7)
 	tab_ratina.add_theme_font_override(&"font", PixelFont.font_for_size(7))
 	tab_ratina.add_theme_font_size_override(&"font_size", 7)
+	tab_rattling.add_theme_font_override(&"font", PixelFont.font_for_size(7))
+	tab_rattling.add_theme_font_size_override(&"font_size", 7)
 
 
 func _style_tabs() -> void:
-	for tab in [tab_upgrades, tab_ratina]:
+	for tab in [tab_upgrades, tab_ratina, tab_rattling]:
 		tab.toggle_mode = true
 		tab.flat = true
 		var style := StyleBoxFlat.new()
@@ -335,6 +451,7 @@ func _style_tabs() -> void:
 		tab.add_theme_stylebox_override(&"hover", pressed)
 	tab_upgrades.text = "Tree"
 	tab_ratina.text = "Ratina"
+	tab_rattling.text = "Rattlings"
 
 
 func _style_back_button() -> void:

@@ -133,6 +133,8 @@ const UPGRADES_UNLOCK_COST: float = 1.50
 const SHOP_UNLOCK_COST: float = 50.0
 ## One-time cost to hire Ratina (placeholder tab only for now).
 const RATINA_UNLOCK_COST: float = 100.0
+## One-time cost to unlock Rattlings in the shop.
+const RATTLING_UNLOCK_COST: float = 10.0
 ## Per-level cost escalation — each successive upgrade costs more than pure exponential.
 const UPGRADE_COST_LEVEL_STRETCH: float = 0.165
 
@@ -155,6 +157,15 @@ const RATINA_BALL_OFFSET := Vector3(-0.416, -1.253, -0.271)
 const RATINA_STRIKE_TEXT_OFFSET := Vector2(-27.0, -20.0)
 ## Idle at the tee before each autonomous swing (remainder of swing_cooldown_ms).
 const RATINA_ADDRESS_PREP_SEC: float = 0.75
+
+## Rattlings — forest-edge gnome-rats that fetch littered balls.
+const RATTLING_PIXEL_SIZE: float = 0.021
+const RATTLING_SPAWN_STAGGER_SEC: float = 0.6
+const RATTLING_FADE_SEC: float = 0.5
+const RATTLING_BASE_AMOUNT: float = 0.06
+const RATTLING_PAY_PER_YARD: float = 0.006
+## More Rattlings upgrade — extra active agent per level (level 0 = 1 owned).
+const RATTLING_COUNT_BONUS_PER_LEVEL: float = 1.0
 
 
 static func default_stats() -> PlayerStats:
@@ -209,4 +220,19 @@ static func default_ratina_stats() -> PlayerStats:
 	stats.quality_multiplier = 1.0
 	stats.swing_cooldown_ms = 10000.0
 	stats.consistency = 0.0
+	return stats
+
+
+static func default_rattling_stats() -> PlayerStats:
+	var stats := PlayerStats.new()
+	stats.base_amount = RATTLING_BASE_AMOUNT
+	stats.pay_per_yard = RATTLING_PAY_PER_YARD
+	stats.quality_multiplier = 1.0
+	stats.yardage_term_unlocked = 1.0
+	stats.quality_term_unlocked = 1.0
+	stats.golden_ball_payout_multiplier = GOLDEN_BALL_PAYOUT_MULTIPLIER
+	stats.rattling_count = 1.0
+	stats.rattling_walk_speed = 3.2
+	stats.rattling_pickup_speed_multiplier = 1.0
+	stats.rattling_golden_bonus_chance = 0.0
 	return stats

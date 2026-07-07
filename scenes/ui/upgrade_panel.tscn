@@ -65,6 +65,12 @@ layout_mode = 2
 mouse_default_cursor_shape = 2
 text = "Ratina"
 
+[node name="RattlingTab" type="Button" parent="Content/Header/TabRow"]
+visible = false
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Rattlings"
+
 [node name="Title" type="Label" parent="Content/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -141,6 +147,50 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="Nodes" type="Control" parent="Content/RatinaPlaceholder/RatinaTreeCanvas"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="RattlingPlaceholder" type="Control" parent="Content"]
+visible = false
+layout_mode = 0
+offset_left = 8.0
+offset_top = 28.0
+offset_right = 472.0
+offset_bottom = 262.0
+
+[node name="StatsLabel" type="Label" parent="Content/RattlingPlaceholder"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 0.0
+offset_right = 460.0
+offset_bottom = 14.0
+theme_override_colors/font_color = Color(0.82, 0.86, 0.66, 1)
+theme_override_font_sizes/font_size = 7
+text = "1 Rattling working the forest edge"
+horizontal_alignment = 1
+
+[node name="RattlingTreeCanvas" type="Control" parent="Content/RattlingPlaceholder"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 16.0
+offset_right = 464.0
+offset_bottom = 234.0
+
+[node name="Connectors" type="Control" parent="Content/RattlingPlaceholder/RattlingTreeCanvas"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Nodes" type="Control" parent="Content/RattlingPlaceholder/RattlingTreeCanvas"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

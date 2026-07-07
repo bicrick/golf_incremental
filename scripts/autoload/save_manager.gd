@@ -42,8 +42,10 @@ func save_game() -> void:
 		"upgrades_unlocked": GameState.upgrades_unlocked,
 		"shop_unlocked": GameState.shop_unlocked,
 		"ratina_unlocked": GameState.ratina_unlocked,
+		"rattlings_unlocked": GameState.rattlings_unlocked,
 		"shop_levels": GameState.shop_levels.duplicate(),
 		"ratina_upgrade_levels": GameState.ratina_upgrade_levels.duplicate(),
+		"rattling_upgrade_levels": GameState.rattling_upgrade_levels.duplicate(),
 		"lifetime": GameState.lifetime.duplicate(),
 		"bucket_remaining": GameState.bucket_remaining,
 		"bucket_capacity": GameState.bucket_capacity,
@@ -118,8 +120,10 @@ func load_game() -> void:
 	GameState.upgrades_unlocked = bool(parsed.get("upgrades_unlocked", false))
 	GameState.shop_unlocked = bool(parsed.get("shop_unlocked", false))
 	GameState.ratina_unlocked = bool(parsed.get("ratina_unlocked", false))
+	GameState.rattlings_unlocked = bool(parsed.get("rattlings_unlocked", false))
 	GameState.shop_levels = parsed.get("shop_levels", {})
 	GameState.ratina_upgrade_levels = parsed.get("ratina_upgrade_levels", {})
+	GameState.rattling_upgrade_levels = parsed.get("rattling_upgrade_levels", {})
 	GameState.lifetime = parsed.get("lifetime", GameState.lifetime)
 	GameState.bucket_capacity = int(parsed.get("bucket_capacity", Balance.BUCKET_CAPACITY_DEFAULT))
 	var saved_remaining: int = int(parsed.get("bucket_remaining", -1))

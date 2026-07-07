@@ -6,10 +6,13 @@ var upgrade_levels: Dictionary = {}
 var upgrades_unlocked: bool = false
 var shop_unlocked: bool = false
 var ratina_unlocked: bool = false
+var rattlings_unlocked: bool = false
 var shop_levels: Dictionary = {}
 var ratina_upgrade_levels: Dictionary = {}
+var rattling_upgrade_levels: Dictionary = {}
 var stats: PlayerStats = Balance.default_stats()
 var ratina_stats: PlayerStats = Balance.default_ratina_stats()
+var rattling_stats: PlayerStats = Balance.default_rattling_stats()
 var bucket_remaining: int = -1
 var bucket_capacity: int = 0
 var current_phase: String = "strike"
@@ -21,6 +24,7 @@ var lifetime: Dictionary = {
 	"lifetime_yards": 0.0,
 	"lifetime_earnings": 0.0,
 	"ratina_lifetime_earnings": 0.0,
+	"rattling_lifetime_earnings": 0.0,
 	"perfect_count": 0,
 }
 
@@ -48,6 +52,8 @@ func _recompute_stats() -> void:
 	ShopEffects.apply_all(stats, shop_levels)
 	ratina_stats = Balance.default_ratina_stats()
 	RatinaUpgradeEffects.apply_all(ratina_stats, ratina_upgrade_levels)
+	rattling_stats = Balance.default_rattling_stats()
+	RattlingUpgradeEffects.apply_all(rattling_stats, rattling_upgrade_levels)
 	bucket_capacity = get_bucket_capacity()
 
 
@@ -75,6 +81,19 @@ func try_unlock_ratina() -> bool:
 		return false
 	currency -= Balance.RATINA_UNLOCK_COST
 	ratina_unlocked = true
+	EventBus.stats_changed.emit(stats, currency)
+	return true
+
+
+func try_unlock_rattlings() -> bool:
+	if rattlings_unlocked:
+		return true
+	if not shop_unlocked:
+		return false
+	if currency < Balance.RATTLING_UNLOCK_COST:
+		return false
+	currency -= Balance.RATTLING_UNLOCK_COST
+	rattlings_unlocked = true
 	EventBus.stats_changed.emit(stats, currency)
 	return true
 
@@ -162,6 +181,61 @@ func credit_ratina_ball(yardage: float, quality: int) -> float:
 	return payout
 
 
+func get_rattling_upgrade_level(id: String) -> int:
+	return rattling_upgrade_levels.get(id, 0)
+
+
+func purchase_rattling_upgrade(id: String) -> bool:
+	if not rattlings_unlocked:
+		return false
+	var def: Dictionary = RattlingUpgradeDefinitions.get_def(id)
+	if def.is_empty():
+		return false
+	var level := get_rattling_upgrade_level(id)
+	if level >= int(def["max_level"]):
+		return false
+	if not RattlingUpgradeDefinitions.is_unlocked(id, rattling_upgrade_levels):
+		return false
+	var cost := get_rattling_upgrade_cost(id)
+	if currency < cost:
+		return false
+	currency -= cost
+	rattling_upgrade_levels[id] = level + 1
+	_recompute_stats()
+	EventBus.rattling_upgrade_purchased.emit(id, level + 1)
+	EventBus.stats_changed.emit(stats, currency)
+	return true
+
+
+func get_rattling_upgrade_cost(id: String) -> float:
+	var def: Dictionary = RattlingUpgradeDefinitions.get_def(id)
+	if def.is_empty():
+		return 0.0
+	return Economy.upgrade_cost(
+		float(def["base_cost"]), float(def["growth_rate"]), get_rattling_upgrade_level(id)
+	)
+
+
+## Awards cash for a ball a Rattling carried back to the forest, and credits
+## the ball toward the bucket refill (same accounting as vanished balls).
+func credit_rattling_ball(quality: int, yardage: float, is_golden: bool = false) -> float:
+	var golden := is_golden
+	if not golden and rattling_stats.rattling_golden_bonus_chance > 0.0:
+		golden = randf() < rattling_stats.rattling_golden_bonus_chance
+	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, 1, rattling_stats)
+	if golden:
+		payout *= rattling_stats.golden_ball_payout_multiplier
+	add_currency(payout)
+	lifetime["rattling_lifetime_earnings"] = lifetime.get("rattling_lifetime_earnings", 0.0) + payout
+	if current_phase == "harvest":
+		harvest_collected += 1
+	else:
+		pending_vanish_collects += 1
+	EventBus.rattling_ball_collected.emit(payout)
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	return payout
+
+
 func try_unlock_upgrades() -> bool:
 	if upgrades_unlocked:
 		return true
@@ -214,10 +288,13 @@ func reset_to_fresh() -> void:
 	upgrades_unlocked = false
 	shop_unlocked = false
 	ratina_unlocked = false
+	rattlings_unlocked = false
 	shop_levels.clear()
 	ratina_upgrade_levels.clear()
+	rattling_upgrade_levels.clear()
 	stats = Balance.default_stats()
 	ratina_stats = Balance.default_ratina_stats()
+	rattling_stats = Balance.default_rattling_stats()
 	bucket_capacity = get_bucket_capacity()
 	bucket_remaining = bucket_capacity
 	current_phase = "strike"
@@ -228,6 +305,7 @@ func reset_to_fresh() -> void:
 		"lifetime_yards": 0.0,
 		"lifetime_earnings": 0.0,
 		"ratina_lifetime_earnings": 0.0,
+		"rattling_lifetime_earnings": 0.0,
 		"perfect_count": 0,
 	}
 	_recompute_stats()

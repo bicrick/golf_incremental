@@ -18,6 +18,7 @@ const PLATE_CAPTURE_OUTPUT := "res://captures/range_bg.png"
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
 const RangePickerIndicatorScript := preload("res://scripts/range/range_picker_indicator.gd")
 const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
+const RattlingControllerScript := preload("res://scripts/range/rattling_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
@@ -64,6 +65,7 @@ var _ball_lay_texture: Texture2D
 var _pickup: Node
 var _picker_indicator: Node3D
 var _ratina: Node
+var _rattling_controller: Node
 var _active_flights: Array[Dictionary] = []
 var _sprite_atmosphere_tint: Color = Color.WHITE
 var _ratina_layout_applied: bool = false
@@ -129,6 +131,7 @@ func _ready() -> void:
 	call_deferred("_sync_tee_ball_from_bucket")
 	call_deferred("_setup_pickup_controller")
 	call_deferred("_setup_ratina_controller")
+	call_deferred("_setup_rattling_controller")
 	call_deferred("_apply_ratina_layout_if_needed")
 	_set_idle_ring()
 	if sun_light:
@@ -471,6 +474,8 @@ func _apply_sprite_atmosphere_tint() -> void:
 					child.modulate = _sprite_atmosphere_tint
 	if _ratina and _ratina.has_method("apply_atmosphere_tint"):
 		_ratina.apply_atmosphere_tint(_sprite_atmosphere_tint)
+	if _rattling_controller and _rattling_controller.has_method("apply_atmosphere_tint"):
+		_rattling_controller.apply_atmosphere_tint(_sprite_atmosphere_tint)
 
 
 func _process(delta: float) -> void:
@@ -894,6 +899,14 @@ func _setup_ratina_controller() -> void:
 	_ratina.name = "RatinaController"
 	add_child(_ratina)
 	_ratina.setup(self, ratina_bay)
+
+
+func _setup_rattling_controller() -> void:
+	_rattling_controller = RattlingControllerScript.new()
+	_rattling_controller.name = "RattlingController"
+	add_child(_rattling_controller)
+	_rattling_controller.setup(self, foreground, littered_balls)
+	_rattling_controller.apply_atmosphere_tint(_sprite_atmosphere_tint)
 
 
 func _sync_tee_ball_from_bucket() -> void:

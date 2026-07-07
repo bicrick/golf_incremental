@@ -12,6 +12,11 @@ const ITEM_CARD_SCENE := preload("res://scenes/ui/shop_item_card.tscn")
 @onready var _ratina_desc: Label = $Content/Items/RatinaCard/Margin/Row/Info/DescLabel
 @onready var _ratina_level: Label = $Content/Items/RatinaCard/Margin/Row/Info/LevelLabel
 @onready var _ratina_buy: Button = $Content/Items/RatinaCard/Margin/Row/BuyButton
+@onready var _rattling_card: PanelContainer = $Content/Items/RattlingCard
+@onready var _rattling_name: Label = $Content/Items/RattlingCard/Margin/Row/Info/NameLabel
+@onready var _rattling_desc: Label = $Content/Items/RattlingCard/Margin/Row/Info/DescLabel
+@onready var _rattling_level: Label = $Content/Items/RattlingCard/Margin/Row/Info/LevelLabel
+@onready var _rattling_buy: Button = $Content/Items/RattlingCard/Margin/Row/BuyButton
 
 var _is_open := false
 var _item_cards: Dictionary = {}
@@ -25,8 +30,10 @@ func _ready() -> void:
 	_apply_fonts()
 	_style_back_button()
 	_style_ratina_card()
+	_style_rattling_card()
 	_build_items()
 	_ratina_buy.pressed.connect(_on_ratina_buy_pressed)
+	_rattling_buy.pressed.connect(_on_rattling_buy_pressed)
 	_refresh_all()
 
 
@@ -90,6 +97,21 @@ func _refresh_all() -> void:
 		var card: PanelContainer = _item_cards[id]
 		card.refresh()
 	_refresh_ratina_card()
+	_refresh_rattling_card()
+
+
+func _refresh_rattling_card() -> void:
+	_rattling_name.text = "Rattlings"
+	_rattling_desc.text = "Forest gnome-rats fetch littered balls for cash. Unlocks their upgrade tab."
+	if GameState.rattlings_unlocked:
+		_rattling_level.text = "Hired"
+		_rattling_buy.text = "HIRED"
+		_rattling_buy.disabled = true
+	else:
+		_rattling_level.text = "Unlocks the Rattling upgrade tree"
+		var affordable := GameState.currency >= Balance.RATTLING_UNLOCK_COST
+		_rattling_buy.text = "$%d" % int(Balance.RATTLING_UNLOCK_COST)
+		_rattling_buy.disabled = not affordable or not GameState.shop_unlocked
 
 
 func _refresh_ratina_card() -> void:
@@ -118,6 +140,12 @@ func _on_ratina_buy_pressed() -> void:
 	_refresh_all()
 
 
+func _on_rattling_buy_pressed() -> void:
+	if not GameState.try_unlock_rattlings():
+		return
+	_refresh_all()
+
+
 func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:
 	if not _is_open:
 		return
@@ -126,6 +154,7 @@ func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:
 		var card: PanelContainer = _item_cards[id]
 		card.refresh()
 	_refresh_ratina_card()
+	_refresh_rattling_card()
 
 
 func _on_shop_item_purchased(_id: String, _level: int) -> void:
@@ -141,6 +170,11 @@ func _apply_fonts() -> void:
 	PixelFont.apply_label(_ratina_level, 6)
 	_ratina_buy.add_theme_font_override(&"font", PixelFont.font_for_size(7))
 	_ratina_buy.add_theme_font_size_override(&"font_size", 7)
+	PixelFont.apply_label(_rattling_name, 8)
+	PixelFont.apply_label(_rattling_desc, 6)
+	PixelFont.apply_label(_rattling_level, 6)
+	_rattling_buy.add_theme_font_override(&"font", PixelFont.font_for_size(7))
+	_rattling_buy.add_theme_font_size_override(&"font_size", 7)
 
 
 func _style_back_button() -> void:
@@ -209,6 +243,49 @@ func _style_ratina_card() -> void:
 	_ratina_buy.add_theme_stylebox_override(&"hover", hover)
 	_ratina_buy.add_theme_stylebox_override(&"pressed", hover)
 	_ratina_buy.custom_minimum_size = Vector2(52, 22)
+
+
+func _style_rattling_card() -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.14, 0.17, 0.11, 0.92)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = Color(0.42, 0.52, 0.28, 1)
+	style.corner_radius_top_left = 2
+	style.corner_radius_top_right = 2
+	style.corner_radius_bottom_left = 2
+	style.corner_radius_bottom_right = 2
+	style.content_margin_left = 6
+	style.content_margin_top = 4
+	style.content_margin_right = 6
+	style.content_margin_bottom = 4
+	_rattling_card.add_theme_stylebox_override(&"panel", style)
+	_rattling_name.add_theme_color_override(&"font_color", Color(0.78, 0.92, 0.48, 1))
+	_rattling_desc.add_theme_color_override(&"font_color", Color(0.86, 0.9, 0.76, 1))
+	_rattling_level.add_theme_color_override(&"font_color", Color(0.5, 0.55, 0.42, 1))
+	var btn_style := StyleBoxFlat.new()
+	btn_style.bg_color = Color(0.72, 0.82, 0.48, 0.92)
+	btn_style.border_width_left = 2
+	btn_style.border_width_top = 2
+	btn_style.border_width_right = 2
+	btn_style.border_width_bottom = 2
+	btn_style.border_color = Color(0.18, 0.52, 0.48, 1)
+	btn_style.corner_radius_top_left = 2
+	btn_style.corner_radius_top_right = 2
+	btn_style.corner_radius_bottom_left = 2
+	btn_style.corner_radius_bottom_right = 2
+	btn_style.content_margin_left = 6
+	btn_style.content_margin_right = 6
+	btn_style.content_margin_top = 2
+	btn_style.content_margin_bottom = 2
+	_rattling_buy.add_theme_stylebox_override(&"normal", btn_style)
+	var hover := btn_style.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(0.82, 0.92, 0.58, 0.95)
+	_rattling_buy.add_theme_stylebox_override(&"hover", hover)
+	_rattling_buy.add_theme_stylebox_override(&"pressed", hover)
+	_rattling_buy.custom_minimum_size = Vector2(52, 22)
 
 
 func _format_currency(n: float) -> String:
