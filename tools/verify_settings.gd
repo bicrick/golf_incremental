@@ -307,7 +307,9 @@ func _test_pause_menu() -> bool:
 		main.queue_free()
 		return false
 
-	var add_money_btn: Button = pause_menu.get_node("Content/Center/VBox/DebugSection/AddMoneyButton")
+	var add_money_btn: Button = pause_menu.get_node(
+		"Content/Center/MainRow/LeftPane/DebugSection/AddMoneyButton"
+	)
 	add_money_btn.pressed.emit()
 	await process_frame
 

@@ -65,12 +65,45 @@ func get_current_music_display_name() -> String:
 
 
 func is_music_playing() -> bool:
-	return _music_player != null and _music_player.playing
+	return _music_player != null and _music_player.playing and not _music_player.stream_paused
+
+
+func is_music_paused() -> bool:
+	return _music_player != null and _music_player.playing and _music_player.stream_paused
+
+
+func should_show_play_icon() -> bool:
+	if not _music_enabled:
+		return false
+	if _music_player == null or _music_player.stream == null:
+		return true
+	return not _music_player.playing or _music_player.stream_paused
 
 
 func stop_music() -> void:
 	if _music_player != null:
 		_music_player.stop()
+
+
+func toggle_music_playback() -> void:
+	if not _music_enabled:
+		return
+	_refresh_music_tracks()
+	if _music_tracks.is_empty():
+		return
+	if _music_player == null or _music_player.stream == null:
+		_is_title_mode = false
+		if _rotation_index < 0 or _rotation_index >= _music_tracks.size():
+			_rotation_index = 0
+		_play_track_at_path(_music_tracks[_rotation_index], false)
+		return
+	if _music_player.playing and not _music_player.stream_paused:
+		_music_player.stream_paused = true
+	elif _music_player.playing and _music_player.stream_paused:
+		_music_player.stream_paused = false
+	else:
+		_music_player.stream_paused = false
+		_music_player.play()
 
 
 func skip_music_track() -> void:
@@ -240,6 +273,7 @@ func _play_track_at_path(path: String, loop: bool) -> void:
 	if not loop:
 		_music_player.finished.connect(_on_music_finished)
 	_apply_music_volume()
+	_music_player.stream_paused = false
 	_music_player.play()
 	music_track_changed.emit(path)
 

@@ -14,13 +14,13 @@ const COLOR_EXIT_BORDER := Color(0.45, 0.12, 0.1, 1.0)
 const COLOR_EXIT_HOVER := Color(0.82, 0.38, 0.32, 1.0)
 const DEBUG_MONEY_AMOUNT := 1_000_000.0
 
-@onready var title_label: Label = $Content/Center/VBox/Title
-@onready var music_player: VBoxContainer = $Content/Center/VBox/MusicSection
-@onready var resume_button: Button = $Content/Center/VBox/ResumeButton
-@onready var settings_button: Button = $Content/Center/VBox/SettingsButton
-@onready var exit_button: Button = $Content/Center/VBox/ExitButton
-@onready var debug_label: Label = $Content/Center/VBox/DebugSection/DebugLabel
-@onready var add_money_button: Button = $Content/Center/VBox/DebugSection/AddMoneyButton
+@onready var title_label: Label = $Content/Center/MainRow/LeftPane/Title
+@onready var music_player: PanelContainer = $Content/Center/MainRow/RightPane/MusicSection
+@onready var resume_button: Button = $Content/Center/MainRow/LeftPane/ResumeButton
+@onready var settings_button: Button = $Content/Center/MainRow/LeftPane/SettingsButton
+@onready var exit_button: Button = $Content/Center/MainRow/LeftPane/ExitButton
+@onready var debug_label: Label = $Content/Center/MainRow/LeftPane/DebugSection/DebugLabel
+@onready var add_money_button: Button = $Content/Center/MainRow/LeftPane/DebugSection/AddMoneyButton
 
 var _is_open := false
 
