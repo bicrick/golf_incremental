@@ -1,6 +1,8 @@
 extends Node
 ## Procedural placeholder SFX + BGM from assets/audio/music/.
 
+signal music_track_changed(path: String)
+
 const POOL_SIZE := 3
 const MIX_RATE := 22050
 const MUSIC_DIR := "res://assets/audio/music/"
@@ -43,6 +45,54 @@ func _ready() -> void:
 func get_music_tracks() -> Array[String]:
 	_refresh_music_tracks()
 	return _music_tracks.duplicate()
+
+
+func get_current_music_track_path() -> String:
+	if _music_player != null and _music_player.stream != null:
+		return _music_player.stream.resource_path
+	return ""
+
+
+func get_current_music_display_name() -> String:
+	if not _music_enabled:
+		return "Music Off"
+	if _ambient_player != null and _ambient_player.playing:
+		return "Ambient Wind"
+	var path := get_current_music_track_path()
+	if path.is_empty():
+		return "No Track"
+	return path.get_file().get_basename()
+
+
+func is_music_playing() -> bool:
+	return _music_player != null and _music_player.playing
+
+
+func stop_music() -> void:
+	if _music_player != null:
+		_music_player.stop()
+
+
+func skip_music_track() -> void:
+	if not _music_enabled:
+		return
+	_refresh_music_tracks()
+	if _music_tracks.is_empty():
+		return
+	_is_title_mode = false
+	_rotation_index = (_rotation_index + 1) % _music_tracks.size()
+	_play_track_at_path(_music_tracks[_rotation_index], false)
+
+
+func previous_music_track() -> void:
+	if not _music_enabled:
+		return
+	_refresh_music_tracks()
+	if _music_tracks.is_empty():
+		return
+	_is_title_mode = false
+	_rotation_index = (_rotation_index - 1 + _music_tracks.size()) % _music_tracks.size()
+	_play_track_at_path(_music_tracks[_rotation_index], false)
 
 
 func is_sfx_enabled() -> bool:
@@ -191,6 +241,7 @@ func _play_track_at_path(path: String, loop: bool) -> void:
 		_music_player.finished.connect(_on_music_finished)
 	_apply_music_volume()
 	_music_player.play()
+	music_track_changed.emit(path)
 
 
 func _on_music_finished() -> void:

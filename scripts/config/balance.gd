@@ -15,7 +15,13 @@ const COMBO_MULT_PER_TIER: float = 0.10
 
 ## Harvest range picker — world-radius circle on the fairway (yards).
 const RANGE_PICKER_BASE_RADIUS_YARDS: float = 0.19
+## Linear stat increment per upgrade level (maps to curve below).
 const RANGE_PICKER_RADIUS_PER_LEVEL: float = 0.04
+const RANGE_PICKER_MAX_LEVEL: int = 10
+## Max harvest circle at full upgrade (3× former 0.59 yd cap).
+const RANGE_PICKER_MAX_RADIUS_YARDS: float = 1.77
+## Ease-in exponent — modest early gains, stronger radius growth at high levels.
+const RANGE_PICKER_RADIUS_CURVE_EXP: float = 1.5
 ## Extra world slack so balls near the ring edge register as hits.
 const RANGE_PICKER_HIT_SLACK_YARDS: float = 0.03
 
@@ -184,7 +190,13 @@ static func default_stats() -> PlayerStats:
 
 
 static func range_picker_radius_yards(stats: PlayerStats) -> float:
-	return RANGE_PICKER_BASE_RADIUS_YARDS + stats.range_picker_radius_bonus
+	var max_linear_bonus := RANGE_PICKER_RADIUS_PER_LEVEL * float(RANGE_PICKER_MAX_LEVEL)
+	if max_linear_bonus <= 0.0:
+		return RANGE_PICKER_BASE_RADIUS_YARDS
+	var t := clampf(stats.range_picker_radius_bonus / max_linear_bonus, 0.0, 1.0)
+	var curved_t := pow(t, RANGE_PICKER_RADIUS_CURVE_EXP)
+	var max_bonus := RANGE_PICKER_MAX_RADIUS_YARDS - RANGE_PICKER_BASE_RADIUS_YARDS
+	return RANGE_PICKER_BASE_RADIUS_YARDS + max_bonus * curved_t
 
 
 static func default_ratina_stats() -> PlayerStats:

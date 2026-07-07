@@ -109,4 +109,48 @@ func _run() -> void:
 
 	print("OK: volume_db=", music.volume_db)
 	print("OK: gameplay_mode=playlist_rotation")
+
+	var display_name: String = sfx.get_current_music_display_name()
+	if display_name.is_empty():
+		print("FAIL: display name should not be empty")
+		quit(1)
+		return
+	for ext in ["mp3", "ogg", "wav", "flac"]:
+		if display_name.to_lower().ends_with("." + ext):
+			print("FAIL: display name should omit extension, got ", display_name)
+			quit(1)
+			return
+	print("OK: display_name=", display_name)
+
+	var before_skip: String = sfx.get_current_music_track_path()
+	sfx.skip_music_track()
+	await process_frame
+	var after_skip: String = sfx.get_current_music_track_path()
+	if after_skip.is_empty() or after_skip == before_skip:
+		print("FAIL: skip should change track from ", before_skip, " got ", after_skip)
+		quit(1)
+		return
+	if not music.playing:
+		print("FAIL: music should play after skip")
+		quit(1)
+		return
+	print("OK: skip_track=", after_skip)
+
+	sfx.previous_music_track()
+	await process_frame
+	var after_prev: String = sfx.get_current_music_track_path()
+	if after_prev != before_skip:
+		print("FAIL: previous should return to ", before_skip, " got ", after_prev)
+		quit(1)
+		return
+	print("OK: previous_track=", after_prev)
+
+	sfx.stop_music()
+	await process_frame
+	if sfx.is_music_playing():
+		print("FAIL: music should stop after stop_music")
+		quit(1)
+		return
+	print("OK: stop_music=true")
+
 	quit(0)

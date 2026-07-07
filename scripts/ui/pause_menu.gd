@@ -15,6 +15,7 @@ const COLOR_EXIT_HOVER := Color(0.82, 0.38, 0.32, 1.0)
 const DEBUG_MONEY_AMOUNT := 1_000_000.0
 
 @onready var title_label: Label = $Content/Center/VBox/Title
+@onready var music_player: VBoxContainer = $Content/Center/VBox/MusicSection
 @onready var resume_button: Button = $Content/Center/VBox/ResumeButton
 @onready var settings_button: Button = $Content/Center/VBox/SettingsButton
 @onready var exit_button: Button = $Content/Center/VBox/ExitButton
@@ -52,6 +53,8 @@ func open() -> void:
 	_close_other_panels()
 	_is_open = true
 	visible = true
+	if music_player.has_method("refresh"):
+		music_player.refresh()
 	EventBus.ui_panel_toggled.emit("pause", true)
 
 

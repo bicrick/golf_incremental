@@ -1,7 +1,9 @@
-[gd_scene load_steps=3 format=3 uid="uid://pause_menu_scene"]
+[gd_scene load_steps=5 format=3 uid="uid://pause_menu_scene"]
 
 [ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/ui/parallax_sky_background.gd" id="2_sky_bg"]
+[ext_resource type="Script" path="res://scripts/ui/pause_music_player.gd" id="3_music_player"]
+[ext_resource type="Script" path="res://scripts/ui/pixel_music_note.gd" id="4_music_note"]
 
 [node name="PauseMenu" type="Control"]
 layout_mode = 3
@@ -44,6 +46,53 @@ grow_vertical = 2
 [node name="VBox" type="VBoxContainer" parent="Content/Center"]
 layout_mode = 2
 theme_override_constants/separation = 8
+
+[node name="MusicSection" type="VBoxContainer" parent="Content/Center/VBox"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 6
+script = ExtResource("3_music_player")
+
+[node name="TrackRow" type="HBoxContainer" parent="Content/Center/VBox/MusicSection"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="MusicIcon" type="Control" parent="Content/Center/VBox/MusicSection/TrackRow"]
+layout_mode = 2
+script = ExtResource("4_music_note")
+
+[node name="TrackNameLabel" type="Label" parent="Content/Center/VBox/MusicSection/TrackRow"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 8
+text = "No Track"
+horizontal_alignment = 1
+
+[node name="ControlsRow" type="HBoxContainer" parent="Content/Center/VBox/MusicSection"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="RewindButton" type="Button" parent="Content/Center/VBox/MusicSection/ControlsRow"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "<<"
+
+[node name="StopButton" type="Button" parent="Content/Center/VBox/MusicSection/ControlsRow"]
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Stop"
+
+[node name="SkipButton" type="Button" parent="Content/Center/VBox/MusicSection/ControlsRow"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = ">>"
 
 [node name="Title" type="Label" parent="Content/Center/VBox"]
 layout_mode = 2
