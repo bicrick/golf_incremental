@@ -2,6 +2,8 @@
 
 **Design intent:** Yards are **capped and taper** (~400 max effective). Money scales through **`pay_per_yard` and `$` upgrades**, not infinite carry. Clubs are **shop purchases** that trade forgiveness for distance — **stats first, art optional**.
 
+**Shipped note:** The separate Pro Shop panel was removed. `ball_count` and `golden_ball` live on the unified upgrade tree. Ratina and Rattlings are hire nodes on that tree. Club equipment below remains **planned**, not implemented.
+
 ## Player fantasy
 
 | Club | Feel | Mechanical trade |

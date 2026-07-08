@@ -1,6 +1,8 @@
 extends Node
 ## Currency, upgrade levels, and computed stats.
 
+const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
+
 var currency: float = 0.0
 var upgrade_levels: Dictionary = {}
 var upgrades_unlocked: bool = false
@@ -62,46 +64,6 @@ func _recompute_stats() -> void:
 	bucket_capacity = get_bucket_capacity()
 
 
-func is_shop_visible() -> bool:
-	return get_upgrade_level("base_pay") >= 1
-
-
-func try_unlock_shop() -> bool:
-	if shop_unlocked:
-		return true
-	if currency < Balance.SHOP_UNLOCK_COST:
-		return false
-	currency -= Balance.SHOP_UNLOCK_COST
-	shop_unlocked = true
-	EventBus.stats_changed.emit(stats, currency)
-	return true
-
-
-func try_unlock_ratina() -> bool:
-	if ratina_unlocked:
-		return true
-	if not shop_unlocked:
-		return false
-	if currency < Balance.RATINA_UNLOCK_COST:
-		return false
-	currency -= Balance.RATINA_UNLOCK_COST
-	ratina_unlocked = true
-	EventBus.stats_changed.emit(stats, currency)
-	return true
-
-
-func try_unlock_rattlings() -> bool:
-	if rattlings_unlocked:
-		return true
-	if not shop_unlocked:
-		return false
-	if currency < Balance.RATTLING_UNLOCK_COST:
-		return false
-	currency -= Balance.RATTLING_UNLOCK_COST
-	rattlings_unlocked = true
-	EventBus.stats_changed.emit(stats, currency)
-	return true
-
 
 func set_ratina_active(active: bool) -> void:
 	if ratina_active == active:
@@ -122,13 +84,13 @@ func get_shop_item_level(id: String) -> int:
 
 
 func purchase_shop_item(id: String) -> bool:
-	if not shop_unlocked:
-		return false
 	var def: Dictionary = ShopDefinitions.get_def(id)
 	if def.is_empty():
 		return false
 	var level := get_shop_item_level(id)
 	if level >= int(def["max_level"]):
+		return false
+	if not UpgradeGraph.is_unlocked(id):
 		return false
 	var cost := get_shop_item_cost(id)
 	if currency < cost:
@@ -172,7 +134,7 @@ func purchase_ratina_upgrade(id: String) -> bool:
 	var level := get_ratina_upgrade_level(id)
 	if level >= int(def["max_level"]):
 		return false
-	if not RatinaUpgradeDefinitions.is_unlocked(id, ratina_upgrade_levels):
+	if not UpgradeGraph.is_unlocked(id):
 		return false
 	var cost := get_ratina_upgrade_cost(id)
 	if currency < cost:
@@ -219,21 +181,21 @@ func get_rattling_upgrade_level(id: String) -> int:
 
 
 func purchase_rattling_upgrade(id: String) -> bool:
-	if not rattlings_unlocked:
-		return false
 	var def: Dictionary = RattlingUpgradeDefinitions.get_def(id)
 	if def.is_empty():
 		return false
 	var level := get_rattling_upgrade_level(id)
 	if level >= int(def["max_level"]):
 		return false
-	if not RattlingUpgradeDefinitions.is_unlocked(id, rattling_upgrade_levels):
+	if not UpgradeGraph.is_unlocked(id):
 		return false
 	var cost := get_rattling_upgrade_cost(id)
 	if currency < cost:
 		return false
 	currency -= cost
 	rattling_upgrade_levels[id] = level + 1
+	if id == "rattling_more" and level == 0:
+		rattlings_unlocked = true
 	_recompute_stats()
 	EventBus.rattling_upgrade_purchased.emit(id, level + 1)
 	EventBus.stats_changed.emit(stats, currency)
@@ -297,13 +259,15 @@ func purchase_upgrade(id: String) -> bool:
 	var level := get_upgrade_level(id)
 	if level >= int(def["max_level"]):
 		return false
-	if not UpgradeDefinitions.is_unlocked(id, upgrade_levels, lifetime):
+	if not UpgradeGraph.is_unlocked(id):
 		return false
 	var cost := Economy.upgrade_cost(float(def["base_cost"]), float(def["growth_rate"]), level)
 	if currency < cost:
 		return false
 	currency -= cost
 	upgrade_levels[id] = level + 1
+	if id == "ratina_hire" and level == 0:
+		ratina_unlocked = true
 	var old_capacity := bucket_capacity
 	_recompute_stats()
 	if bucket_capacity > old_capacity:

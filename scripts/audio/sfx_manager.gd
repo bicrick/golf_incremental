@@ -40,6 +40,8 @@ func _ready() -> void:
 	EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
+	EventBus.shop_item_purchased.connect(_on_shop_item_purchased)
+	EventBus.rattling_upgrade_purchased.connect(_on_rattling_upgrade_purchased)
 
 
 func get_music_tracks() -> Array[String]:
@@ -405,6 +407,18 @@ func _on_upgrade_purchased(_id: String, level: int, _branch: int) -> void:
 
 
 func _on_ratina_upgrade_purchased(_id: String, level: int) -> void:
+	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
+	_play("upgrade_tap", -12.0, pitch)
+	_play("upgrade_purchase", -2.0, pitch)
+
+
+func _on_shop_item_purchased(_id: String, level: int) -> void:
+	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
+	_play("upgrade_tap", -12.0, pitch)
+	_play("upgrade_purchase", -2.0, pitch)
+
+
+func _on_rattling_upgrade_purchased(_id: String, level: int) -> void:
 	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
 	_play("upgrade_tap", -12.0, pitch)
 	_play("upgrade_purchase", -2.0, pitch)

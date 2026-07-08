@@ -28,6 +28,7 @@ var _ball_yardage: float = 0.0
 var _ball_golden: bool = false
 var _ball_source: String = "player"
 var _carrying_ball := false
+var _retiring := false
 
 
 func _ready() -> void:
@@ -69,6 +70,7 @@ func start(litter: Sprite3D, walk_speed: float, atmosphere_tint: Color) -> void:
 	_state = State.WALKING_OUT
 	_carrying_ball = false
 	_faded_out = false
+	_retiring = false
 	_apply_facing(_target_x - _edge_x)
 	_sprite.speed_scale = WALK_ANIM_SPEED_SCALE
 	_sprite.play(&"walk")
@@ -82,22 +84,41 @@ func apply_atmosphere_tint(tint: Color) -> void:
 
 
 ## Instance id of the litter ball this agent still has claimed, or -1 if it
-## has already been picked up (freed) or there was none. Lets the controller
-## release the claim when aborting mid-trip.
+## has already been picked up (freed) or there was none.
 func claimed_litter_instance_id() -> int:
 	return _litter.get_instance_id() if is_instance_valid(_litter) else -1
 
 
-## Toggled off mid-trip — cancel the fetch outright (no payout, even if a
-## ball was already in hand) and fade out fast rather than finishing the walk.
-func abort() -> void:
-	if _faded_out:
+## True when toggling off should release the litter claim so another agent
+## can fetch it later — outbound or mid-pickup before the ball is in hand.
+func should_release_claim() -> bool:
+	match _state:
+		State.WALKING_OUT:
+			return is_instance_valid(_litter)
+		State.PICKING_UP:
+			return is_instance_valid(_litter) and not _carrying_ball
+		_:
+			return false
+
+
+## Toggled off — finish any in-hand return trek (credit the ball), otherwise
+## walk back to the forest empty and leave unclaimed litter on the fairway.
+func retire() -> void:
+	if _retiring or _faded_out:
 		return
-	_faded_out = true
-	_carrying_ball = false
-	set_process(false)
-	var tween := _fade_alpha_to(0.0, Color(_sprite.modulate.r, _sprite.modulate.g, _sprite.modulate.b))
-	tween.tween_callback(func(): finished.emit(self))
+	_retiring = true
+	match _state:
+		State.WALKING_BACK:
+			pass
+		State.WALKING_OUT:
+			_litter = null
+			_begin_walk_back(false)
+		State.PICKING_UP:
+			if _carrying_ball:
+				_begin_walk_back(true)
+			else:
+				_litter = null
+				_begin_walk_back(false)
 
 
 func _process(delta: float) -> void:

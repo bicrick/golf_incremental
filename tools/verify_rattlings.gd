@@ -36,7 +36,7 @@ func _run() -> void:
 	main._set_gameplay_ui_visible(true)
 	await process_frame
 
-	ok = await _check_shop_ui(main, gs) and ok
+	ok = await _check_tree_hire_ui(main, gs) and ok
 	ok = await _check_upgrade_panel_ui(main, gs) and ok
 	ok = await _check_range_view_wiring(main, gs) and ok
 	ok = await _check_controller_pickup_cycle(main, gs) and ok
@@ -89,29 +89,37 @@ func _check_definitions() -> bool:
 func _check_unlock_flow(gs: Node) -> bool:
 	var ok := true
 	gs.reset_to_fresh()
-	gs.currency = 100.0
-	gs.shop_unlocked = false
-	if gs.try_unlock_rattlings():
-		print("FAIL: try_unlock_rattlings should require shop_unlocked")
+	gs.currency = 500.0
+	gs.upgrades_unlocked = true
+	gs.purchase_upgrade("base_pay")
+	gs.purchase_upgrade("pickup")
+	if gs.purchase_rattling_upgrade("rattling_more"):
+		print("FAIL: rattling_more should require pickup Lv.2")
 		ok = false
-	gs.shop_unlocked = true
+	gs.upgrade_levels["pickup"] = 2
+	gs._recompute_stats()
 	var before: float = gs.currency
-	if not gs.try_unlock_rattlings():
-		print("FAIL: try_unlock_rattlings failed with sufficient funds")
+	if not gs.purchase_rattling_upgrade("rattling_more"):
+		print("FAIL: rattling_more hire failed with pickup Lv.2")
 		ok = false
 	if not gs.rattlings_unlocked:
 		print("FAIL: rattlings_unlocked flag not set")
 		ok = false
-	if not is_equal_approx(before - gs.currency, Balance.RATTLING_UNLOCK_COST):
-		print("FAIL: rattling unlock should cost $10, spent %.2f" % (before - gs.currency))
+	if not is_equal_approx(before - gs.currency, 10.0):
+		print("FAIL: rattling hire should cost $10, spent %.2f" % (before - gs.currency))
 		ok = false
 	else:
-		print("OK: rattling unlock costs $10 and requires shop_unlocked")
+		print("OK: rattling hire costs $10 via rattling_more at pickup Lv.2")
 	return ok
 
 
 func _check_upgrade_effects(gs: Node) -> bool:
 	var ok := true
+	gs.reset_to_fresh()
+	gs.currency = 500.0
+	gs.upgrades_unlocked = true
+	gs.upgrade_levels = {"base_pay": 1, "pickup": 2}
+	gs.rattlings_unlocked = true
 	gs.rattling_upgrade_levels = {}
 	gs._recompute_stats()
 	var base_count: float = gs.rattling_stats.rattling_count
@@ -225,39 +233,28 @@ func _check_ratina_source_collect(gs: Node) -> bool:
 	return ok
 
 
-func _check_shop_ui(main: Node, gs: Node) -> bool:
+func _check_tree_hire_ui(main: Node, gs: Node) -> bool:
 	var ok := true
 	gs.reset_to_fresh()
 	gs.currency = 500.0
 	gs.upgrades_unlocked = true
-	gs.purchase_upgrade("base_pay")
-	gs.try_unlock_shop()
+	gs.upgrade_levels = {"base_pay": 1, "pickup": 2}
+	gs._recompute_stats()
 	await process_frame
 
-	var shop_panel: Control = main.get_node("UI/UIRoot/ShopPanel")
-	var rattling_card: PanelContainer = shop_panel.get_node("Content/Items/RattlingCard")
-	if rattling_card == null:
-		print("FAIL: RattlingCard missing from shop panel")
-		return false
-
-	shop_panel.open()
+	var upgrade_panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
+	upgrade_panel.open()
 	await process_frame
-	var buy_button: Button = rattling_card.get_node("Margin/Row/BuyButton")
-	if buy_button.text != "$10":
-		print("FAIL: rattling buy button should show $10, got ", buy_button.text)
+	if not gs.purchase_rattling_upgrade("rattling_more"):
+		print("FAIL: rattling_more hire should work from unified tree")
 		ok = false
-	buy_button.pressed.emit()
-	await process_frame
 	if not gs.rattlings_unlocked:
-		print("FAIL: pressing rattling buy button should unlock rattlings")
+		print("FAIL: rattling_more purchase should unlock rattlings")
 		ok = false
-	if buy_button.text != "HIRED" or not buy_button.disabled:
-		print("FAIL: rattling buy button should show HIRED and disable after unlock")
-		ok = false
-	shop_panel.close()
+	upgrade_panel.close()
 	await process_frame
 	if ok:
-		print("OK: shop panel Rattling card unlocks Rattlings")
+		print("OK: unified tree rattling_more hire unlocks Rattlings")
 	return ok
 
 
@@ -266,27 +263,21 @@ func _check_upgrade_panel_ui(main: Node, gs: Node) -> bool:
 	var upgrade_panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
 	upgrade_panel.open()
 	await process_frame
-	var rattling_tab: Button = upgrade_panel.get_node("Content/Header/TabRow/RattlingTab")
-	if not rattling_tab.visible:
-		print("FAIL: Rattling tab should be visible after unlock")
-		ok = false
-	rattling_tab.pressed.emit()
-	await process_frame
-	var rattling_placeholder: Control = upgrade_panel.get_node("Content/RattlingPlaceholder")
-	if not rattling_placeholder.visible:
-		print("FAIL: Rattling placeholder should show when tab selected")
-		ok = false
-	var nodes_root: Control = rattling_placeholder.get_node("RattlingTreeCanvas/Nodes")
-	if nodes_root.get_child_count() != RattlingUpgradeDefinitions.all().size():
+	var nodes_root: Control = upgrade_panel.get_node("Content/TreeViewport/TreeWorld/Nodes")
+	var rattling_nodes := 0
+	for child in nodes_root.get_children():
+		if child.upgrade_id.begins_with("rattling_"):
+			rattling_nodes += 1
+	if rattling_nodes != RattlingUpgradeDefinitions.all().size():
 		print(
-			"FAIL: expected %d rattling tree nodes, got %d"
-			% [RattlingUpgradeDefinitions.all().size(), nodes_root.get_child_count()]
+			"FAIL: expected %d rattling tree nodes in mega-tree, got %d"
+			% [RattlingUpgradeDefinitions.all().size(), rattling_nodes]
 		)
 		ok = false
 	upgrade_panel.close()
 	await process_frame
 	if ok:
-		print("OK: upgrade panel Rattling tab builds its tree")
+		print("OK: unified upgrade tree includes all Rattling nodes")
 	return ok
 
 

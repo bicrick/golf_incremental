@@ -30,7 +30,7 @@ Per [00-vision.md](00-vision.md#open-design-questions-tracked-not-yet-resolved),
 ### What exists today
 
 - `GameState.ratina_unlocked: bool` (`scripts/autoload/game_state.gd:8`) is the entire "crew slot" model today — a single boolean, one hardcoded crew member, no concept of multiple slots.
-- Ratina's own progression (Base Pay / Power / Quality / Frequency) lives in the standard upgrade-tree data (`scripts/game/upgrades/definitions.gd`), gated behind `ratina_unlocked` in `upgrade_panel.gd:97,104` and `shop_panel.gd:98`.
+- Ratina's own progression (Base Pay / Power / Quality / Frequency) lives in `scripts/game/ratina/definitions.gd`, merged into the unified radial upgrade tree via `scripts/game/upgrades/graph.gd`. Ratina hire is `ratina_hire` on the player tree (Base Pay Lv.3, $100).
 - `SaveManager` persists `ratina_unlocked` directly (`scripts/autoload/save_manager.gd:44,120`) — a flat field, not a collection.
 - Milestone/gate numbers live in `docs/v3/02-long-tail-content.md` and the underlying findings doc — this is the authoritative place for cost-curve methodology; v4 should extend it, not replace it.
 

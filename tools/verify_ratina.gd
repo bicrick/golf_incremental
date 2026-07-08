@@ -65,9 +65,11 @@ func _run() -> void:
 		print("OK: Ratina ids do not overlap player tree")
 
 	gs.currency = 500.0
-	gs.shop_unlocked = true
-	if not gs.try_unlock_ratina():
-		print("FAIL: could not unlock Ratina")
+	gs.upgrades_unlocked = true
+	gs.upgrade_levels = {"base_pay": 3}
+	gs._recompute_stats()
+	if not gs.purchase_upgrade("ratina_hire"):
+		print("FAIL: could not hire Ratina from upgrade tree")
 		ok = false
 	await process_frame
 
@@ -179,13 +181,17 @@ func _run() -> void:
 	var upgrade_panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
 	if upgrade_panel.has_method("open"):
 		upgrade_panel.open()
-		upgrade_panel._on_ratina_tab_pressed()
 		await process_frame
-		if upgrade_panel._ratina_nodes.is_empty():
-			print("FAIL: Ratina upgrade panel tree not built")
+		var nodes_root: Control = upgrade_panel.get_node("Content/TreeViewport/TreeWorld/Nodes")
+		var ratina_nodes := 0
+		for child in nodes_root.get_children():
+			if child.upgrade_id.begins_with("ratina_"):
+				ratina_nodes += 1
+		if ratina_nodes < 10:
+			print("FAIL: unified tree should include Ratina nodes, got ", ratina_nodes)
 			ok = false
 		else:
-			print("OK: Ratina upgrade tab shows tree nodes")
+			print("OK: unified tree includes Ratina upgrade nodes")
 
 	if ok:
 		print("PASS: verify_ratina")

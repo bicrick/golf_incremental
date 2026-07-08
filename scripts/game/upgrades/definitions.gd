@@ -15,7 +15,7 @@ static func _init_defs() -> void:
 			"Flat cash per ball picked up. Does not change how far you hit.",
 			25, 1.50, 1.48,
 			[{"type": "multiply", "stat": "base_amount", "value_per_level": 1.15}],
-			"", {}, Vector2(213, 6)
+			"", {}
 		),
 		_def(
 			"distance_pay", Balance.UpgradeBranch.POWER, "Yardage Pay",
@@ -25,7 +25,7 @@ static func _init_defs() -> void:
 				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
 				{"type": "multiply", "stat": "pay_per_yard", "value_per_level": 1.06},
 			],
-			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(120, 62)
+			"base_pay", {"upgrade_id": "base_pay", "level": 1}
 		),
 		_def(
 			"quality", Balance.UpgradeBranch.QUALITY, "Quality",
@@ -35,7 +35,7 @@ static func _init_defs() -> void:
 				{"type": "binary", "stat": "quality_term_unlocked", "value": 1},
 				{"type": "multiply", "stat": "quality_multiplier", "value_per_level": 1.06},
 			],
-			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(213, 62)
+			"base_pay", {"upgrade_id": "base_pay", "level": 1}
 		),
 		_def(
 			"pickup", Balance.UpgradeBranch.PICKUP, "Pickup",
@@ -45,63 +45,70 @@ static func _init_defs() -> void:
 				{"type": "binary", "stat": "pickup_bonus_unlocked", "value": 1},
 				{"type": "multiply", "stat": "pickup_multiplier", "value_per_level": 1.06},
 			],
-			"base_pay", {"upgrade_id": "base_pay", "level": 1}, Vector2(306, 62)
+			"base_pay", {"upgrade_id": "base_pay", "level": 1}
+		),
+		_def(
+			"ratina_hire", Balance.UpgradeBranch.BASE_PAY, "Ratina",
+			"Hire Ratina — an autonomous range star who swings from your bucket.",
+			1, Balance.RATINA_UNLOCK_COST, 1.0,
+			[],
+			"base_pay", {"upgrade_id": "base_pay", "level": 3}
 		),
 		_def(
 			"iron_set", Balance.UpgradeBranch.POWER, "Raw Power",
 			"+3 yards baseline carry on every swing tier.",
 			20, 36.0, 1.24,
 			[{"type": "add", "stat": "base_yards", "value_per_level": 3.0}],
-			"distance_pay", {"upgrade_id": "distance_pay", "level": 1}, Vector2(120, 114)
+			"distance_pay", {"upgrade_id": "distance_pay", "level": 1}
 		),
 		_def(
 			"power", Balance.UpgradeBranch.POWER, "Carry",
 			"Multiply carry distance — extra pop on top of raw power.",
 			30, 36.0, 1.26,
 			[{"type": "multiply", "stat": "carry_multiplier", "value_per_level": 1.05}],
-			"iron_set", {"upgrade_id": "iron_set", "level": 1}, Vector2(120, 166)
+			"iron_set", {"upgrade_id": "iron_set", "level": 1}
 		),
 		_def(
 			"metronome", Balance.UpgradeBranch.QUALITY, "Metronome",
 			"Widen the Perfect timing window — easier clean strikes.",
 			10, 18.0, 1.32,
 			[{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 8.0}],
-			"quality", {"upgrade_id": "quality", "level": 1}, Vector2(213, 114)
+			"quality", {"upgrade_id": "quality", "level": 1}
 		),
 		_def(
 			"great_eye", Balance.UpgradeBranch.QUALITY, "Great Eye",
 			"Widen the Great timing band — more high-tier hits.",
 			10, 36.0, 1.32,
 			[{"type": "add", "stat": "timing_window_great_ms", "value_per_level": 10.0}],
-			"metronome", {"upgrade_id": "metronome", "level": 1}, Vector2(165, 166)
+			"metronome", {"upgrade_id": "metronome", "level": 1}
 		),
 		_def(
 			"quick_reset", Balance.UpgradeBranch.QUALITY, "Quick Reset",
 			"Shorten swing cooldown — more strikes per bucket.",
 			10, 36.0, 1.40,
 			[{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.5}],
-			"metronome", {"upgrade_id": "metronome", "level": 1}, Vector2(261, 166)
+			"metronome", {"upgrade_id": "metronome", "level": 1}
 		),
 		_def(
 			"tip_jar", Balance.UpgradeBranch.PICKUP, "Tip Jar",
 			"Flat extra cash added every time you pick up a ball.",
 			15, 18.0, 1.32,
 			[{"type": "add", "stat": "pickup_flat_bonus", "value_per_level": 0.25}],
-			"pickup", {"upgrade_id": "pickup", "level": 1}, Vector2(270, 114)
+			"pickup", {"upgrade_id": "pickup", "level": 1}
 		),
 		_def(
 			"combo_bonus", Balance.UpgradeBranch.PICKUP, "Combo Bonus",
 			"Fast harvest clicks multiply pickup payout.",
 			10, 18.0, 1.32,
 			[{"type": "add", "stat": "combo_mult_per_tier", "value_per_level": 0.10}],
-			"pickup", {"upgrade_id": "pickup", "level": 1}, Vector2(306, 114)
+			"pickup", {"upgrade_id": "pickup", "level": 1}
 		),
 		_def(
 			"range_picker", Balance.UpgradeBranch.PICKUP, "Range Picker",
 			"Larger collection circle when harvesting balls.",
 			10, 18.0, 1.32,
 			[{"type": "add", "stat": "range_picker_radius_bonus", "value_per_level": Balance.RANGE_PICKER_RADIUS_PER_LEVEL}],
-			"pickup", {"upgrade_id": "pickup", "level": 1}, Vector2(342, 114)
+			"pickup", {"upgrade_id": "pickup", "level": 1}
 		),
 	]
 	for d in defs:
@@ -119,8 +126,7 @@ static func _def(
 	growth_rate: float,
 	effects: Array,
 	parent_id: String,
-	prerequisite: Dictionary,
-	tree_pos: Vector2
+	prerequisite: Dictionary
 ) -> Dictionary:
 	return {
 		"id": id,
@@ -133,7 +139,6 @@ static func _def(
 		"effects": effects,
 		"parent_id": parent_id,
 		"prerequisite": prerequisite,
-		"tree_pos": tree_pos,
 	}
 
 
@@ -160,10 +165,10 @@ static func connections() -> Array:
 	var links: Array = []
 	for id in _tree_order:
 		var def: Dictionary = _by_id[id]
-		var parent_id: String = def.get("parent_id", "")
-		if parent_id.is_empty():
+		var parent: String = def.get("parent_id", "")
+		if parent.is_empty():
 			continue
-		links.append({"from": parent_id, "to": id})
+		links.append({"from": parent, "to": id})
 	return links
 
 

@@ -289,9 +289,9 @@ func _fade_out_and_despawn() -> void:
 	_fade_tween = create_tween()
 	_fade_tween.set_parallel(true)
 	if _golfer:
-		_fade_tween.tween_property(_golfer, "modulate:a", 0.0, Balance.RATTLING_FADE_SEC)
+		_fade_tween.tween_property(_golfer, "modulate:a", 0.0, Balance.RATINA_FADE_OUT_SEC)
 	if _ball:
-		_fade_tween.tween_property(_ball, "modulate:a", 0.0, Balance.RATTLING_FADE_SEC)
+		_fade_tween.tween_property(_ball, "modulate:a", 0.0, Balance.RATINA_FADE_OUT_SEC)
 	_fade_tween.set_parallel(false)
 	_fade_tween.tween_callback(func():
 		if _golfer:

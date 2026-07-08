@@ -1,6 +1,8 @@
 extends PanelContainer
 ## Ratina upgrade tree node — mirrors upgrade_tree_node for Ratina's tree.
 
+const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
+
 signal purchase_requested(upgrade_id: String)
 
 enum NodeState { LOCKED, UNAFFORDABLE, PURCHASABLE, MAXED }
@@ -91,7 +93,7 @@ func _ready() -> void:
 	_style_tooltip_panel()
 
 
-func setup(def: Dictionary) -> void:
+func setup(def: Dictionary, _namespace: String = UpgradeGraph.NAMESPACE_RATINA) -> void:
 	upgrade_id = def["id"]
 	if _shape_icon:
 		_shape_icon.branch = int(def.get("branch", Balance.UpgradeBranch.BASE_PAY))
@@ -108,8 +110,8 @@ func refresh() -> void:
 
 	var level := GameState.get_ratina_upgrade_level(upgrade_id)
 	var max_level := int(def["max_level"])
-	var unlocked := RatinaUpgradeDefinitions.is_unlocked(upgrade_id, GameState.ratina_upgrade_levels)
-	var cost := GameState.get_ratina_upgrade_cost(upgrade_id)
+	var unlocked := UpgradeGraph.is_unlocked(upgrade_id)
+	var cost := UpgradeGraph.cost(upgrade_id)
 	var maxed := level >= max_level
 	var affordable := unlocked and not maxed and GameState.currency >= cost
 	var short_name: String = SHORT_NAMES.get(upgrade_id, def["display_name"].substr(0, 3))
@@ -209,7 +211,7 @@ func _update_tooltip_content() -> void:
 		_tooltip_level_label.text = "Lv %d/%d  MAX" % [_tooltip_level, max_level]
 		_tooltip_price_label.visible = false
 	elif not _tooltip_unlocked:
-		var hint := RatinaUpgradeDefinitions.lock_hint(upgrade_id, GameState.ratina_upgrade_levels)
+		var hint := UpgradeGraph.lock_hint(upgrade_id)
 		_tooltip_level_label.text = hint if not hint.is_empty() else "Locked"
 		_tooltip_price_label.visible = false
 	else:
@@ -269,7 +271,7 @@ func _position_tooltip() -> void:
 func _tooltip_bounds_rect() -> Rect2:
 	var current: Node = self
 	while current:
-		if current.name in ["TreeCanvas", "RatinaTreeCanvas"] and current is Control:
+		if current.name in ["TreeCanvas", "TreeViewport", "TreeWorld", "RatinaTreeCanvas"] and current is Control:
 			return (current as Control).get_global_rect()
 		current = current.get_parent()
 	return get_viewport().get_visible_rect()

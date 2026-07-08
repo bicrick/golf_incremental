@@ -1,5 +1,8 @@
 extends Control
-## Full-screen upgrade tree view — cloud sky background, progressive node reveal.
+## Full-screen unified upgrade tree — pannable, zoomable radial mega-tree.
+
+const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
+const RadialTreeLayout = preload("res://scripts/ui/upgrade_tree_layout.gd")
 
 const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
 const RATINA_NODE_SCENE := preload("res://scenes/ui/ratina_tree_node.tscn")
@@ -7,50 +10,37 @@ const RATTLING_NODE_SCENE := preload("res://scenes/ui/rattling_tree_node.tscn")
 
 const COLOR_LINE := Color(0.55, 0.48, 0.32, 0.85)
 const COLOR_LINE_LOCKED := Color(0.35, 0.32, 0.28, 0.5)
+const NODE_HALF := Vector2(19, 19)
+const BOUNDS_PADDING := 24.0
+const FIT_PADDING := 56.0
+const FIT_FILL := 0.98
 
-@onready var connectors: Control = $Content/TreeCanvas/Connectors
-@onready var nodes_root: Control = $Content/TreeCanvas/Nodes
-@onready var tree_canvas: Control = $Content/TreeCanvas
-@onready var ratina_placeholder: Control = $Content/RatinaPlaceholder
-@onready var ratina_tree_canvas: Control = $Content/RatinaPlaceholder/RatinaTreeCanvas
-@onready var ratina_connectors: Control = $Content/RatinaPlaceholder/RatinaTreeCanvas/Connectors
-@onready var ratina_nodes_root: Control = $Content/RatinaPlaceholder/RatinaTreeCanvas/Nodes
-@onready var ratina_stats_label: Label = $Content/RatinaPlaceholder/StatsLabel
-@onready var rattling_placeholder: Control = $Content/RattlingPlaceholder
-@onready var rattling_tree_canvas: Control = $Content/RattlingPlaceholder/RattlingTreeCanvas
-@onready var rattling_connectors: Control = $Content/RattlingPlaceholder/RattlingTreeCanvas/Connectors
-@onready var rattling_nodes_root: Control = $Content/RattlingPlaceholder/RattlingTreeCanvas/Nodes
-@onready var rattling_stats_label: Label = $Content/RattlingPlaceholder/StatsLabel
+@onready var tree_viewport: Control = $Content/TreeViewport
+@onready var tree_world: Control = $Content/TreeViewport/TreeWorld
+@onready var connectors: Control = $Content/TreeViewport/TreeWorld/Connectors
+@onready var nodes_root: Control = $Content/TreeViewport/TreeWorld/Nodes
 @onready var title_label: Label = $Content/Header/Title
 @onready var currency_label: Label = $Content/Header/CurrencyLabel
 @onready var back_button: Button = $Content/Header/BackButton
-@onready var tab_upgrades: Button = $Content/Header/TabRow/UpgradesTab
-@onready var tab_ratina: Button = $Content/Header/TabRow/RatinaTab
-@onready var tab_rattling: Button = $Content/Header/TabRow/RattlingTab
+@onready var _camera_controller: Node = $TreeCameraController
 
 var _is_open := false
-var _active_tab := "upgrades"
 var _nodes: Dictionary = {}
-var _ratina_nodes: Dictionary = {}
-var _rattling_nodes: Dictionary = {}
+var _layout_positions: Dictionary = {}
 
 
 func _ready() -> void:
 	visible = false
 	back_button.pressed.connect(close)
-	tab_upgrades.pressed.connect(_on_upgrades_tab_pressed)
-	tab_ratina.pressed.connect(_on_ratina_tab_pressed)
-	tab_rattling.pressed.connect(_on_rattling_tab_pressed)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
+	EventBus.shop_item_purchased.connect(_on_shop_item_purchased)
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 	EventBus.rattling_upgrade_purchased.connect(_on_rattling_upgrade_purchased)
 	_apply_fonts()
 	_style_back_button()
-	_style_tabs()
+	_camera_controller.setup(tree_viewport, tree_world)
 	_build_tree()
-	_build_ratina_tree()
-	_build_rattling_tree()
 	_refresh_all()
 
 
@@ -69,6 +59,8 @@ func open() -> void:
 	_close_other_panels()
 	_is_open = true
 	visible = true
+	_camera_controller.set_enabled(true)
+	call_deferred("fit_to_view")
 	_refresh_all()
 	_notify_icon_bar(true)
 	EventBus.ui_panel_toggled.emit("upgrades", true)
@@ -77,8 +69,21 @@ func open() -> void:
 func close() -> void:
 	_is_open = false
 	visible = false
+	_camera_controller.set_enabled(false)
 	_notify_icon_bar(false)
 	EventBus.ui_panel_toggled.emit("upgrades", false)
+
+
+func consume_zoom_event(event: InputEvent) -> bool:
+	if not _is_open:
+		return false
+	return _camera_controller.consume_zoom_event(event)
+
+
+func consume_pan_drag_event(event: InputEvent) -> bool:
+	if not _is_open:
+		return false
+	return _camera_controller.consume_pan_drag_event(event)
 
 
 func _notify_icon_bar(is_open: bool) -> void:
@@ -94,250 +99,55 @@ func _close_other_panels() -> void:
 	var settings_panel := main.get_node_or_null("SettingsLayer/SettingsPanel")
 	if settings_panel and settings_panel.has_method("is_open") and settings_panel.is_open():
 		settings_panel.close()
-	var shop_panel := get_parent().get_node_or_null("ShopPanel")
-	if shop_panel and shop_panel.has_method("is_open") and shop_panel.is_open():
-		shop_panel.close()
-
-
-func _on_upgrades_tab_pressed() -> void:
-	_active_tab = "upgrades"
-	_refresh_tab_visibility()
-
-
-func _on_ratina_tab_pressed() -> void:
-	if not GameState.ratina_unlocked:
-		return
-	_active_tab = "ratina"
-	_refresh_tab_visibility()
-
-
-func _on_rattling_tab_pressed() -> void:
-	if not GameState.rattlings_unlocked:
-		return
-	_active_tab = "rattling"
-	_refresh_tab_visibility()
-
-
-func _refresh_tab_visibility() -> void:
-	var show_ratina_tab := GameState.ratina_unlocked
-	var show_rattling_tab := GameState.rattlings_unlocked
-	tab_ratina.visible = show_ratina_tab
-	tab_rattling.visible = show_rattling_tab
-	tree_canvas.visible = _active_tab == "upgrades"
-	ratina_placeholder.visible = _active_tab == "ratina" and show_ratina_tab
-	rattling_placeholder.visible = _active_tab == "rattling" and show_rattling_tab
-	title_label.text = _tab_title(_active_tab)
-	tab_upgrades.button_pressed = _active_tab == "upgrades"
-	tab_ratina.button_pressed = _active_tab == "ratina"
-	tab_rattling.button_pressed = _active_tab == "rattling"
-	if _active_tab == "ratina" and not show_ratina_tab:
-		_active_tab = "upgrades"
-	elif _active_tab == "rattling" and not show_rattling_tab:
-		_active_tab = "upgrades"
-	if _active_tab == "upgrades":
-		tree_canvas.visible = true
-		ratina_placeholder.visible = false
-		rattling_placeholder.visible = false
-		title_label.text = "Upgrade Tree"
-	_refresh_ratina_stats_label()
-	_refresh_rattling_stats_label()
-
-
-func _tab_title(tab: String) -> String:
-	match tab:
-		"ratina":
-			return "Ratina"
-		"rattling":
-			return "Rattlings"
-		_:
-			return "Upgrade Tree"
-
-
-func _build_ratina_tree() -> void:
-	for child in ratina_nodes_root.get_children():
-		child.queue_free()
-	_ratina_nodes.clear()
-	for def in RatinaUpgradeDefinitions.all():
-		var node: PanelContainer = RATINA_NODE_SCENE.instantiate()
-		ratina_nodes_root.add_child(node)
-		node.setup(def)
-		node.position = def["tree_pos"]
-		node.purchase_requested.connect(_on_ratina_purchase_requested)
-		_ratina_nodes[def["id"]] = node
-	ratina_connectors.draw.connect(_draw_ratina_connectors)
-
-
-func _is_ratina_node_revealed(id: String) -> bool:
-	var def := RatinaUpgradeDefinitions.get_def(id)
-	if def.is_empty():
-		return false
-	if def.get("parent_id", "").is_empty():
-		return true
-	return RatinaUpgradeDefinitions.is_unlocked(id, GameState.ratina_upgrade_levels)
-
-
-func _refresh_ratina_tree() -> void:
-	_refresh_ratina_stats_label()
-	for id in _ratina_nodes:
-		var node: PanelContainer = _ratina_nodes[id]
-		var revealed := _is_ratina_node_revealed(id)
-		node.visible = revealed
-		if revealed:
-			node.refresh()
-	ratina_connectors.queue_redraw()
-
-
-func _refresh_ratina_stats_label() -> void:
-	if ratina_stats_label == null:
-		return
-	var interval_sec := GameState.ratina_stats.swing_cooldown_ms / 1000.0
-	var sample_payout := Economy.resolve_pickup_ball_payout(
-		4, GameState.ratina_stats.base_yards, 1, GameState.ratina_stats
-	)
-	ratina_stats_label.text = "Hits every %.1fs · ~$%.2f/hit" % [interval_sec, sample_payout]
-
-
-func _on_ratina_purchase_requested(id: String) -> void:
-	if not GameState.purchase_ratina_upgrade(id):
-		return
-	_refresh_ratina_tree()
-	currency_label.text = "$%s" % _format_currency(GameState.currency)
-
-
-func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
-	if _is_open and _active_tab == "ratina":
-		_refresh_ratina_tree()
-
-
-func _draw_ratina_connectors() -> void:
-	for link in RatinaUpgradeDefinitions.connections():
-		var from_id: String = link["from"]
-		var to_id: String = link["to"]
-		if not _ratina_nodes.has(from_id) or not _ratina_nodes.has(to_id):
-			continue
-		if not _is_ratina_node_revealed(from_id) or not _is_ratina_node_revealed(to_id):
-			continue
-		var from_node: PanelContainer = _ratina_nodes[from_id]
-		var to_node: PanelContainer = _ratina_nodes[to_id]
-		var from_point: Vector2 = _connection_point(from_node, to_node.get_center())
-		var to_point: Vector2 = _connection_point(to_node, from_node.get_center())
-		var unlocked := RatinaUpgradeDefinitions.is_unlocked(to_id, GameState.ratina_upgrade_levels)
-		var color := COLOR_LINE if unlocked else COLOR_LINE_LOCKED
-		_draw_organic_connector_on(ratina_connectors, from_point, to_point, color)
-
-
-func _build_rattling_tree() -> void:
-	for child in rattling_nodes_root.get_children():
-		child.queue_free()
-	_rattling_nodes.clear()
-	for def in RattlingUpgradeDefinitions.all():
-		var node: PanelContainer = RATTLING_NODE_SCENE.instantiate()
-		rattling_nodes_root.add_child(node)
-		node.setup(def)
-		node.position = def["tree_pos"]
-		node.purchase_requested.connect(_on_rattling_purchase_requested)
-		_rattling_nodes[def["id"]] = node
-	rattling_connectors.draw.connect(_draw_rattling_connectors)
-
-
-func _is_rattling_node_revealed(id: String) -> bool:
-	var def := RattlingUpgradeDefinitions.get_def(id)
-	if def.is_empty():
-		return false
-	if def.get("parent_id", "").is_empty():
-		return true
-	return RattlingUpgradeDefinitions.is_unlocked(id, GameState.rattling_upgrade_levels)
-
-
-func _refresh_rattling_tree() -> void:
-	_refresh_rattling_stats_label()
-	for id in _rattling_nodes:
-		var node: PanelContainer = _rattling_nodes[id]
-		var revealed := _is_rattling_node_revealed(id)
-		node.visible = revealed
-		if revealed:
-			node.refresh()
-	rattling_connectors.queue_redraw()
-
-
-func _refresh_rattling_stats_label() -> void:
-	if rattling_stats_label == null:
-		return
-	var count := int(GameState.rattling_stats.rattling_count)
-	var noun := "Rattling" if count == 1 else "Rattlings"
-	rattling_stats_label.text = "%d %s working the forest edge · %.1f yd/s" % [
-		count, noun, GameState.rattling_stats.rattling_walk_speed
-	]
-
-
-func _on_rattling_purchase_requested(id: String) -> void:
-	if not GameState.purchase_rattling_upgrade(id):
-		return
-	_refresh_rattling_tree()
-	currency_label.text = "$%s" % _format_currency(GameState.currency)
-
-
-func _on_rattling_upgrade_purchased(_id: String, _level: int) -> void:
-	if _is_open and _active_tab == "rattling":
-		_refresh_rattling_tree()
-
-
-func _draw_rattling_connectors() -> void:
-	for link in RattlingUpgradeDefinitions.connections():
-		var from_id: String = link["from"]
-		var to_id: String = link["to"]
-		if not _rattling_nodes.has(from_id) or not _rattling_nodes.has(to_id):
-			continue
-		if not _is_rattling_node_revealed(from_id) or not _is_rattling_node_revealed(to_id):
-			continue
-		var from_node: PanelContainer = _rattling_nodes[from_id]
-		var to_node: PanelContainer = _rattling_nodes[to_id]
-		var from_point: Vector2 = _connection_point(from_node, to_node.get_center())
-		var to_point: Vector2 = _connection_point(to_node, from_node.get_center())
-		var unlocked := RattlingUpgradeDefinitions.is_unlocked(to_id, GameState.rattling_upgrade_levels)
-		var color := COLOR_LINE if unlocked else COLOR_LINE_LOCKED
-		_draw_organic_connector_on(rattling_connectors, from_point, to_point, color)
 
 
 func _build_tree() -> void:
 	for child in nodes_root.get_children():
 		child.queue_free()
 	_nodes.clear()
-	for def in UpgradeDefinitions.all():
-		var node: PanelContainer = NODE_SCENE.instantiate()
+	_layout_positions = RadialTreeLayout.compute_positions()
+
+	for graph_node in UpgradeGraph.all_nodes():
+		var id: String = graph_node["id"]
+		var node_namespace: String = graph_node["namespace"]
+		var def: Dictionary = graph_node["def"]
+		var node: PanelContainer = _instantiate_node(node_namespace)
 		nodes_root.add_child(node)
-		node.setup(def)
-		node.position = def["tree_pos"]
+		node.setup(def, node_namespace)
+		var layout_pos: Vector2 = _layout_positions.get(id, Vector2.ZERO)
+		node.position = layout_pos - NODE_HALF
 		node.purchase_requested.connect(_on_purchase_requested)
-		_nodes[def["id"]] = node
+		_nodes[id] = node
+
 	connectors.draw.connect(_draw_connectors)
+	_apply_tree_bounds(_layout_bounds(), BOUNDS_PADDING)
 
 
-func _is_node_revealed(id: String) -> bool:
-	var def := UpgradeDefinitions.get_def(id)
-	if def.is_empty():
-		return false
-	if def.get("parent_id", "").is_empty():
-		return true
-	return UpgradeDefinitions.is_unlocked(id, GameState.upgrade_levels)
+func _instantiate_node(node_namespace: String) -> PanelContainer:
+	match node_namespace:
+		UpgradeGraph.NAMESPACE_RATINA:
+			return RATINA_NODE_SCENE.instantiate()
+		UpgradeGraph.NAMESPACE_RATTLING:
+			return RATTLING_NODE_SCENE.instantiate()
+		_:
+			return NODE_SCENE.instantiate()
 
 
 func _refresh_all() -> void:
 	currency_label.text = "$%s" % _format_currency(GameState.currency)
-	_refresh_tab_visibility()
 	for id in _nodes:
 		var node: PanelContainer = _nodes[id]
-		var revealed := _is_node_revealed(id)
+		var revealed := UpgradeGraph.is_revealed(id)
 		node.visible = revealed
-		if revealed:
+		if revealed and node.has_method("refresh"):
 			node.refresh()
 	connectors.queue_redraw()
-	_refresh_ratina_tree()
-	_refresh_rattling_tree()
 
 
 func _on_purchase_requested(id: String) -> void:
-	if not GameState.purchase_upgrade(id):
+	if _camera_controller.did_drag():
+		return
+	if not UpgradeGraph.purchase(id):
 		return
 	_refresh_all()
 
@@ -346,17 +156,13 @@ func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:
 	if not _is_open:
 		return
 	currency_label.text = "$%s" % _format_currency(currency)
-	_refresh_tab_visibility()
 	for id in _nodes:
 		var node: PanelContainer = _nodes[id]
 		if not node.visible:
 			continue
-		node.refresh()
+		if node.has_method("refresh"):
+			node.refresh()
 	connectors.queue_redraw()
-	if _active_tab == "ratina":
-		_refresh_ratina_tree()
-	elif _active_tab == "rattling":
-		_refresh_rattling_tree()
 
 
 func _on_upgrade_purchased(_id: String, _level: int, _branch: int) -> void:
@@ -364,94 +170,107 @@ func _on_upgrade_purchased(_id: String, _level: int, _branch: int) -> void:
 		_refresh_all()
 
 
+func _on_shop_item_purchased(_id: String, _level: int) -> void:
+	if _is_open:
+		_refresh_all()
+
+
+func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
+	if _is_open:
+		_refresh_all()
+
+
+func _on_rattling_upgrade_purchased(_id: String, _level: int) -> void:
+	if _is_open:
+		_refresh_all()
+
+
 func _draw_connectors() -> void:
-	for link in UpgradeDefinitions.connections():
+	for link in UpgradeGraph.connections():
 		var from_id: String = link["from"]
 		var to_id: String = link["to"]
-		if not _nodes.has(from_id) or not _nodes.has(to_id):
+		if not _layout_positions.has(from_id) or not _layout_positions.has(to_id):
 			continue
-		if not _is_node_revealed(from_id) or not _is_node_revealed(to_id):
+		if not UpgradeGraph.is_revealed(from_id) or not UpgradeGraph.is_revealed(to_id):
 			continue
-		var from_node: PanelContainer = _nodes[from_id]
-		var to_node: PanelContainer = _nodes[to_id]
-		var from_point: Vector2 = _connection_point(from_node, to_node.get_center())
-		var to_point: Vector2 = _connection_point(to_node, from_node.get_center())
-		var unlocked := UpgradeDefinitions.is_unlocked(to_id, GameState.upgrade_levels)
+		var from_center: Vector2 = _layout_positions[from_id]
+		var to_center: Vector2 = _layout_positions[to_id]
+		var from_point: Vector2 = _rect_edge_point(from_center, to_center, NODE_HALF)
+		var to_point: Vector2 = _rect_edge_point(to_center, from_center, NODE_HALF)
+		var unlocked := UpgradeGraph.is_unlocked(to_id)
 		var color := COLOR_LINE if unlocked else COLOR_LINE_LOCKED
-		_draw_organic_connector_on(connectors, from_point, to_point, color)
+		connectors.draw_line(from_point, to_point, color, 1.5)
 
 
-func _draw_organic_connector_on(canvas: Control, from: Vector2, to: Vector2, color: Color) -> void:
-	var delta: Vector2 = to - from
-	var dist: float = delta.length()
-	if dist < 1.0:
-		return
-	var dir: Vector2 = delta / dist
-	var perp: Vector2 = Vector2(-dir.y, dir.x)
-	var bend_strength: float = clampf(absf(delta.x) * 0.12 + dist * 0.05, 6.0, 16.0)
-	var sign: float = 1.0 if delta.x >= 0.0 else -1.0
-	if absf(delta.x) < 24.0:
-		sign = 1.0 if delta.y > 0.0 else -1.0
-	var elbow: Vector2 = from + delta * 0.42 + perp * bend_strength * sign
-	var points := PackedVector2Array([from, elbow, to])
-	canvas.draw_polyline(points, color, 1.5, true)
-
-
-func _draw_organic_connector(from: Vector2, to: Vector2, color: Color) -> void:
-	_draw_organic_connector_on(connectors, from, to, color)
-
-
-func _connection_point(node: PanelContainer, toward: Vector2) -> Vector2:
-	var center: Vector2 = node.get_center()
+func _rect_edge_point(center: Vector2, toward: Vector2, half: Vector2) -> Vector2:
 	var delta: Vector2 = toward - center
 	if delta.length_squared() < 1.0:
 		return center
 	var dir: Vector2 = delta.normalized()
-	var half: Vector2 = node.size * 0.5
-	var reach: float = minf(half.x, half.y) * 0.82
-	return center + dir * reach
+	var t_min := INF
+	if absf(dir.x) > 0.0001:
+		for edge_x in [-half.x, half.x]:
+			var t: float = edge_x / dir.x
+			if t > 0.0:
+				var y: float = dir.y * t
+				if absf(y) <= half.y:
+					t_min = minf(t_min, t)
+	if absf(dir.y) > 0.0001:
+		for edge_y in [-half.y, half.y]:
+			var t: float = edge_y / dir.y
+			if t > 0.0:
+				var x: float = dir.x * t
+				if absf(x) <= half.x:
+					t_min = minf(t_min, t)
+	if t_min == INF:
+		return center
+	return center + dir * t_min * 0.96
+
+
+func _layout_bounds(revealed_only: bool = false) -> Rect2:
+	var min_pos := Vector2(INF, INF)
+	var max_pos := Vector2(-INF, -INF)
+	for id in _layout_positions:
+		if revealed_only and not UpgradeGraph.is_revealed(id):
+			continue
+		var pos: Vector2 = _layout_positions[id]
+		min_pos.x = minf(min_pos.x, pos.x - NODE_HALF.x)
+		min_pos.y = minf(min_pos.y, pos.y - NODE_HALF.y)
+		max_pos.x = maxf(max_pos.x, pos.x + NODE_HALF.x)
+		max_pos.y = maxf(max_pos.y, pos.y + NODE_HALF.y)
+	if min_pos.x == INF:
+		return Rect2(Vector2.ZERO, Vector2(40, 40))
+	return Rect2(min_pos, max_pos - min_pos)
+
+
+func fit_to_view() -> void:
+	if not _is_open:
+		return
+	var world_bounds := _layout_bounds()
+	var fit_bounds := _layout_bounds(true)
+	var tree_size := fit_bounds.size + Vector2(FIT_PADDING * 2.0, FIT_PADDING * 2.0)
+	var tree_center := fit_bounds.get_center()
+	var vp_size := tree_viewport.size
+	if vp_size.x < 1.0 or vp_size.y < 1.0:
+		call_deferred("fit_to_view")
+		return
+	var start_zoom := minf(vp_size.x / tree_size.x, vp_size.y / tree_size.y) * FIT_FILL
+	start_zoom = maxf(start_zoom, 0.01)
+	var pan := vp_size * 0.5 - tree_center * start_zoom
+	_camera_controller.set_baseline(start_zoom, pan)
+	_apply_tree_bounds(world_bounds, BOUNDS_PADDING)
+
+
+func _apply_tree_bounds(bounds: Rect2, padding: float) -> void:
+	var padded_size := bounds.size + Vector2(padding * 2.0, padding * 2.0)
+	for target in [tree_world, connectors, nodes_root]:
+		target.custom_minimum_size = padded_size
+		target.size = padded_size
 
 
 func _apply_fonts() -> void:
 	PixelFont.apply_label(title_label, 10)
 	PixelFont.apply_label(currency_label, 8)
-	PixelFont.apply_label(ratina_stats_label, 7)
-	PixelFont.apply_label(rattling_stats_label, 7)
-	tab_upgrades.add_theme_font_override(&"font", PixelFont.font_for_size(7))
-	tab_upgrades.add_theme_font_size_override(&"font_size", 7)
-	tab_ratina.add_theme_font_override(&"font", PixelFont.font_for_size(7))
-	tab_ratina.add_theme_font_size_override(&"font_size", 7)
-	tab_rattling.add_theme_font_override(&"font", PixelFont.font_for_size(7))
-	tab_rattling.add_theme_font_size_override(&"font_size", 7)
-
-
-func _style_tabs() -> void:
-	for tab in [tab_upgrades, tab_ratina, tab_rattling]:
-		tab.toggle_mode = true
-		tab.flat = true
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.82, 0.72, 0.48, 0.75)
-		style.border_width_left = 1
-		style.border_width_top = 1
-		style.border_width_right = 1
-		style.border_width_bottom = 1
-		style.border_color = Color(0.18, 0.52, 0.48, 1)
-		style.corner_radius_top_left = 2
-		style.corner_radius_top_right = 2
-		style.corner_radius_bottom_left = 2
-		style.corner_radius_bottom_right = 2
-		style.content_margin_left = 4
-		style.content_margin_right = 4
-		style.content_margin_top = 1
-		style.content_margin_bottom = 1
-		tab.add_theme_stylebox_override(&"normal", style)
-		var pressed := style.duplicate() as StyleBoxFlat
-		pressed.bg_color = Color(0.92, 0.82, 0.58, 0.95)
-		tab.add_theme_stylebox_override(&"pressed", pressed)
-		tab.add_theme_stylebox_override(&"hover", pressed)
-	tab_upgrades.text = "Tree"
-	tab_ratina.text = "Ratina"
-	tab_rattling.text = "Rattlings"
 
 
 func _style_back_button() -> void:

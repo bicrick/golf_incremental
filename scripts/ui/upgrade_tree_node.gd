@@ -1,6 +1,8 @@
 extends PanelContainer
 ## Compact square node — icon-dominant; price shown in tooltip only.
 
+const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
+
 signal purchase_requested(upgrade_id: String)
 
 enum NodeState { LOCKED, UNAFFORDABLE, PURCHASABLE, MAXED }
@@ -28,6 +30,9 @@ const SHORT_NAMES: Dictionary = {
 	"tip_jar": "TIP",
 	"combo_bonus": "CMB",
 	"range_picker": "RPK",
+	"ratina_hire": "RAT",
+	"ball_count": "BLL",
+	"golden_ball": "GLD",
 }
 
 const COLOR_BG := Color(0.18, 0.15, 0.12, 0.92)
@@ -51,6 +56,7 @@ const MODULATE_UNAFFORDABLE := Color(0.58, 0.55, 0.5, 0.82)
 const MODULATE_MAXED := Color(1.0, 0.92, 0.62, 1.0)
 
 var upgrade_id: String = ""
+var _namespace: String = UpgradeGraph.NAMESPACE_PLAYER
 
 var _state: NodeState = NodeState.LOCKED
 var _hovering := false
@@ -93,8 +99,9 @@ func _ready() -> void:
 	_style_tooltip_panel()
 
 
-func setup(def: Dictionary) -> void:
+func setup(def: Dictionary, node_namespace: String = UpgradeGraph.NAMESPACE_PLAYER) -> void:
 	upgrade_id = def["id"]
+	_namespace = node_namespace
 	if _shape_icon:
 		_shape_icon.branch = int(def.get("branch", Balance.UpgradeBranch.BASE_PAY))
 		_shape_icon.queue_redraw()
@@ -104,14 +111,14 @@ func setup(def: Dictionary) -> void:
 func refresh() -> void:
 	if upgrade_id.is_empty():
 		return
-	var def := UpgradeDefinitions.get_def(upgrade_id)
+	var def: Dictionary = _def_for_node()
 	if def.is_empty():
 		return
 
-	var level := GameState.get_upgrade_level(upgrade_id)
+	var level := _level_for_node()
 	var max_level := int(def["max_level"])
-	var unlocked := UpgradeDefinitions.is_unlocked(upgrade_id, GameState.upgrade_levels)
-	var cost := GameState.get_upgrade_cost(upgrade_id)
+	var unlocked := UpgradeGraph.is_unlocked(upgrade_id)
+	var cost := UpgradeGraph.cost(upgrade_id)
 	var maxed := level >= max_level
 	var affordable := unlocked and not maxed and GameState.currency >= cost
 	var short_name: String = SHORT_NAMES.get(upgrade_id, def["display_name"].substr(0, 3))
@@ -181,7 +188,7 @@ func _on_pressed() -> void:
 func _footer_text(def: Dictionary, level: int, maxed: bool, unlocked: bool, short_name: String) -> String:
 	if not unlocked and level <= 0:
 		return short_name
-	var compact: String = TooltipText.compact_stat(def, level, GameState.upgrade_levels)
+	var compact: String = TooltipText.compact_stat(def, level, _levels_for_namespace(), _preview_for_namespace())
 	if maxed:
 		return "MAX" if compact.is_empty() else "MAX·%s" % compact
 	if level <= 0:
@@ -195,7 +202,7 @@ func _update_tooltip_content() -> void:
 	_tooltip_name.text = _tooltip_def.get("display_name", "")
 	var desc: String = _tooltip_def.get("description", "")
 	var preview: String = TooltipText.effect_preview(
-		_tooltip_def, _tooltip_level, GameState.upgrade_levels, _tooltip_maxed
+		_tooltip_def, _tooltip_level, _levels_for_namespace(), _tooltip_maxed, _preview_for_namespace()
 	)
 	if not preview.is_empty():
 		desc = "%s\n%s" % [desc, preview]
@@ -205,7 +212,7 @@ func _update_tooltip_content() -> void:
 		_tooltip_level_label.text = "Lv %d/%d  MAX" % [_tooltip_level, max_level]
 		_tooltip_price_label.visible = false
 	elif not _tooltip_unlocked:
-		var hint := UpgradeDefinitions.lock_hint(upgrade_id, GameState.upgrade_levels)
+		var hint := UpgradeGraph.lock_hint(upgrade_id)
 		_tooltip_level_label.text = hint if not hint.is_empty() else "Locked"
 		_tooltip_price_label.visible = false
 	else:
@@ -265,7 +272,7 @@ func _position_tooltip() -> void:
 func _tooltip_bounds_rect() -> Rect2:
 	var current: Node = self
 	while current:
-		if current.name == "TreeCanvas" and current is Control:
+		if current.name in ["TreeCanvas", "TreeViewport", "TreeWorld"] and current is Control:
 			return (current as Control).get_global_rect()
 		current = current.get_parent()
 	return get_viewport().get_visible_rect()
@@ -354,6 +361,28 @@ func _style_panel(border_color: Color, border_width: int = 1) -> void:
 	style.content_margin_right = 1
 	style.content_margin_bottom = 1
 	add_theme_stylebox_override(&"panel", style)
+
+
+func _def_for_node() -> Dictionary:
+	return UpgradeGraph.get_def(upgrade_id)
+
+
+func _level_for_node() -> int:
+	return UpgradeGraph.level(upgrade_id)
+
+
+func _levels_for_namespace() -> Dictionary:
+	match _namespace:
+		UpgradeGraph.NAMESPACE_SHOP:
+			return GameState.shop_levels
+		_:
+			return GameState.upgrade_levels
+
+
+func _preview_for_namespace() -> Callable:
+	if _namespace == UpgradeGraph.NAMESPACE_SHOP:
+		return Callable(ShopEffects, "preview_stats")
+	return Callable(UpgradeEffects, "preview_stats")
 
 
 func _format_cost(n: float) -> String:

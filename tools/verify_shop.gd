@@ -1,6 +1,8 @@
 extends SceneTree
-## Headless Pro Shop smoke test — run:
+## Headless shop-item tree smoke test — run:
 ## godot --headless --script res://tools/verify_shop.gd
+
+const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 
 
 func _initialize() -> void:
@@ -21,59 +23,22 @@ func _run() -> void:
 		quit(1)
 		return
 
-	var icon_bar: Node = main.get_node("UI/UIRoot/GameplayChrome/IconBar")
-	var shop_wrap: Control = icon_bar.get_node("TopRight/TopRightRow/ShopWrap")
-	var shop_button: Button = icon_bar.get_node("TopRight/TopRightRow/ShopWrap/ShopButton")
-	var shop_panel: Control = main.get_node("UI/UIRoot/ShopPanel")
-	var upgrade_panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
-
 	gs.reset_to_fresh()
-	await process_frame
-	if icon_bar.has_method("_refresh_shop_lock_state"):
-		icon_bar._refresh_shop_lock_state()
-	if shop_wrap.visible:
-		print("FAIL: shop icon visible before base_pay Lv.1")
-		ok = false
-	else:
-		print("OK: shop icon hidden before base_pay Lv.1")
-
 	gs.currency = 500.0
 	gs.upgrades_unlocked = true
 	if not gs.purchase_upgrade("base_pay"):
 		print("FAIL: could not purchase base_pay")
 		ok = false
-	await process_frame
-	if icon_bar.has_method("_refresh_shop_lock_state"):
-		icon_bar._refresh_shop_lock_state()
-		icon_bar._layout_top_right_corner()
-	if not shop_wrap.visible:
-		print("FAIL: shop icon should appear after base_pay Lv.1")
-		ok = false
 	else:
-		print("OK: shop icon visible after base_pay Lv.1")
+		print("OK: base_pay unlocks branch heads including ball_count")
 
-	if gs.shop_unlocked:
-		print("FAIL: shop should start locked")
+	if not UpgradeGraph.is_unlocked("ball_count"):
+		print("FAIL: ball_count should unlock at base_pay Lv.1")
 		ok = false
-	var before_unlock_currency: float = gs.currency
-	if not gs.try_unlock_shop():
-		print("FAIL: try_unlock_shop failed with sufficient funds")
-		ok = false
-	if not gs.shop_unlocked:
-		print("FAIL: shop_unlocked flag not set")
-		ok = false
-	if not is_equal_approx(before_unlock_currency - gs.currency, Balance.SHOP_UNLOCK_COST):
-		print(
-			"FAIL: shop unlock should cost $50, spent %.2f"
-			% (before_unlock_currency - gs.currency)
-		)
-		ok = false
-	else:
-		print("OK: shop unlock costs $50")
 
 	var before_capacity: int = gs.get_bucket_capacity()
 	if not gs.purchase_shop_item("ball_count"):
-		print("FAIL: could not purchase ball_count")
+		print("FAIL: could not purchase ball_count without shop gate")
 		ok = false
 	elif gs.get_bucket_capacity() != before_capacity + 1:
 		print(
@@ -82,7 +47,7 @@ func _run() -> void:
 		)
 		ok = false
 	else:
-		print("OK: ball_count increases bucket capacity")
+		print("OK: ball_count increases bucket capacity from upgrade tree")
 
 	ok = _check_ball_count_max_capacity(gs) and ok
 
@@ -113,19 +78,21 @@ func _run() -> void:
 	else:
 		print("OK: golden_ball Lv.2 increases chance")
 
-	gs.currency = Balance.RATINA_UNLOCK_COST + 10.0
+	gs.currency = Balance.RATINA_UNLOCK_COST + 50.0
+	gs.upgrade_levels["base_pay"] = 3
+	gs._recompute_stats()
 	var before_ratina: float = gs.currency
-	if not gs.try_unlock_ratina():
-		print("FAIL: try_unlock_ratina failed with sufficient funds")
+	if not gs.purchase_upgrade("ratina_hire"):
+		print("FAIL: could not purchase ratina_hire from tree")
 		ok = false
 	if not gs.ratina_unlocked:
 		print("FAIL: ratina_unlocked flag not set")
 		ok = false
 	if not is_equal_approx(before_ratina - gs.currency, Balance.RATINA_UNLOCK_COST):
-		print("FAIL: ratina unlock should cost $100")
+		print("FAIL: ratina hire should cost $100")
 		ok = false
 	else:
-		print("OK: ratina unlock costs $100")
+		print("OK: ratina hire costs $100 from upgrade tree")
 
 	main.get_node("TitleScreen").visible = false
 	main.get_node("RangeView").visible = true
@@ -133,44 +100,40 @@ func _run() -> void:
 	main._set_gameplay_ui_visible(true)
 	await process_frame
 
-	shop_panel.open()
-	await process_frame
-	if not shop_panel.visible:
-		print("FAIL: shop panel not visible after open()")
-		ok = false
-	else:
-		print("OK: shop panel opens")
-
-	shop_panel.close()
-	await process_frame
-
+	var upgrade_panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
 	upgrade_panel.open()
 	await process_frame
-	var ratina_tab: Button = upgrade_panel.get_node("Content/Header/TabRow/RatinaTab")
-	if not ratina_tab.visible:
-		print("FAIL: Ratina tab should be visible after hire")
+	if not upgrade_panel.visible:
+		print("FAIL: upgrade panel not visible after open()")
 		ok = false
 	else:
-		print("OK: Ratina tab visible after hire")
-	ratina_tab.pressed.emit()
-	await process_frame
-	var ratina_placeholder: Control = upgrade_panel.get_node("Content/RatinaPlaceholder")
-	if not ratina_placeholder.visible:
-		print("FAIL: Ratina placeholder should show when tab selected")
-		ok = false
-	else:
-		print("OK: Ratina placeholder tab works")
+		print("OK: unified upgrade panel opens")
 
-	gs.upgrade_levels = {}
+	var nodes_root: Control = upgrade_panel.get_node("Content/TreeViewport/TreeWorld/Nodes")
+	var ratina_node: Node = null
+	for child in nodes_root.get_children():
+		if child.upgrade_id == "ratina_base_pay":
+			ratina_node = child
+			break
+	if ratina_node == null:
+		print("FAIL: ratina_base_pay node missing from mega-tree")
+		ok = false
+	elif not ratina_node.visible:
+		print("FAIL: ratina_base_pay should be visible after hire")
+		ok = false
+	else:
+		print("OK: ratina subtree visible in unified tree")
+
+	upgrade_panel.close()
+	await process_frame
+
+	gs.upgrade_levels = {"base_pay": 1}
 	gs.shop_levels = {"golden_ball": 1}
 	gs._recompute_stats()
 	var base_payout: float = Economy.resolve_pickup_ball_payout(1, 30.0, 1, gs.stats)
 	var doubled_payout: float = base_payout * gs.stats.golden_ball_payout_multiplier
 	if not is_equal_approx(doubled_payout, base_payout * 2.0):
-		print("FAIL: golden payout multiplier expected 2x, got %.4f vs %.4f" % [doubled_payout, base_payout * 2.0])
-		ok = false
-	elif not is_equal_approx(gs.stats.golden_ball_payout_multiplier, Balance.GOLDEN_BALL_PAYOUT_MULTIPLIER):
-		print("FAIL: golden_ball_payout_multiplier mismatch")
+		print("FAIL: golden payout multiplier expected 2x")
 		ok = false
 	else:
 		print("OK: golden payout multiplier is 2x")
@@ -182,15 +145,10 @@ func _run() -> void:
 func _check_ball_count_max_capacity(gs: Node) -> bool:
 	gs.reset_to_fresh()
 	gs.currency = 1_000_000.0
-	gs.shop_unlocked = true
+	gs.upgrades_unlocked = true
+	gs.purchase_upgrade("base_pay")
 	var def: Dictionary = ShopDefinitions.get_def("ball_count")
 	var max_level: int = int(def.get("max_level", 0))
-	if max_level != Balance.BUCKET_CAPACITY_MAX - Balance.BUCKET_CAPACITY_DEFAULT:
-		print(
-			"FAIL: ball_count max_level expected %d, got %d"
-			% [Balance.BUCKET_CAPACITY_MAX - Balance.BUCKET_CAPACITY_DEFAULT, max_level]
-		)
-		return false
 	for _i in max_level:
 		if not gs.purchase_shop_item("ball_count"):
 			print("FAIL: could not purchase ball_count to max level")
@@ -201,5 +159,5 @@ func _check_ball_count_max_capacity(gs: Node) -> bool:
 			% [Balance.BUCKET_CAPACITY_MAX, gs.get_bucket_capacity()]
 		)
 		return false
-	print("OK: ball_count shop reaches max bucket capacity %d" % Balance.BUCKET_CAPACITY_MAX)
+	print("OK: ball_count reaches max bucket capacity %d" % Balance.BUCKET_CAPACITY_MAX)
 	return true

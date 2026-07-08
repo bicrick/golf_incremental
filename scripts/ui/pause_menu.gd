@@ -94,7 +94,7 @@ func _close_other_panels() -> void:
 	var ui_root := main.get_node_or_null("UI/UIRoot")
 	if ui_root == null:
 		return
-	for panel_name in ["UpgradePanel", "ShopPanel"]:
+	for panel_name in ["UpgradePanel"]:
 		var panel := ui_root.get_node_or_null(panel_name)
 		if panel and panel.has_method("is_open") and panel.is_open():
 			panel.close()

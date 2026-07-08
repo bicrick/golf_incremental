@@ -15,28 +15,28 @@ static func _init_defs() -> void:
 			"Hire another Rattling to work the forest edge.",
 			24, 10.0, 1.45,
 			[{"type": "add", "stat": "rattling_count", "value_per_level": Balance.RATTLING_COUNT_BONUS_PER_LEVEL}],
-			"", {}, Vector2(213, 6)
+			"", {}
 		),
 		_def(
 			"rattling_speed", Balance.UpgradeBranch.POWER, "Scurry Speed",
 			"Rattlings walk faster to and from the fairway.",
 			15, 8.0, 1.30,
 			[{"type": "multiply", "stat": "rattling_walk_speed", "value_per_level": 1.08}],
-			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}, Vector2(120, 62)
+			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}
 		),
 		_def(
 			"rattling_quick_paws", Balance.UpgradeBranch.PICKUP, "Quick Paws",
 			"Faster pickup animation — less time fumbling the ball.",
 			10, 9.0, 1.30,
 			[{"type": "multiply", "stat": "rattling_pickup_speed_multiplier", "value_per_level": 1.10}],
-			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}, Vector2(306, 62)
+			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}
 		),
 		_def(
 			"rattling_keen_nose", Balance.UpgradeBranch.QUALITY, "Keen Nose",
 			"Rattlings sniff out extra golden balls.",
 			10, 20.0, 1.36,
 			[{"type": "add", "stat": "rattling_golden_bonus_chance", "value_per_level": 0.01}],
-			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}, Vector2(213, 62)
+			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}
 		),
 	]
 	for d in defs:
@@ -54,8 +54,7 @@ static func _def(
 	growth_rate: float,
 	effects: Array,
 	parent_id: String,
-	prerequisite: Dictionary,
-	tree_pos: Vector2
+	prerequisite: Dictionary
 ) -> Dictionary:
 	return {
 		"id": id,
@@ -68,7 +67,6 @@ static func _def(
 		"effects": effects,
 		"parent_id": parent_id,
 		"prerequisite": prerequisite,
-		"tree_pos": tree_pos,
 	}
 
 
@@ -95,10 +93,10 @@ static func connections() -> Array:
 	var links: Array = []
 	for id in _tree_order:
 		var def: Dictionary = _by_id[id]
-		var parent_id: String = def.get("parent_id", "")
-		if parent_id.is_empty():
+		var parent: String = def.get("parent_id", "")
+		if parent.is_empty():
 			continue
-		links.append({"from": parent_id, "to": id})
+		links.append({"from": parent, "to": id})
 	return links
 
 

@@ -2,7 +2,7 @@ class_name Balance
 extends RefCounted
 ## Tunable constants — single source for balance numbers.
 
-const SAVE_VERSION: int = 1
+const SAVE_VERSION: int = 2
 const AUTOSAVE_INTERVAL_SEC: float = 30.0
 
 ## v2 Phase C — balls per strike burst before harvest.
@@ -131,12 +131,8 @@ enum UpgradeBranch { BASE_PAY, POWER, QUALITY, PICKUP }
 
 ## One-time cost to unlock the upgrade tree from the icon bar.
 const UPGRADES_UNLOCK_COST: float = 1.50
-## One-time cost to unlock the Pro Shop from the icon bar.
-const SHOP_UNLOCK_COST: float = 50.0
-## One-time cost to hire Ratina (placeholder tab only for now).
+## One-time cost to hire Ratina from the upgrade tree.
 const RATINA_UNLOCK_COST: float = 100.0
-## One-time cost to unlock Rattlings in the shop.
-const RATTLING_UNLOCK_COST: float = 10.0
 ## Per-level cost escalation — each successive upgrade costs more than pure exponential.
 const UPGRADE_COST_LEVEL_STRETCH: float = 0.165
 
@@ -162,6 +158,8 @@ const RATINA_BALL_OFFSET := Vector3(-0.416, -1.253, -0.271)
 const RATINA_STRIKE_TEXT_OFFSET := Vector2(-27.0, -20.0)
 ## Idle at the tee before each autonomous swing (remainder of swing_cooldown_ms).
 const RATINA_ADDRESS_PREP_SEC: float = 0.75
+## HUD toggle-off — slow fade before Ratina fully despawns.
+const RATINA_FADE_OUT_SEC: float = 3.0
 
 ## Rattlings — forest-edge gnome-rats that fetch littered balls.
 const RATTLING_PIXEL_SIZE: float = 0.015

@@ -20,19 +20,19 @@ func setup(_range_view: Node3D, foreground: Node3D, littered_balls: Node3D) -> v
 	EventBus.helper_toggled.connect(_on_helper_toggled)
 
 
-## Toggled off — any agents already out fetching a ball should despawn
-## immediately rather than finishing their trip (which would look like
-## "rattlings came back" right after the toggle was switched off).
+## Toggled off — live agents finish carrying balls home (no lost payout) or
+## walk back empty; no new spawns until re-enabled.
 func _on_helper_toggled(helper: String, active: bool) -> void:
 	if helper != "rattlings" or active:
 		return
 	for agent in _agents.duplicate():
 		if not is_instance_valid(agent):
 			continue
-		var litter_id: int = agent.claimed_litter_instance_id()
-		if litter_id != -1:
-			_claimed_ids.erase(litter_id)
-		agent.abort()
+		if agent.should_release_claim():
+			var litter_id: int = agent.claimed_litter_instance_id()
+			if litter_id != -1:
+				_claimed_ids.erase(litter_id)
+		agent.retire()
 
 
 func apply_atmosphere_tint(tint: Color) -> void:

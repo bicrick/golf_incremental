@@ -116,6 +116,14 @@ func _refund_removed_rattling_payout() -> float:
 	return refund
 
 
+func _migrate_save(from_version: int) -> void:
+	if from_version < 2:
+		if GameState.ratina_unlocked and GameState.get_upgrade_level("ratina_hire") < 1:
+			GameState.upgrade_levels["ratina_hire"] = 1
+		if GameState.rattlings_unlocked and GameState.get_rattling_upgrade_level("rattling_more") < 1:
+			GameState.rattling_upgrade_levels["rattling_more"] = 1
+
+
 func load_game() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
 		return
@@ -128,9 +136,10 @@ func load_game() -> void:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		push_warning("SaveManager: corrupt save, starting fresh")
 		return
-	if parsed.get("version", 0) != Balance.SAVE_VERSION:
+	if parsed.get("version", 0) > Balance.SAVE_VERSION:
 		push_warning("SaveManager: save version mismatch")
 		return
+	var save_version: int = int(parsed.get("version", 0))
 	GameState.currency = float(parsed.get("currency", 0.0))
 	GameState.upgrade_levels = parsed.get("upgrade_levels", {})
 	GameState.upgrades_unlocked = bool(parsed.get("upgrades_unlocked", false))
@@ -147,3 +156,4 @@ func load_game() -> void:
 	GameState.bucket_capacity = int(parsed.get("bucket_capacity", Balance.BUCKET_CAPACITY_DEFAULT))
 	var saved_remaining: int = int(parsed.get("bucket_remaining", -1))
 	GameState.bucket_remaining = saved_remaining if saved_remaining >= 0 else GameState.bucket_capacity
+	_migrate_save(save_version)

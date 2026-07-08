@@ -16,6 +16,14 @@ func _bind_viewport() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
+	var upgrade_panel := get_node_or_null("UpgradePanel")
+	if upgrade_panel and upgrade_panel.has_method(&"is_open") and upgrade_panel.is_open():
+		if upgrade_panel.has_method(&"consume_pan_drag_event") and upgrade_panel.consume_pan_drag_event(event):
+			accept_event()
+			return
+		if upgrade_panel.has_method(&"consume_zoom_event") and upgrade_panel.consume_zoom_event(event):
+			accept_event()
+		return
 	var range_view := get_node_or_null("../../RangeView")
 	if range_view == null:
 		return

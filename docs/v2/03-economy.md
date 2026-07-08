@@ -10,8 +10,8 @@
 |--------|-------|-------------|
 | `pickup` | v2.0 | **Primary income** — per-ball collected at harvest using formula below |
 | `bucket_complete` | deferred | Removed by default; optional late Pickup upgrade later |
-| `passive_range` | deferred | Range amenities — Shop (later) |
-| `passive_crew` | deferred | Ratina / crew — Shop (later) |
+| `passive_range` | shipped | Ball count + golden balls — upgrade tree (`ball_count`, `golden_ball`) |
+| `passive_crew` | shipped | Ratina + Rattlings hire nodes on upgrade tree |
 | `target_bonus` | deferred | Zone mult (later) |
 
 **Money is earned at pickup, not at contact.** Swings capture `quality` (1–6) and `yardage` on each litter ball; payout is computed when the ball is collected, using **live stats at pickup time**.

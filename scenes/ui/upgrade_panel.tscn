@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://upgrade_panel"]
+[gd_scene load_steps=4 format=3 uid="uid://upgrade_panel"]
 
 [ext_resource type="Script" path="res://scripts/ui/upgrade_panel.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/ui/parallax_sky_background.gd" id="2_sky_bg"]
+[ext_resource type="Script" path="res://scripts/ui/upgrade_tree_camera_controller.gd" id="3_camera"]
 
 [node name="UpgradePanel" type="Control"]
 layout_mode = 3
@@ -12,6 +13,9 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
 script = ExtResource("1_script")
+
+[node name="TreeCameraController" type="Node" parent="."]
+script = ExtResource("3_camera")
 
 [node name="SkyBg" type="Control" parent="."]
 layout_mode = 1
@@ -50,27 +54,6 @@ theme_override_font_sizes/font_size = 8
 text = "Back"
 flat = true
 
-[node name="TabRow" type="HBoxContainer" parent="Content/Header"]
-layout_mode = 2
-theme_override_constants/separation = 4
-
-[node name="UpgradesTab" type="Button" parent="Content/Header/TabRow"]
-layout_mode = 2
-mouse_default_cursor_shape = 2
-text = "Tree"
-
-[node name="RatinaTab" type="Button" parent="Content/Header/TabRow"]
-visible = false
-layout_mode = 2
-mouse_default_cursor_shape = 2
-text = "Ratina"
-
-[node name="RattlingTab" type="Button" parent="Content/Header/TabRow"]
-visible = false
-layout_mode = 2
-mouse_default_cursor_shape = 2
-text = "Rattlings"
-
 [node name="Title" type="Label" parent="Content/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -86,115 +69,31 @@ theme_override_font_sizes/font_size = 8
 text = "$0"
 horizontal_alignment = 2
 
-[node name="TreeCanvas" type="Control" parent="Content"]
-layout_mode = 0
-offset_left = 8.0
+[node name="TreeViewport" type="Control" parent="Content"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 offset_top = 28.0
-offset_right = 472.0
-offset_bottom = 262.0
-
-[node name="Connectors" type="Control" parent="Content/TreeCanvas"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+clip_contents = true
+mouse_filter = 0
+
+[node name="TreeWorld" type="Control" parent="Content/TreeViewport"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
 mouse_filter = 2
 
-[node name="Nodes" type="Control" parent="Content/TreeCanvas"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Connectors" type="Control" parent="Content/TreeViewport/TreeWorld"]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
 mouse_filter = 2
 
-[node name="RatinaPlaceholder" type="Control" parent="Content"]
-visible = false
+[node name="Nodes" type="Control" parent="Content/TreeViewport/TreeWorld"]
 layout_mode = 0
-offset_left = 8.0
-offset_top = 28.0
-offset_right = 472.0
-offset_bottom = 262.0
-
-[node name="StatsLabel" type="Label" parent="Content/RatinaPlaceholder"]
-layout_mode = 0
-offset_left = 4.0
-offset_top = 0.0
-offset_right = 460.0
-offset_bottom = 14.0
-theme_override_colors/font_color = Color(0.82, 0.78, 0.66, 1)
-theme_override_font_sizes/font_size = 7
-text = "Hits every 5.0s"
-horizontal_alignment = 1
-
-[node name="RatinaTreeCanvas" type="Control" parent="Content/RatinaPlaceholder"]
-layout_mode = 0
-offset_left = 0.0
-offset_top = 16.0
-offset_right = 464.0
-offset_bottom = 234.0
-
-[node name="Connectors" type="Control" parent="Content/RatinaPlaceholder/RatinaTreeCanvas"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="Nodes" type="Control" parent="Content/RatinaPlaceholder/RatinaTreeCanvas"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="RattlingPlaceholder" type="Control" parent="Content"]
-visible = false
-layout_mode = 0
-offset_left = 8.0
-offset_top = 28.0
-offset_right = 472.0
-offset_bottom = 262.0
-
-[node name="StatsLabel" type="Label" parent="Content/RattlingPlaceholder"]
-layout_mode = 0
-offset_left = 4.0
-offset_top = 0.0
-offset_right = 460.0
-offset_bottom = 14.0
-theme_override_colors/font_color = Color(0.82, 0.86, 0.66, 1)
-theme_override_font_sizes/font_size = 7
-text = "1 Rattling working the forest edge"
-horizontal_alignment = 1
-
-[node name="RattlingTreeCanvas" type="Control" parent="Content/RattlingPlaceholder"]
-layout_mode = 0
-offset_left = 0.0
-offset_top = 16.0
-offset_right = 464.0
-offset_bottom = 234.0
-
-[node name="Connectors" type="Control" parent="Content/RattlingPlaceholder/RattlingTreeCanvas"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="Nodes" type="Control" parent="Content/RattlingPlaceholder/RattlingTreeCanvas"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_right = 40.0
+offset_bottom = 40.0
 mouse_filter = 2

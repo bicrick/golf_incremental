@@ -6,7 +6,6 @@ extends Node
 @onready var title_screen: CanvasLayer = $TitleScreen
 @onready var gameplay_chrome: Control = $UI/UIRoot/GameplayChrome
 @onready var upgrade_panel: Control = $UI/UIRoot/UpgradePanel
-@onready var shop_panel: Control = $UI/UIRoot/ShopPanel
 @onready var settings_panel: Control = $SettingsLayer/SettingsPanel
 @onready var pause_menu: Control = $SettingsLayer/PauseMenu
 
@@ -31,7 +30,7 @@ func _on_play_pressed() -> void:
 
 
 func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
-	if panel_id not in ["upgrades", "settings", "pause", "shop"]:
+	if panel_id not in ["upgrades", "settings", "pause"]:
 		return
 	if not ui.visible:
 		return
@@ -46,8 +45,6 @@ func _is_overlay_panel_open() -> bool:
 	if settings_panel.has_method("is_open") and settings_panel.is_open():
 		return true
 	if upgrade_panel.has_method("is_open") and upgrade_panel.is_open():
-		return true
-	if shop_panel.has_method("is_open") and shop_panel.is_open():
 		return true
 	return false
 
@@ -139,9 +136,6 @@ func _handle_escape() -> void:
 			settings_panel.close_to_pause()
 		else:
 			settings_panel.close()
-		return
-	if shop_panel.has_method("is_open") and shop_panel.is_open():
-		shop_panel.close()
 		return
 	if upgrade_panel.has_method("is_open") and upgrade_panel.is_open():
 		upgrade_panel.close()
