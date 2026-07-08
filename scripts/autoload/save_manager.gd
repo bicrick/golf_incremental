@@ -43,6 +43,8 @@ func save_game() -> void:
 		"shop_unlocked": GameState.shop_unlocked,
 		"ratina_unlocked": GameState.ratina_unlocked,
 		"rattlings_unlocked": GameState.rattlings_unlocked,
+		"ratina_active": GameState.ratina_active,
+		"rattlings_active": GameState.rattlings_active,
 		"shop_levels": GameState.shop_levels.duplicate(),
 		"ratina_upgrade_levels": GameState.ratina_upgrade_levels.duplicate(),
 		"rattling_upgrade_levels": GameState.rattling_upgrade_levels.duplicate(),
@@ -100,6 +102,20 @@ func reset_and_reload() -> void:
 	wipe_character()
 
 
+## The "Payout Bonus" rattling upgrade was removed for being overpowered.
+## Any levels a player already bought are refunded in full so nobody loses
+## progress, then the stale key is dropped from the save.
+func _refund_removed_rattling_payout() -> float:
+	if not GameState.rattling_upgrade_levels.has("rattling_payout"):
+		return 0.0
+	var level: int = int(GameState.rattling_upgrade_levels["rattling_payout"])
+	GameState.rattling_upgrade_levels.erase("rattling_payout")
+	var refund := 0.0
+	for i in range(level):
+		refund += Economy.upgrade_cost(8.0, 1.32, i)
+	return refund
+
+
 func load_game() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
 		return
@@ -121,9 +137,12 @@ func load_game() -> void:
 	GameState.shop_unlocked = bool(parsed.get("shop_unlocked", false))
 	GameState.ratina_unlocked = bool(parsed.get("ratina_unlocked", false))
 	GameState.rattlings_unlocked = bool(parsed.get("rattlings_unlocked", false))
+	GameState.ratina_active = bool(parsed.get("ratina_active", true))
+	GameState.rattlings_active = bool(parsed.get("rattlings_active", true))
 	GameState.shop_levels = parsed.get("shop_levels", {})
 	GameState.ratina_upgrade_levels = parsed.get("ratina_upgrade_levels", {})
 	GameState.rattling_upgrade_levels = parsed.get("rattling_upgrade_levels", {})
+	GameState.currency += _refund_removed_rattling_payout()
 	GameState.lifetime = parsed.get("lifetime", GameState.lifetime)
 	GameState.bucket_capacity = int(parsed.get("bucket_capacity", Balance.BUCKET_CAPACITY_DEFAULT))
 	var saved_remaining: int = int(parsed.get("bucket_remaining", -1))

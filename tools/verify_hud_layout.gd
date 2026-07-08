@@ -42,11 +42,17 @@ func _run() -> void:
 	if margin.size.x <= 0 or margin.size.y <= 0:
 		print("FAIL: Margin collapsed to zero size")
 		ok = false
-	if not margin.has_node("CurrencyPanel"):
+	if not margin.has_node("VBox/TopRow/CurrencyPanel"):
 		print("FAIL: CurrencyPanel missing from HUD margin")
 		ok = false
-	if not margin.get_node("CurrencyPanel") is PanelContainer:
+	if not margin.get_node("VBox/TopRow/CurrencyPanel") is PanelContainer:
 		print("FAIL: CurrencyPanel should be a PanelContainer")
+		ok = false
+	if not margin.has_node("VBox/TopRow/RatinaChip"):
+		print("FAIL: RatinaChip missing from HUD top row")
+		ok = false
+	if not margin.has_node("VBox/TopRow/RattlingChip"):
+		print("FAIL: RattlingChip missing from HUD top row")
 		ok = false
 	if hud.has_node("Margin/VBox/HintLabel") or hud.has_node("Margin/VBox/PhaseLabel"):
 		print("FAIL: legacy hint/phase labels still in HUD")

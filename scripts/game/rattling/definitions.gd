@@ -25,13 +25,6 @@ static func _init_defs() -> void:
 			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}, Vector2(120, 62)
 		),
 		_def(
-			"rattling_payout", Balance.UpgradeBranch.QUALITY, "Payout Bonus",
-			"Rattlings hand over more cash per ball fetched.",
-			20, 8.0, 1.32,
-			[{"type": "multiply", "stat": "rattling_payout_multiplier", "value_per_level": 1.12}],
-			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}, Vector2(213, 62)
-		),
-		_def(
 			"rattling_quick_paws", Balance.UpgradeBranch.PICKUP, "Quick Paws",
 			"Faster pickup animation — less time fumbling the ball.",
 			10, 9.0, 1.30,
@@ -43,7 +36,7 @@ static func _init_defs() -> void:
 			"Rattlings sniff out extra golden balls.",
 			10, 20.0, 1.36,
 			[{"type": "add", "stat": "rattling_golden_bonus_chance", "value_per_level": 0.01}],
-			"rattling_payout", {"upgrade_id": "rattling_payout", "level": 1}, Vector2(213, 114)
+			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}, Vector2(213, 62)
 		),
 	]
 	for d in defs:

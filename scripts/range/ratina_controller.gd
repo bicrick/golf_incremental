@@ -27,11 +27,16 @@ var _swing_timer: Timer
 var _phase_timer: Timer
 var _phase := Phase.ADDRESS
 var _active := false
+## HUD toggle (independent of the one-time hire flag). When off, she fully
+## despawns (fades out and hides) — any in-progress swing is cancelled outright.
+var _enabled := true
 var _swinging := false
 var _ball_in_flight := false
 var _contact_fired := false
 var _pending_swing := false
 var _flight_trail = null
+var _flight_tween: Tween
+var _fade_tween: Tween
 var _debug_mode := false
 
 
@@ -69,6 +74,8 @@ func setup(range_view: Node3D, bay_cell: Node) -> void:
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 	EventBus.phase_changed.connect(_on_phase_changed)
 	EventBus.bucket_changed.connect(_on_bucket_changed)
+	EventBus.helper_toggled.connect(_on_helper_toggled)
+	_enabled = GameState.ratina_active
 	_refresh_active_state()
 
 
@@ -115,7 +122,7 @@ func set_debug_mode(active: bool) -> void:
 			_ball.visible = true
 			_ball.position = _ball_home
 			_ball.play(&"idle")
-	elif _active and not _swinging and not _ball_in_flight:
+	elif _hired_and_enabled() and not _swinging and not _ball_in_flight:
 		_refresh_cooldown_timer()
 		_start_waiting_phase()
 	_sync_visibility()
@@ -166,14 +173,27 @@ func set_flight_camera(cam: Camera3D) -> void:
 
 func apply_atmosphere_tint(tint: Color) -> void:
 	_atmosphere_tint = tint
+	## Preserve whatever alpha a toggle fade is currently animating — a tint
+	## refresh (e.g. day/night cycle) must never pop a faded-out Ratina back
+	## to full opacity mid-fade.
 	if _golfer:
-		_golfer.modulate = tint
+		_golfer.modulate = Color(tint.r, tint.g, tint.b, _golfer.modulate.a)
 	if _ball and _ball.visible:
-		_ball.modulate = tint
+		_ball.modulate = Color(tint.r, tint.g, tint.b, _ball.modulate.a)
 
 
 func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
 	_refresh_active_state()
+
+
+func _on_helper_toggled(helper: String, active: bool) -> void:
+	if helper != "ratina":
+		return
+	_enabled = active
+	if _enabled:
+		_fade_in()
+	else:
+		_fade_out_and_despawn()
 
 
 func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
@@ -183,7 +203,7 @@ func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
 func _on_phase_changed(_new_phase: String) -> void:
 	## She keeps hitting through the player's collect mode — only her own
 	## bucket/stash availability (via _can_swing) gates her, not the phase.
-	if _active and not _debug_mode and not _swinging and not _ball_in_flight:
+	if _hired_and_enabled() and not _debug_mode and not _swinging and not _ball_in_flight:
 		_refresh_cooldown_timer()
 		if _swing_timer.is_stopped() and not _pending_swing:
 			_start_waiting_phase()
@@ -197,6 +217,11 @@ func _on_bucket_changed(_count: int, _capacity: int) -> void:
 
 
 func _refresh_active_state() -> void:
+	## Resync from the source of truth here too (not just via helper_toggled) —
+	## GameState.reset_to_fresh() writes ratina_active directly without going
+	## through set_ratina_active(), so a stale cached _enabled could otherwise
+	## survive a reset and permanently hide/despawn her (or vice versa).
+	_enabled = GameState.ratina_active
 	var should_be_active := GameState.ratina_unlocked
 	if should_be_active == _active:
 		if _active:
@@ -228,12 +253,14 @@ func _sync_visibility() -> void:
 			_ball.visible = true
 		return
 	if _golfer:
-		_golfer.visible = _active
+		_golfer.visible = _active and _enabled
 	if _ball:
 		## Frequent EventBus.stats_changed emissions (e.g. Rattling collections)
 		## route through here — never resurrect the ball mid-WAITING, or it
 		## shows the last flight's looping "roll" frames frozen in place.
-		var should_show_ball := _active and not _ball_in_flight and _phase != Phase.WAITING
+		## Also never resurrect the ball while she's toggled off, or the
+		## HUD chip's fade-out gets undone by an unrelated stats refresh.
+		var should_show_ball := _active and _enabled and not _ball_in_flight and _phase != Phase.WAITING
 		if should_show_ball and not _ball.visible:
 			_ball.position = _ball_home
 			_ball.scale = _base_ball_scale
@@ -241,8 +268,70 @@ func _sync_visibility() -> void:
 		_ball.visible = should_show_ball
 
 
+## HUD toggle switched off — this is a hard, immediate despawn (not "let the
+## current swing finish"): cancel any in-progress swing/flight outright, then
+## fade both sprites to invisible.
+func _fade_out_and_despawn() -> void:
+	_swing_timer.stop()
+	_phase_timer.stop()
+	_swinging = false
+	_ball_in_flight = false
+	_contact_fired = false
+	_pending_swing = false
+	if _flight_trail:
+		_flight_trail.finish()
+		_flight_trail = null
+	if _flight_tween and _flight_tween.is_valid():
+		_flight_tween.kill()
+		_flight_tween = null
+	if _fade_tween and _fade_tween.is_valid():
+		_fade_tween.kill()
+	_fade_tween = create_tween()
+	_fade_tween.set_parallel(true)
+	if _golfer:
+		_fade_tween.tween_property(_golfer, "modulate:a", 0.0, Balance.RATTLING_FADE_SEC)
+	if _ball:
+		_fade_tween.tween_property(_ball, "modulate:a", 0.0, Balance.RATTLING_FADE_SEC)
+	_fade_tween.set_parallel(false)
+	_fade_tween.tween_callback(func():
+		if _golfer:
+			_golfer.visible = false
+		if _ball:
+			_ball.visible = false
+	)
+
+
+## HUD toggle switched back on — fade her back in, then resume the normal
+## swing loop as if she'd just been hired.
+func _fade_in() -> void:
+	if _fade_tween and _fade_tween.is_valid():
+		_fade_tween.kill()
+	if not _active or _debug_mode:
+		return
+	if _golfer:
+		_golfer.visible = true
+		_golfer.modulate.a = 0.0
+		_golfer.play(&"idle")
+	_fade_tween = create_tween()
+	if _golfer:
+		_fade_tween.tween_property(_golfer, "modulate:a", _atmosphere_tint.a, Balance.RATTLING_FADE_SEC)
+	_fade_tween.tween_callback(func():
+		_refresh_cooldown_timer()
+		if not _swinging and not _ball_in_flight and not _pending_swing and _swing_timer.is_stopped():
+			_start_waiting_phase()
+	)
+
+
+## Master gate for the whole swing/phase state machine — hired AND not
+## toggled off via the HUD chip. Every scheduling function below must check
+## this (not just `_active`), or a stray timer callback can pop her sprite
+## or ball back to visible while she's supposed to be fully despawned.
+func _hired_and_enabled() -> bool:
+	return _active and _enabled
+
+
 func _can_swing() -> bool:
-	return _active and not _debug_mode and GameState.ratina_has_ball_to_hit()
+	return _hired_and_enabled() and not _debug_mode and GameState.ratina_has_ball_to_hit()
 
 
 func _cooldown_sec() -> float:
@@ -254,7 +343,7 @@ func _update_timer_interval() -> void:
 
 
 func _refresh_cooldown_timer() -> void:
-	if not _active or _debug_mode or not _can_swing():
+	if not _hired_and_enabled() or _debug_mode or not _can_swing():
 		return
 	_update_timer_interval()
 	if _swinging or _ball_in_flight:
@@ -268,14 +357,14 @@ func _refresh_cooldown_timer() -> void:
 
 
 func _start_cooldown_timer() -> void:
-	if not _active or _debug_mode:
+	if not _hired_and_enabled() or _debug_mode:
 		return
 	_update_timer_interval()
 	_swing_timer.start()
 
 
 func _on_swing_timer_timeout() -> void:
-	if not _active or _debug_mode:
+	if not _hired_and_enabled() or _debug_mode:
 		return
 	if _swinging or _ball_in_flight:
 		_pending_swing = true
@@ -284,7 +373,7 @@ func _on_swing_timer_timeout() -> void:
 
 
 func _try_pending_swing() -> void:
-	if not _active or _debug_mode or _swinging or _ball_in_flight:
+	if not _hired_and_enabled() or _debug_mode or _swinging or _ball_in_flight:
 		return
 	if not _pending_swing:
 		return
@@ -399,16 +488,17 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 		float(DinkySpriteFramesScript.BALL_ROLL_FRAME_COUNT) / path.flight_time
 	)
 
-	var tween := create_tween()
-	tween.tween_method(_apply_flight_sample.bind(path), 0.0, 1.0, path.flight_time)\
+	_flight_tween = create_tween()
+	_flight_tween.tween_method(_apply_flight_sample.bind(path), 0.0, 1.0, path.flight_time)\
 		.set_trans(Tween.TRANS_LINEAR)
-	tween.chain().tween_callback(func():
+	_flight_tween.chain().tween_callback(func():
 		var landing := BallFlight3DScript.sample(1.0, path)
 		_ball_in_flight = false
 		_ball.visible = false
 		if _flight_trail:
 			_flight_trail.finish()
 			_flight_trail = null
+		_flight_tween = null
 		_resolve_landing(landing, quality, yards, path.visual_yards)
 		_try_pending_swing()
 	)
@@ -449,13 +539,13 @@ func _complete_swing_anim() -> void:
 	_try_pending_swing()
 	if _swinging:
 		return
-	if not _active or _debug_mode:
+	if not _hired_and_enabled() or _debug_mode:
 		return
 	_start_waiting_phase()
 
 
 func _start_waiting_phase() -> void:
-	if not _active or _debug_mode or _swinging:
+	if not _hired_and_enabled() or _debug_mode or _swinging:
 		return
 	if _can_swing() and _swing_timer.is_stopped():
 		_start_cooldown_timer()
@@ -468,7 +558,7 @@ func _start_waiting_phase() -> void:
 
 func _reschedule_waiting_to_address() -> void:
 	_phase_timer.stop()
-	if _phase != Phase.WAITING or _swinging or not _active:
+	if _phase != Phase.WAITING or _swinging or not _hired_and_enabled():
 		return
 	var prep_sec := Balance.RATINA_ADDRESS_PREP_SEC
 	var remaining := _swing_timer.time_left if not _swing_timer.is_stopped() else _cooldown_sec()
@@ -481,7 +571,7 @@ func _reschedule_waiting_to_address() -> void:
 
 
 func _enter_address_prep_phase() -> void:
-	if _swinging or not _active:
+	if _swinging or not _hired_and_enabled():
 		return
 	_phase_timer.stop()
 	_phase = Phase.ADDRESS

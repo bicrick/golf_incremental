@@ -239,5 +239,4 @@ static func default_rattling_stats() -> PlayerStats:
 	stats.rattling_walk_speed = 3.2
 	stats.rattling_pickup_speed_multiplier = 1.0
 	stats.rattling_golden_bonus_chance = 0.0
-	stats.rattling_payout_multiplier = 1.0
 	return stats

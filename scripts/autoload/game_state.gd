@@ -7,6 +7,10 @@ var upgrades_unlocked: bool = false
 var shop_unlocked: bool = false
 var ratina_unlocked: bool = false
 var rattlings_unlocked: bool = false
+## Non-destructive on/off switches — toggled from the HUD chips once hired.
+## Unlike the *_unlocked flags, these can be flipped freely at any time.
+var ratina_active: bool = true
+var rattlings_active: bool = true
 var shop_levels: Dictionary = {}
 var ratina_upgrade_levels: Dictionary = {}
 var rattling_upgrade_levels: Dictionary = {}
@@ -97,6 +101,20 @@ func try_unlock_rattlings() -> bool:
 	rattlings_unlocked = true
 	EventBus.stats_changed.emit(stats, currency)
 	return true
+
+
+func set_ratina_active(active: bool) -> void:
+	if ratina_active == active:
+		return
+	ratina_active = active
+	EventBus.helper_toggled.emit("ratina", active)
+
+
+func set_rattlings_active(active: bool) -> void:
+	if rattlings_active == active:
+		return
+	rattlings_active = active
+	EventBus.helper_toggled.emit("rattlings", active)
 
 
 func get_shop_item_level(id: String) -> int:
@@ -246,7 +264,6 @@ func credit_rattling_ball(
 	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, 1, collect_stats)
 	if golden:
 		payout *= collect_stats.golden_ball_payout_multiplier
-	payout *= maxf(rattling_stats.rattling_payout_multiplier, 0.0)
 	add_currency(payout)
 	if source == "ratina":
 		lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout
@@ -316,6 +333,8 @@ func reset_to_fresh() -> void:
 	shop_unlocked = false
 	ratina_unlocked = false
 	rattlings_unlocked = false
+	ratina_active = true
+	rattlings_active = true
 	shop_levels.clear()
 	ratina_upgrade_levels.clear()
 	rattling_upgrade_levels.clear()

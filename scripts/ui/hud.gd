@@ -7,8 +7,8 @@ const RATTLING_INCOME_HOLD_SEC := 0.7
 const RATTLING_INCOME_FADE_SEC := 0.5
 
 @onready var _margin: MarginContainer = $Margin
-@onready var _currency_panel: PanelContainer = $Margin/VBox/CurrencyPanel
-@onready var currency_label: Label = $Margin/VBox/CurrencyPanel/CurrencyLabel
+@onready var _currency_panel: PanelContainer = $Margin/VBox/TopRow/CurrencyPanel
+@onready var currency_label: Label = $Margin/VBox/TopRow/CurrencyPanel/CurrencyLabel
 @onready var _rattling_income_label: Label = $Margin/VBox/RattlingIncomeLabel
 
 var _rattling_income_tween: Tween

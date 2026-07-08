@@ -17,7 +17,6 @@ const TOOLTIP_EDGE_MARGIN := 4
 const SHORT_NAMES: Dictionary = {
 	"rattling_more": "MOR",
 	"rattling_speed": "SPD",
-	"rattling_payout": "PAY",
 	"rattling_quick_paws": "QCK",
 	"rattling_keen_nose": "NOS",
 }

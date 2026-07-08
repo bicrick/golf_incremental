@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://scripts/ui/pixel_up_arrow.gd" id="2_arrow"]
 [ext_resource type="Script" path="res://scripts/ui/bucket_counter.gd" id="4_bucket"]
 [ext_resource type="Script" path="res://scripts/ui/pixel_dollar_sign.gd" id="5_dollar"]
-[ext_resource type="Script" path="res://scripts/ui/pixel_transport_glyph.gd" id="6_transport"]
+[ext_resource type="Script" path="res://scripts/ui/player_swing_glyph.gd" id="7_swing_glyph"]
 
 [node name="IconBar" type="Control"]
 layout_mode = 3
@@ -44,7 +44,7 @@ size_flags_vertical = 4
 mouse_default_cursor_shape = 2
 flat = true
 
-[node name="Glyph" type="Control" parent="BottomRight/HitWrap/HitButton"]
+[node name="Glyph" type="TextureRect" parent="BottomRight/HitWrap/HitButton"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -58,8 +58,7 @@ offset_bottom = 11.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("6_transport")
-glyph_type = 1
+script = ExtResource("7_swing_glyph")
 
 [node name="BucketCounter" type="PanelContainer" parent="BottomRight"]
 layout_mode = 2

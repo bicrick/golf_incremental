@@ -1,0 +1,41 @@
+[gd_scene load_steps=2 format=3 uid="uid://helper_toggle_chip_scene"]
+
+[ext_resource type="Script" path="res://scripts/ui/helper_toggle_chip.gd" id="1_script"]
+
+[node name="HelperToggleChip" type="PanelContainer"]
+layout_mode = 2
+script = ExtResource("1_script")
+
+[node name="Button" type="Button" parent="."]
+layout_mode = 2
+custom_minimum_size = Vector2(28, 28)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="Row" type="HBoxContainer" parent="Button"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 3
+alignment = 1
+
+[node name="Icon" type="TextureRect" parent="Button/Row"]
+custom_minimum_size = Vector2(14, 14)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CountLabel" type="Label" parent="Button/Row"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 10
+mouse_filter = 2
+text = "x1"
+visible = false

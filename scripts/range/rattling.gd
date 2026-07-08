@@ -81,6 +81,25 @@ func apply_atmosphere_tint(tint: Color) -> void:
 	_sprite.modulate = Color(tint.r, tint.g, tint.b, _sprite.modulate.a)
 
 
+## Instance id of the litter ball this agent still has claimed, or -1 if it
+## has already been picked up (freed) or there was none. Lets the controller
+## release the claim when aborting mid-trip.
+func claimed_litter_instance_id() -> int:
+	return _litter.get_instance_id() if is_instance_valid(_litter) else -1
+
+
+## Toggled off mid-trip — cancel the fetch outright (no payout, even if a
+## ball was already in hand) and fade out fast rather than finishing the walk.
+func abort() -> void:
+	if _faded_out:
+		return
+	_faded_out = true
+	_carrying_ball = false
+	set_process(false)
+	var tween := _fade_alpha_to(0.0, Color(_sprite.modulate.r, _sprite.modulate.g, _sprite.modulate.b))
+	tween.tween_callback(func(): finished.emit(self))
+
+
 func _process(delta: float) -> void:
 	match _state:
 		State.WALKING_OUT:
@@ -157,7 +176,7 @@ func _apply_facing(direction_x: float) -> void:
 	_sprite.flip_h = direction_x < 0.0
 
 
-func _fade_alpha_to(target_alpha: float, tint: Color) -> void:
+func _fade_alpha_to(target_alpha: float, tint: Color) -> Tween:
 	var tween := create_tween()
 	tween.tween_method(
 		func(a: float): _sprite.modulate = Color(tint.r, tint.g, tint.b, a),
@@ -165,3 +184,4 @@ func _fade_alpha_to(target_alpha: float, tint: Color) -> void:
 		target_alpha,
 		Balance.RATTLING_FADE_SEC
 	)
+	return tween
