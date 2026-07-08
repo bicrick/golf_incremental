@@ -54,6 +54,16 @@ func _run() -> void:
 	if not margin.has_node("VBox/TopRow/RattlingChip"):
 		print("FAIL: RattlingChip missing from HUD top row")
 		ok = false
+	var rattling_chip: Control = margin.get_node("VBox/TopRow/RattlingChip")
+	var rattling_button: Button = rattling_chip.get_node("Button")
+	if rattling_button.focus_mode != Control.FOCUS_NONE:
+		print("FAIL: RattlingChip button should not grab keyboard focus (Space swing collision)")
+		ok = false
+	var ratina_chip: Control = margin.get_node("VBox/TopRow/RatinaChip")
+	var ratina_button: Button = ratina_chip.get_node("Button")
+	if ratina_button.focus_mode != Control.FOCUS_NONE:
+		print("FAIL: RatinaChip button should not grab keyboard focus (Space swing collision)")
+		ok = false
 	if hud.has_node("Margin/VBox/HintLabel") or hud.has_node("Margin/VBox/PhaseLabel"):
 		print("FAIL: legacy hint/phase labels still in HUD")
 		ok = false

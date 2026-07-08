@@ -26,6 +26,7 @@ func _ready() -> void:
 	UiTheme.apply_panel_label(_count_label)
 	_count_label.visible = helper_id == "rattlings"
 	_button.custom_minimum_size = SIZE_WITH_COUNT if helper_id == "rattlings" else SIZE_SOLO
+	_button.focus_mode = Control.FOCUS_NONE
 	_button.pressed.connect(_on_pressed)
 	_icon.texture = _load_icon_texture()
 	EventBus.stats_changed.connect(_on_stats_changed)
@@ -49,6 +50,7 @@ func _on_pressed() -> void:
 			GameState.set_ratina_active(not GameState.ratina_active)
 		"rattlings":
 			GameState.set_rattlings_active(not GameState.rattlings_active)
+	_button.release_focus()
 
 
 func _on_helper_toggled(helper: String, _active: bool) -> void:
