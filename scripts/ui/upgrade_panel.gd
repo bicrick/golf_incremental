@@ -27,6 +27,7 @@ const FIT_FILL := 0.98
 var _is_open := false
 var _nodes: Dictionary = {}
 var _layout_positions: Dictionary = {}
+var _refresh_pending := false
 
 
 func _ready() -> void:
@@ -134,6 +135,7 @@ func _instantiate_node(node_namespace: String) -> PanelContainer:
 
 
 func _refresh_all() -> void:
+	_refresh_pending = false
 	currency_label.text = "$%s" % _format_currency(GameState.currency)
 	for id in _nodes:
 		var node: PanelContainer = _nodes[id]
@@ -144,45 +146,46 @@ func _refresh_all() -> void:
 	connectors.queue_redraw()
 
 
-func _on_purchase_requested(id: String) -> void:
-	if _camera_controller.did_drag():
+func _request_refresh() -> void:
+	if not _is_open or _refresh_pending:
 		return
-	if not UpgradeGraph.purchase(id):
+	_refresh_pending = true
+	call_deferred("_flush_refresh")
+
+
+func _flush_refresh() -> void:
+	if not _refresh_pending:
+		return
+	if not _is_open:
+		_refresh_pending = false
 		return
 	_refresh_all()
 
 
-func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:
-	if not _is_open:
+func _on_purchase_requested(id: String) -> void:
+	if _camera_controller.did_drag():
 		return
-	currency_label.text = "$%s" % _format_currency(currency)
-	for id in _nodes:
-		var node: PanelContainer = _nodes[id]
-		if not node.visible:
-			continue
-		if node.has_method("refresh"):
-			node.refresh()
-	connectors.queue_redraw()
+	UpgradeGraph.purchase(id)
+
+
+func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
+	_request_refresh()
 
 
 func _on_upgrade_purchased(_id: String, _level: int, _branch: int) -> void:
-	if _is_open:
-		_refresh_all()
+	_request_refresh()
 
 
 func _on_shop_item_purchased(_id: String, _level: int) -> void:
-	if _is_open:
-		_refresh_all()
+	_request_refresh()
 
 
 func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
-	if _is_open:
-		_refresh_all()
+	_request_refresh()
 
 
 func _on_rattling_upgrade_purchased(_id: String, _level: int) -> void:
-	if _is_open:
-		_refresh_all()
+	_request_refresh()
 
 
 func _draw_connectors() -> void:

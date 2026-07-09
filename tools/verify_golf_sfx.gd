@@ -11,6 +11,7 @@ func _run() -> void:
 	ok = _check_asset_files() and ok
 	ok = _check_pool_config() and ok
 	ok = await _check_sfx_manager_playback() and ok
+	ok = await _check_upgrade_bling() and ok
 	print("golf_sfx_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -81,6 +82,43 @@ func _check_sfx_manager_playback() -> bool:
 		return false
 
 	print("OK: sfx_manager golf hit playback")
+	return true
+
+
+func _check_upgrade_bling() -> bool:
+	var sfx: Node = root.get_node_or_null("SfxManager")
+	if sfx == null:
+		sfx = load("res://scripts/audio/sfx_manager.gd").new()
+		sfx.name = "SfxManager"
+		root.add_child(sfx)
+		await process_frame
+	if not sfx._streams.has("upgrade_bling"):
+		print("FAIL: upgrade_bling stream missing")
+		return false
+	if sfx._streams.has("upgrade_tap") or sfx._streams.has("upgrade_purchase"):
+		print("FAIL: legacy upgrade_tap/upgrade_purchase should be removed")
+		return false
+	var loaded: AudioStream = sfx._streams["upgrade_bling"]
+	if loaded == null:
+		print("FAIL: upgrade_bling stream is null")
+		return false
+	if loaded.resource_path != sfx.UPGRADE_BLING_PATH:
+		print(
+			"FAIL: upgrade_bling should load Mixkit asset, got path=%s"
+			% loaded.resource_path
+		)
+		return false
+	if sfx.POOL_SIZE < 8:
+		print("FAIL: SFX pool should be at least 8 for spam, got ", sfx.POOL_SIZE)
+		return false
+	sfx.set_sfx_enabled(true)
+	sfx.set_sfx_volume(1.0)
+	sfx._on_upgrade_purchased("base_pay", 3, 0)
+	await process_frame
+	if not _any_sfx_playing(sfx):
+		print("FAIL: upgrade_bling did not start playback")
+		return false
+	print("OK: upgrade_bling playback")
 	return true
 
 

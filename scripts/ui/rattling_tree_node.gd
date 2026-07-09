@@ -48,7 +48,9 @@ var upgrade_id: String = ""
 var _state: NodeState = NodeState.LOCKED
 var _hovering := false
 var _glow_phase := 0.0
+var _glow_border_wide := false
 var _base_footer_text := ""
+var _panel_style: StyleBoxFlat
 var _tooltip_def: Dictionary = {}
 var _tooltip_level := 0
 var _tooltip_cost := 0.0
@@ -81,6 +83,7 @@ func _ready() -> void:
 	PixelFont.apply_label(_tooltip_desc, 6)
 	PixelFont.apply_label(_tooltip_level_label, 6)
 	PixelFont.apply_label(_tooltip_price_label, 6)
+	_ensure_panel_style()
 	_style_panel(COLOR_BORDER, 1)
 	_tooltip_timer.wait_time = TOOLTIP_DELAY_SEC
 	_tooltip_timer.timeout.connect(_on_tooltip_timer_timeout)
@@ -142,8 +145,11 @@ func _process(delta: float) -> void:
 	_glow_phase += delta * 4.0
 	var pulse := 0.5 + 0.5 * sin(_glow_phase)
 	_glow.color = Color(COLOR_GLOW.r, COLOR_GLOW.g, COLOR_GLOW.b, lerpf(0.06, 0.2, pulse))
-	var border_color := COLOR_BORDER_AFFORD.lerp(COLOR_BORDER_GLOW, pulse)
-	_style_panel(border_color, 2 if pulse > 0.65 else 1)
+	var wide := pulse > 0.65
+	if wide != _glow_border_wide:
+		_glow_border_wide = wide
+		var border_color := COLOR_BORDER_AFFORD.lerp(COLOR_BORDER_GLOW, pulse)
+		_style_panel(border_color, 2 if wide else 1)
 
 
 func get_center() -> Vector2:
@@ -274,6 +280,8 @@ func _tooltip_bounds_rect() -> Rect2:
 func _apply_visual_state() -> void:
 	_glow.visible = _state == NodeState.PURCHASABLE
 	set_process(_state == NodeState.PURCHASABLE)
+	if _state == NodeState.PURCHASABLE:
+		_glow_border_wide = false
 
 	match _state:
 		NodeState.PURCHASABLE:
@@ -329,22 +337,28 @@ func _hide_tooltip() -> void:
 
 
 func _style_panel(border_color: Color, border_width: int = 1) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = COLOR_BG
-	style.border_width_left = border_width
-	style.border_width_top = border_width
-	style.border_width_right = border_width
-	style.border_width_bottom = border_width
-	style.border_color = border_color
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
-	style.content_margin_left = 1
-	style.content_margin_top = 1
-	style.content_margin_right = 1
-	style.content_margin_bottom = 1
-	add_theme_stylebox_override(&"panel", style)
+	_ensure_panel_style()
+	_panel_style.border_width_left = border_width
+	_panel_style.border_width_top = border_width
+	_panel_style.border_width_right = border_width
+	_panel_style.border_width_bottom = border_width
+	_panel_style.border_color = border_color
+
+
+func _ensure_panel_style() -> void:
+	if _panel_style != null:
+		return
+	_panel_style = StyleBoxFlat.new()
+	_panel_style.bg_color = COLOR_BG
+	_panel_style.corner_radius_top_left = 2
+	_panel_style.corner_radius_top_right = 2
+	_panel_style.corner_radius_bottom_left = 2
+	_panel_style.corner_radius_bottom_right = 2
+	_panel_style.content_margin_left = 1
+	_panel_style.content_margin_top = 1
+	_panel_style.content_margin_right = 1
+	_panel_style.content_margin_bottom = 1
+	add_theme_stylebox_override(&"panel", _panel_style)
 
 
 func _format_cost(n: float) -> String:

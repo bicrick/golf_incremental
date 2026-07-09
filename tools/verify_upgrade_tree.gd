@@ -50,6 +50,15 @@ func _run() -> void:
 	if RadialTreeLayout.min_pair_distance(layout_a) < RadialTreeLayout.MIN_NODE_DISTANCE:
 		print("FAIL: layout nodes overlap after relaxation (min=%.2f)" % RadialTreeLayout.min_pair_distance(layout_a))
 		ok = false
+	var layout_aspect := RadialTreeLayout.content_aspect(layout_a)
+	if absf(layout_aspect / RadialTreeLayout.TARGET_ASPECT - 1.0) > RadialTreeLayout.ASPECT_TOLERANCE:
+		print(
+			"FAIL: layout aspect %.3f not within tolerance of 16:9 (%.3f)"
+			% [layout_aspect, RadialTreeLayout.TARGET_ASPECT]
+		)
+		ok = false
+	else:
+		print("OK: layout aspect=%.3f (target 16:9)" % layout_aspect)
 
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
@@ -156,6 +165,9 @@ func _run() -> void:
 			print("FAIL: expected 29 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
+		ok = _check_tree_pan(panel) and ok
+		ok = await _check_purchase_spam(gs, panel) and ok
+
 		panel.close()
 		await process_frame
 		if not range_view.visible:
@@ -203,6 +215,95 @@ func _run() -> void:
 
 	print("upgrade_tree_ok=", ok)
 	quit(0 if ok else 1)
+
+
+func _check_purchase_spam(gs: Node, panel: Control) -> bool:
+	gs.currency = 50_000.0
+	panel.open()
+	await process_frame
+	await process_frame
+	var level_before: int = gs.get_upgrade_level("base_pay")
+	var bought := 0
+	for _i in 12:
+		if gs.purchase_upgrade("base_pay"):
+			bought += 1
+	await process_frame
+	await process_frame
+	var level_after: int = gs.get_upgrade_level("base_pay")
+	if level_after != level_before + bought:
+		print(
+			"FAIL: spam purchases inconsistent (before=%d bought=%d after=%d)"
+			% [level_before, bought, level_after]
+		)
+		return false
+	if not panel.visible:
+		print("FAIL: panel should stay open after spam purchases")
+		return false
+	if panel._refresh_pending:
+		print("FAIL: refresh should have flushed after deferred frame")
+		return false
+	var currency_label: Label = panel.get_node("Content/Header/CurrencyLabel")
+	if currency_label == null or not currency_label.text.begins_with("$"):
+		print("FAIL: currency label missing after spam")
+		return false
+	print("OK: spam purchases coalesce refresh (bought=%d)" % bought)
+	return true
+
+
+func _check_tree_pan(panel: Control) -> bool:
+	var camera: Node = panel.get_node("TreeCameraController")
+	var tree_viewport: Control = panel.get_node("Content/TreeViewport")
+	if camera == null or tree_viewport == null:
+		print("FAIL: missing tree camera or viewport for pan check")
+		return false
+	if not camera.is_enabled():
+		print("FAIL: tree camera should be enabled while panel is open")
+		return false
+
+	var origin: Vector2 = tree_viewport.get_global_rect().get_center()
+	var pan_before: Vector2 = camera.get_pan_offset()
+	if not panel.consume_pan_drag_event(_left_down(origin)):
+		print("FAIL: empty TreeViewport should accept pan drag start")
+		return false
+	var dragged := origin + Vector2(40.0, 24.0)
+	if not panel.consume_pan_drag_event(_mouse_motion(dragged)):
+		print("FAIL: tree pan drag motion should be consumed")
+		return false
+	var pan_after: Vector2 = camera.get_pan_offset()
+	if pan_after.is_equal_approx(pan_before):
+		print("FAIL: tree pan offset should change after drag")
+		return false
+	if not camera.did_drag():
+		print("FAIL: tree camera should report did_drag after pan")
+		return false
+	panel.consume_pan_drag_event(_left_up(dragged))
+	print("OK: tree pan drag updates offset")
+	return true
+
+
+func _left_down(position: Vector2) -> InputEventMouseButton:
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = position
+	down.global_position = position
+	return down
+
+
+func _left_up(position: Vector2) -> InputEventMouseButton:
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = position
+	up.global_position = position
+	return up
+
+
+func _mouse_motion(position: Vector2) -> InputEventMouseMotion:
+	var move := InputEventMouseMotion.new()
+	move.position = position
+	move.global_position = position
+	return move
 
 
 func _check_upgrades_button_clickable_during_harvest(

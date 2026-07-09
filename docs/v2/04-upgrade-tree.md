@@ -64,7 +64,7 @@ flowchart TB
 | `ratina_hire` | Base Pay | unlock Ratina | Hire autonomous hitter ($100, Base Pay Lv.3) |
 | `rattling_more` | Base Pay | +rattling count | Hire collectors ($10 Lv.1, Pickup Lv.2) |
 
-Layout is auto-generated from graph topology (`UpgradeGraph` + `RadialTreeLayout`): wedge skeleton + organic force relaxation. Positions are static; nodes reveal when their parent is purchased.
+Layout is auto-generated from graph topology (`UpgradeGraph` + `RadialTreeLayout`): elliptical wedge skeleton + organic force relaxation that settles into a landscape **16:9** band. Positions are static; nodes reveal when their parent is purchased.
 
 ## Tree access
 

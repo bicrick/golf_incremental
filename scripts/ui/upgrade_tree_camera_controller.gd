@@ -83,7 +83,9 @@ func consume_zoom_event(event: InputEvent) -> bool:
 func consume_pan_drag_event(event: InputEvent) -> bool:
 	if not _enabled or _viewport == null or _world == null:
 		return false
-	if not _drag_active and UiInput.is_interactive_control_under_mouse(get_viewport()):
+	# TreeViewport is MOUSE_FILTER_STOP so empty space would look "interactive" to
+	# UiInput — only block pan start on real buttons (Back + node HitButtons).
+	if not _drag_active and _should_block_pan_start(event):
 		return false
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
@@ -118,6 +120,24 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 			return true
 		return _pending
 	return false
+
+
+func _should_block_pan_start(event: InputEvent) -> bool:
+	var screen_pos := _event_screen_position(event)
+	if not _viewport.get_global_rect().has_point(screen_pos):
+		return true
+	var hovered := get_viewport().gui_get_hovered_control()
+	if hovered == null:
+		return false
+	return hovered is BaseButton
+
+
+func _event_screen_position(event: InputEvent) -> Vector2:
+	if event is InputEventMouseButton:
+		return (event as InputEventMouseButton).global_position
+	if event is InputEventMouseMotion:
+		return (event as InputEventMouseMotion).global_position
+	return get_viewport().get_mouse_position()
 
 
 func _input(event: InputEvent) -> void:

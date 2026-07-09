@@ -3,10 +3,11 @@ extends Node
 
 signal music_track_changed(path: String)
 
-const POOL_SIZE := 3
+const POOL_SIZE := 8
 const MIX_RATE := 22050
 const MUSIC_DIR := "res://assets/audio/music/"
 const PICKUP_PLINK_PATH := "res://assets/audio/sfx/pickup/throwing-a-coin-into-a-piggy-bank.mp3"
+const UPGRADE_BLING_PATH := "res://assets/audio/sfx/ui/mixkit-quick-win-video-game-notification-269.wav"
 const BGM_VOLUME_DB := -9.0
 const MUSIC_EXTENSIONS := ["mp3", "ogg", "wav", "flac"]
 
@@ -401,27 +402,25 @@ func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
 
 
 func _on_upgrade_purchased(_id: String, level: int, _branch: int) -> void:
-	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
-	_play("upgrade_tap", -12.0, pitch)
-	_play("upgrade_purchase", -2.0, pitch)
+	_play_upgrade_bling(level)
 
 
 func _on_ratina_upgrade_purchased(_id: String, level: int) -> void:
-	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
-	_play("upgrade_tap", -12.0, pitch)
-	_play("upgrade_purchase", -2.0, pitch)
+	_play_upgrade_bling(level)
 
 
 func _on_shop_item_purchased(_id: String, level: int) -> void:
-	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
-	_play("upgrade_tap", -12.0, pitch)
-	_play("upgrade_purchase", -2.0, pitch)
+	_play_upgrade_bling(level)
 
 
 func _on_rattling_upgrade_purchased(_id: String, level: int) -> void:
-	var pitch := clampf(0.95 + float(level - 1) * 0.035, 0.95, 1.4)
-	_play("upgrade_tap", -12.0, pitch)
-	_play("upgrade_purchase", -2.0, pitch)
+	_play_upgrade_bling(level)
+
+
+func _play_upgrade_bling(level: int) -> void:
+	var pitch := clampf(0.98 + float(level - 1) * 0.028, 0.98, 1.28)
+	pitch += randf_range(-0.015, 0.015)
+	_play("upgrade_bling", 0.0, pitch)
 
 
 func _build_pool() -> void:
@@ -441,10 +440,7 @@ func _build_streams() -> void:
 	_streams["menu_open_pop"] = _make_click(660.0, 0.028, 0.34)
 	_streams["menu_open"] = _make_arpeggio([523.0, 659.0, 784.0, 988.0], 0.045, 0.3)
 	_streams["menu_close"] = _make_arpeggio([880.0, 698.0, 554.0, 440.0], 0.04, 0.24)
-	_streams["upgrade_tap"] = _make_click(740.0, 0.022, 0.3)
-	_streams["upgrade_purchase"] = _make_arpeggio(
-		[698.0, 880.0, 1047.0, 1319.0, 1568.0], 0.032, 0.36
-	)
+	_streams["upgrade_bling"] = _load_upgrade_bling_stream()
 	_streams["play_whoosh"] = _make_thwack(150.0, 0.14, 0.2, 0.5)
 	_streams["play_fanfare"] = _make_chime([440.0, 554.0, 659.0, 880.0, 1108.0], 0.38, 0.24)
 	_streams["pickup_plink"] = _load_pickup_plink_stream()
@@ -457,6 +453,14 @@ func _load_pickup_plink_stream() -> AudioStream:
 	if stream == null:
 		push_warning("SfxManager: failed to load pickup plink at %s" % PICKUP_PLINK_PATH)
 		return _make_chime([880.0, 1175.0, 1568.0], 0.12, 0.28)
+	return stream
+
+
+func _load_upgrade_bling_stream() -> AudioStream:
+	var stream: AudioStream = load(UPGRADE_BLING_PATH)
+	if stream == null:
+		push_warning("SfxManager: failed to load upgrade bling at %s" % UPGRADE_BLING_PATH)
+		return _make_coin_bling(0.14, 0.72)
 	return stream
 
 
@@ -485,6 +489,32 @@ func _make_click(freq_hz: float, duration_sec: float, volume: float) -> AudioStr
 		var t := float(i) / MIX_RATE
 		var env := exp(-18.0 * t / duration_sec)
 		var sample := sin(TAU * freq_hz * t) * volume * env
+		_write_sample(data, i, sample)
+	return _pack_wav(data)
+
+
+func _make_coin_bling(duration_sec: float, volume: float) -> AudioStreamWAV:
+	## Fallback if Mixkit asset missing — punchy click + rising sparkle.
+	var sample_count := int(duration_sec * MIX_RATE)
+	var data := PackedByteArray()
+	data.resize(sample_count * 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1337
+	var harmonics: Array = [988.0, 1319.0, 1760.0, 2093.0]
+	for i in sample_count:
+		var t := float(i) / MIX_RATE
+		var click_env := exp(-70.0 * t)
+		var click := rng.randf_range(-1.0, 1.0) * 0.55 * click_env
+		var tone_env := exp(-9.0 * t / duration_sec)
+		var tone := 0.0
+		for hi in harmonics.size():
+			var freq := float(harmonics[hi])
+			var weight := 1.0 - float(hi) * 0.12
+			tone += sin(TAU * freq * t) * weight
+		tone = tone / float(harmonics.size()) * tone_env
+		# Soft upward chirp for "level up" feel.
+		var chirp := sin(TAU * (1200.0 + 1800.0 * t / duration_sec) * t) * exp(-12.0 * t / duration_sec) * 0.35
+		var sample := (click * 0.35 + tone * 0.45 + chirp * 0.35) * volume
 		_write_sample(data, i, sample)
 	return _pack_wav(data)
 
