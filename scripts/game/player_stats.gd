@@ -20,14 +20,21 @@ extends Resource
 
 # Carry (flight only — never affects pickup $ directly)
 @export var base_yards: float = 30.0
+## Legacy — frozen at 1.0; distance-pays uses base_yards × contact × perfect_power.
 @export var carry_multiplier: float = 1.0
 @export var yard_variance: float = 0.2
+## Sweet Spot — pulls high contact toward Perfect (flight only).
+@export var sweet_spot_unlocked: float = 0.0
+@export var sweet_spot_bonus: float = 0.0
+## Perfect Pop — multiplies yards on near-Perfect contact (1.0 = off).
+@export var perfect_power_bonus: float = 1.0
 
-# Pickup payout formula
+# Pickup payout formula (distance-pays: base + $/yard × yards; no quality $ term)
 @export var base_amount: float = 0.25
-@export var pay_per_yard: float = 0.02
-@export var quality_multiplier: float = 1.0
+@export var pay_per_yard: float = 0.1
 @export var yardage_term_unlocked: float = 0.0
+## Legacy stubs — no longer applied in Economy.
+@export var quality_multiplier: float = 1.0
 @export var quality_term_unlocked: float = 0.0
 
 # Pickup branch bonuses
@@ -86,6 +93,9 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.base_yards = from.base_yards
 	copy.carry_multiplier = from.carry_multiplier
 	copy.yard_variance = from.yard_variance
+	copy.sweet_spot_unlocked = from.sweet_spot_unlocked
+	copy.sweet_spot_bonus = from.sweet_spot_bonus
+	copy.perfect_power_bonus = from.perfect_power_bonus
 	copy.base_amount = from.base_amount
 	copy.pay_per_yard = from.pay_per_yard
 	copy.quality_multiplier = from.quality_multiplier

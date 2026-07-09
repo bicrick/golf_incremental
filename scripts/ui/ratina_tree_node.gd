@@ -19,14 +19,10 @@ const TOOLTIP_EDGE_MARGIN := 4
 const SHORT_NAMES: Dictionary = {
 	"ratina_base_pay": "PAY",
 	"ratina_distance_pay": "YRD",
-	"ratina_quality": "QLT",
+	"ratina_quality": "SWT",
 	"ratina_frequency": "FRQ",
 	"ratina_raw_power": "RAW",
-	"ratina_carry": "CRY",
 	"ratina_consistency": "CON",
-	"ratina_steady_hands": "STD",
-	"ratina_rapid_fire": "RPD",
-	"ratina_gatling_barrel": "GAT",
 }
 
 const COLOR_BG := Color(0.18, 0.15, 0.12, 0.92)
@@ -368,8 +364,4 @@ func _ensure_panel_style() -> void:
 
 
 func _format_cost(n: float) -> String:
-	if n >= 1_000_000:
-		return "%.0fM" % (n / 1_000_000.0)
-	if n >= 1_000:
-		return "%.0fK" % (n / 1_000.0)
-	return str(int(n))
+	return FloatCashText.format_amount(n)

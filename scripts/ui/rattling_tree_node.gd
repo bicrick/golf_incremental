@@ -362,8 +362,4 @@ func _ensure_panel_style() -> void:
 
 
 func _format_cost(n: float) -> String:
-	if n >= 1_000_000:
-		return "%.0fM" % (n / 1_000_000.0)
-	if n >= 1_000:
-		return "%.0fK" % (n / 1_000.0)
-	return str(int(n))
+	return FloatCashText.format_amount(n)

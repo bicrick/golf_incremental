@@ -162,7 +162,7 @@ func _check_upgrade_refills_bucket(gs: Node) -> bool:
 	_reset_bucket(gs)
 	gs.currency = 1_000_000.0
 	gs.shop_unlocked = true
-	gs.upgrade_levels = {"power": 1}
+	gs.upgrade_levels = {"iron_set": 1}
 	gs._recompute_stats()
 	gs.bucket_remaining = 2
 	if not gs.purchase_shop_item("ball_count"):
@@ -189,7 +189,7 @@ func _check_upgrade_refills_during_harvest(gs: Node) -> bool:
 	_reset_bucket(gs)
 	gs.currency = 1_000_000.0
 	gs.shop_unlocked = true
-	gs.upgrade_levels = {"power": 1}
+	gs.upgrade_levels = {"iron_set": 1}
 	gs._recompute_stats()
 	gs.bucket_remaining = 0
 	gs.try_enter_harvest()

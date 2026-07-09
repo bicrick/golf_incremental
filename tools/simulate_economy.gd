@@ -4,22 +4,20 @@ extends SceneTree
 
 const SEC_PER_BUCKET: float = 16.0
 const MIN_TREE_MINUTES: float = 90.0
-const MAX_TREE_MINUTES: float = 150.0
+const MAX_TREE_MINUTES: float = 180.0
 const PERFECT_QUALITY: int = 6
 const SAMPLE_YARDAGE: float = 30.0
 
 const OPENING_PATH: Array[String] = [
-	"base_pay", "base_pay", "power", "quality", "pickup", "distance_pay",
-	"base_pay", "metronome", "tip_jar", "combo_bonus",
+	"base_pay", "base_pay", "quality", "pickup", "distance_pay",
+	"base_pay", "metronome", "combo_bonus", "iron_set",
 ]
 
 const ROUND_ROBIN: Array[String] = [
-	"base_pay", "power", "distance_pay", "quality", "pickup",
-	"metronome", "tip_jar", "combo_bonus",
-	"iron_set", "great_eye", "quick_reset", "range_picker",
+	"base_pay", "distance_pay", "quality", "pickup",
+	"metronome", "perfect_pop", "combo_bonus",
+	"iron_set", "quick_reset", "range_picker",
 ]
-
-const MILESTONES: Array[int] = [10, 21, 50, 100, 177]
 
 
 func _initialize() -> void:
@@ -27,9 +25,10 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	var path := _build_full_path()
-	if path.size() != 177:
-		print("FAIL: expected 177 purchases, got ", path.size())
+	var target_purchases := _total_player_levels()
+	var path := _build_full_path(target_purchases)
+	if path.size() != target_purchases:
+		print("FAIL: expected %d purchases, got %d" % [target_purchases, path.size()])
 		quit(1)
 		return
 
@@ -38,6 +37,13 @@ func _run() -> void:
 	var total_sec: float = 0.0
 	var payback_sum: float = 0.0
 	var ok := true
+	var milestones: Array[int] = [
+		10,
+		mini(21, target_purchases),
+		mini(50, target_purchases),
+		mini(100, target_purchases),
+		target_purchases,
+	]
 
 	for buy_idx in range(path.size()):
 		var upgrade_id: String = path[buy_idx]
@@ -60,7 +66,7 @@ func _run() -> void:
 		stats = UpgradeEffects.preview_stats(levels)
 
 		var purchase_num := buy_idx + 1
-		if purchase_num in MILESTONES:
+		if purchase_num in milestones:
 			print(
 				"Milestone buy %3d: %-14s cost=$%7.2f income/bkt=$%8.2f payback=%.2f buckets time=%.1f min"
 				% [purchase_num, upgrade_id, cost, income, payback, total_sec / 60.0]
@@ -95,7 +101,17 @@ func _run() -> void:
 	quit(0 if ok else 1)
 
 
-func _build_full_path() -> Array[String]:
+func _total_player_levels() -> int:
+	var total := 0
+	for def in UpgradeDefinitions.all():
+		var id: String = def["id"]
+		if id == "ratina_hire":
+			continue
+		total += int(def.get("max_level", 0))
+	return total
+
+
+func _build_full_path(target: int) -> Array[String]:
 	var path: Array[String] = []
 	path.assign(OPENING_PATH)
 
@@ -103,10 +119,10 @@ func _build_full_path() -> Array[String]:
 	for id in path:
 		counts[id] = int(counts.get(id, 0)) + 1
 
-	while path.size() < 177:
+	while path.size() < target:
 		var added := false
 		for upgrade_id in ROUND_ROBIN:
-			if path.size() >= 177:
+			if path.size() >= target:
 				break
 			var def := UpgradeDefinitions.get_def(upgrade_id)
 			var max_level: int = int(def.get("max_level", 0))

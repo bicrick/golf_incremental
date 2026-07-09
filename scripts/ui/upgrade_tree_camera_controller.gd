@@ -83,6 +83,12 @@ func consume_zoom_event(event: InputEvent) -> bool:
 func consume_pan_drag_event(event: InputEvent) -> bool:
 	if not _enabled or _viewport == null or _world == null:
 		return false
+	# Clear sticky did_drag on every new left press, including HitButton clicks that
+	# return early via _should_block_pan_start (otherwise purchases stay dead after pan).
+	if event is InputEventMouseButton:
+		var press := event as InputEventMouseButton
+		if press.button_index == drag_button and press.pressed:
+			_did_drag = false
 	# TreeViewport is MOUSE_FILTER_STOP so empty space would look "interactive" to
 	# UiInput — only block pan start on real buttons (Back + node HitButtons).
 	if not _drag_active and _should_block_pan_start(event):

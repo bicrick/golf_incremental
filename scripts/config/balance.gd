@@ -2,7 +2,7 @@ class_name Balance
 extends RefCounted
 ## Tunable constants — single source for balance numbers.
 
-const SAVE_VERSION: int = 2
+const SAVE_VERSION: int = 3
 const AUTOSAVE_INTERVAL_SEC: float = 30.0
 
 ## v2 Phase C — balls per strike burst before harvest.
@@ -48,23 +48,26 @@ const RING_INNER_OVERSHOOT_FRAC: float = 1.05
 const RING_OUTER_MIN_SCALE: float = 0.55
 const RING_OUTER_MAX_SCALE: float = 1.35
 
+## Contact power by timing tier — steeper Perfect→Miss gap (flight only).
 const TIER_MULTS: Dictionary = {
 	0: 1.0,   # PERFECT
-	1: 0.8,   # GREAT
-	2: 0.6,   # GOOD
-	3: 0.4,   # OKAY
-	4: 0.2,   # BAD
-	5: 0.1,   # MISS pity
+	1: 0.75,  # GREAT
+	2: 0.50,  # GOOD
+	3: 0.30,  # OKAY
+	4: 0.15,  # BAD
+	5: 0.08,  # MISS pity
 }
 
-# Continuous yard curve — tiers stay discrete for labels / payout mult only.
+# Continuous yard curve — tiers stay discrete for labels only (no quality $).
 const YARD_QUALITY_FLOOR: float = 0.08
 ## Late release cannot reach dead-center quality (no Perfect tier past peak).
 const YARD_QUALITY_LATE_PEAK: float = 0.92
+## Perfect Pop ramps in above this contact quality (Great band).
+const PERFECT_POWER_RAMP_START: float = 0.75
 
 const TIER_NAMES: Array[String] = ["Perfect!", "Great!", "Good", "Okay", "Bad", "Miss"]
 
-## Timing tier (PERFECT..MISS) -> payout quality integer (6..1).
+## Timing tier (PERFECT..MISS) -> stored quality integer (labels / litter only).
 const QUALITY_FOR_TIER: Array[int] = [6, 5, 4, 3, 2, 1]
 
 const TIER_COLORS: Array[Color] = [
@@ -206,8 +209,12 @@ static func default_stats() -> PlayerStats:
 	stats.yard_quality_late_peak = YARD_QUALITY_LATE_PEAK
 	stats.base_yards = 30.0
 	stats.carry_multiplier = 1.0
+	stats.sweet_spot_unlocked = 0.0
+	stats.sweet_spot_bonus = 0.0
+	stats.perfect_power_bonus = 1.0
 	stats.base_amount = 0.25
-	stats.pay_per_yard = 0.02
+	## Distance-pays spine — forgiving $/yard; Yardage Pay scales 0.1 → ~10.0 at max.
+	stats.pay_per_yard = 0.1
 	stats.quality_multiplier = 1.0
 	stats.yardage_term_unlocked = 0.0
 	stats.quality_term_unlocked = 0.0
@@ -232,14 +239,20 @@ static func range_picker_radius_yards(stats: PlayerStats) -> float:
 	return RANGE_PICKER_BASE_RADIUS_YARDS + max_bonus * curved_t
 
 
+## Ratina starts ~50% of player money/power defaults; Frequency + Consistency are hers alone.
 static func default_ratina_stats() -> PlayerStats:
 	var stats := PlayerStats.new()
-	stats.base_yards = 22.0
+	stats.base_yards = 15.0
 	stats.carry_multiplier = 1.0
-	stats.yard_quality_floor = 0.15
-	stats.base_amount = 0.12
-	stats.pay_per_yard = 0.012
+	stats.yard_quality_floor = 0.10
+	stats.sweet_spot_unlocked = 0.0
+	stats.sweet_spot_bonus = 0.0
+	stats.perfect_power_bonus = 1.0
+	stats.base_amount = 0.125
+	stats.pay_per_yard = 0.05
 	stats.quality_multiplier = 1.0
+	stats.yardage_term_unlocked = 0.0
+	stats.quality_term_unlocked = 0.0
 	stats.swing_cooldown_ms = 10000.0
 	stats.consistency = 0.0
 	return stats

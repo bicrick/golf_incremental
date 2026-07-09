@@ -60,9 +60,9 @@ func _check_outer_scale_upgrades() -> bool:
 
 	var maxed := Balance.default_stats()
 	var levels := {
-		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
-		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
 		"iron_set": UpgradeDefinitions.get_def("iron_set").get("max_level", 0),
+		"perfect_pop": UpgradeDefinitions.get_def("perfect_pop").get("max_level", 0),
+		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, levels)
 	var maxed_scale: float = ContactChargeRingScript.outer_scale_for_stats(maxed)

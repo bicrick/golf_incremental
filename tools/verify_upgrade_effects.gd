@@ -29,8 +29,8 @@ func _run() -> void:
 		{"id": "base_pay", "prereq_levels": {}},
 		{"id": "distance_pay", "prereq_levels": {"base_pay": 1}},
 		{"id": "iron_set", "prereq_levels": {"base_pay": 1, "distance_pay": 1}},
-		{"id": "power", "prereq_levels": {"base_pay": 1, "distance_pay": 1, "iron_set": 1}},
 		{"id": "quality", "prereq_levels": {"base_pay": 1}},
+		{"id": "perfect_pop", "prereq_levels": {"base_pay": 1, "quality": 3}},
 		{"id": "metronome", "prereq_levels": {"base_pay": 1, "quality": 1}},
 		{"id": "pickup", "prereq_levels": {"base_pay": 1}},
 	]
@@ -98,13 +98,15 @@ func _check_pickup_formula(gs: Node) -> bool:
 		print("FAIL: short-yard pickup %.4f below base %.4f" % [short, gs.stats.base_amount])
 		return false
 
-	gs.upgrade_levels = {"base_pay": 1, "distance_pay": 1, "quality": 1}
+	# Quality / Sweet Spot must NOT multiply pickup cash — only flight.
+	gs.upgrade_levels = {"base_pay": 1, "distance_pay": 1, "quality": 5}
 	gs._recompute_stats()
-	var full := Economy.resolve_pickup_ball_payout(SAMPLE_QUALITY, SAMPLE_YARDAGE, 1, gs.stats)
-	var shot: float = gs.stats.base_amount + gs.stats.base_amount * gs.stats.pay_per_yard * SAMPLE_YARDAGE
-	var expected_full: float = shot * float(SAMPLE_QUALITY) * gs.stats.quality_multiplier
-	if not is_equal_approx(full, expected_full):
-		print("FAIL: full pickup expected %.4f, got %.4f" % [expected_full, full])
+	var with_sweet := Economy.resolve_pickup_ball_payout(SAMPLE_QUALITY, SAMPLE_YARDAGE, 1, gs.stats)
+	if not is_equal_approx(with_sweet, expected_yardage):
+		print(
+			"FAIL: Sweet Spot must not change pickup for fixed yards (expected %.4f, got %.4f)"
+			% [expected_yardage, with_sweet]
+		)
 		return false
 
 	gs.upgrade_levels = {"base_pay": 1, "pickup": 1, "combo_bonus": 1}
@@ -115,7 +117,18 @@ func _check_pickup_formula(gs: Node) -> bool:
 		print("FAIL: combo tier 2 expected 1.10x, got %.4f vs %.4f" % [combo2, combo1])
 		return false
 
-	print("OK: pickup formula unlock stages")
+	print("OK: pickup formula unlock stages (distance-pays)")
+
+	gs.upgrade_levels = {
+		"base_pay": 1,
+		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
+	}
+	gs._recompute_stats()
+	var max_ppy: float = gs.stats.pay_per_yard
+	if max_ppy < 8.0 or max_ppy > 12.0:
+		print("FAIL: max Yardage Pay expected ~10.0 $/yd, got %.3f" % max_ppy)
+		return false
+	print("OK: max Yardage Pay pay_per_yard=%.2f" % max_ppy)
 	return true
 
 
@@ -130,31 +143,33 @@ func _check_distance_curve(gs: Node) -> bool:
 	else:
 		print("OK: fresh save perfect yards=%.2f" % start_yards)
 
-	var max_levels := {}
-	for id in ["power", "distance_pay", "iron_set"]:
-		max_levels[id] = UpgradeDefinitions.get_def(id).get("max_level", 0)
+	var max_levels := {
+		"iron_set": UpgradeDefinitions.get_def("iron_set").get("max_level", 0),
+		"quality": UpgradeDefinitions.get_def("quality").get("max_level", 0),
+		"perfect_pop": UpgradeDefinitions.get_def("perfect_pop").get("max_level", 0),
+	}
 	gs.upgrade_levels = max_levels
 	gs._recompute_stats()
 	var end_yards := Economy.yards_from_quality(1.0, gs.stats)
 	if end_yards < 300.0:
 		print(
-			"FAIL: maxed power branch perfect yards expected >= 300, got %.2f"
+			"FAIL: maxed power/contact perfect yards expected >= 300, got %.2f"
 			% end_yards
 		)
 		ok = false
 	else:
 		print(
-			"OK: maxed distance perfect yards=%.2f (base=%.2f carry=%.3f)"
-			% [end_yards, gs.stats.base_yards, gs.stats.carry_multiplier]
+			"OK: maxed distance perfect yards=%.2f (base=%.2f perfect_pop=%.3f)"
+			% [end_yards, gs.stats.base_yards, gs.stats.perfect_power_bonus]
 		)
 
-	var raw_max := {"distance_pay": max_levels["distance_pay"], "iron_set": max_levels["iron_set"]}
+	var raw_max := {"iron_set": max_levels["iron_set"]}
 	gs.upgrade_levels = raw_max
 	gs._recompute_stats()
 	var raw_only_yards := Economy.yards_from_quality(1.0, gs.stats)
-	if raw_only_yards < 85.0:
+	if raw_only_yards < 140.0:
 		print(
-			"FAIL: max raw power only expected >= 85 yd, got %.2f"
+			"FAIL: max raw power only expected >= 140 yd, got %.2f"
 			% raw_only_yards
 		)
 		ok = false
@@ -166,6 +181,18 @@ func _check_distance_curve(gs: Node) -> bool:
 		ok = false
 	else:
 		print("OK: max raw power only perfect yards=%.2f" % raw_only_yards)
+
+	# Steeper contact gap: Perfect should outpace Miss more than before.
+	gs.upgrade_levels = {}
+	gs._recompute_stats()
+	var perfect_yd := Economy.yards_from_quality(1.0, gs.stats)
+	var miss_yd := Economy.yards_from_quality(Balance.TIER_MULTS[5], gs.stats)
+	var ratio := perfect_yd / maxf(miss_yd, 0.01)
+	if ratio < 10.0:
+		print("FAIL: Perfect/Miss yard ratio expected >= 10, got %.2f" % ratio)
+		ok = false
+	else:
+		print("OK: Perfect/Miss yard ratio=%.2f" % ratio)
 	return ok
 
 
@@ -204,13 +231,17 @@ func _check_upgrade(id: String, before: Dictionary, after: Dictionary) -> String
 			if a_stats.pay_per_yard <= b_stats.pay_per_yard:
 				return "pay_per_yard did not increase"
 		"quality":
-			if a_stats.quality_term_unlocked <= b_stats.quality_term_unlocked:
-				return "quality_term_unlocked did not flip on"
-			if a_stats.quality_multiplier <= b_stats.quality_multiplier:
-				return "quality_multiplier did not increase"
-		"power":
-			if a_stats.carry_multiplier <= b_stats.carry_multiplier:
-				return "carry_multiplier did not increase"
+			if a_stats.sweet_spot_unlocked <= b_stats.sweet_spot_unlocked:
+				return "sweet_spot_unlocked did not flip on"
+			if a_stats.sweet_spot_bonus <= b_stats.sweet_spot_bonus:
+				return "sweet_spot_bonus did not increase"
+			var mid_before := Economy.yards_from_quality(0.75, b_stats)
+			var mid_after := Economy.yards_from_quality(0.75, a_stats)
+			if mid_after <= mid_before:
+				return "Great-band yards should rise with Sweet Spot"
+		"perfect_pop":
+			if a_stats.perfect_power_bonus <= b_stats.perfect_power_bonus:
+				return "perfect_power_bonus did not increase"
 			if after.perfect_yards <= before.perfect_yards:
 				return "perfect yards did not increase"
 		"iron_set":

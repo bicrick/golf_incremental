@@ -1,6 +1,6 @@
 class_name UpgradeDefinitions
 extends RefCounted
-## v4 deep upgrade tree — fan-out from Base Pay.
+## v4 deep upgrade tree — distance-pays fan-out from Base Pay.
 
 static var _by_id: Dictionary = {}
 static var _tree_order: Array[String] = []
@@ -20,20 +20,21 @@ static func _init_defs() -> void:
 		_def(
 			"distance_pay", Balance.UpgradeBranch.POWER, "Yardage Pay",
 			"Unlock pay per yard. Keep base $; each yard flown adds bonus cash at pickup.",
-			20, 12.0, 1.36,
+			25, 12.0, 1.28,
 			[
 				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
-				{"type": "multiply", "stat": "pay_per_yard", "value_per_level": 1.06},
+				## 0.1 → ~10.0 at max: 1.20^25 ≈ 95.4 → 0.1×95.4 ≈ 9.5
+				{"type": "multiply", "stat": "pay_per_yard", "value_per_level": 1.20},
 			],
 			"base_pay", {"upgrade_id": "base_pay", "level": 1}
 		),
 		_def(
-			"quality", Balance.UpgradeBranch.QUALITY, "Quality",
-			"Unlock payout bonus from contact tier (Perfect pays more than Miss).",
+			"quality", Balance.UpgradeBranch.QUALITY, "Sweet Spot",
+			"Cleaner contact flies farther — pulls high strikes toward Perfect power.",
 			20, 12.0, 1.34,
 			[
-				{"type": "binary", "stat": "quality_term_unlocked", "value": 1},
-				{"type": "multiply", "stat": "quality_multiplier", "value_per_level": 1.06},
+				{"type": "binary", "stat": "sweet_spot_unlocked", "value": 1},
+				{"type": "add", "stat": "sweet_spot_bonus", "value_per_level": 0.04},
 			],
 			"base_pay", {"upgrade_id": "base_pay", "level": 1}
 		),
@@ -57,30 +58,26 @@ static func _init_defs() -> void:
 		_def(
 			"iron_set", Balance.UpgradeBranch.POWER, "Raw Power",
 			"+3 yards baseline carry on every swing tier.",
-			20, 36.0, 1.24,
+			40, 36.0, 1.22,
 			[{"type": "add", "stat": "base_yards", "value_per_level": 3.0}],
 			"distance_pay", {"upgrade_id": "distance_pay", "level": 1}
 		),
 		_def(
-			"power", Balance.UpgradeBranch.POWER, "Carry",
-			"Multiply carry distance — extra pop on top of raw power.",
-			30, 36.0, 1.26,
-			[{"type": "multiply", "stat": "carry_multiplier", "value_per_level": 1.05}],
-			"iron_set", {"upgrade_id": "iron_set", "level": 1}
-		),
-		_def(
 			"metronome", Balance.UpgradeBranch.QUALITY, "Metronome",
 			"Widen the Perfect timing window — easier clean strikes.",
-			10, 18.0, 1.32,
-			[{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 8.0}],
+			15, 18.0, 1.30,
+			[
+				{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 8.0},
+				{"type": "add", "stat": "timing_window_great_ms", "value_per_level": 6.0},
+			],
 			"quality", {"upgrade_id": "quality", "level": 1}
 		),
 		_def(
-			"great_eye", Balance.UpgradeBranch.QUALITY, "Great Eye",
-			"Widen the Great timing band — more high-tier hits.",
-			10, 36.0, 1.32,
-			[{"type": "add", "stat": "timing_window_great_ms", "value_per_level": 10.0}],
-			"metronome", {"upgrade_id": "metronome", "level": 1}
+			"perfect_pop", Balance.UpgradeBranch.QUALITY, "Perfect Pop",
+			"Near-Perfect contact hits even farther — late power fantasy.",
+			15, 48.0, 1.28,
+			[{"type": "multiply", "stat": "perfect_power_bonus", "value_per_level": 1.08}],
+			"quality", {"upgrade_id": "quality", "level": 3}
 		),
 		_def(
 			"quick_reset", Balance.UpgradeBranch.QUALITY, "Quick Reset",
@@ -88,13 +85,6 @@ static func _init_defs() -> void:
 			10, 36.0, 1.40,
 			[{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.5}],
 			"metronome", {"upgrade_id": "metronome", "level": 1}
-		),
-		_def(
-			"tip_jar", Balance.UpgradeBranch.PICKUP, "Tip Jar",
-			"Flat extra cash added every time you pick up a ball.",
-			15, 18.0, 1.32,
-			[{"type": "add", "stat": "pickup_flat_bonus", "value_per_level": 0.25}],
-			"pickup", {"upgrade_id": "pickup", "level": 1}
 		),
 		_def(
 			"combo_bonus", Balance.UpgradeBranch.PICKUP, "Combo Bonus",

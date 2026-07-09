@@ -116,12 +116,94 @@ func _refund_removed_rattling_payout() -> float:
 	return refund
 
 
-func _migrate_save(from_version: int) -> void:
+## Distance-pays prune (save v3): fold Carry into Raw Power, refund removed nodes,
+## fold Ratina cadence chain into Frequency.
+func _migrate_distance_pays_prune() -> float:
+	var refund := 0.0
+	refund += _fold_player_levels("power", "iron_set", 36.0, 1.26)
+	refund += _refund_player_levels("great_eye", 36.0, 1.32)
+	refund += _refund_player_levels("tip_jar", 18.0, 1.32)
+	refund += _fold_ratina_levels("ratina_carry", "ratina_raw_power", 30.0, 1.24)
+	refund += _fold_ratina_levels("ratina_rapid_fire", "ratina_frequency", 18.0, 1.34)
+	refund += _fold_ratina_levels("ratina_gatling_barrel", "ratina_frequency", 48.0, 1.40)
+	refund += _refund_ratina_levels("ratina_steady_hands", 30.0, 1.30)
+	return refund
+
+
+func _fold_player_levels(
+	from_id: String, into_id: String, from_base: float, from_growth: float
+) -> float:
+	if not GameState.upgrade_levels.has(from_id):
+		return 0.0
+	var from_level: int = int(GameState.upgrade_levels[from_id])
+	GameState.upgrade_levels.erase(from_id)
+	if from_level <= 0:
+		return 0.0
+	var into_def := UpgradeDefinitions.get_def(into_id)
+	var max_into: int = int(into_def.get("max_level", 99))
+	var cur: int = int(GameState.upgrade_levels.get(into_id, 0))
+	var room: int = maxi(max_into - cur, 0)
+	var absorbed: int = mini(from_level, room)
+	GameState.upgrade_levels[into_id] = cur + absorbed
+	var refund := 0.0
+	for i in range(absorbed, from_level):
+		refund += Economy.upgrade_cost(from_base, from_growth, i)
+	return refund
+
+
+func _refund_player_levels(id: String, base: float, growth: float) -> float:
+	if not GameState.upgrade_levels.has(id):
+		return 0.0
+	var level: int = int(GameState.upgrade_levels[id])
+	GameState.upgrade_levels.erase(id)
+	var refund := 0.0
+	for i in range(level):
+		refund += Economy.upgrade_cost(base, growth, i)
+	return refund
+
+
+func _fold_ratina_levels(
+	from_id: String, into_id: String, from_base: float, from_growth: float
+) -> float:
+	if not GameState.ratina_upgrade_levels.has(from_id):
+		return 0.0
+	var from_level: int = int(GameState.ratina_upgrade_levels[from_id])
+	GameState.ratina_upgrade_levels.erase(from_id)
+	if from_level <= 0:
+		return 0.0
+	var into_def := RatinaUpgradeDefinitions.get_def(into_id)
+	var max_into: int = int(into_def.get("max_level", 99))
+	var cur: int = int(GameState.ratina_upgrade_levels.get(into_id, 0))
+	var room: int = maxi(max_into - cur, 0)
+	var absorbed: int = mini(from_level, room)
+	GameState.ratina_upgrade_levels[into_id] = cur + absorbed
+	var refund := 0.0
+	for i in range(absorbed, from_level):
+		refund += Economy.upgrade_cost(from_base, from_growth, i)
+	return refund
+
+
+func _refund_ratina_levels(id: String, base: float, growth: float) -> float:
+	if not GameState.ratina_upgrade_levels.has(id):
+		return 0.0
+	var level: int = int(GameState.ratina_upgrade_levels[id])
+	GameState.ratina_upgrade_levels.erase(id)
+	var refund := 0.0
+	for i in range(level):
+		refund += Economy.upgrade_cost(base, growth, i)
+	return refund
+
+
+func _migrate_save(from_version: int) -> float:
+	var refund := 0.0
 	if from_version < 2:
 		if GameState.ratina_unlocked and GameState.get_upgrade_level("ratina_hire") < 1:
 			GameState.upgrade_levels["ratina_hire"] = 1
 		if GameState.rattlings_unlocked and GameState.get_rattling_upgrade_level("rattling_more") < 1:
 			GameState.rattling_upgrade_levels["rattling_more"] = 1
+	if from_version < 3:
+		refund += _migrate_distance_pays_prune()
+	return refund
 
 
 func load_game() -> void:
@@ -156,4 +238,5 @@ func load_game() -> void:
 	GameState.bucket_capacity = int(parsed.get("bucket_capacity", Balance.BUCKET_CAPACITY_DEFAULT))
 	var saved_remaining: int = int(parsed.get("bucket_remaining", -1))
 	GameState.bucket_remaining = saved_remaining if saved_remaining >= 0 else GameState.bucket_capacity
-	_migrate_save(save_version)
+	GameState.currency += _migrate_save(save_version)
+	GameState._recompute_stats()

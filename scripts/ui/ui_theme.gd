@@ -31,6 +31,29 @@ static func apply_wood_panel(panel: PanelContainer) -> void:
 	panel.add_theme_stylebox_override(&"panel", make_wood_panel())
 
 
+static func make_wood_header_bar() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = COLOR_PARCHMENT
+	style.border_width_left = 0
+	style.border_width_top = 0
+	style.border_width_right = 0
+	style.border_width_bottom = 2
+	style.border_color = COLOR_BORDER
+	style.corner_radius_top_left = 0
+	style.corner_radius_top_right = 0
+	style.corner_radius_bottom_left = 0
+	style.corner_radius_bottom_right = 0
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	return style
+
+
+static func apply_wood_header_bar(panel: PanelContainer) -> void:
+	panel.add_theme_stylebox_override(&"panel", make_wood_header_bar())
+
+
 static func apply_panel_label(label: Label) -> void:
 	label.add_theme_color_override(&"font_color", COLOR_PANEL_TEXT)
 	label.add_theme_color_override(&"font_outline_color", COLOR_PANEL_TEXT_OUTLINE)

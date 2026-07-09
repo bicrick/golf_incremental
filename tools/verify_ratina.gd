@@ -39,11 +39,11 @@ func _run() -> void:
 		print("OK: Ratina inactive before unlock")
 
 	var defs: Array = RatinaUpgradeDefinitions.all()
-	if defs.size() != 10:
-		print("FAIL: expected 10 Ratina upgrade nodes, got %d" % defs.size())
+	if defs.size() != 6:
+		print("FAIL: expected 6 Ratina upgrade nodes, got %d" % defs.size())
 		ok = false
 	else:
-		print("OK: Ratina upgrade tree has 10 nodes")
+		print("OK: Ratina upgrade tree has 6 nodes")
 
 	for link in RatinaUpgradeDefinitions.connections():
 		var from_id: String = link["from"]
@@ -187,7 +187,7 @@ func _run() -> void:
 		for child in nodes_root.get_children():
 			if child.upgrade_id.begins_with("ratina_"):
 				ratina_nodes += 1
-		if ratina_nodes < 10:
+		if ratina_nodes < 6:
 			print("FAIL: unified tree should include Ratina nodes, got ", ratina_nodes)
 			ok = false
 		else:
@@ -311,16 +311,23 @@ func _test_controller_cooldown_refresh(gs: Node, range_view: Node3D, ratina_cont
 		return false
 	print("OK: Ratina timer matches swing_cooldown_ms after unlock")
 
-	var before_sec: float = swing_timer.wait_time
 	gs.currency = 500.0
-	if not gs.purchase_ratina_upgrade("ratina_rapid_fire"):
-		print("FAIL: could not purchase ratina_rapid_fire for timer refresh test")
+	gs.ratina_upgrade_levels = {"ratina_base_pay": 1}
+	gs._recompute_stats()
+	# Force timer to match reset stats before buying Frequency.
+	if ratina_controller.has_method("_refresh_cooldown_timer"):
+		ratina_controller._refresh_cooldown_timer()
+	elif ratina_controller.has_method("_on_ratina_upgrade_purchased"):
+		ratina_controller._on_ratina_upgrade_purchased("ratina_base_pay", 1)
+	var before_sec: float = swing_timer.wait_time
+	if not gs.purchase_ratina_upgrade("ratina_frequency"):
+		print("FAIL: could not purchase ratina_frequency for timer refresh test")
 		return false
 
 	var expected_sec: float = maxf(gs.ratina_stats.swing_cooldown_ms / 1000.0, 0.35)
 	if swing_timer.wait_time >= before_sec:
 		print(
-			"FAIL: ratina_rapid_fire should lower timer wait (%.3fs -> %.3fs, got %.3fs)"
+			"FAIL: ratina_frequency should lower timer wait (%.3fs -> %.3fs, got %.3fs)"
 			% [before_sec, expected_sec, swing_timer.wait_time]
 		)
 		return false

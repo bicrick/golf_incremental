@@ -19,9 +19,10 @@ const FIT_FILL := 0.98
 @onready var tree_world: Control = $Content/TreeViewport/TreeWorld
 @onready var connectors: Control = $Content/TreeViewport/TreeWorld/Connectors
 @onready var nodes_root: Control = $Content/TreeViewport/TreeWorld/Nodes
-@onready var title_label: Label = $Content/Header/Title
-@onready var currency_label: Label = $Content/Header/CurrencyLabel
-@onready var back_button: Button = $Content/Header/BackButton
+@onready var header_bar: PanelContainer = $Content/Header
+@onready var title_label: Label = $Content/Header/Row/Title
+@onready var currency_label: Label = $Content/Header/Row/CurrencyLabel
+@onready var back_button: Button = $Content/Header/Row/BackButton
 @onready var _camera_controller: Node = $TreeCameraController
 
 var _is_open := false
@@ -40,6 +41,7 @@ func _ready() -> void:
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 	EventBus.rattling_upgrade_purchased.connect(_on_rattling_upgrade_purchased)
 	_apply_fonts()
+	UiTheme.apply_wood_header_bar(header_bar)
 	_style_back_button()
 	_camera_controller.setup(tree_viewport, tree_world)
 	_build_tree()
@@ -309,8 +311,4 @@ func _style_back_button() -> void:
 
 
 func _format_currency(n: float) -> String:
-	if n >= 1_000_000:
-		return "%.2fM" % (n / 1_000_000.0)
-	if n >= 1_000:
-		return "%.2fK" % (n / 1_000.0)
-	return str(int(n))
+	return FloatCashText.format_amount(n)

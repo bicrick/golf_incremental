@@ -71,6 +71,12 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 			return stats.yardage_term_unlocked
 		"quality_term_unlocked":
 			return stats.quality_term_unlocked
+		"sweet_spot_unlocked":
+			return stats.sweet_spot_unlocked
+		"sweet_spot_bonus":
+			return stats.sweet_spot_bonus
+		"perfect_power_bonus":
+			return stats.perfect_power_bonus
 		"pickup_bonus_unlocked":
 			return stats.pickup_bonus_unlocked
 		"pickup_multiplier":
@@ -150,6 +156,12 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 			stats.yardage_term_unlocked = value
 		"quality_term_unlocked":
 			stats.quality_term_unlocked = value
+		"sweet_spot_unlocked":
+			stats.sweet_spot_unlocked = value
+		"sweet_spot_bonus":
+			stats.sweet_spot_bonus = value
+		"perfect_power_bonus":
+			stats.perfect_power_bonus = value
 		"pickup_bonus_unlocked":
 			stats.pickup_bonus_unlocked = value
 		"pickup_multiplier":

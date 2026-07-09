@@ -78,7 +78,11 @@ static func _format_delta_preview(def: Dictionary, current: PlayerStats, next: P
 	var stat_name := str(primary.get("stat", ""))
 	if str(primary.get("type", "")) == "binary" and _read_stat(current, stat_name) <= 0.0:
 		return _binary_unlock_label(stat_name)
-	if stat_name == "carry_multiplier" or stat_name == "base_yards":
+	if (
+		stat_name == "base_yards"
+		or stat_name == "sweet_spot_bonus"
+		or stat_name == "perfect_power_bonus"
+	):
 		var cur_yards := Economy.yards_from_quality(1.0, current)
 		var next_yards := Economy.yards_from_quality(1.0, next)
 		return "Carry: %.0f yd → %.0f yd" % [cur_yards, next_yards]
@@ -99,8 +103,8 @@ static func _binary_unlock_label(stat_name: String) -> String:
 	match stat_name:
 		"yardage_term_unlocked":
 			return "Pay: unlock $ per yard at pickup"
-		"quality_term_unlocked":
-			return "Pay: unlock tier bonus at pickup"
+		"sweet_spot_unlocked":
+			return "Contact: unlock Sweet Spot pull"
 		"pickup_bonus_unlocked":
 			return "Pickup: unlock harvest bonuses"
 		_:
@@ -109,14 +113,14 @@ static func _binary_unlock_label(stat_name: String) -> String:
 
 static func _axis_prefix(stat_name: String) -> String:
 	match stat_name:
-		"base_amount", "pay_per_yard", "yardage_term_unlocked", "quality_multiplier", "quality_term_unlocked":
+		"base_amount", "pay_per_yard", "yardage_term_unlocked":
 			return "Pay:"
-		"carry_multiplier", "base_yards":
+		"base_yards", "sweet_spot_bonus", "sweet_spot_unlocked", "perfect_power_bonus":
 			return "Carry:"
 		"timing_window_perfect_ms", "timing_window_great_ms", "swing_cooldown_ms":
 			return "Timing:"
 		"consistency", "yard_quality_floor":
-			return "Quality:"
+			return "Contact:"
 		"pickup_multiplier", "pickup_flat_bonus", "combo_mult_per_tier", "combo_window_bonus_sec", "pickup_bonus_unlocked", "range_picker_radius_bonus":
 			return "Pickup:"
 		"rattling_count":
@@ -133,16 +137,18 @@ static func _format_stat_value(stat_name: String, stats: PlayerStats, compact: b
 	match stat_name:
 		"base_amount":
 			return "$%.2f" % stats.base_amount
-		"carry_multiplier":
-			return "×%.2f" % stats.carry_multiplier
 		"base_yards":
 			return "%.0fyd" % stats.base_yards if compact else "%.0f yd" % stats.base_yards
 		"pay_per_yard":
 			return "$/yd" if compact and stats.yardage_term_unlocked > 0.0 else "%.3f" % stats.pay_per_yard
 		"yardage_term_unlocked":
 			return "$/yd" if stats.yardage_term_unlocked > 0.0 else "—"
-		"quality_multiplier":
-			return "×%.2f" % stats.quality_multiplier
+		"sweet_spot_unlocked":
+			return "on" if stats.sweet_spot_unlocked > 0.0 else "—"
+		"sweet_spot_bonus":
+			return "+%.0f%%" % (stats.sweet_spot_bonus * 100.0)
+		"perfect_power_bonus":
+			return "×%.2f" % stats.perfect_power_bonus
 		"timing_window_perfect_ms", "timing_window_great_ms":
 			return "±%.0fms" % _read_stat(stats, stat_name)
 		"swing_cooldown_ms":

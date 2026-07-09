@@ -7,7 +7,7 @@ const POOL_SIZE := 8
 const MIX_RATE := 22050
 const MUSIC_DIR := "res://assets/audio/music/"
 const PICKUP_PLINK_PATH := "res://assets/audio/sfx/pickup/throwing-a-coin-into-a-piggy-bank.mp3"
-const UPGRADE_BLING_PATH := "res://assets/audio/sfx/ui/mixkit-quick-win-video-game-notification-269.wav"
+const UPGRADE_BLING_PATH := "res://assets/audio/sfx/ui/mixkit-unlock-game-notification-253.wav"
 const BGM_VOLUME_DB := -9.0
 const MUSIC_EXTENSIONS := ["mp3", "ogg", "wav", "flac"]
 
@@ -417,10 +417,8 @@ func _on_rattling_upgrade_purchased(_id: String, level: int) -> void:
 	_play_upgrade_bling(level)
 
 
-func _play_upgrade_bling(level: int) -> void:
-	var pitch := clampf(0.98 + float(level - 1) * 0.028, 0.98, 1.28)
-	pitch += randf_range(-0.015, 0.015)
-	_play("upgrade_bling", 0.0, pitch)
+func _play_upgrade_bling(_level: int) -> void:
+	_play("upgrade_bling")
 
 
 func _build_pool() -> void:

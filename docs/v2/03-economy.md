@@ -24,13 +24,19 @@ The icon-bar **Upgrade Tree** button costs **$1.50** once to unlock permanently 
 
 **Base Pay Lv.1** also costs **$1.50** and raises flat pay ($0.25 → ~$0.34 at proposed curves). See [Growth curves](#growth-curves-per-branch) below — **do not use paired ×2** on effect and cost; that makes every spine level cost exactly one bucket and collapses the session.
 
-## Flight yards (carry — stats + strike quality only)
+## Flight yards (distance-pays)
+
+Contact decides how far the ball flies. Distance decides how much it pays.
 
 ```
-carry_yards = base_yards × carry_multiplier × strike_quality
+contact = apply_sweet_spot(strike_quality, stats)
+yards   = base_yards × contact × perfect_power_mult(contact, stats)
 ```
 
-No gameplay cap. `pay_per_yard` and `base_amount` do **not** affect flight.
+- **Sweet Spot** pulls high contact toward Perfect (flight only).
+- **Perfect Pop** multiplies yards on near-Perfect contact (ramps from Great band).
+- Steep Perfect→Miss gap via `Balance.TIER_MULTS` (1.0 → ~0.08).
+- No `carry_multiplier` upgrades; `pay_per_yard` / `base_amount` do **not** affect flight.
 
 ## Pickup payout formula
 
@@ -38,7 +44,7 @@ No gameplay cap. `pay_per_yard` and `base_amount` do **not** affect flight.
 
 **+ Distance Pay:** `payout = base_amount + base_amount × pay_per_yard × stored_yards`
 
-**+ Quality:** multiply shot value by `quality × quality_multiplier`
+**No quality $ term** — tier/quality no longer multiplies cash at pickup.
 
 **+ Pickup branch:** apply `pickup_multiplier` and `pickup_flat_bonus` when unlocked
 
@@ -47,16 +53,17 @@ No gameplay cap. `pay_per_yard` and `base_amount` do **not** affect flight.
 | Stat | Default | Axis |
 |------|---------|------|
 | `base_amount` | $0.25 | flat pay |
-| `pay_per_yard` | 0.02 | $ bonus per yard (not carry) |
-| `carry_multiplier` | 1.0 | flight only |
-| `quality_multiplier` | 1.0 | tier pay bonus |
+| `pay_per_yard` | 0.1 → ~10.0 max | $ bonus per yard (Yardage Pay) |
+| `base_yards` | 30 | flight baseline |
+| `sweet_spot_bonus` | 0 | contact pull (flight) |
+| `perfect_power_bonus` | 1.0 | Perfect Pop (flight) |
 
 ## Branch unlock (fan-out at Base Pay Lv.1)
 
 | Branch head | Role |
 |-------------|------|
-| Power | Carry (`carry_multiplier`); chain includes Distance Pay (`pay_per_yard`) |
-| Quality | Timing windows + tier pay |
+| Power | Yardage Pay (`pay_per_yard`) → Raw Power (`base_yards`) |
+| Quality / Sweet Spot | Contact power + timing QoL + Perfect Pop |
 | Pickup | Harvest bonuses + combo |
 
 ## Cost curve
@@ -80,20 +87,21 @@ Design goal: **exponential forever, but not doubling.** Money branches can grow 
 | Axis | Role | effectGrowth | cost growthRate | Payback target |
 |------|------|--------------|-----------------|----------------|
 | **Money spine** | `base_amount` | **1.35** | **1.42** | 1–2 buckets early, 3–6 mid |
-| **Money branches** | `pay_per_yard`, `pickup_multiplier` | **1.25–1.28** | **1.28–1.32** | 2–4 buckets |
-| **Quality pay** | `quality_multiplier` | **1.22** | **1.25** | 2–5 buckets |
-| **Power / carry** | `carry_multiplier`, `base_yards` | **1.12–1.15** | **1.16–1.18** | 3–8 buckets |
-| **Skill / QoL** | timing windows, combo window, tip jar (add) | additive | **1.20–1.25** | 3–10 buckets |
+| **Yardage Pay** | `pay_per_yard` (0.1 → ~10.0) | **1.20** | **1.28** | 2–4 buckets |
+| **Money branches** | `pickup_multiplier` | **1.25–1.28** | **1.28–1.32** | 2–4 buckets |
+| **Contact / Sweet Spot** | `sweet_spot_bonus`, `perfect_power_bonus` | additive / **1.08** | **1.28–1.34** | 2–6 buckets |
+| **Raw Power** | `base_yards` | +3 yd/lvl | **1.20–1.22** | 3–8 buckets |
+| **Skill / QoL** | timing windows, combo | additive | **1.20–1.32** | 3–10 buckets |
 | **Tempo** | `swing_cooldown_ms` (×0.5/lvl) | fixed | **1.30** | 5–12 buckets |
 
 ### Why these numbers
 
 | Curve | Lv.10 stat mult | Feel |
 |-------|-----------------|------|
-| ×2 (current code) | **1024×** | Session over in ~15 min |
+| ×2 (legacy) | **1024×** | Session over in ~15 min |
 | Money 1.35 | **~20×** | Strong income, still climbing |
-| Power 1.15 | **~4×** | Visible distance gains, not absurd flight |
-| Quality 1.22 | **~7×** | Tier pay matters without auto-jackpot |
+| Perfect Pop 1.08 | **~2.2×** | Late Perfect fantasy without cash double-dip |
+| Raw Power +3 yd | linear | Visible distance gains |
 
 ### Early pacing (proposed)
 

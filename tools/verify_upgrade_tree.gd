@@ -14,8 +14,8 @@ func _run() -> void:
 	var ok := true
 
 	var player_defs := UpgradeDefinitions.all()
-	if player_defs.size() != 13:
-		print("FAIL: expected 13 player upgrades, got ", player_defs.size())
+	if player_defs.size() != 11:
+		print("FAIL: expected 11 player upgrades, got ", player_defs.size())
 		ok = false
 	var base_pay := UpgradeDefinitions.get_def("base_pay")
 	if base_pay.is_empty() or base_pay.get("parent_id", "x") != "":
@@ -27,17 +27,17 @@ func _run() -> void:
 		if graph_parent != "base_pay":
 			print("FAIL: %s should branch from base_pay in graph, got %s" % [head, graph_parent])
 			ok = false
-	if UpgradeGraph.all_nodes().size() != 29:
-		print("FAIL: expected 29 graph nodes, got ", UpgradeGraph.all_nodes().size())
+	if UpgradeGraph.all_nodes().size() != 23:
+		print("FAIL: expected 23 graph nodes, got ", UpgradeGraph.all_nodes().size())
 		ok = false
-	if UpgradeGraph.connections().size() != 28:
-		print("FAIL: expected 28 graph connections, got ", UpgradeGraph.connections().size())
+	if UpgradeGraph.connections().size() != 22:
+		print("FAIL: expected 22 graph connections, got ", UpgradeGraph.connections().size())
 		ok = false
 
 	var layout_a := RadialTreeLayout.compute_positions()
 	var layout_b := RadialTreeLayout.compute_positions()
-	if layout_a.size() != 29:
-		print("FAIL: expected 29 layout positions, got ", layout_a.size())
+	if layout_a.size() != 23:
+		print("FAIL: expected 23 layout positions, got ", layout_a.size())
 		ok = false
 	if layout_a.get("base_pay", Vector2.ONE) != Vector2.ZERO:
 		print("FAIL: base_pay should be at origin")
@@ -112,12 +112,26 @@ func _run() -> void:
 		print("FAIL: could not purchase iron_set")
 		ok = false
 
-	if gs.purchase_upgrade("power"):
-		if gs.stats.carry_multiplier <= 1.0:
-			print("FAIL: power did not increase carry_multiplier")
+	if gs.purchase_upgrade("quality"):
+		if gs.stats.sweet_spot_unlocked <= 0.0:
+			print("FAIL: quality (Sweet Spot) did not unlock sweet_spot")
+			ok = false
+		if gs.stats.sweet_spot_bonus <= 0.0:
+			print("FAIL: quality (Sweet Spot) did not raise sweet_spot_bonus")
 			ok = false
 	else:
-		print("FAIL: could not purchase power")
+		print("FAIL: could not purchase quality")
+		ok = false
+
+	gs.currency = 500.0
+	gs.upgrade_levels = {"base_pay": 1, "quality": 3}
+	gs._recompute_stats()
+	if gs.purchase_upgrade("perfect_pop"):
+		if gs.stats.perfect_power_bonus <= 1.0:
+			print("FAIL: perfect_pop did not raise perfect_power_bonus")
+			ok = false
+	else:
+		print("FAIL: could not purchase perfect_pop")
 		ok = false
 
 	var range_view: Node3D = main.get_node("RangeView")
@@ -170,12 +184,14 @@ func _run() -> void:
 			print("FAIL: expected 6 revealed nodes after base_pay, got ", visible_after_base)
 			ok = false
 
-		if nodes_root.get_child_count() != 29:
-			print("FAIL: expected 29 tree nodes built, got ", nodes_root.get_child_count())
+		if nodes_root.get_child_count() != 23:
+			print("FAIL: expected 23 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
 		ok = _check_tree_pan(panel) and ok
+		ok = await _check_purchase_after_pan(gs, panel) and ok
 		ok = await _check_purchase_spam(gs, panel) and ok
+		ok = await _check_currency_format(panel) and ok
 
 		panel.close()
 		await process_frame
@@ -251,11 +267,51 @@ func _check_purchase_spam(gs: Node, panel: Control) -> bool:
 	if panel._refresh_pending:
 		print("FAIL: refresh should have flushed after deferred frame")
 		return false
-	var currency_label: Label = panel.get_node("Content/Header/CurrencyLabel")
+	var currency_label: Label = panel.get_node("Content/Header/Row/CurrencyLabel")
 	if currency_label == null or not currency_label.text.begins_with("$"):
 		print("FAIL: currency label missing after spam")
 		return false
 	print("OK: spam purchases coalesce refresh (bought=%d)" % bought)
+	return true
+
+
+func _check_currency_format(panel: Control) -> bool:
+	if FloatCashText.format_amount(1.5) != "1.50":
+		print("FAIL: format_amount(1.5) expected 1.50, got %s" % FloatCashText.format_amount(1.5))
+		return false
+	if FloatCashText.format_amount(0.2) != "0.20":
+		print("FAIL: format_amount(0.2) expected 0.20, got %s" % FloatCashText.format_amount(0.2))
+		return false
+	if FloatCashText.format_amount(311.0) != "311":
+		print("FAIL: format_amount(311) expected 311, got %s" % FloatCashText.format_amount(311.0))
+		return false
+	var gs: Node = root.get_node("GameState")
+	gs.currency = 311.5
+	panel._refresh_all()
+	await process_frame
+	var currency_label: Label = panel.get_node("Content/Header/Row/CurrencyLabel")
+	if currency_label == null or currency_label.text != "$311.50":
+		print(
+			"FAIL: panel currency should show cents, got %s"
+			% (currency_label.text if currency_label else "<missing>")
+		)
+		return false
+	var header: PanelContainer = panel.get_node("Content/Header")
+	if header == null:
+		print("FAIL: header PanelContainer missing")
+		return false
+	var tree_viewport: Control = panel.get_node("Content/TreeViewport")
+	if tree_viewport == null or not is_zero_approx(tree_viewport.offset_top):
+		print(
+			"FAIL: TreeViewport should be full-height under header, offset_top=%s"
+			% (tree_viewport.offset_top if tree_viewport else "<missing>")
+		)
+		return false
+	var content: Control = panel.get_node("Content")
+	if content.get_children().find(header) <= content.get_children().find(tree_viewport):
+		print("FAIL: Header should draw after TreeViewport so tree scrolls underneath")
+		return false
+	print("OK: currency format shows cents below $1K")
 	return true
 
 
@@ -287,6 +343,30 @@ func _check_tree_pan(panel: Control) -> bool:
 		return false
 	panel.consume_pan_drag_event(_left_up(dragged))
 	print("OK: tree pan drag updates offset")
+	return true
+
+
+func _check_purchase_after_pan(gs: Node, panel: Control) -> bool:
+	var camera: Node = panel.get_node("TreeCameraController")
+	if camera == null or not camera.did_drag():
+		print("FAIL: expected sticky did_drag after pan before purchase click")
+		return false
+	# Outside-viewport press hits the same pan-block early return as a HitButton click.
+	panel.consume_pan_drag_event(_left_down(Vector2(-100.0, -100.0)))
+	if camera.did_drag():
+		print("FAIL: new mouse-down should clear did_drag even when pan start is blocked")
+		return false
+	var level_before: int = gs.get_upgrade_level("base_pay")
+	gs.currency = 500.0
+	panel._on_purchase_requested("base_pay")
+	await process_frame
+	if gs.get_upgrade_level("base_pay") != level_before + 1:
+		print(
+			"FAIL: _on_purchase_requested after pan should buy (before=%d after=%d)"
+			% [level_before, gs.get_upgrade_level("base_pay")]
+		)
+		return false
+	print("OK: purchase after pan clears sticky did_drag")
 	return true
 
 

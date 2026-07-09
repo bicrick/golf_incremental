@@ -19,15 +19,13 @@ const TOOLTIP_EDGE_MARGIN := 4
 
 const SHORT_NAMES: Dictionary = {
 	"base_pay": "PAY",
-	"power": "CRY",
-	"quality": "QLT",
+	"quality": "SWT",
 	"pickup": "PKP",
 	"distance_pay": "YRD",
 	"iron_set": "RAW",
 	"metronome": "MET",
-	"great_eye": "EYE",
+	"perfect_pop": "POP",
 	"quick_reset": "RST",
-	"tip_jar": "TIP",
 	"combo_bonus": "CMB",
 	"range_picker": "RPK",
 	"ratina_hire": "RAT",
@@ -400,8 +398,4 @@ func _preview_for_namespace() -> Callable:
 
 
 func _format_cost(n: float) -> String:
-	if n >= 1_000_000:
-		return "%.0fM" % (n / 1_000_000.0)
-	if n >= 1_000:
-		return "%.0fK" % (n / 1_000.0)
-	return str(int(n))
+	return FloatCashText.format_amount(n)

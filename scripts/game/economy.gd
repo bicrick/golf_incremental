@@ -17,10 +17,33 @@ static func resolve_payout(
 	return { "yards": yards }
 
 
-## Gameplay carry — stats + strike quality only (no cap, no pay stats).
+## Gameplay carry — base yards × contact power × Perfect Pop (no quality $).
 static func yards_from_quality(strike_quality: float, stats: PlayerStats) -> float:
 	var q := clampf(strike_quality, stats.yard_quality_floor, 1.0)
-	return stats.base_yards * stats.carry_multiplier * q
+	q = apply_sweet_spot(q, stats)
+	return stats.base_yards * q * perfect_power_mult(q, stats)
+
+
+## Pull high contact toward Perfect when Sweet Spot is unlocked.
+static func apply_sweet_spot(contact: float, stats: PlayerStats) -> float:
+	if stats.sweet_spot_unlocked <= 0.0 or stats.sweet_spot_bonus <= 0.0:
+		return contact
+	var pull := clampf(stats.sweet_spot_bonus, 0.0, 0.95)
+	return clampf(
+		contact + (1.0 - contact) * pull * contact,
+		stats.yard_quality_floor,
+		1.0
+	)
+
+
+## Perfect Pop ramps from Great band up to full bonus at Perfect contact.
+static func perfect_power_mult(contact: float, stats: PlayerStats) -> float:
+	var bonus := maxf(stats.perfect_power_bonus, 1.0)
+	if bonus <= 1.0:
+		return 1.0
+	var start := Balance.PERFECT_POWER_RAMP_START
+	var t := clampf((contact - start) / maxf(1.0 - start, 0.001), 0.0, 1.0)
+	return lerpf(1.0, bonus, t * t)
 
 
 static func quality_for_tier(timing_tier: int) -> int:
@@ -30,22 +53,20 @@ static func quality_for_tier(timing_tier: int) -> int:
 
 
 static func resolve_pickup_ball_payout(
-	quality: int,
+	_quality: int,
 	yardage: float,
 	combo_tier: int,
 	stats: PlayerStats
 ) -> float:
-	var shot_value := _shot_value(quality, yardage, stats)
+	var shot_value := _shot_value(yardage, stats)
 	shot_value = _apply_pickup_layer(shot_value, stats)
 	return shot_value * combo_multiplier(combo_tier, stats)
 
 
-static func _shot_value(quality: int, yardage: float, stats: PlayerStats) -> float:
+static func _shot_value(yardage: float, stats: PlayerStats) -> float:
 	var payout := stats.base_amount
 	if stats.yardage_term_unlocked > 0.0:
 		payout += stats.base_amount * stats.pay_per_yard * maxf(yardage, 0.0)
-	if stats.quality_term_unlocked > 0.0:
-		payout *= float(maxi(quality, 1)) * stats.quality_multiplier
 	return payout
 
 

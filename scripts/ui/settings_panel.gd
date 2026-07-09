@@ -9,8 +9,9 @@ const COLOR_DANGER_FILL := Color(0.72, 0.32, 0.28, 1.0)
 const COLOR_DANGER_BORDER := Color(0.45, 0.12, 0.1, 1.0)
 const COLOR_DANGER_HOVER := Color(0.82, 0.38, 0.32, 1.0)
 
-@onready var back_button: Button = $Content/Header/BackButton
-@onready var title_label: Label = $Content/Header/Title
+@onready var header_bar: PanelContainer = $Content/Header
+@onready var back_button: Button = $Content/Header/Row/BackButton
+@onready var title_label: Label = $Content/Header/Row/Title
 @onready var sfx_toggle: CheckButton = $Content/Body/SfxRow/SfxToggle
 @onready var music_toggle: CheckButton = $Content/Body/MusicRow/MusicToggle
 @onready var sfx_volume_slider: Control = $Content/Body/SfxVolumeRow/SfxVolumeSlider
@@ -34,6 +35,7 @@ func _ready() -> void:
 	reset_dialog.get_ok_button().mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	reset_dialog.get_cancel_button().mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	_apply_fonts()
+	UiTheme.apply_wood_header_bar(header_bar)
 	_style_back_button()
 	_style_toggle(sfx_toggle)
 	_style_toggle(music_toggle)

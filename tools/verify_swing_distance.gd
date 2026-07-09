@@ -67,9 +67,9 @@ func _check_balance_targets() -> bool:
 
 	var maxed := Balance.default_stats()
 	var max_levels := {
-		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
-		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
 		"iron_set": UpgradeDefinitions.get_def("iron_set").get("max_level", 0),
+		"quality": UpgradeDefinitions.get_def("quality").get("max_level", 0),
+		"perfect_pop": UpgradeDefinitions.get_def("perfect_pop").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 	var end_yards := Economy.yards_from_quality(1.0, maxed)
@@ -81,8 +81,8 @@ func _check_balance_targets() -> bool:
 		ok = false
 	else:
 		print(
-			"OK: maxed distance perfect yards=%.2f (base=%.2f carry=%.3f)"
-			% [end_yards, maxed.base_yards, maxed.carry_multiplier]
+			"OK: maxed distance perfect yards=%.2f (base=%.2f perfect_pop=%.3f)"
+			% [end_yards, maxed.base_yards, maxed.perfect_power_bonus]
 		)
 	return ok
 
@@ -100,9 +100,9 @@ func _check_visual_depth() -> bool:
 	var default_stats := Balance.default_stats()
 	var maxed := Balance.default_stats()
 	var max_levels := {
-		"power": UpgradeDefinitions.get_def("power").get("max_level", 0),
-		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),
 		"iron_set": UpgradeDefinitions.get_def("iron_set").get("max_level", 0),
+		"quality": UpgradeDefinitions.get_def("quality").get("max_level", 0),
+		"perfect_pop": UpgradeDefinitions.get_def("perfect_pop").get("max_level", 0),
 	}
 	UpgradeEffects.apply_all(maxed, max_levels)
 
@@ -225,7 +225,7 @@ func _check_visual_depth() -> bool:
 
 func _print_examples(stats: PlayerStats, charge: ChargeSwing, contact: float) -> void:
 	print("--- contact swing yard examples (default stats) ---")
-	print("CARRY: base_yards * carry_multiplier * strike_quality (no cap)")
+	print("CARRY: base_yards × contact_power × perfect_power_bonus (distance-pays)")
 
 	var cases: Array[Dictionary] = [
 		{"label": "perfect at contact (0ms)", "hold": contact},
