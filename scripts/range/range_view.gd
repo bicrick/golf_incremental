@@ -848,7 +848,8 @@ func show_vanished_ball_fx(
 	else:
 		payout = GameState.credit_vanished_ball(landing, quality, yardage, 1, is_golden)
 	show_pickup_cash_float(landing, payout, 1, is_golden)
-	if payout > 0.0:
+	# Ratina vanish emits ratina_ball_collected; avoid double HUD stack rows.
+	if payout > 0.0 and source != "ratina":
 		EventBus.pickup_payout.emit(payout, 1)
 	SfxManager.play_pickup_plink(1)
 	_fly_vanished_ball_to_bucket(landing)

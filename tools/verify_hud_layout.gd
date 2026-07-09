@@ -103,5 +103,73 @@ func _run() -> void:
 		print("FAIL: bucket count should show current/max fraction")
 		ok = false
 
+	if not margin.has_node("VBox/IncomeStack"):
+		print("FAIL: IncomeStack missing from HUD")
+		ok = false
+	else:
+		var income_stack: Node = margin.get_node("VBox/IncomeStack")
+		if income_stack.get_script() == null:
+			print("FAIL: IncomeStack should have income_stack.gd script")
+			ok = false
+	if margin.has_node("VBox/RattlingIncomeLabel"):
+		print("FAIL: legacy RattlingIncomeLabel still in HUD")
+		ok = false
+
+	var currency_label: Label = margin.get_node("VBox/TopRow/CurrencyPanel/CurrencyLabel")
+	var before_text := currency_label.text
+	if gs != null:
+		var start_currency: float = gs.currency
+		gs.add_currency(12.5)
+		await process_frame
+		await process_frame
+		# Reel should be animating or already showing a value between start and target.
+		if currency_label.text == before_text and not is_equal_approx(start_currency, gs.currency):
+			# Allow brief same-frame; wait for tween progress.
+			await create_timer(0.15).timeout
+		if currency_label.text == "$%s" % _format_amount(start_currency) and gs.currency > start_currency + 0.01:
+			# Still at old value after 150ms is a fail — reel should have moved.
+			print("FAIL: currency reel did not advance after add_currency")
+			ok = false
+		await create_timer(0.85).timeout
+		var expected := "$%s" % _format_amount(gs.currency)
+		if currency_label.text != expected:
+			print("FAIL: currency reel should settle to %s, got %s" % [expected, currency_label.text])
+			ok = false
+		else:
+			print("OK: currency reel settled to %s" % expected)
+		# Spends should snap down immediately.
+		var event_bus: Node = root.get_node("EventBus")
+		var spend_target: float = maxf(gs.currency - 5.0, 0.0)
+		gs.currency = spend_target
+		event_bus.currency_changed.emit(spend_target)
+		await process_frame
+		await process_frame
+		var spend_expected := "$%s" % _format_amount(spend_target)
+		if currency_label.text != spend_expected:
+			print("FAIL: currency reel should snap on spend to %s, got %s" % [spend_expected, currency_label.text])
+			ok = false
+		else:
+			print("OK: currency reel snaps on spend")
+		# Income stack should accept a push via pickup_payout.
+		var stack: Node = margin.get_node("VBox/IncomeStack")
+		var rows_before := stack.get_child_count()
+		event_bus.pickup_payout.emit(3.25, 1)
+		await process_frame
+		if stack.get_child_count() != rows_before + 1:
+			print("FAIL: IncomeStack should gain a row on pickup_payout")
+			ok = false
+		else:
+			var top_row: Label = stack.get_child(0)
+			if not top_row.text.begins_with("+$"):
+				print("FAIL: IncomeStack top row should be +$ text, got %s" % top_row.text)
+				ok = false
+			else:
+				print("OK: IncomeStack prepends +$ row")
+
 	print("hud_layout_ok=", ok)
 	quit(0 if ok else 1)
+
+
+func _format_amount(amount: float) -> String:
+	const FloatCashText := preload("res://scripts/visual/float_cash_text.gd")
+	return FloatCashText.format_amount(amount)
