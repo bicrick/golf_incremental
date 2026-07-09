@@ -40,13 +40,14 @@ func _ready() -> void:
 	SaveManager.load_game()
 	_ensure_bucket_initialized()
 	_recompute_stats()
+	EventBus.currency_changed.emit(currency)
 	EventBus.stats_changed.emit(stats, currency)
 
 
 func add_currency(amount: float) -> void:
 	currency += amount
 	lifetime["lifetime_earnings"] = lifetime.get("lifetime_earnings", 0.0) + amount
-	EventBus.stats_changed.emit(stats, currency)
+	EventBus.currency_changed.emit(currency)
 
 
 func get_upgrade_level(id: String) -> int:
@@ -107,6 +108,7 @@ func purchase_shop_item(id: String) -> bool:
 			current_phase = "strike"
 			EventBus.phase_changed.emit("strike")
 	EventBus.shop_item_purchased.emit(id, level + 1)
+	EventBus.currency_changed.emit(currency)
 	EventBus.stats_changed.emit(stats, currency)
 	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
 	return true
@@ -143,6 +145,7 @@ func purchase_ratina_upgrade(id: String) -> bool:
 	ratina_upgrade_levels[id] = level + 1
 	_recompute_stats()
 	EventBus.ratina_upgrade_purchased.emit(id, level + 1)
+	EventBus.currency_changed.emit(currency)
 	EventBus.stats_changed.emit(stats, currency)
 	return true
 
@@ -198,6 +201,7 @@ func purchase_rattling_upgrade(id: String) -> bool:
 		rattlings_unlocked = true
 	_recompute_stats()
 	EventBus.rattling_upgrade_purchased.emit(id, level + 1)
+	EventBus.currency_changed.emit(currency)
 	EventBus.stats_changed.emit(stats, currency)
 	return true
 
@@ -248,6 +252,7 @@ func try_unlock_upgrades() -> bool:
 		return false
 	currency -= Balance.UPGRADES_UNLOCK_COST
 	upgrades_unlocked = true
+	EventBus.currency_changed.emit(currency)
 	EventBus.stats_changed.emit(stats, currency)
 	return true
 
@@ -278,6 +283,7 @@ func purchase_upgrade(id: String) -> bool:
 			current_phase = "strike"
 			EventBus.phase_changed.emit("strike")
 	EventBus.upgrade_purchased.emit(id, level + 1, int(def["branch"]))
+	EventBus.currency_changed.emit(currency)
 	EventBus.stats_changed.emit(stats, currency)
 	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
 	return true
@@ -322,6 +328,7 @@ func reset_to_fresh() -> void:
 	_recompute_stats()
 	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
 	EventBus.phase_changed.emit("strike")
+	EventBus.currency_changed.emit(currency)
 	EventBus.stats_changed.emit(stats, currency)
 
 

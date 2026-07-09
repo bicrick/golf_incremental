@@ -32,6 +32,7 @@ func _ready() -> void:
 	upgrades_button.pressed.connect(_on_upgrades_pressed)
 	upgrades_button.mouse_entered.connect(_on_upgrades_mouse_entered)
 	upgrades_button.mouse_exited.connect(_on_upgrades_mouse_exited)
+	EventBus.currency_changed.connect(_on_currency_changed)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.phase_changed.connect(_on_phase_changed)
 	_style_hit_wrap()
@@ -44,6 +45,10 @@ func _ready() -> void:
 	call_deferred("_capture_button_rest_positions")
 	call_deferred("_refresh_upgrades_lock_state")
 	set_process(false)
+
+
+func _on_currency_changed(_currency: float) -> void:
+	_refresh_upgrades_lock_state()
 
 
 func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:

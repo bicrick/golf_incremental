@@ -16,6 +16,7 @@
 script = ExtResource("7_main")
 
 [node name="RangeView" parent="." unique_id=19116026 instance=ExtResource("1_range")]
+visible = false
 
 [node name="ViewTransitionLayer" type="CanvasLayer" parent="." unique_id=346941225]
 layer = 8

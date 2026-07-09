@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless title screen smoke — run: godot --headless --script res://tools/verify_title_screen.gd
 
-const FADE_DURATION_SEC := 0.5
+const FADE_DURATION_SEC := 0.55
 
 
 func _initialize() -> void:
@@ -13,6 +13,11 @@ func _run() -> void:
 	root.add_child(main)
 	await process_frame
 	await process_frame
+	await process_frame
+
+	# Headless runs load user settings; force music on for title BGM assertions.
+	_sfx()._music_enabled = true
+	_sfx().play_title_bgm()
 	await process_frame
 
 	var range_view: Node3D = main.get_node("RangeView")
@@ -45,9 +50,12 @@ func _run() -> void:
 	if title_screen.get_node_or_null("FairwayBg") != null:
 		print("FAIL: FairwayBg should be replaced by SkyBg")
 		ok = false
-	if not sky_bg.has_method("layer_count") or sky_bg.layer_count() != 4:
+	if not sky_bg.has_method("layer_count") or sky_bg.layer_count() != 3:
 		var count: int = sky_bg.layer_count() if sky_bg.has_method("layer_count") else -1
-		print("FAIL: expected 4 parallax cloud layers, got %d" % count)
+		print("FAIL: expected 3 parallax cloud layers (Layer_4 removed), got %d" % count)
+		ok = false
+	if sky_bg.get_node_or_null("SkyFill") == null:
+		print("FAIL: SkyFill should replace Layer_4 solid blue")
 		ok = false
 
 	var layer_1 := sky_bg.get_node_or_null("Layer1/Sprite") as TextureRect
@@ -92,6 +100,12 @@ func _run() -> void:
 	await process_frame
 	if not title_screen.is_transitioning():
 		print("FAIL: Space should begin fade transition")
+		ok = false
+	if not range_view.visible:
+		print("FAIL: RangeView should show under title during crossfade")
+		ok = false
+	if not ui.visible:
+		print("FAIL: UI should show under title during crossfade")
 		ok = false
 
 	# Simulate mouse release after fade (PLAY click bleed-through regression).

@@ -22,6 +22,7 @@ func _ready() -> void:
 	PixelFont.apply_label(_rattling_income_label, 10)
 	_rattling_income_label.modulate.a = 0.0
 	call_deferred("_layout_top_left")
+	EventBus.currency_changed.connect(_on_currency_changed)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.rattling_ball_collected.connect(_on_rattling_ball_collected)
 	EventBus.ratina_ball_collected.connect(_on_ratina_ball_collected)
@@ -32,6 +33,10 @@ func _layout_top_left() -> void:
 	_margin.layout_mode = 0
 	_margin.position = Vector2(EDGE_PADDING, EDGE_PADDING)
 	_margin.size = _margin.get_combined_minimum_size()
+
+
+func _on_currency_changed(currency: float) -> void:
+	_update_currency(currency)
 
 
 func _on_stats_changed(_stats: PlayerStats, currency: float) -> void:

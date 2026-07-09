@@ -18,7 +18,7 @@ static func spawn(
 	fx_scale: float = 1.0,
 	color_override: Color = Color.TRANSPARENT
 ) -> void:
-	var fx: Node2D = load("res://scripts/visual/float_cash_text.gd").new()
+	var fx := FloatCashText.new()
 	parent.add_child(fx)
 	fx.position = world_pos
 	fx.scale = Vector2.ONE * fx_scale

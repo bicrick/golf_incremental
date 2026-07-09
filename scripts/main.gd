@@ -1,5 +1,5 @@
 extends Node
-## Root scene — title screen first, Play reveals range view and HUD.
+## Root scene — title screen first; Play crossfades into the range and HUD.
 
 @onready var range_view: Node3D = $RangeView
 @onready var ui: CanvasLayer = $UI
@@ -14,19 +14,26 @@ func _ready() -> void:
 	CursorManager.bind_gameplay(range_view)
 	range_view.visible = false
 	ui.visible = false
+	title_screen.play_transition_started.connect(_on_play_transition_started)
 	title_screen.play_pressed.connect(_on_play_pressed)
 	settings_panel.wipe_confirmed.connect(_on_wipe_confirmed)
 	EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
+	if title_screen.has_method(&"sync_atmosphere_from_range"):
+		title_screen.sync_atmosphere_from_range(range_view)
 	SfxManager.play_title_bgm()
+
+
+func _on_play_transition_started() -> void:
+	## Range + HUD under the title so the cloud fade reads as a soft crossfade.
+	range_view.visible = true
+	ui.visible = true
+	_set_gameplay_ui_visible(true)
 
 
 func _on_play_pressed() -> void:
 	title_screen.visible = false
 	if title_screen.has_method("reset_for_show"):
 		title_screen.reset_for_show()
-	range_view.visible = true
-	ui.visible = true
-	_set_gameplay_ui_visible(true)
 
 
 func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
@@ -34,9 +41,22 @@ func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
 		return
 	if not ui.visible:
 		return
+	if panel_id == "upgrades" and is_open:
+		_sync_upgrade_sky_tint()
 	var overlay_open := _is_overlay_panel_open()
 	range_view.visible = not overlay_open
 	_set_gameplay_ui_visible(not overlay_open)
+
+
+func _sync_upgrade_sky_tint() -> void:
+	var sky_bg := upgrade_panel.get_node_or_null("SkyBg")
+	if sky_bg == null or not sky_bg.has_method(&"apply_cycle_time"):
+		return
+	var cycle_time := 60.0
+	var cycle := range_view.get_node_or_null("DayNightCycle")
+	if cycle != null and cycle.has_method(&"cycle_elapsed"):
+		cycle_time = cycle.cycle_elapsed()
+	sky_bg.apply_cycle_time(cycle_time)
 
 
 func _is_overlay_panel_open() -> bool:

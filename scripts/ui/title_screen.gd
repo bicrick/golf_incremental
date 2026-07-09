@@ -1,11 +1,13 @@
 extends CanvasLayer
-## Range Rat title screen — parallax cloud sky, Play starts the game.
+## Range Rat title screen — parallax cloud sky; Play crossfades into the range.
 
 signal play_pressed
+## Emitted when the fade begins so Main can reveal the range underneath.
+signal play_transition_started
 
 const LOGO_DISPLAY_SIZE := Vector2(420.0, 132.0)
 const PROMPT_FONT_SIZE := 8
-const FADE_DURATION_SEC := 0.5
+const FADE_DURATION_SEC := 0.55
 
 const PROMPT_FADE_MIN_ALPHA := 0.25
 const PROMPT_FADE_MAX_ALPHA := 1.0
@@ -25,14 +27,39 @@ func _ready() -> void:
 	_setup_press_space_label()
 	press_space_label.gui_input.connect(_on_press_space_gui_input)
 	_start_prompt_fade()
+	if sky_bg.has_method(&"apply_cycle_time"):
+		sky_bg.apply_cycle_time(60.0)
 
 
 func is_transitioning() -> bool:
 	return _transitioning
 
 
+func get_fade_duration() -> float:
+	return FADE_DURATION_SEC
+
+
+func sync_atmosphere_from_range(range_view: Node3D) -> void:
+	if sky_bg == null or not sky_bg.has_method(&"apply_cycle_time"):
+		return
+	var cycle_time := 60.0
+	var cycle := range_view.get_node_or_null("DayNightCycle") if range_view else null
+	if cycle != null and cycle.has_method(&"cycle_elapsed"):
+		cycle_time = cycle.cycle_elapsed()
+	sky_bg.apply_cycle_time(cycle_time)
+
+
+func _input(event: InputEvent) -> void:
+	if not _transitioning:
+		return
+	get_viewport().set_input_as_handled()
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if _transitioning or not visible:
+	if _transitioning:
+		get_viewport().set_input_as_handled()
+		return
+	if not visible:
 		return
 	if not event is InputEventKey:
 		return
@@ -90,6 +117,7 @@ func _on_play_pressed() -> void:
 	_stop_prompt_fade()
 	SfxManager.play_start()
 	SfxManager.start_bgm()
+	play_transition_started.emit()
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(sky_bg, "modulate:a", 0.0, FADE_DURATION_SEC).set_trans(Tween.TRANS_SINE).set_ease(
 		Tween.EASE_IN_OUT

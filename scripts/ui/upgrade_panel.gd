@@ -33,6 +33,7 @@ var _refresh_pending := false
 func _ready() -> void:
 	visible = false
 	back_button.pressed.connect(close)
+	EventBus.currency_changed.connect(_on_currency_changed)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 	EventBus.shop_item_purchased.connect(_on_shop_item_purchased)
@@ -166,6 +167,12 @@ func _on_purchase_requested(id: String) -> void:
 	if _camera_controller.did_drag():
 		return
 	UpgradeGraph.purchase(id)
+
+
+func _on_currency_changed(currency: float) -> void:
+	if not _is_open:
+		return
+	currency_label.text = "$%s" % _format_currency(currency)
 
 
 func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:

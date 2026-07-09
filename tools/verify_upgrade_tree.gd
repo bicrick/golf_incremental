@@ -141,6 +141,15 @@ func _run() -> void:
 		if not panel.visible:
 			print("FAIL: panel not visible after open()")
 			ok = false
+		if panel.get_node_or_null("SkyBg") == null:
+			print("FAIL: upgrade panel should use parallax SkyBg")
+			ok = false
+		elif not panel.get_node("SkyBg").has_method("layer_count") or panel.get_node("SkyBg").layer_count() != 3:
+			print("FAIL: upgrade SkyBg should have 3 cloud layers")
+			ok = false
+		if range_view.visible:
+			print("FAIL: RangeView should hide while upgrade panel is open")
+			ok = false
 
 		var nodes_root: Control = panel.get_node("Content/TreeViewport/TreeWorld/Nodes")
 		var visible_before := _count_visible_nodes(nodes_root)

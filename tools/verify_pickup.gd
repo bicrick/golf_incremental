@@ -28,6 +28,7 @@ func _run() -> void:
 	ok = _check_harvest_target_accounts_for_stash(gs) and ok
 	ok = _check_collect_increments(gs) and ok
 	ok = _check_economy_grants(gs) and ok
+	ok = _check_currency_changed_not_stats(gs) and ok
 	ok = _check_combo_logic() and ok
 	ok = _check_vanish_auto_collect(gs) and ok
 	ok = _check_bucket_refill_and_strike(gs) and ok
@@ -197,6 +198,40 @@ func _check_economy_grants(gs: Node) -> bool:
 		print("FAIL: bucket complete should grant no bonus by default")
 		return false
 	print("OK: pickup economy grants (no default combo/bucket bonus)")
+	return true
+
+
+func _check_currency_changed_not_stats(gs: Node) -> bool:
+	_reset(gs)
+	_enter_harvest(gs)
+	var event_bus: Node = root.get_node("EventBus")
+	var currency_hits: Array = []
+	var stats_hits: Array = []
+	var on_currency := func(_currency: float) -> void:
+		currency_hits.append(1)
+	var on_stats := func(_stats: PlayerStats, _currency: float) -> void:
+		stats_hits.append(1)
+	event_bus.currency_changed.connect(on_currency)
+	event_bus.stats_changed.connect(on_stats)
+
+	var before: float = gs.currency
+	for _i in 5:
+		gs.collect_harvest_ball(Vector3.ZERO, 1)
+	var after: float = gs.currency
+
+	event_bus.currency_changed.disconnect(on_currency)
+	event_bus.stats_changed.disconnect(on_stats)
+
+	if after <= before:
+		print("FAIL: currency should rise after collects")
+		return false
+	if currency_hits.size() != 5:
+		print("FAIL: currency_changed expected 5 emits, got %d" % currency_hits.size())
+		return false
+	if stats_hits.size() != 0:
+		print("FAIL: collect should not emit stats_changed, got %d" % stats_hits.size())
+		return false
+	print("OK: pickup emits currency_changed without stats_changed")
 	return true
 
 
