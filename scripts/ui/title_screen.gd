@@ -3,7 +3,11 @@ extends CanvasLayer
 
 signal play_pressed
 
-const LOGO_DISPLAY_SIZE := Vector2(420.0, 132.0)
+## Logo fills most of the viewport width (capped at native display size),
+## keeping the source texture's 420:132 aspect.
+const LOGO_MAX_WIDTH := 420.0
+const LOGO_ASPECT := 132.0 / 420.0
+const LOGO_SCREEN_WIDTH_FRACTION := 0.94
 const PROMPT_FONT_SIZE := 8
 const FADE_DURATION_SEC := 0.5
 
@@ -44,7 +48,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _setup_title_logo() -> void:
-	title_logo.custom_minimum_size = LOGO_DISPLAY_SIZE
+	var width := minf(LOGO_MAX_WIDTH, get_viewport().get_visible_rect().size.x * LOGO_SCREEN_WIDTH_FRACTION)
+	title_logo.custom_minimum_size = Vector2(width, width * LOGO_ASPECT)
 	title_logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 

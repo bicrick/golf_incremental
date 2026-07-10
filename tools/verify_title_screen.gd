@@ -39,9 +39,15 @@ func _run() -> void:
 	elif title_logo.texture.resource_path != "res://assets/sprites/range_rat/range-rat-title-logo.png":
 		print("FAIL: title logo path expected range-rat-title-logo.png, got '%s'" % title_logo.texture.resource_path)
 		ok = false
-	elif title_logo.custom_minimum_size.x < 400.0:
-		print("FAIL: title logo should dominate the screen (min width >= 400), got %s" % title_logo.custom_minimum_size)
-		ok = false
+	else:
+		var vp_width: float = root.get_visible_rect().size.x
+		var expected_width: float = minf(420.0, vp_width * 0.9)
+		if title_logo.custom_minimum_size.x < expected_width:
+			print(
+				"FAIL: title logo should dominate the screen (min width >= %s), got %s"
+				% [expected_width, title_logo.custom_minimum_size]
+			)
+			ok = false
 	if title_screen.get_node_or_null("FairwayBg") != null:
 		print("FAIL: FairwayBg should be replaced by SkyBg")
 		ok = false

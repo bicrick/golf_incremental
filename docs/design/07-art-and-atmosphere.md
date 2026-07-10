@@ -183,10 +183,11 @@ Source sprites live in `assets/imported/rpg_ui_kit/PNG/` (parchment panels, teal
 
 ```ini
 [display]
-window/size/viewport_width=480
-window/size/viewport_height=270
-window/size/window_width_override=960
-window/size/window_height_override=540
+window/size/viewport_width=270
+window/size/viewport_height=480
+window/size/window_width_override=540
+window/size/window_height_override=960
+window/handheld/orientation=1
 window/stretch/mode="canvas_items"
 window/stretch/scale_mode="integer"
 

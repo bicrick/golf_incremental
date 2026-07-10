@@ -171,7 +171,10 @@ func _advance_combo() -> int:
 
 func _bucket_target_screen() -> Vector2:
 	if _bucket_counter == null:
-		return Vector2(440.0, 250.0)
+		var viewport := _range_view.get_viewport() if _range_view else null
+		if viewport:
+			return viewport.get_visible_rect().size - Vector2(40.0, 20.0)
+		return Vector2.ZERO
 	if _bucket_counter.has_method("get_tween_target_global"):
 		return _bucket_counter.get_tween_target_global()
 	return _bucket_counter.get_global_rect().get_center()

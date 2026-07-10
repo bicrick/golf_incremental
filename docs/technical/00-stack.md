@@ -24,6 +24,12 @@ Phaser + TypeScript was the original path for web-dev familiarity. Godot is the 
 
 ## Pixel art project settings
 
+The game is **portrait-native** (270×480, 9:16) — a vertical crop of the original
+480×270 landscape composition, targeting one-hand phone play. Cameras use
+`KEEP_HEIGHT`, so the vertical framing of the down-the-line range is preserved
+and the sides crop away; screen-space overlays tuned at the old 480×270 canvas
+are remapped via `RangeView._design_to_screen()`.
+
 In `project.godot`:
 
 ```ini
@@ -31,10 +37,11 @@ In `project.godot`:
 config/name="Golf Incremental"
 
 [display]
-window/size/viewport_width=480
-window/size/viewport_height=270
-window/size/window_width_override=960
-window/size/window_height_override=540
+window/size/viewport_width=270
+window/size/viewport_height=480
+window/size/window_width_override=540
+window/size/window_height_override=960
+window/handheld/orientation=1
 window/stretch/mode="canvas_items"
 window/stretch/scale_mode="integer"
 
@@ -43,6 +50,7 @@ textures/canvas_textures/default_texture_filter=0
 ```
 
 `default_texture_filter=0` is **Nearest** (crisp pixels).
+`window/handheld/orientation=1` locks phones/tablets to portrait.
 
 ## Parallax 2.5D
 

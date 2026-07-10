@@ -43,9 +43,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MainRow" type="HBoxContainer" parent="Content/Center"]
+[node name="MainRow" type="VBoxContainer" parent="Content/Center"]
 layout_mode = 2
-theme_override_constants/separation = 20
+theme_override_constants/separation = 14
 alignment = 1
 
 [node name="LeftPane" type="VBoxContainer" parent="Content/Center/MainRow"]
@@ -98,7 +98,7 @@ size_flags_horizontal = 4
 mouse_default_cursor_shape = 2
 text = "+$1,000,000"
 
-[node name="Divider" type="VSeparator" parent="Content/Center/MainRow"]
+[node name="Divider" type="HSeparator" parent="Content/Center/MainRow"]
 layout_mode = 2
 
 [node name="RightPane" type="VBoxContainer" parent="Content/Center/MainRow"]

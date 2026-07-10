@@ -35,11 +35,14 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="Header" type="HBoxContainer" parent="Content"]
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
 offset_left = 8.0
 offset_top = 6.0
-offset_right = 472.0
+offset_right = -8.0
 offset_bottom = 24.0
+grow_horizontal = 2
 theme_override_constants/separation = 8
 
 [node name="BackButton" type="Button" parent="Content/Header"]
@@ -64,11 +67,14 @@ custom_minimum_size = Vector2(48, 0)
 layout_mode = 2
 
 [node name="Body" type="VBoxContainer" parent="Content"]
-layout_mode = 0
-offset_left = 48.0
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 16.0
 offset_top = 48.0
-offset_right = 432.0
+offset_right = -16.0
 offset_bottom = 248.0
+grow_horizontal = 2
 theme_override_constants/separation = 10
 
 [node name="MusicRow" type="HBoxContainer" parent="Content/Body"]
@@ -76,7 +82,7 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="MusicLabel" type="Label" parent="Content/Body/MusicRow"]
-custom_minimum_size = Vector2(180, 0)
+custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 8
 text = "Music"
@@ -92,7 +98,7 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="MusicVolumeLabel" type="Label" parent="Content/Body/MusicVolumeRow"]
-custom_minimum_size = Vector2(180, 0)
+custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 8
 text = "Music Volume"
@@ -107,7 +113,7 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="SfxLabel" type="Label" parent="Content/Body/SfxRow"]
-custom_minimum_size = Vector2(180, 0)
+custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 8
 text = "Sound Effects"
@@ -123,7 +129,7 @@ layout_mode = 2
 theme_override_constants/separation = 12
 
 [node name="SfxVolumeLabel" type="Label" parent="Content/Body/SfxVolumeRow"]
-custom_minimum_size = Vector2(180, 0)
+custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 8
 text = "SFX Volume"
@@ -141,4 +147,4 @@ mouse_default_cursor_shape = 2
 [node name="ResetDialog" type="ConfirmationDialog" parent="."]
 title = "Reset Character?"
 initial_position = 1
-size = Vector2i(360, 140)
+size = Vector2i(240, 140)

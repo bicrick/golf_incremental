@@ -5,6 +5,11 @@ extends Node3D
 ## @tool: builds ground meshes in the editor. Runtime wiring (EventBus, swing,
 ## pickup, Ratina) runs only when not Engine.is_editor_hint().
 
+## Screen-space overlay positions are tuned at the original 16:9 design canvas.
+## Cameras use KEEP_HEIGHT, so other aspects (portrait crop) preserve vertical
+## framing and world-locked positions scale from screen center with height —
+## see _design_to_screen().
+const DESIGN_VIEWPORT_SIZE := Vector2(480.0, 270.0)
 const CHARGE_METER_POSITION := Vector2(236.0, 185.143)
 const RATINA_UNLOCKED_CHARGE_METER_POSITION := Vector2(225.0, 185.143)
 const SWING_RESULT_TEXT_OFFSET := Vector2(0.0, -38.0)
@@ -105,7 +110,7 @@ func _ready() -> void:
 		_setup_ratina_bay()
 
 	if charge_meter:
-		charge_meter.position = CHARGE_METER_POSITION
+		charge_meter.position = _design_to_screen(CHARGE_METER_POSITION)
 	if _should_use_editor_rig():
 		if perspective_sky_dome and perspective_camera:
 			perspective_sky_dome.setup(perspective_camera)
@@ -636,7 +641,7 @@ func _apply_ratina_layout_if_needed() -> void:
 
 func _apply_ratina_unlocked_layout() -> void:
 	if charge_meter:
-		charge_meter.position = RATINA_UNLOCKED_CHARGE_METER_POSITION
+		charge_meter.position = _design_to_screen(RATINA_UNLOCKED_CHARGE_METER_POSITION)
 	_ratina_strike_text_offset = Balance.RATINA_STRIKE_TEXT_OFFSET
 	if _ratina and _ratina.has_method("refresh_strike_homes"):
 		_ratina.refresh_strike_homes()
@@ -865,7 +870,21 @@ func _fly_vanished_ball_to_bucket(landing: Vector3) -> void:
 func _bucket_target_screen() -> Vector2:
 	if _pickup and _pickup.has_method("get_bucket_target_screen"):
 		return _pickup.get_bucket_target_screen()
-	return Vector2(440.0, 250.0)
+	return _fallback_bucket_screen(get_viewport().get_visible_rect().size)
+
+
+## Bottom-right corner where the bucket counter lives, for any viewport aspect.
+static func _fallback_bucket_screen(viewport_size: Vector2) -> Vector2:
+	return viewport_size - Vector2(40.0, 20.0)
+
+
+## Map a 480x270-tuned overlay position to the current viewport. With
+## KEEP_HEIGHT cameras, world-anchored screen offsets scale from the viewport
+## center by the height ratio; at the design resolution this is the identity.
+func _design_to_screen(design_pos: Vector2) -> Vector2:
+	var vp := get_viewport().get_visible_rect().size
+	var scale := vp.y / DESIGN_VIEWPORT_SIZE.y
+	return vp * 0.5 + (design_pos - DESIGN_VIEWPORT_SIZE * 0.5) * scale
 
 
 func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:

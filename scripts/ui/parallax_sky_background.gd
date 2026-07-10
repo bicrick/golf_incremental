@@ -2,7 +2,6 @@ extends Control
 ## Full-screen parallax cloud sky — smooth sub-pixel bob via sin waves in _process.
 
 const SKY_DIR := "res://assets/imported/background/parallax_sky/"
-const VIEWPORT_SIZE := Vector2(480.0, 270.0)
 const BOB_MARGIN_X := 8.0
 const BOB_MARGIN_Y := 4.0
 const BOB_FREQ := 0.42
@@ -41,6 +40,8 @@ func _build_layers() -> void:
 	_layers.clear()
 	_base_positions.clear()
 
+	var viewport_size := get_viewport_rect().size
+
 	for index in LAYER_FILES.size():
 		var slot := Control.new()
 		slot.name = "Layer%d" % (LAYER_FILES.size() - index)
@@ -59,16 +60,16 @@ func _build_layers() -> void:
 
 		var tex_size := texture.get_size()
 		var cover_scale := maxf(
-			(VIEWPORT_SIZE.x + BOB_MARGIN_X * 2.0) / tex_size.x,
-			(VIEWPORT_SIZE.y + BOB_MARGIN_Y * 2.0) / tex_size.y
+			(viewport_size.x + BOB_MARGIN_X * 2.0) / tex_size.x,
+			(viewport_size.y + BOB_MARGIN_Y * 2.0) / tex_size.y
 		)
 		var layer_size := tex_size * cover_scale
 		layer.custom_minimum_size = layer_size
 		layer.size = layer_size
 
 		var base_pos := Vector2(
-			(VIEWPORT_SIZE.x - layer_size.x) * 0.5,
-			(VIEWPORT_SIZE.y - layer_size.y) * 0.5
+			(viewport_size.x - layer_size.x) * 0.5,
+			(viewport_size.y - layer_size.y) * 0.5
 		)
 		layer.position = base_pos
 		slot.add_child(layer)
