@@ -478,6 +478,7 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 	_ball_in_flight = true
 	_flight_with_bounces = will_litter
 	_camera = _resolve_flight_camera()
+	_flight_with_bounces = will_litter
 	if _flight_trail:
 		_flight_trail.finish()
 		_flight_trail = null
