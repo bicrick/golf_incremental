@@ -454,8 +454,19 @@ func _check_branch_stroke_palettes() -> bool:
 
 func _check_tree_node_icon_centering(nodes_root: Control) -> bool:
 	var ok := true
-	var node_center := Vector2(19.0, 19.0)
+	var expected_size := UpgradeIcon.DEFAULT_NODE_SIZE
+	var node_center := expected_size * 0.5
 	for child in nodes_root.get_children():
+		if child is Control and not (child as Control).size.is_equal_approx(expected_size):
+			print(
+				"FAIL: node size should be %s on %s (got %s)"
+				% [expected_size, child.name, (child as Control).size]
+			)
+			ok = false
+		var tip: Control = child.get_node_or_null("TooltipPanel") as Control
+		if tip != null and not tip.top_level:
+			print("FAIL: TooltipPanel should be top_level on %s" % child.name)
+			ok = false
 		var icon: TextureRect = child.get_node_or_null("ShapeIcon") as TextureRect
 		if icon == null:
 			continue
@@ -481,7 +492,7 @@ func _check_tree_node_icon_centering(nodes_root: Control) -> bool:
 				)
 				ok = false
 	if ok:
-		print("OK: tree node icons centered in 38x38 nodes")
+		print("OK: tree node icons centered in 28x28 medallions")
 	return ok
 
 
@@ -489,6 +500,7 @@ func _check_ratina_pink_palette() -> bool:
 	var hire_palette := UpgradeTreeStroke.palette_for_upgrade("ratina_hire")
 	var base_palette := UpgradeTreeStroke.palette_for_upgrade("ratina_base_pay")
 	var player_palette := UpgradeTreeStroke.palette_for_upgrade("base_pay")
+	var power_palette := UpgradeTreeStroke.palette_for_branch(Balance.UpgradeBranch.POWER)
 	if hire_palette["charged"] == player_palette["charged"]:
 		print("FAIL: ratina_hire should use pink palette, not Base Pay gold")
 		return false
@@ -498,7 +510,16 @@ func _check_ratina_pink_palette() -> bool:
 	if not UpgradeTreeStroke.is_ratina_upgrade("ratina_hire"):
 		print("FAIL: ratina_hire should be detected as Ratina upgrade")
 		return false
-	print("OK: Ratina upgrades use pink stroke palette")
+	var power_charged: Color = power_palette["charged"]
+	var ratina_charged: Color = hire_palette["charged"]
+	# True red: high R, low G; pink: high R and G closer together.
+	if power_charged.g >= 0.45:
+		print("FAIL: Power charged should be true red (low green), got ", power_charged)
+		return false
+	if absf(power_charged.g - ratina_charged.g) < 0.15:
+		print("FAIL: Power red and Ratina pink greens too similar")
+		return false
+	print("OK: Ratina pink + Power true-red stroke palettes")
 	return true
 
 

@@ -1,5 +1,5 @@
 extends Control
-## Drawn stroke border for upgrade tree nodes — syncs phase with connectors.
+## Drawn circle medallion border for upgrade tree nodes — syncs phase with connectors.
 
 const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
 
@@ -40,7 +40,7 @@ func _draw() -> void:
 	var glow := glow_color
 	if with_glow and animated:
 		glow = Color(glow_color.r, glow_color.g, glow_color.b, glow_color.a * _pulse_alpha)
-	UpgradeTreeStroke.draw_rounded_border(
+	UpgradeTreeStroke.draw_circle_border(
 		self,
 		Rect2(Vector2.ZERO, size),
 		color,
@@ -48,5 +48,6 @@ func _draw() -> void:
 		UpgradeTreeStroke.get_phase(),
 		animated,
 		with_glow,
-		glow
+		glow,
+		true
 	)

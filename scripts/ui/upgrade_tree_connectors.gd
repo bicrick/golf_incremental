@@ -4,7 +4,7 @@ extends Control
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
 
-const NODE_HALF := Vector2(19, 19)
+const NODE_HALF := UpgradeIcon.NODE_HALF
 ## Pull endpoints slightly inside the node so strokes meet drawn borders.
 const EDGE_INSET := 0.92
 
@@ -50,8 +50,8 @@ func _draw() -> void:
 			continue
 		var from_center: Vector2 = _layout_positions[from_id]
 		var to_center: Vector2 = _layout_positions[to_id]
-		var from_point: Vector2 = _rect_edge_point(from_center, to_center, NODE_HALF)
-		var to_point: Vector2 = _rect_edge_point(to_center, from_center, NODE_HALF)
+		var from_point: Vector2 = _circle_edge_point(from_center, to_center, NODE_HALF.x)
+		var to_point: Vector2 = _circle_edge_point(to_center, from_center, NODE_HALF.x)
 		var edge_state := resolve_edge_state(to_id)
 		var style := UpgradeTreeStroke.edge_style_for_upgrade(edge_state, to_id)
 		var palette := UpgradeTreeStroke.palette_for_upgrade(to_id)
@@ -84,26 +84,8 @@ static func resolve_edge_state(to_id: String) -> UpgradeTreeStroke.EdgeState:
 	return UpgradeTreeStroke.EdgeState.LIVE
 
 
-func _rect_edge_point(center: Vector2, toward: Vector2, half: Vector2) -> Vector2:
+func _circle_edge_point(center: Vector2, toward: Vector2, radius: float) -> Vector2:
 	var delta: Vector2 = toward - center
 	if delta.length_squared() < 1.0:
 		return center
-	var dir: Vector2 = delta.normalized()
-	var t_min := INF
-	if absf(dir.x) > 0.0001:
-		for edge_x in [-half.x, half.x]:
-			var t: float = edge_x / dir.x
-			if t > 0.0:
-				var y: float = dir.y * t
-				if absf(y) <= half.y:
-					t_min = minf(t_min, t)
-	if absf(dir.y) > 0.0001:
-		for edge_y in [-half.y, half.y]:
-			var t: float = edge_y / dir.y
-			if t > 0.0:
-				var x: float = dir.x * t
-				if absf(x) <= half.x:
-					t_min = minf(t_min, t)
-	if t_min == INF:
-		return center
-	return center + dir * t_min * EDGE_INSET
+	return center + delta.normalized() * radius * EDGE_INSET

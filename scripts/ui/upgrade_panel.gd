@@ -8,7 +8,7 @@ const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
 const RATINA_NODE_SCENE := preload("res://scenes/ui/ratina_tree_node.tscn")
 const RATTLING_NODE_SCENE := preload("res://scenes/ui/rattling_tree_node.tscn")
 
-const NODE_HALF := Vector2(19, 19)
+const NODE_HALF := UpgradeIcon.NODE_HALF
 const BOUNDS_PADDING := 24.0
 const FIT_PADDING := 56.0
 const FIT_FILL := 0.98

@@ -5,14 +5,16 @@ extends RefCounted
 enum EdgeState { DORMANT, LIVE, CHARGED, COMPLETE }
 enum BorderState { LOCKED, DEFAULT, AFFORD, MAXED }
 
-const EDGE_WIDTH := 1.75
-const EDGE_GLOW_WIDTH := 4.0
-const BORDER_WIDTH := 1.75
-const BORDER_GLOW_WIDTH := 3.5
+const EDGE_WIDTH := 1.5
+const EDGE_GLOW_WIDTH := 3.5
+const BORDER_WIDTH := 1.5
+const BORDER_GLOW_WIDTH := 3.0
 const CORNER_RADIUS := 2.0
+const CIRCLE_SEGMENTS := 28
+const FILL_COLOR := Color(0.12, 0.10, 0.08, 0.55)
 
-const DASH_LENGTH := 5.0
-const DASH_GAP := 4.0
+const DASH_LENGTH := 4.0
+const DASH_GAP := 3.5
 const DASH_PERIOD := DASH_LENGTH + DASH_GAP
 
 const SPEED_LIVE := 0.55
@@ -28,13 +30,13 @@ const COLOR_BASE_PAY_CHARGED := Color(1.0, 0.9, 0.42, 1.0)
 const COLOR_BASE_PAY_COMPLETE := Color(0.82, 0.68, 0.28, 0.95)
 const COLOR_BASE_PAY_GLOW := Color(1.0, 0.92, 0.45, 0.28)
 
-# Power — warm red
-const COLOR_POWER_LINE := Color(0.58, 0.32, 0.28, 0.85)
-const COLOR_POWER_LINE_LOCKED := Color(0.38, 0.28, 0.26, 0.5)
-const COLOR_POWER_LIVE := Color(0.92, 0.42, 0.32, 0.92)
-const COLOR_POWER_CHARGED := Color(1.0, 0.52, 0.38, 1.0)
-const COLOR_POWER_COMPLETE := Color(0.82, 0.38, 0.28, 0.95)
-const COLOR_POWER_GLOW := Color(1.0, 0.55, 0.42, 0.28)
+# Power — true red (distinct from Ratina pink)
+const COLOR_POWER_LINE := Color(0.72, 0.22, 0.18, 0.9)
+const COLOR_POWER_LINE_LOCKED := Color(0.42, 0.22, 0.20, 0.5)
+const COLOR_POWER_LIVE := Color(0.95, 0.28, 0.22, 0.95)
+const COLOR_POWER_CHARGED := Color(1.0, 0.35, 0.25, 1.0)
+const COLOR_POWER_COMPLETE := Color(0.88, 0.24, 0.18, 0.95)
+const COLOR_POWER_GLOW := Color(1.0, 0.40, 0.28, 0.32)
 
 # Quality / tempo — teal-blue
 const COLOR_QUALITY_LINE := Color(0.32, 0.48, 0.58, 0.85)
@@ -267,14 +269,27 @@ static func draw_rounded_border(
 	with_glow: bool = false,
 	glow_color: Color = COLOR_BASE_PAY_GLOW
 ) -> void:
-	var inset := width * 0.5
-	var stroke_rect := Rect2(
-		rect.position + Vector2(inset, inset),
-		rect.size - Vector2(inset * 2.0, inset * 2.0)
-	)
-	if stroke_rect.size.x < 1.0 or stroke_rect.size.y < 1.0:
+	draw_circle_border(canvas, rect, color, width, phase, animated, with_glow, glow_color, true)
+
+
+static func draw_circle_border(
+	canvas: CanvasItem,
+	rect: Rect2,
+	color: Color,
+	width: float,
+	phase: float,
+	animated: bool,
+	with_glow: bool = false,
+	glow_color: Color = COLOR_BASE_PAY_GLOW,
+	draw_fill: bool = true
+) -> void:
+	var center := rect.get_center()
+	var radius := minf(rect.size.x, rect.size.y) * 0.5 - width * 0.5
+	if radius < 1.0:
 		return
-	var points := _rounded_rect_points(stroke_rect, CORNER_RADIUS)
+	if draw_fill:
+		canvas.draw_circle(center, radius, FILL_COLOR)
+	var points := _circle_points(center, radius)
 	var perimeter := _polyline_length(points)
 	if perimeter < 1.0:
 		return
@@ -288,6 +303,14 @@ static func draw_rounded_border(
 		_draw_dashed_polyline(canvas, points, perimeter, color, width, phase, SPEED_BORDER)
 	else:
 		canvas.draw_polyline(points, color, width, true)
+
+
+static func _circle_points(center: Vector2, radius: float) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for i in range(CIRCLE_SEGMENTS + 1):
+		var angle := TAU * float(i) / float(CIRCLE_SEGMENTS)
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	return points
 
 
 static func _draw_dashed_line(

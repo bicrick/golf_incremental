@@ -4,23 +4,23 @@
 [ext_resource type="Script" path="res://scripts/ui/upgrade_tree_border.gd" id="3_border"]
 
 [node name="RattlingTreeNode" type="PanelContainer"]
-custom_minimum_size = Vector2(38, 38)
-offset_right = 38.0
-offset_bottom = 38.0
+custom_minimum_size = Vector2(28, 28)
+offset_right = 28.0
+offset_bottom = 28.0
 script = ExtResource("1_script")
 
 [node name="GlowOverlay" type="ColorRect" parent="."]
 visible = false
 layout_mode = 0
-offset_right = 38.0
-offset_bottom = 38.0
+offset_right = 28.0
+offset_bottom = 28.0
 mouse_filter = 2
 color = Color(0.86, 1, 0.25, 0)
 
 [node name="BorderOverlay" type="Control" parent="."]
 layout_mode = 0
-offset_right = 38.0
-offset_bottom = 38.0
+offset_right = 28.0
+offset_bottom = 28.0
 mouse_filter = 2
 script = ExtResource("3_border")
 
@@ -38,6 +38,7 @@ texture_filter = 0
 
 [node name="TooltipPanel" type="PanelContainer" parent="."]
 visible = false
+top_level = true
 z_index = 20
 layout_mode = 0
 offset_right = 96.0

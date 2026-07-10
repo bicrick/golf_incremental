@@ -1,5 +1,5 @@
 extends PanelContainer
-## Compact square node — icon-dominant; price shown in tooltip only.
+## Compact icon medallion — sprite-first; details in top-level tooltip only.
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
@@ -10,13 +10,11 @@ enum NodeState { LOCKED, UNAFFORDABLE, PURCHASABLE, MAXED }
 
 const TooltipText := preload("res://scripts/ui/upgrade_tooltip_text.gd")
 
-const NODE_SIZE := Vector2(38, 38)
+const NODE_SIZE := UpgradeIcon.DEFAULT_NODE_SIZE
 const TOOLTIP_DELAY_SEC := 0.08
 const TOOLTIP_MAX_WIDTH := 150
 const TOOLTIP_GAP := 5
 const TOOLTIP_EDGE_MARGIN := 4
-
-const COLOR_BG := Color(0.18, 0.15, 0.12, 0.92)
 const TOOLTIP_BG := Color(0.08, 0.11, 0.06, 0.96)
 const TOOLTIP_BORDER := Color(0.78, 0.66, 0.28, 1)
 const TOOLTIP_NAME := Color(1.0, 0.9, 0.45, 1)
@@ -34,7 +32,6 @@ var _branch: int = Balance.UpgradeBranch.BASE_PAY
 
 var _state: NodeState = NodeState.LOCKED
 var _hovering := false
-var _glow_phase := 0.0
 var _panel_style: StyleBoxFlat
 var _tooltip_def: Dictionary = {}
 var _tooltip_level := 0
@@ -67,6 +64,8 @@ func _ready() -> void:
 	PixelFont.apply_label(_tooltip_level_label, 6)
 	PixelFont.apply_label(_tooltip_price_label, 6)
 	_ensure_panel_style()
+	_tooltip_panel.top_level = true
+	_tooltip_panel.z_index = 20
 	_tooltip_timer.wait_time = TOOLTIP_DELAY_SEC
 	_tooltip_timer.timeout.connect(_on_tooltip_timer_timeout)
 	_style_tooltip_panel()
@@ -115,15 +114,6 @@ func refresh() -> void:
 	if _tooltip_panel.visible:
 		_update_tooltip_content()
 		_position_tooltip()
-
-
-func _process(delta: float) -> void:
-	if _state != NodeState.PURCHASABLE:
-		return
-	_glow_phase += delta * 4.0
-	var pulse := 0.5 + 0.5 * sin(_glow_phase)
-	var glow_base := UpgradeTreeStroke.glow_color_for_upgrade(upgrade_id)
-	_glow.color = Color(glow_base.r, glow_base.g, glow_base.b, lerpf(0.06, 0.2, pulse))
 
 
 func get_center() -> Vector2:
@@ -220,7 +210,11 @@ func _position_tooltip() -> void:
 		bounds.position.x + TOOLTIP_EDGE_MARGIN,
 		bounds.end.x - tip_size.x - TOOLTIP_EDGE_MARGIN
 	)
-	_tooltip_panel.position = global_pos - global_position
+	# top_level tooltip uses viewport/global coordinates.
+	_tooltip_panel.global_position = global_pos
+	# Keep medallion size fixed even if layout reflows.
+	custom_minimum_size = NODE_SIZE
+	size = NODE_SIZE
 
 
 func _tooltip_bounds_rect() -> Rect2:
@@ -233,8 +227,9 @@ func _tooltip_bounds_rect() -> Rect2:
 
 
 func _apply_visual_state() -> void:
-	_glow.visible = _state == NodeState.PURCHASABLE
-	set_process(_state == NodeState.PURCHASABLE)
+	# Square ColorRect glow fights the circle medallion — ring glow handles purchasable.
+	_glow.visible = false
+	set_process(false)
 
 	match _state:
 		NodeState.PURCHASABLE:
@@ -242,17 +237,14 @@ func _apply_visual_state() -> void:
 			_shape_icon.modulate = Color.WHITE
 			_configure_border(UpgradeTreeStroke.BorderState.AFFORD, true, true)
 		NodeState.MAXED:
-			_glow.color = Color(0, 0, 0, 0)
 			modulate = MODULATE_MAXED
 			_shape_icon.modulate = MODULATE_MAXED
 			_configure_border(UpgradeTreeStroke.BorderState.MAXED, false, true)
 		NodeState.LOCKED:
-			_glow.color = Color(0, 0, 0, 0)
 			modulate = MODULATE_LOCKED
 			_shape_icon.modulate = MODULATE_LOCKED
 			_configure_border(UpgradeTreeStroke.BorderState.LOCKED, false, false)
 		NodeState.UNAFFORDABLE:
-			_glow.color = Color(0, 0, 0, 0)
 			modulate = MODULATE_UNAFFORDABLE
 			_shape_icon.modulate = MODULATE_UNAFFORDABLE
 			_configure_border(UpgradeTreeStroke.BorderState.DEFAULT, false, false)
@@ -305,15 +297,16 @@ func _ensure_panel_style() -> void:
 	if _panel_style != null:
 		return
 	_panel_style = StyleBoxFlat.new()
-	_panel_style.bg_color = COLOR_BG
+	# Fill comes from the circle medallion draw; panel chrome stays transparent.
+	_panel_style.bg_color = Color(0, 0, 0, 0)
 	_panel_style.border_width_left = 0
 	_panel_style.border_width_top = 0
 	_panel_style.border_width_right = 0
 	_panel_style.border_width_bottom = 0
-	_panel_style.corner_radius_top_left = 2
-	_panel_style.corner_radius_top_right = 2
-	_panel_style.corner_radius_bottom_left = 2
-	_panel_style.corner_radius_bottom_right = 2
+	_panel_style.corner_radius_top_left = 0
+	_panel_style.corner_radius_top_right = 0
+	_panel_style.corner_radius_bottom_left = 0
+	_panel_style.corner_radius_bottom_right = 0
 	_panel_style.content_margin_left = 0
 	_panel_style.content_margin_top = 0
 	_panel_style.content_margin_right = 0

@@ -3,7 +3,9 @@ class_name UpgradeIcon
 
 const ICON_DIR := "res://assets/sprites/upgrades/"
 const ICON_SIZE := Vector2i(16, 16)
-const DEFAULT_NODE_SIZE := Vector2(38, 38)
+## Shared medallion size for all upgrade tree nodes.
+const DEFAULT_NODE_SIZE := Vector2(28, 28)
+const NODE_HALF := Vector2(14, 14)
 
 static var _cache: Dictionary = {}
 
