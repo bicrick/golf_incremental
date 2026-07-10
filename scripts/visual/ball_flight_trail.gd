@@ -1,15 +1,19 @@
 class_name BallFlightTrail
 extends Node2D
 ## Screen-space tail behind the ball during flight — world-space samples reprojected each frame.
+## Width follows perspective foreshortening (anchored to the first/tee sample) so far
+## landings don't leave a uniform-pixel smudge.
 
 const FADE_OUT_SEC := 0.2
 
 var _camera: Camera3D
 var _reference_ortho_size: float = 0.0
+var _reference_px_per_yard: float = 0.0
 var _line: Line2D
 var _tier_color: Color
 var _width_mult: float = 1.0
 var _world_points: PackedVector3Array = PackedVector3Array()
+var _depth_scales: PackedFloat32Array = PackedFloat32Array()
 var _tracking := true
 
 
@@ -63,6 +67,7 @@ func track(world_pos: Vector3) -> void:
 		return
 	var local := _project_to_local(world_pos)
 	if _world_points.is_empty():
+		_reference_px_per_yard = _px_per_yard(world_pos)
 		_world_points.append(world_pos)
 		_refresh_line()
 		return
@@ -78,6 +83,9 @@ func track(world_pos: Vector3) -> void:
 func set_camera(camera: Camera3D) -> void:
 	_camera = camera
 	if not _world_points.is_empty():
+		# Re-anchor reference under the new projection so depth scales stay
+		# meaningful after perspective ↔ ortho swaps.
+		_reference_px_per_yard = _px_per_yard(_world_points[0])
 		_refresh_line()
 
 
@@ -106,6 +114,13 @@ func world_point_at(index: int) -> Vector3:
 	return _world_points[index]
 
 
+## Perspective width multiplier at trail sample `index` (1 = tee-scale).
+func width_scale_at(index: int) -> float:
+	if index < 0 or index >= _depth_scales.size():
+		return 1.0
+	return _depth_scales[index]
+
+
 func tail_alpha() -> float:
 	if _line == null or _line.gradient == null:
 		return 0.0
@@ -129,13 +144,40 @@ func _project_to_local(world_pos: Vector3) -> Vector2:
 	return screen
 
 
+## Screen pixels spanned by 1 world yard sideways at `world_pos`.
+func _px_per_yard(world_pos: Vector3) -> float:
+	if _camera == null:
+		return 1.0
+	var side := _camera.global_transform.basis.x.normalized()
+	var a := _camera.unproject_position(world_pos)
+	var b := _camera.unproject_position(world_pos + side)
+	var px := a.distance_to(b)
+	return px if px > 0.0001 else 0.0001
+
+
+func _depth_scale_for(world_pos: Vector3) -> float:
+	if _reference_px_per_yard <= 0.0:
+		return 1.0
+	var scale := _px_per_yard(world_pos) / _reference_px_per_yard
+	return clampf(scale, Balance.FLIGHT_TRAIL_MIN_DEPTH_SCALE, 1.0)
+
+
 func _refresh_line() -> void:
 	if _line == null or _camera == null:
 		return
 	var zoom := ScreenFxScale.compensation(_camera, _reference_ortho_size)
 	_line.width = Balance.FLIGHT_TRAIL_WIDTH * zoom * _width_mult
+	var n := _world_points.size()
 	var locals := PackedVector2Array()
-	locals.resize(_world_points.size())
-	for i in _world_points.size():
+	locals.resize(n)
+	_depth_scales.resize(n)
+	var curve := Curve.new()
+	curve.clear_points()
+	for i in n:
 		locals[i] = _project_to_local(_world_points[i])
+		var scale := _depth_scale_for(_world_points[i])
+		_depth_scales[i] = scale
+		var t := 0.0 if n <= 1 else float(i) / float(n - 1)
+		curve.add_point(Vector2(t, scale))
+	_line.width_curve = curve
 	_line.points = locals

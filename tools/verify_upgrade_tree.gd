@@ -485,14 +485,14 @@ func _check_tree_node_icon_centering(nodes_root: Control) -> bool:
 			ok = false
 		if icon.texture != null:
 			var tex_size := icon.texture.get_size()
-			if tex_size != Vector2(16, 16):
+			if tex_size != Vector2(32, 32):
 				print(
-					"FAIL: icon texture should be 16x16 on %s (got %s)"
+					"FAIL: icon texture should be 32x32 on %s (got %s)"
 					% [child.name, tex_size]
 				)
 				ok = false
 	if ok:
-		print("OK: tree node icons centered in 28x28 medallions")
+		print("OK: tree node icons centered in 44x44 medallions")
 	return ok
 
 

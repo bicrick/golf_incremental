@@ -140,10 +140,12 @@ const FLIGHT_BOUNCE_MAX_FORWARD_YARDS: float = 8.0
 const FLIGHT_MAX_REST_DEPTH_YARDS: float = 223.0
 
 ## Screen-space ball flight trail (scripts/visual/ball_flight_trail.gd).
-const FLIGHT_TRAIL_MAX_POINTS := 14
+const FLIGHT_TRAIL_MAX_POINTS := 24
 const FLIGHT_TRAIL_MIN_SAMPLE_PX := 2.0
-const FLIGHT_TRAIL_WIDTH := 2.25
-const FLIGHT_TRAIL_HEAD_ALPHA := 0.55
+const FLIGHT_TRAIL_WIDTH := 3.5
+const FLIGHT_TRAIL_HEAD_ALPHA := 0.75
+## Floor for perspective width scale so far trails stay visible but thin.
+const FLIGHT_TRAIL_MIN_DEPTH_SCALE: float = 0.22
 
 enum TimingTier { PERFECT, GREAT, GOOD, OKAY, BAD, MISS }
 enum ContactFlavor { PURE, SLIGHTLY_FAT, THIN, CHUNK }

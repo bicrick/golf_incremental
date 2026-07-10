@@ -1,11 +1,11 @@
 class_name UpgradeIcon
-## Resolves 16×16 upgrade sprites from upgrade id.
+## Resolves 32×32 upgrade sprites from upgrade id.
 
 const ICON_DIR := "res://assets/sprites/upgrades/"
-const ICON_SIZE := Vector2i(16, 16)
+const ICON_SIZE := Vector2i(32, 32)
 ## Shared medallion size for all upgrade tree nodes.
-const DEFAULT_NODE_SIZE := Vector2(28, 28)
-const NODE_HALF := Vector2(14, 14)
+const DEFAULT_NODE_SIZE := Vector2(44, 44)
+const NODE_HALF := Vector2(22, 22)
 
 static var _cache: Dictionary = {}
 
@@ -32,7 +32,7 @@ static func center_in_node(icon_rect: TextureRect, _node_size: Vector2 = DEFAULT
 	if icon_rect == null:
 		return
 	# PanelContainer expands children to the full content rect. Keep the TextureRect
-	# filling the node and center the 16×16 texture inside it (STRETCH_KEEP paints
+	# filling the node and center the 32×32 texture inside it (STRETCH_KEEP paints
 	# top-left and looks uncentered even when anchors are correct).
 	icon_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	icon_rect.custom_minimum_size = Vector2.ZERO

@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://scripts/ui/upgrade_tree_border.gd" id="3_border"]
 
 [node name="UpgradeTreeNode" type="PanelContainer"]
-custom_minimum_size = Vector2(28, 28)
+custom_minimum_size = Vector2(44, 44)
 offset_right = 28.0
 offset_bottom = 28.0
 script = ExtResource("1_script")

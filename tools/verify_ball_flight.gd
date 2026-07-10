@@ -22,6 +22,7 @@ func _run() -> void:
 	ok = _check_landing_proportional_to_yards() and ok
 	ok = _check_tier_ladder_distance_separation() and ok
 	ok = _check_bounce_runout() and ok
+	ok = _check_bounce_preserves_ground_height() and ok
 	ok = _check_bounce_decay() and ok
 	ok = _check_bounce_path_continuity() and ok
 	ok = _check_bounce_rest_clamped_to_fairway() and ok
@@ -29,6 +30,7 @@ func _run() -> void:
 	ok = await _check_flight_trail() and ok
 	ok = await _check_flight_trail_zoom_anchor() and ok
 	ok = await _check_flight_trail_set_camera() and ok
+	ok = await _check_flight_trail_depth_scale() and ok
 	ok = await _check_hit_poof_anchor() and ok
 	ok = await _check_hit_poof_zoom_compensation() and ok
 	print("ball_flight_ok=", ok)
@@ -300,11 +302,57 @@ func _check_bounce_runout() -> bool:
 				% [yards, rest_depth, carry_depth]
 			)
 			ok = false
-		if absf(path.rest_position.y) > 0.01:
-			print("FAIL: %.0fyd rest position y=%.4f expected ~0" % [yards, path.rest_position.y])
+		if absf(path.rest_position.y - path.landing.y) > 0.01:
+			print(
+				"FAIL: %.0fyd rest y=%.4f should match carry landing y=%.4f"
+				% [yards, path.rest_position.y, path.landing.y]
+			)
 			ok = false
 	if ok:
 		print("OK: litterable carries bounce forward at least twice before resting")
+	return ok
+
+
+## Rest height must match the pre-bounce carry landing (tee Y), not world y=0.
+## Centered billboard litter sinks into the fairway if bounce forces y=0.
+func _check_bounce_preserves_ground_height() -> bool:
+	var ok := true
+	var stats := _maxed_stats()
+	var tee_y := 0.1658142
+	var origin := Vector3(0.64, tee_y, -0.57)
+	var path := BallFlight3D.build_path(
+		80.0, Balance.TimingTier.PERFECT, stats, Balance.ContactFlavor.PURE, origin
+	)
+	if absf(path.landing.y - tee_y) > 0.01:
+		print(
+			"FAIL: carry landing y=%.4f should preserve tee y=%.4f"
+			% [path.landing.y, tee_y]
+		)
+		ok = false
+	if path.bounces.is_empty():
+		print("FAIL: expected bounce runout for elevated-tee carry")
+		ok = false
+	else:
+		for segment in path.bounces:
+			if absf(segment.landing.y - tee_y) > 0.01:
+				print(
+					"FAIL: bounce landing y=%.4f should preserve tee y=%.4f"
+					% [segment.landing.y, tee_y]
+				)
+				ok = false
+				break
+	if absf(path.rest_position.y - tee_y) > 0.01:
+		print(
+			"FAIL: rest y=%.4f should preserve tee y=%.4f (was burying litter)"
+			% [path.rest_position.y, tee_y]
+		)
+		ok = false
+	var rest := BallFlight3D.sample_total(1.0, path)
+	if absf(rest.y - tee_y) > 0.01:
+		print("FAIL: sample_total(1.0) y=%.4f should preserve tee y=%.4f" % [rest.y, tee_y])
+		ok = false
+	if ok:
+		print("OK: bounce rest height matches carry/tee ground height (y=%.3f)" % tee_y)
 	return ok
 
 
@@ -629,6 +677,64 @@ func _check_flight_trail_set_camera() -> bool:
 	trail.finish()
 	if ok:
 		print("OK: flight trail set_camera reprojects under the new camera")
+	return ok
+
+
+## Under perspective, trail width must shrink with depth (tee-anchored), so a
+## far landing sample cannot stay full tee-scale width (the "smudge" bug).
+func _check_flight_trail_depth_scale() -> bool:
+	var ok := true
+	var fx_layer := Node2D.new()
+	root.add_child(fx_layer)
+
+	var camera := Camera3D.new()
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	camera.fov = 70.0
+	camera.position = Vector3(0.24, 1.24, -2.016)
+	camera.rotation_degrees = Vector3(1.2, 3.0, 0.0)
+	root.add_child(camera)
+	await process_frame
+
+	var trail = BallFlightTrailScript.begin(fx_layer, camera, Balance.TimingTier.PERFECT)
+	var tee := Vector3(-0.545, 0.05, -6.395)
+	var far := Vector3(-0.2, 0.5, -120.0)
+	trail.track(tee)
+	# Force a second sample past the min-pixel gate by jumping far down-range.
+	trail.track(far)
+	await process_frame
+
+	if trail.point_count() < 2:
+		print("FAIL: depth-scale trail should keep tee + far samples, got %d" % trail.point_count())
+		ok = false
+	else:
+		var near_scale: float = trail.width_scale_at(0)
+		var far_scale: float = trail.width_scale_at(trail.point_count() - 1)
+		if absf(near_scale - 1.0) > 0.05:
+			print("FAIL: tee width scale %.3f should be ~1.0" % near_scale)
+			ok = false
+		if far_scale >= near_scale:
+			print(
+				"FAIL: far width scale %.3f should be smaller than tee %.3f"
+				% [far_scale, near_scale]
+			)
+			ok = false
+		# Landing must not stay near full width — that's the smudge.
+		if far_scale > 0.55:
+			print(
+				"FAIL: far width scale %.3f still too thick (smudge); expected well below 0.55"
+				% far_scale
+			)
+			ok = false
+		if far_scale < Balance.FLIGHT_TRAIL_MIN_DEPTH_SCALE - 0.001:
+			print(
+				"FAIL: far width scale %.3f below min floor %.3f"
+				% [far_scale, Balance.FLIGHT_TRAIL_MIN_DEPTH_SCALE]
+			)
+			ok = false
+
+	trail.finish()
+	if ok:
+		print("OK: flight trail width shrinks with perspective depth (tee-anchored)")
 	return ok
 
 

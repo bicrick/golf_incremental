@@ -5,9 +5,9 @@ extends RefCounted
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 
-const NODE_SIZE := 28.0
-const RING_SPACING := 72.0
-const MIN_NODE_DISTANCE := 44.0
+const NODE_SIZE := 44.0
+const RING_SPACING := 96.0
+const MIN_NODE_DISTANCE := 68.0
 const RELAX_ITERATIONS := 150
 const SEPARATION_ITERATIONS := 30
 const POST_FIT_SEPARATION_ITERATIONS := 20

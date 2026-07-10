@@ -119,6 +119,7 @@ static func _build_bounces(path: FlightPath) -> void:
 		Balance.FLIGHT_BOUNCE_MAX_FORWARD_YARDS
 	)
 	var start := path.landing
+	var ground_y := path.landing.y
 
 	for i in Balance.FLIGHT_BOUNCE_MAX_COUNT:
 		if apex < Balance.FLIGHT_BOUNCE_MIN_APEX_YARDS or forward <= 0.001:
@@ -140,8 +141,10 @@ static func _build_bounces(path: FlightPath) -> void:
 		segment.velocity0 = Vector3(
 			direction.x * h_speed, v_y, direction.z * h_speed
 		)
+		# Keep the carry's ground height (tee Y), not world y=0 — litter sprites
+		# are centered billboards, so dropping to 0 buries them in the fairway.
 		segment.landing = start + direction * travel
-		segment.landing.y = 0.0
+		segment.landing.y = ground_y
 		path.bounces.append(segment)
 
 		path.total_time += segment.duration
@@ -150,6 +153,7 @@ static func _build_bounces(path: FlightPath) -> void:
 		forward *= Balance.FLIGHT_BOUNCE_DISTANCE_DECAY
 
 	path.rest_position = start
+	path.rest_position.y = ground_y
 
 
 ## Sample world position at elapsed time `t` (seconds) into the flight.
