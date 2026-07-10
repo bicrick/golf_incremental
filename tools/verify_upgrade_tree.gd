@@ -4,6 +4,9 @@ extends SceneTree
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 const RadialTreeLayout = preload("res://scripts/ui/upgrade_tree_layout.gd")
+const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
+const UpgradeTreeConnectors = preload("res://scripts/ui/upgrade_tree_connectors.gd")
+const UpgradeIcon = preload("res://scripts/ui/upgrade_icon.gd")
 
 
 func _initialize() -> void:
@@ -33,6 +36,21 @@ func _run() -> void:
 	if UpgradeGraph.connections().size() != 22:
 		print("FAIL: expected 22 graph connections, got ", UpgradeGraph.connections().size())
 		ok = false
+
+	var icon_assets_ok := true
+	for node_def in UpgradeGraph.all_nodes():
+		var id: String = node_def.get("id", "")
+		var icon_path := UpgradeIcon.path_for(id)
+		if not ResourceLoader.exists(icon_path):
+			print("FAIL: missing upgrade icon for %s at %s" % [id, icon_path])
+			ok = false
+			icon_assets_ok = false
+		elif UpgradeIcon.load_texture(id) == null:
+			print("FAIL: could not load upgrade icon for %s" % id)
+			ok = false
+			icon_assets_ok = false
+	if icon_assets_ok:
+		print("OK: all %d upgrade icon assets present" % UpgradeGraph.all_nodes().size())
 
 	var layout_a := RadialTreeLayout.compute_positions()
 	var layout_b := RadialTreeLayout.compute_positions()
@@ -147,8 +165,7 @@ func _run() -> void:
 		print("FAIL: UpgradePanel missing from main")
 		ok = false
 	else:
-		gs.upgrade_levels = {}
-		gs._recompute_stats()
+		_reset_tree_progress(gs)
 		panel.open()
 		await process_frame
 		await process_frame
@@ -188,13 +205,23 @@ func _run() -> void:
 			print("FAIL: expected 23 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
+		ok = _check_tree_node_icons(nodes_root) and ok
+		ok = _check_tree_node_icon_centering(nodes_root) and ok
+		ok = _check_branch_stroke_palettes() and ok
+		ok = _check_ratina_pink_palette() and ok
+
 		ok = _check_tree_pan(panel) and ok
 		ok = await _check_purchase_after_pan(gs, panel) and ok
 		ok = await _check_purchase_spam(gs, panel) and ok
 		ok = await _check_currency_format(panel) and ok
+		ok = _check_animated_connectors(panel, gs) and ok
 
 		panel.close()
 		await process_frame
+		var connectors_closed: Control = panel.get_node("Content/TreeViewport/TreeWorld/Connectors")
+		if connectors_closed != null and connectors_closed.is_processing():
+			print("FAIL: connectors should stop processing when panel closes")
+			ok = false
 		if not range_view.visible:
 			print("FAIL: range view should restore after closing upgrade view")
 			ok = false
@@ -312,6 +339,166 @@ func _check_currency_format(panel: Control) -> bool:
 		print("FAIL: Header should draw after TreeViewport so tree scrolls underneath")
 		return false
 	print("OK: currency format shows cents below $1K")
+	return true
+
+
+func _check_animated_connectors(panel: Control, gs: Node) -> bool:
+	var connectors: Control = panel.get_node_or_null("Content/TreeViewport/TreeWorld/Connectors")
+	if connectors == null:
+		print("FAIL: Connectors node missing")
+		return false
+	if connectors.get_script() == null:
+		print("FAIL: Connectors should have upgrade_tree_connectors script")
+		return false
+	if not connectors.has_method("set_animating") or not connectors.has_method("get_phase"):
+		print("FAIL: Connectors missing animation API")
+		return false
+	if not connectors.is_processing():
+		print("FAIL: connectors should process while panel is open")
+		return false
+	var phase_a: float = connectors.get_phase()
+	# Advance shared phase the same way connectors do each frame.
+	UpgradeTreeStroke.advance_phase(0.05)
+	var phase_b: float = UpgradeTreeStroke.get_phase()
+	if phase_b <= phase_a:
+		print("FAIL: stroke phase should advance (a=%.3f b=%.3f)" % [phase_a, phase_b])
+		return false
+
+	gs.upgrade_levels = {}
+	gs.shop_levels = {}
+	gs._recompute_stats()
+	var dormant := UpgradeTreeConnectors.resolve_edge_state("distance_pay")
+	if dormant != UpgradeTreeStroke.EdgeState.DORMANT:
+		print("FAIL: distance_pay edge should be DORMANT before unlock, got ", dormant)
+		return false
+
+	gs.currency = 500.0
+	gs.upgrade_levels = {"base_pay": 1}
+	gs._recompute_stats()
+	var charged := UpgradeTreeConnectors.resolve_edge_state("distance_pay")
+	if charged != UpgradeTreeStroke.EdgeState.CHARGED:
+		print("FAIL: distance_pay edge should be CHARGED when affordable, got ", charged)
+		return false
+
+	gs.currency = 0.0
+	var live := UpgradeTreeConnectors.resolve_edge_state("distance_pay")
+	if live != UpgradeTreeStroke.EdgeState.LIVE:
+		print("FAIL: distance_pay edge should be LIVE when unlocked but unaffordable, got ", live)
+		return false
+
+	var def := UpgradeGraph.get_def("distance_pay")
+	var distance_branch := int(def.get("branch", Balance.UpgradeBranch.BASE_PAY))
+	if distance_branch != Balance.UpgradeBranch.POWER:
+		print("FAIL: distance_pay should be POWER branch for stroke color")
+		return false
+	var power_palette := UpgradeTreeStroke.palette_for_branch(Balance.UpgradeBranch.POWER)
+	var charged_style := UpgradeTreeStroke.edge_style(
+		UpgradeTreeStroke.EdgeState.CHARGED,
+		Balance.UpgradeBranch.POWER
+	)
+	if charged_style["color"] != power_palette["charged"]:
+		print("FAIL: POWER charged edge color mismatch")
+		return false
+
+	var max_level := int(def.get("max_level", 1))
+	gs.upgrade_levels = {"base_pay": 1, "distance_pay": max_level}
+	gs._recompute_stats()
+	var complete := UpgradeTreeConnectors.resolve_edge_state("distance_pay")
+	if complete != UpgradeTreeStroke.EdgeState.COMPLETE:
+		print("FAIL: distance_pay edge should be COMPLETE when maxed, got ", complete)
+		return false
+
+	var sample_node: Node = panel.get_node("Content/TreeViewport/TreeWorld/Nodes").get_child(0)
+	if sample_node.get_node_or_null("BorderOverlay") == null:
+		print("FAIL: tree nodes should have BorderOverlay")
+		return false
+
+	print("OK: animated connectors + border overlays")
+	return true
+
+
+func _check_tree_node_icons(nodes_root: Control) -> bool:
+	var ok := true
+	for child in nodes_root.get_children():
+		var icon: Node = child.get_node_or_null("ShapeIcon")
+		if icon == null or not icon is TextureRect:
+			print("FAIL: tree node %s missing ShapeIcon TextureRect" % child.name)
+			ok = false
+			continue
+		if (icon as TextureRect).texture == null:
+			print("FAIL: tree node %s has no icon texture after setup" % child.name)
+			ok = false
+	if ok:
+		print("OK: all tree nodes have upgrade icon textures")
+	return ok
+
+
+func _check_branch_stroke_palettes() -> bool:
+	var ok := true
+	var required_keys := ["dormant", "live", "charged", "complete", "glow", "base"]
+	for branch in [
+		Balance.UpgradeBranch.BASE_PAY,
+		Balance.UpgradeBranch.POWER,
+		Balance.UpgradeBranch.QUALITY,
+		Balance.UpgradeBranch.PICKUP,
+	]:
+		var palette: Dictionary = UpgradeTreeStroke.palette_for_branch(branch)
+		for key in required_keys:
+			if not palette.has(key):
+				print("FAIL: branch %d palette missing key %s" % [branch, key])
+				ok = false
+	if ok:
+		print("OK: branch stroke palettes cover BASE_PAY/POWER/QUALITY/PICKUP")
+	return ok
+
+
+func _check_tree_node_icon_centering(nodes_root: Control) -> bool:
+	var ok := true
+	var node_center := Vector2(19.0, 19.0)
+	for child in nodes_root.get_children():
+		var icon: TextureRect = child.get_node_or_null("ShapeIcon") as TextureRect
+		if icon == null:
+			continue
+		if icon.stretch_mode != TextureRect.STRETCH_KEEP_CENTERED:
+			print(
+				"FAIL: icon stretch_mode should be KEEP_CENTERED on %s (got %d)"
+				% [child.name, icon.stretch_mode]
+			)
+			ok = false
+		var icon_center := icon.position + icon.size * 0.5
+		if not icon_center.is_equal_approx(node_center):
+			print(
+				"FAIL: icon rect off-center on %s (center=%s expected=%s)"
+				% [child.name, icon_center, node_center]
+			)
+			ok = false
+		if icon.texture != null:
+			var tex_size := icon.texture.get_size()
+			if tex_size != Vector2(16, 16):
+				print(
+					"FAIL: icon texture should be 16x16 on %s (got %s)"
+					% [child.name, tex_size]
+				)
+				ok = false
+	if ok:
+		print("OK: tree node icons centered in 38x38 nodes")
+	return ok
+
+
+func _check_ratina_pink_palette() -> bool:
+	var hire_palette := UpgradeTreeStroke.palette_for_upgrade("ratina_hire")
+	var base_palette := UpgradeTreeStroke.palette_for_upgrade("ratina_base_pay")
+	var player_palette := UpgradeTreeStroke.palette_for_upgrade("base_pay")
+	if hire_palette["charged"] == player_palette["charged"]:
+		print("FAIL: ratina_hire should use pink palette, not Base Pay gold")
+		return false
+	if base_palette["charged"] != hire_palette["charged"]:
+		print("FAIL: Ratina subtree should share pink palette with ratina_hire")
+		return false
+	if not UpgradeTreeStroke.is_ratina_upgrade("ratina_hire"):
+		print("FAIL: ratina_hire should be detected as Ratina upgrade")
+		return false
+	print("OK: Ratina upgrades use pink stroke palette")
 	return true
 
 
@@ -448,6 +635,14 @@ func _parse_mouse_button_test(position: Vector2, pressed: bool) -> void:
 	event.position = position
 	event.global_position = position
 	Input.parse_input_event(event)
+
+
+func _reset_tree_progress(gs: Node) -> void:
+	gs.upgrade_levels = {}
+	gs.shop_levels = {}
+	gs.ratina_upgrade_levels = {}
+	gs.rattling_upgrade_levels = {}
+	gs._recompute_stats()
 
 
 func _count_visible_nodes(nodes_root: Control) -> int:

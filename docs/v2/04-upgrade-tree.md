@@ -6,7 +6,16 @@
 
 All progression lives in one **pannable, zoomable radial mega-tree** — player upgrades, shop items (ball count, golden balls), Ratina hire + subtree, and Rattlings hire + subtree. No separate shop panel or tabs.
 
-Barebones **colored polygon nodes** per branch.
+Nodes use custom **16×16 pixel-art icons** (`assets/sprites/upgrades/<upgrade_id>.png`, nearest filter) centered in **38×38** node chrome with **drawn stroke borders** that match connector language. Icons fill the node rect with `STRETCH_KEEP_CENTERED` so the sprite sits in the middle (PanelContainer expands children; top-left stretch looked uncentered). Nodes are icon-only — level, cost, and effect preview appear in the hover tooltip. Edges and borders share dash widths so they scale together under TreeWorld pan/zoom.
+
+**Stroke colors** (borders use the node's palette; connector edges use the target child's palette):
+- **Base Pay** — warm gold
+- **Power** — warm red
+- **Quality** (tempo, sweet spot, metronome) — teal-blue
+- **Pickup** — green
+- **Ratina** (hire + Ratina subtree) — pink
+
+**Edge states:** dormant (target locked) → live marching dashes (unlocked) → charged faster flow + glow (purchasable) → complete slow shimmer (maxed). **Border states** mirror the node: dim branch color when locked, steady branch base when unlocked, animated dash orbit when purchasable, saturated steady glow when maxed.
 
 ## Fan-out structure
 

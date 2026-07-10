@@ -165,6 +165,18 @@ func _run() -> void:
 				ok = false
 			else:
 				print("OK: IncomeStack prepends +$ row")
+		# Spam past MAX_ROWS must not hang (queue_free alone does not drop child count).
+		for i in 12:
+			event_bus.pickup_payout.emit(0.1 + float(i) * 0.01, 1)
+		await process_frame
+		if stack.get_child_count() > 5:
+			print(
+				"FAIL: IncomeStack should cap at 5 rows after spam, got %d"
+				% stack.get_child_count()
+			)
+			ok = false
+		else:
+			print("OK: IncomeStack caps at %d rows under spam" % stack.get_child_count())
 
 	print("hud_layout_ok=", ok)
 	quit(0 if ok else 1)

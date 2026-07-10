@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://ratina_tree_node"]
 
 [ext_resource type="Script" path="res://scripts/ui/ratina_tree_node.gd" id="1_script"]
-[ext_resource type="Script" path="res://scripts/ui/upgrade_node_shape.gd" id="2_shape"]
+[ext_resource type="Script" path="res://scripts/ui/upgrade_tree_border.gd" id="3_border"]
 
 [node name="RatinaTreeNode" type="PanelContainer"]
 custom_minimum_size = Vector2(38, 38)
@@ -17,28 +17,24 @@ offset_bottom = 38.0
 mouse_filter = 2
 color = Color(1, 0.86, 0.25, 0)
 
-[node name="ShapeIcon" type="Control" parent="."]
+[node name="BorderOverlay" type="Control" parent="."]
 layout_mode = 0
-offset_left = 13.0
-offset_top = 7.0
-offset_right = 25.0
-offset_bottom = 19.0
+offset_right = 38.0
+offset_bottom = 38.0
 mouse_filter = 2
-script = ExtResource("2_shape")
+script = ExtResource("3_border")
 
-[node name="FooterLabel" type="Label" parent="."]
-layout_mode = 0
-offset_left = 1.0
-offset_top = 26.0
-offset_right = 37.0
-offset_bottom = 37.0
+[node name="ShapeIcon" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.92, 0.86, 0.72, 1)
-theme_override_font_sizes/font_size = 6
-text = "L0"
-horizontal_alignment = 1
-vertical_alignment = 1
-clip_text = true
+expand_mode = 1
+stretch_mode = 3
+texture_filter = 0
 
 [node name="TooltipPanel" type="PanelContainer" parent="."]
 visible = false

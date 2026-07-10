@@ -8,8 +8,6 @@ const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
 const RATINA_NODE_SCENE := preload("res://scenes/ui/ratina_tree_node.tscn")
 const RATTLING_NODE_SCENE := preload("res://scenes/ui/rattling_tree_node.tscn")
 
-const COLOR_LINE := Color(0.55, 0.48, 0.32, 0.85)
-const COLOR_LINE_LOCKED := Color(0.35, 0.32, 0.28, 0.5)
 const NODE_HALF := Vector2(19, 19)
 const BOUNDS_PADDING := 24.0
 const FIT_PADDING := 56.0
@@ -64,6 +62,8 @@ func open() -> void:
 	_is_open = true
 	visible = true
 	_camera_controller.set_enabled(true)
+	if connectors.has_method("set_animating"):
+		connectors.set_animating(true)
 	call_deferred("fit_to_view")
 	_refresh_all()
 	_notify_icon_bar(true)
@@ -74,6 +74,8 @@ func close() -> void:
 	_is_open = false
 	visible = false
 	_camera_controller.set_enabled(false)
+	if connectors.has_method("set_animating"):
+		connectors.set_animating(false)
 	_notify_icon_bar(false)
 	EventBus.ui_panel_toggled.emit("upgrades", false)
 
@@ -123,7 +125,8 @@ func _build_tree() -> void:
 		node.purchase_requested.connect(_on_purchase_requested)
 		_nodes[id] = node
 
-	connectors.draw.connect(_draw_connectors)
+	if connectors.has_method("setup"):
+		connectors.setup(_layout_positions, _nodes)
 	_apply_tree_bounds(_layout_bounds(), BOUNDS_PADDING)
 
 
@@ -175,6 +178,7 @@ func _on_currency_changed(currency: float) -> void:
 	if not _is_open:
 		return
 	currency_label.text = "$%s" % _format_currency(currency)
+	_request_refresh()
 
 
 func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
@@ -195,48 +199,6 @@ func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
 
 func _on_rattling_upgrade_purchased(_id: String, _level: int) -> void:
 	_request_refresh()
-
-
-func _draw_connectors() -> void:
-	for link in UpgradeGraph.connections():
-		var from_id: String = link["from"]
-		var to_id: String = link["to"]
-		if not _layout_positions.has(from_id) or not _layout_positions.has(to_id):
-			continue
-		if not UpgradeGraph.is_revealed(from_id) or not UpgradeGraph.is_revealed(to_id):
-			continue
-		var from_center: Vector2 = _layout_positions[from_id]
-		var to_center: Vector2 = _layout_positions[to_id]
-		var from_point: Vector2 = _rect_edge_point(from_center, to_center, NODE_HALF)
-		var to_point: Vector2 = _rect_edge_point(to_center, from_center, NODE_HALF)
-		var unlocked := UpgradeGraph.is_unlocked(to_id)
-		var color := COLOR_LINE if unlocked else COLOR_LINE_LOCKED
-		connectors.draw_line(from_point, to_point, color, 1.5)
-
-
-func _rect_edge_point(center: Vector2, toward: Vector2, half: Vector2) -> Vector2:
-	var delta: Vector2 = toward - center
-	if delta.length_squared() < 1.0:
-		return center
-	var dir: Vector2 = delta.normalized()
-	var t_min := INF
-	if absf(dir.x) > 0.0001:
-		for edge_x in [-half.x, half.x]:
-			var t: float = edge_x / dir.x
-			if t > 0.0:
-				var y: float = dir.y * t
-				if absf(y) <= half.y:
-					t_min = minf(t_min, t)
-	if absf(dir.y) > 0.0001:
-		for edge_y in [-half.y, half.y]:
-			var t: float = edge_y / dir.y
-			if t > 0.0:
-				var x: float = dir.x * t
-				if absf(x) <= half.x:
-					t_min = minf(t_min, t)
-	if t_min == INF:
-		return center
-	return center + dir * t_min * 0.96
 
 
 func _layout_bounds(revealed_only: bool = false) -> Rect2:

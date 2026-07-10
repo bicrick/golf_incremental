@@ -203,6 +203,8 @@ static func is_revealed(id: String) -> bool:
 	var parent: String = parent_id(id)
 	if parent.is_empty():
 		return true
+	if not is_revealed(parent):
+		return false
 	return level(parent) >= 1
 
 

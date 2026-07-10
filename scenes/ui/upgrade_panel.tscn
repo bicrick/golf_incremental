@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://upgrade_panel"]
+[gd_scene load_steps=5 format=3 uid="uid://upgrade_panel"]
 
 [ext_resource type="Script" path="res://scripts/ui/upgrade_panel.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/ui/parallax_sky_background.gd" id="2_sky_bg"]
 [ext_resource type="Script" path="res://scripts/ui/upgrade_tree_camera_controller.gd" id="3_camera"]
+[ext_resource type="Script" path="res://scripts/ui/upgrade_tree_connectors.gd" id="4_connectors"]
 
 [node name="UpgradePanel" type="Control"]
 layout_mode = 3
@@ -58,6 +59,7 @@ layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
 mouse_filter = 2
+script = ExtResource("4_connectors")
 
 [node name="Nodes" type="Control" parent="Content/TreeViewport/TreeWorld"]
 layout_mode = 0

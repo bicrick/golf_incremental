@@ -2,6 +2,7 @@ extends PanelContainer
 ## Compact square node — icon-dominant; price shown in tooltip only.
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
+const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
 
 signal purchase_requested(upgrade_id: String)
 
@@ -10,38 +11,12 @@ enum NodeState { LOCKED, UNAFFORDABLE, PURCHASABLE, MAXED }
 const TooltipText := preload("res://scripts/ui/upgrade_tooltip_text.gd")
 
 const NODE_SIZE := Vector2(38, 38)
-const ICON_SIZE := Vector2(12, 12)
-const FONT_SIZE := 6
 const TOOLTIP_DELAY_SEC := 0.08
 const TOOLTIP_MAX_WIDTH := 150
 const TOOLTIP_GAP := 5
 const TOOLTIP_EDGE_MARGIN := 4
 
-const SHORT_NAMES: Dictionary = {
-	"base_pay": "PAY",
-	"quality": "SWT",
-	"pickup": "PKP",
-	"distance_pay": "YRD",
-	"iron_set": "RAW",
-	"metronome": "MET",
-	"perfect_pop": "POP",
-	"quick_reset": "RST",
-	"combo_bonus": "CMB",
-	"range_picker": "RPK",
-	"ratina_hire": "RAT",
-	"ball_count": "BLL",
-	"golden_ball": "GLD",
-}
-
 const COLOR_BG := Color(0.18, 0.15, 0.12, 0.92)
-const COLOR_BORDER := Color(0.55, 0.45, 0.28, 1)
-const COLOR_BORDER_AFFORD := Color(0.95, 0.82, 0.35, 1)
-const COLOR_BORDER_GLOW := Color(1.0, 0.92, 0.45, 1)
-const COLOR_BORDER_LOCKED := Color(0.35, 0.32, 0.28, 0.8)
-const COLOR_BORDER_MAXED := Color(0.82, 0.68, 0.28, 1)
-const COLOR_GLOW := Color(1.0, 0.86, 0.25, 1.0)
-const COLOR_TEXT_DIM := Color(0.55, 0.5, 0.42, 1)
-const COLOR_TEXT_GOLD := Color(1.0, 0.9, 0.45, 1)
 const TOOLTIP_BG := Color(0.08, 0.11, 0.06, 0.96)
 const TOOLTIP_BORDER := Color(0.78, 0.66, 0.28, 1)
 const TOOLTIP_NAME := Color(1.0, 0.9, 0.45, 1)
@@ -55,12 +30,11 @@ const MODULATE_MAXED := Color(1.0, 0.92, 0.62, 1.0)
 
 var upgrade_id: String = ""
 var _namespace: String = UpgradeGraph.NAMESPACE_PLAYER
+var _branch: int = Balance.UpgradeBranch.BASE_PAY
 
 var _state: NodeState = NodeState.LOCKED
 var _hovering := false
 var _glow_phase := 0.0
-var _glow_border_wide := false
-var _base_footer_text := ""
 var _panel_style: StyleBoxFlat
 var _tooltip_def: Dictionary = {}
 var _tooltip_level := 0
@@ -71,8 +45,8 @@ var _tooltip_affordable := false
 
 @onready var _button: Button = $HitButton
 @onready var _glow: ColorRect = $GlowOverlay
-@onready var _shape_icon: Control = $ShapeIcon
-@onready var _footer_label: Label = $FooterLabel
+@onready var _border: Control = $BorderOverlay
+@onready var _shape_icon: TextureRect = $ShapeIcon
 @onready var _tooltip_panel: PanelContainer = $TooltipPanel
 @onready var _tooltip_name: Label = $TooltipPanel/Margin/VBox/NameLabel
 @onready var _tooltip_desc: Label = $TooltipPanel/Margin/VBox/DescLabel
@@ -88,13 +62,11 @@ func _ready() -> void:
 	_button.mouse_entered.connect(_on_mouse_entered)
 	_button.mouse_exited.connect(_on_mouse_exited)
 	_button.tooltip_text = ""
-	PixelFont.apply_label(_footer_label, FONT_SIZE)
 	PixelFont.apply_label(_tooltip_name, 7)
 	PixelFont.apply_label(_tooltip_desc, 6)
 	PixelFont.apply_label(_tooltip_level_label, 6)
 	PixelFont.apply_label(_tooltip_price_label, 6)
 	_ensure_panel_style()
-	_style_panel(COLOR_BORDER, 1)
 	_tooltip_timer.wait_time = TOOLTIP_DELAY_SEC
 	_tooltip_timer.timeout.connect(_on_tooltip_timer_timeout)
 	_style_tooltip_panel()
@@ -103,9 +75,8 @@ func _ready() -> void:
 func setup(def: Dictionary, node_namespace: String = UpgradeGraph.NAMESPACE_PLAYER) -> void:
 	upgrade_id = def["id"]
 	_namespace = node_namespace
-	if _shape_icon:
-		_shape_icon.branch = int(def.get("branch", Balance.UpgradeBranch.BASE_PAY))
-		_shape_icon.queue_redraw()
+	_branch = int(def.get("branch", Balance.UpgradeBranch.BASE_PAY))
+	UpgradeIcon.configure(_shape_icon, upgrade_id, NODE_SIZE)
 	refresh()
 
 
@@ -122,7 +93,6 @@ func refresh() -> void:
 	var cost := UpgradeGraph.cost(upgrade_id)
 	var maxed := level >= max_level
 	var affordable := unlocked and not maxed and GameState.currency >= cost
-	var short_name: String = SHORT_NAMES.get(upgrade_id, def["display_name"].substr(0, 3))
 
 	if maxed:
 		_state = NodeState.MAXED
@@ -133,8 +103,6 @@ func refresh() -> void:
 	else:
 		_state = NodeState.UNAFFORDABLE
 
-	_base_footer_text = _footer_text(def, level, maxed, unlocked, short_name)
-
 	_tooltip_def = def
 	_tooltip_level = level
 	_tooltip_cost = cost
@@ -143,7 +111,6 @@ func refresh() -> void:
 	_tooltip_affordable = affordable
 
 	_apply_visual_state()
-	_footer_label.text = _base_footer_text
 	_button.disabled = _state == NodeState.LOCKED or _state == NodeState.MAXED
 	if _tooltip_panel.visible:
 		_update_tooltip_content()
@@ -155,12 +122,8 @@ func _process(delta: float) -> void:
 		return
 	_glow_phase += delta * 4.0
 	var pulse := 0.5 + 0.5 * sin(_glow_phase)
-	_glow.color = Color(COLOR_GLOW.r, COLOR_GLOW.g, COLOR_GLOW.b, lerpf(0.06, 0.2, pulse))
-	var wide := pulse > 0.65
-	if wide != _glow_border_wide:
-		_glow_border_wide = wide
-		var border_color := COLOR_BORDER_AFFORD.lerp(COLOR_BORDER_GLOW, pulse)
-		_style_panel(border_color, 2 if wide else 1)
+	var glow_base := UpgradeTreeStroke.glow_color_for_upgrade(upgrade_id)
+	_glow.color = Color(glow_base.r, glow_base.g, glow_base.b, lerpf(0.06, 0.2, pulse))
 
 
 func get_center() -> Vector2:
@@ -187,19 +150,6 @@ func _on_pressed() -> void:
 	if upgrade_id.is_empty():
 		return
 	purchase_requested.emit(upgrade_id)
-
-
-func _footer_text(def: Dictionary, level: int, maxed: bool, unlocked: bool, short_name: String) -> String:
-	if not unlocked and level <= 0:
-		return short_name
-	var compact: String = TooltipText.compact_stat(def, level, _levels_for_namespace(), _preview_for_namespace())
-	if maxed:
-		return "MAX" if compact.is_empty() else "MAX·%s" % compact
-	if level <= 0:
-		return short_name
-	if compact.is_empty():
-		return "L%d" % level
-	return "L%d·%s" % [level, compact]
 
 
 func _update_tooltip_content() -> void:
@@ -285,33 +235,27 @@ func _tooltip_bounds_rect() -> Rect2:
 func _apply_visual_state() -> void:
 	_glow.visible = _state == NodeState.PURCHASABLE
 	set_process(_state == NodeState.PURCHASABLE)
-	if _state == NodeState.PURCHASABLE:
-		_glow_border_wide = false
 
 	match _state:
 		NodeState.PURCHASABLE:
 			modulate = Color.WHITE
 			_shape_icon.modulate = Color.WHITE
-			_footer_label.add_theme_color_override(&"font_color", COLOR_TEXT_GOLD)
-			_style_panel(COLOR_BORDER_AFFORD, 1)
+			_configure_border(UpgradeTreeStroke.BorderState.AFFORD, true, true)
 		NodeState.MAXED:
-			_glow.color = Color(COLOR_GLOW.r, COLOR_GLOW.g, COLOR_GLOW.b, 0.0)
+			_glow.color = Color(0, 0, 0, 0)
 			modulate = MODULATE_MAXED
 			_shape_icon.modulate = MODULATE_MAXED
-			_footer_label.add_theme_color_override(&"font_color", COLOR_TEXT_GOLD)
-			_style_panel(COLOR_BORDER_MAXED, 1)
+			_configure_border(UpgradeTreeStroke.BorderState.MAXED, false, true)
 		NodeState.LOCKED:
-			_glow.color = Color(COLOR_GLOW.r, COLOR_GLOW.g, COLOR_GLOW.b, 0.0)
+			_glow.color = Color(0, 0, 0, 0)
 			modulate = MODULATE_LOCKED
 			_shape_icon.modulate = MODULATE_LOCKED
-			_footer_label.add_theme_color_override(&"font_color", COLOR_TEXT_DIM)
-			_style_panel(COLOR_BORDER_LOCKED, 1)
+			_configure_border(UpgradeTreeStroke.BorderState.LOCKED, false, false)
 		NodeState.UNAFFORDABLE:
-			_glow.color = Color(COLOR_GLOW.r, COLOR_GLOW.g, COLOR_GLOW.b, 0.0)
+			_glow.color = Color(0, 0, 0, 0)
 			modulate = MODULATE_UNAFFORDABLE
 			_shape_icon.modulate = MODULATE_UNAFFORDABLE
-			_footer_label.add_theme_color_override(&"font_color", COLOR_TEXT_DIM)
-			_style_panel(COLOR_BORDER, 1)
+			_configure_border(UpgradeTreeStroke.BorderState.DEFAULT, false, false)
 
 
 func _style_tooltip_panel() -> void:
@@ -350,13 +294,11 @@ func _hide_tooltip() -> void:
 	_tooltip_panel.visible = false
 
 
-func _style_panel(border_color: Color, border_width: int = 1) -> void:
-	_ensure_panel_style()
-	_panel_style.border_width_left = border_width
-	_panel_style.border_width_top = border_width
-	_panel_style.border_width_right = border_width
-	_panel_style.border_width_bottom = border_width
-	_panel_style.border_color = border_color
+func _configure_border(border_state: UpgradeTreeStroke.BorderState, animated: bool, with_glow: bool) -> void:
+	if _border and _border.has_method("configure"):
+		var border_color := UpgradeTreeStroke.border_color_for_upgrade(upgrade_id, border_state)
+		var glow_color := UpgradeTreeStroke.glow_color_for_upgrade(upgrade_id)
+		_border.configure(border_color, animated, with_glow, glow_color)
 
 
 func _ensure_panel_style() -> void:
@@ -364,14 +306,18 @@ func _ensure_panel_style() -> void:
 		return
 	_panel_style = StyleBoxFlat.new()
 	_panel_style.bg_color = COLOR_BG
+	_panel_style.border_width_left = 0
+	_panel_style.border_width_top = 0
+	_panel_style.border_width_right = 0
+	_panel_style.border_width_bottom = 0
 	_panel_style.corner_radius_top_left = 2
 	_panel_style.corner_radius_top_right = 2
 	_panel_style.corner_radius_bottom_left = 2
 	_panel_style.corner_radius_bottom_right = 2
-	_panel_style.content_margin_left = 1
-	_panel_style.content_margin_top = 1
-	_panel_style.content_margin_right = 1
-	_panel_style.content_margin_bottom = 1
+	_panel_style.content_margin_left = 0
+	_panel_style.content_margin_top = 0
+	_panel_style.content_margin_right = 0
+	_panel_style.content_margin_bottom = 0
 	add_theme_stylebox_override(&"panel", _panel_style)
 
 
