@@ -118,6 +118,24 @@ const FAIRWAY_HALF_WIDTH_YARDS: float = 15.0
 const FLIGHT_TIME_MIN_SEC: float = 0.30
 const FLIGHT_TIME_MAX_SEC: float = 3.2
 
+## --- Landing bounces — carry ends, then the ball skips forward before resting ---
+## First bounce apex as a fraction of the carry arc's apex height.
+const FLIGHT_BOUNCE_APEX_RATIO: float = 0.12
+## First bounce forward travel as a fraction of carry yards.
+const FLIGHT_BOUNCE_DISTANCE_RATIO: float = 0.045
+## Per-bounce decay applied to apex / forward travel for each subsequent bounce.
+const FLIGHT_BOUNCE_APEX_DECAY: float = 0.35
+const FLIGHT_BOUNCE_DISTANCE_DECAY: float = 0.45
+const FLIGHT_BOUNCE_MAX_COUNT: int = 3
+## Bounces below this apex are dropped — the ball just settles where it is.
+const FLIGHT_BOUNCE_MIN_APEX_YARDS: float = 0.05
+## Caps so monster carries don't produce skyscraper hops or endless runout.
+const FLIGHT_BOUNCE_MAX_APEX_YARDS: float = 4.0
+const FLIGHT_BOUNCE_MAX_FORWARD_YARDS: float = 8.0
+## Total runout clamp — the rest position never passes the fairway's far edge
+## (fairway ground mesh is 224 yards deep; keep litter on the grass).
+const FLIGHT_MAX_REST_DEPTH_YARDS: float = 223.0
+
 ## Screen-space ball flight trail (scripts/visual/ball_flight_trail.gd).
 const FLIGHT_TRAIL_MAX_POINTS := 14
 const FLIGHT_TRAIL_MIN_SAMPLE_PX := 2.0

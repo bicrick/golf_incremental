@@ -36,6 +36,7 @@ var _contact_fired := false
 var _pending_swing := false
 var _flight_trail = null
 var _flight_tween: Tween
+var _flight_with_bounces := false
 var _fade_tween: Tween
 var _debug_mode := false
 
@@ -466,7 +467,13 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 		tee_world
 	)
 
+	# Litter shots get the bounce runout; past-horizon shots vanish at carry
+	# touchdown as before.
+	var will_litter := path.visual_yards <= Balance.VANISH_DISTANCE_YARDS
+	var animate_time := path.total_time if will_litter else path.flight_time
+
 	_ball_in_flight = true
+	_flight_with_bounces = will_litter
 	if _flight_trail:
 		_flight_trail.finish()
 		_flight_trail = null
@@ -485,14 +492,14 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 	_ball.play(&"roll")
 	_ball.sprite_frames.set_animation_speed(
 		&"roll",
-		float(DinkySpriteFramesScript.BALL_ROLL_FRAME_COUNT) / path.flight_time
+		float(DinkySpriteFramesScript.BALL_ROLL_FRAME_COUNT) / animate_time
 	)
 
 	_flight_tween = create_tween()
-	_flight_tween.tween_method(_apply_flight_sample.bind(path), 0.0, 1.0, path.flight_time)\
+	_flight_tween.tween_method(_apply_flight_sample.bind(path), 0.0, 1.0, animate_time)\
 		.set_trans(Tween.TRANS_LINEAR)
 	_flight_tween.chain().tween_callback(func():
-		var landing := BallFlight3DScript.sample(1.0, path)
+		var landing := path.rest_position if will_litter else BallFlight3DScript.sample(1.0, path)
 		_ball_in_flight = false
 		_ball.visible = false
 		if _flight_trail:
@@ -517,7 +524,10 @@ func _resolve_landing(landing: Vector3, quality: int, yards: float, visual_yards
 
 
 func _apply_flight_sample(progress: float, path: BallFlight3D.FlightPath) -> void:
-	_ball.global_position = BallFlight3DScript.sample(progress, path)
+	if _flight_with_bounces:
+		_ball.global_position = BallFlight3DScript.sample_total(progress, path)
+	else:
+		_ball.global_position = BallFlight3DScript.sample(progress, path)
 	if _flight_trail:
 		_flight_trail.track(_ball.global_position)
 

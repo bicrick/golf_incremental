@@ -77,9 +77,20 @@ Constants in `balance.gd` (implemented):
 
 `BallFlight3D` derives flight time from the apex height physics (`t = 2·v_y0/g`), then clamps to `Balance.FLIGHT_TIME_MIN_SEC`/`FLIGHT_TIME_MAX_SEC` for arcade pacing — scales naturally with visual distance since higher apex (farther shots) takes longer.
 
+## Landing bounces (runout)
+
+Balls don't carry-and-stick. After carry touchdown, `BallFlight3D._build_bounces()` appends up to `Balance.FLIGHT_BOUNCE_MAX_COUNT` decaying mini-arcs (`FlightPath.bounces`) using the same projectile math:
+
+- First bounce apex = carry apex × `FLIGHT_BOUNCE_APEX_RATIO`, forward travel = carry yards × `FLIGHT_BOUNCE_DISTANCE_RATIO`; both capped (`FLIGHT_BOUNCE_MAX_APEX_YARDS` / `FLIGHT_BOUNCE_MAX_FORWARD_YARDS`) so long carries don't produce skyscraper hops.
+- Each subsequent bounce decays by `FLIGHT_BOUNCE_APEX_DECAY` / `FLIGHT_BOUNCE_DISTANCE_DECAY`; bounces smaller than `FLIGHT_BOUNCE_MIN_APEX_YARDS` are dropped, so tiny dribbles still settle where they land.
+- Bounce direction continues the carry's horizontal velocity, so side scatter carries through the runout.
+- Runout is clamped so the rest position never passes the fairway grass (`FLIGHT_MAX_REST_DEPTH_YARDS`).
+
+`FlightPath.total_time` covers carry + bounces and `FlightPath.rest_position` is the final lie; runtime animation samples `BallFlight3D.sample_total()` over `total_time` and spawns litter at `rest_position`. The litter-vs-vanish decision still uses **carry** yards (`visual_yards` vs `VANISH_DISTANCE_YARDS`); vanished shots skip the bounce runout and twinkle at carry touchdown as before.
+
 ## Litter sprite
 
-Reuse Dinky `Ball-Lay` or equivalent as a `Sprite3D`, placed at the real landing `Vector3` (`_leave_litter_ball` in `range_view.gd`) — Camera3D projection handles the scale-down, no manual perspective-sample scaling needed.
+Reuse Dinky `Ball-Lay` or equivalent as a `Sprite3D`, placed at the real rest `Vector3` after the bounce runout (`_leave_litter_ball` in `range_view.gd`) — Camera3D projection handles the scale-down, no manual perspective-sample scaling needed.
 
 ## Related docs
 

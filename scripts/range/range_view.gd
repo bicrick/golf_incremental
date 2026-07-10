@@ -1116,7 +1116,10 @@ func _apply_flight_sample(progress: float, flight: Dictionary, path: BallFlight3
 	var sprite: Node = flight.get("sprite")
 	if not sprite is AnimatedSprite3D or not is_instance_valid(sprite):
 		return
-	sprite.global_position = BallFlight3D.sample(progress, path)
+	if flight.get("with_bounces", false):
+		sprite.global_position = BallFlight3D.sample_total(progress, path)
+	else:
+		sprite.global_position = BallFlight3D.sample(progress, path)
 	var trail = flight.get("trail")
 	if trail:
 		trail.track(sprite.global_position)
@@ -1137,19 +1140,25 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 	_ball_at_tee = false
 	ball.visible = false
 
+	# Vanished balls fly past the horizon — no bounce runout for those; the
+	# twinkle fires at carry touchdown as before.
+	var will_litter := path.visual_yards <= VANISH_DISTANCE_YARDS
+	var animate_time := path.total_time if will_litter else path.flight_time
+
 	var flight_sprite := _spawn_flight_sprite()
 	flight_sprite.global_position = tee_world
 	flight_sprite.modulate = _ball_modulate(is_golden)
 	flight_sprite.play(&"roll")
 	flight_sprite.sprite_frames.set_animation_speed(
 		&"roll",
-		float(DinkySpriteFrames.BALL_ROLL_FRAME_COUNT) / path.flight_time
+		float(DinkySpriteFrames.BALL_ROLL_FRAME_COUNT) / animate_time
 	)
 
 	var flight := {
 		"sprite": flight_sprite,
 		"trail": null,
 		"is_golden": is_golden,
+		"with_bounces": will_litter,
 	}
 	var flight_cam := get_flight_camera()
 	if fx_layer and flight_cam:
@@ -1163,22 +1172,21 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 	_register_flight(flight)
 
 	var tween := flight_sprite.create_tween()
-	tween.tween_method(_apply_flight_sample.bind(flight, path), 0.0, 1.0, path.flight_time)\
+	tween.tween_method(_apply_flight_sample.bind(flight, path), 0.0, 1.0, animate_time)\
 		.set_trans(Tween.TRANS_LINEAR)
 	tween.chain().tween_callback(func():
 		if not _active_flights.has(flight):
 			return
-		var landing := BallFlight3D.sample(1.0, path)
 		var trail = flight.get("trail")
 		if trail:
 			trail.finish()
 		if is_instance_valid(flight_sprite):
 			flight_sprite.queue_free()
 		_finish_flight(flight)
-		if path.visual_yards <= VANISH_DISTANCE_YARDS:
-			_leave_litter_ball(landing, _base_ball_scale, quality, yards, is_golden)
+		if will_litter:
+			_leave_litter_ball(path.rest_position, _base_ball_scale, quality, yards, is_golden)
 		else:
-			_handle_vanished_ball(landing, quality, yards, is_golden)
+			_handle_vanished_ball(BallFlight3D.sample(1.0, path), quality, yards, is_golden)
 		_sync_golfer_idle_from_bucket()
 	)
 
