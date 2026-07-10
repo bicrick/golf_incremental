@@ -10,6 +10,14 @@ extends RefCounted
 ## arc height on Y.
 
 
+class BounceSegment:
+	var start: Vector3 = Vector3.ZERO
+	var velocity0: Vector3 = Vector3.ZERO
+	var duration: float = 0.0
+	var apex_height: float = 0.0
+	var landing: Vector3 = Vector3.ZERO
+
+
 class FlightPath:
 	var origin: Vector3 = Vector3.ZERO
 	var velocity0: Vector3 = Vector3.ZERO
@@ -19,6 +27,12 @@ class FlightPath:
 	var yards: float = 0.0
 	var visual_yards: float = 0.0
 	var apex_height: float = 0.0
+	## Post-carry bounce arcs (may be empty for tiny dribbles).
+	var bounces: Array[BounceSegment] = []
+	## Carry flight_time plus all bounce durations.
+	var total_time: float = 0.6
+	## Where the ball finally comes to rest (== landing when no bounces).
+	var rest_position: Vector3 = Vector3.ZERO
 
 
 ## Visual flight distance always equals gameplay yards exactly — no floor or
@@ -78,7 +92,64 @@ static func build_path(
 	path.velocity0 = Vector3(v_x0, v_y0, -v_z0)
 	path.gravity = g
 	path.landing = origin + Vector3(side_yards, 0.0, -path.visual_yards)
+	_build_bounces(path)
 	return path
+
+
+## After carry touchdown the ball skips forward through a few decaying
+## mini-arcs (same projectile math, smaller apex each hop) before resting.
+## Bounce direction continues the carry's horizontal velocity, so side
+## scatter carries through the runout naturally.
+static func _build_bounces(path: FlightPath) -> void:
+	path.bounces = []
+	path.total_time = path.flight_time
+	path.rest_position = path.landing
+
+	var horizontal := Vector3(path.velocity0.x, 0.0, path.velocity0.z)
+	if horizontal.length_squared() < 0.000001:
+		return
+	var direction := horizontal.normalized()
+
+	var apex := minf(
+		path.apex_height * Balance.FLIGHT_BOUNCE_APEX_RATIO,
+		Balance.FLIGHT_BOUNCE_MAX_APEX_YARDS
+	)
+	var forward := minf(
+		path.visual_yards * Balance.FLIGHT_BOUNCE_DISTANCE_RATIO,
+		Balance.FLIGHT_BOUNCE_MAX_FORWARD_YARDS
+	)
+	var start := path.landing
+
+	for i in Balance.FLIGHT_BOUNCE_MAX_COUNT:
+		if apex < Balance.FLIGHT_BOUNCE_MIN_APEX_YARDS or forward <= 0.001:
+			break
+		# Never bounce past the far edge of the fairway grass.
+		var remaining_depth := Balance.FLIGHT_MAX_REST_DEPTH_YARDS - (-start.z)
+		if remaining_depth <= 0.0:
+			break
+		var travel := forward
+		if direction.z < -0.000001:
+			travel = minf(travel, remaining_depth / -direction.z)
+
+		var segment := BounceSegment.new()
+		segment.start = start
+		segment.apex_height = apex
+		var v_y := sqrt(2.0 * path.gravity * apex)
+		segment.duration = (2.0 * v_y) / path.gravity
+		var h_speed := travel / segment.duration
+		segment.velocity0 = Vector3(
+			direction.x * h_speed, v_y, direction.z * h_speed
+		)
+		segment.landing = start + direction * travel
+		segment.landing.y = 0.0
+		path.bounces.append(segment)
+
+		path.total_time += segment.duration
+		start = segment.landing
+		apex *= Balance.FLIGHT_BOUNCE_APEX_DECAY
+		forward *= Balance.FLIGHT_BOUNCE_DISTANCE_DECAY
+
+	path.rest_position = start
 
 
 ## Sample world position at elapsed time `t` (seconds) into the flight.
@@ -90,3 +161,25 @@ static func sample_position(t: float, path: FlightPath) -> Vector3:
 ## 0..1 normalized progress helper — mirrors the old tween_method(progress) API.
 static func sample(progress: float, path: FlightPath) -> Vector3:
 	return sample_position(clampf(progress, 0.0, 1.0) * path.flight_time, path)
+
+
+## Sample world position at elapsed time `t` across carry AND bounces.
+## Past total_time the ball holds its rest position.
+static func sample_total_position(t: float, path: FlightPath) -> Vector3:
+	if t <= path.flight_time:
+		return sample_position(t, path)
+	var remaining := t - path.flight_time
+	for segment in path.bounces:
+		if remaining <= segment.duration:
+			return (
+				segment.start
+				+ segment.velocity0 * remaining
+				+ Vector3(0.0, -0.5 * path.gravity * remaining * remaining, 0.0)
+			)
+		remaining -= segment.duration
+	return path.rest_position
+
+
+## 0..1 normalized progress over the full carry + bounce timeline.
+static func sample_total(progress: float, path: FlightPath) -> Vector3:
+	return sample_total_position(clampf(progress, 0.0, 1.0) * path.total_time, path)

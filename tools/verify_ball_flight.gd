@@ -21,6 +21,11 @@ func _run() -> void:
 	ok = _check_flight_time_bounds() and ok
 	ok = _check_landing_proportional_to_yards() and ok
 	ok = _check_tier_ladder_distance_separation() and ok
+	ok = _check_bounce_runout() and ok
+	ok = _check_bounce_decay() and ok
+	ok = _check_bounce_path_continuity() and ok
+	ok = _check_bounce_rest_clamped_to_fairway() and ok
+	ok = _check_dribble_skips_bounce() and ok
 	ok = await _check_flight_trail() and ok
 	ok = await _check_flight_trail_zoom_anchor() and ok
 	ok = await _check_hit_poof_anchor() and ok
@@ -264,6 +269,168 @@ func _check_tier_ladder_distance_separation() -> bool:
 
 	if ok:
 		print("OK: tier ladder distance increases Miss < Bad < Okay < Good < Great < Perfect (%s)" % ", ".join(report))
+	return ok
+
+
+## A normal litterable carry should skip forward through a couple of bounces
+## before resting — not carry-and-stick.
+func _check_bounce_runout() -> bool:
+	var ok := true
+	var stats := _maxed_stats()
+	for yards in [30.0, 100.0, 200.0]:
+		var path := BallFlight3D.build_path(
+			yards, Balance.TimingTier.PERFECT, stats, Balance.ContactFlavor.PURE
+		)
+		if path.bounces.size() < 2:
+			print("FAIL: %.0fyd carry should bounce at least twice, got %d" % [yards, path.bounces.size()])
+			ok = false
+			continue
+		if path.total_time <= path.flight_time + 0.01:
+			print(
+				"FAIL: %.0fyd total_time %.2fs should exceed carry flight_time %.2fs"
+				% [yards, path.total_time, path.flight_time]
+			)
+			ok = false
+		var carry_depth := -(path.landing.z - path.origin.z)
+		var rest_depth := -(path.rest_position.z - path.origin.z)
+		if rest_depth <= carry_depth:
+			print(
+				"FAIL: %.0fyd rest depth %.2f should pass carry landing depth %.2f"
+				% [yards, rest_depth, carry_depth]
+			)
+			ok = false
+		if absf(path.rest_position.y) > 0.01:
+			print("FAIL: %.0fyd rest position y=%.4f expected ~0" % [yards, path.rest_position.y])
+			ok = false
+	if ok:
+		print("OK: litterable carries bounce forward at least twice before resting")
+	return ok
+
+
+## Each successive bounce must be lower and shorter than the last.
+func _check_bounce_decay() -> bool:
+	var ok := true
+	var stats := _maxed_stats()
+	var path := BallFlight3D.build_path(
+		150.0, Balance.TimingTier.PERFECT, stats, Balance.ContactFlavor.PURE
+	)
+	var prev_apex := INF
+	var prev_travel := INF
+	for segment in path.bounces:
+		var travel: float = segment.start.distance_to(segment.landing)
+		if segment.apex_height >= prev_apex:
+			print(
+				"FAIL: bounce apex should decay (%.3f then %.3f)"
+				% [prev_apex, segment.apex_height]
+			)
+			ok = false
+		if travel >= prev_travel:
+			print(
+				"FAIL: bounce forward travel should decay (%.3f then %.3f)"
+				% [prev_travel, travel]
+			)
+			ok = false
+		prev_apex = segment.apex_height
+		prev_travel = travel
+	if ok:
+		print("OK: bounce apex and forward travel decay every hop (%d bounces)" % path.bounces.size())
+	return ok
+
+
+## sample_total must be continuous across carry touchdown and every bounce
+## seam, stay at/above the ground, and rise between seams.
+func _check_bounce_path_continuity() -> bool:
+	var ok := true
+	var stats := _maxed_stats()
+	var path := BallFlight3D.build_path(
+		120.0, Balance.TimingTier.GOOD, stats, Balance.ContactFlavor.PURE
+	)
+
+	var touchdown := BallFlight3D.sample_total_position(path.flight_time, path)
+	if touchdown.distance_to(path.landing) > 0.01:
+		print("FAIL: sample_total at flight_time %s should equal carry landing %s" % [touchdown, path.landing])
+		ok = false
+
+	var rest := BallFlight3D.sample_total(1.0, path)
+	if rest.distance_to(path.rest_position) > 0.01:
+		print("FAIL: sample_total(1.0) %s should equal rest_position %s" % [rest, path.rest_position])
+		ok = false
+
+	var seam := path.flight_time
+	var prev_end := path.landing
+	for segment in path.bounces:
+		if segment.start.distance_to(prev_end) > 0.01:
+			print(
+				"FAIL: bounce should start where the previous arc landed (start %s, prev end %s)"
+				% [segment.start, prev_end]
+			)
+			ok = false
+		var mid := BallFlight3D.sample_total_position(seam + segment.duration * 0.5, path)
+		if mid.y <= 0.0:
+			print("FAIL: mid-bounce should be airborne, got y=%.4f" % mid.y)
+			ok = false
+		seam += segment.duration
+		prev_end = segment.landing
+
+	for step in 41:
+		var t := float(step) / 40.0 * path.total_time
+		var pos := BallFlight3D.sample_total_position(t, path)
+		if pos.y < -0.01:
+			print("FAIL: total path dips below ground at t=%.2fs (y=%.4f)" % [t, pos.y])
+			ok = false
+			break
+
+	if ok:
+		print("OK: carry + bounce path is continuous, airborne mid-hop, never below ground")
+	return ok
+
+
+## Bounce runout must never carry the rest position past the fairway grass.
+func _check_bounce_rest_clamped_to_fairway() -> bool:
+	var ok := true
+	var stats := _maxed_stats()
+	for i in 20:
+		var path := BallFlight3D.build_path(
+			Balance.VANISH_DISTANCE_YARDS, Balance.TimingTier.PERFECT, stats,
+			Balance.ContactFlavor.PURE
+		)
+		var rest_depth := -path.rest_position.z
+		if rest_depth > Balance.FLIGHT_MAX_REST_DEPTH_YARDS + 0.01:
+			print(
+				"FAIL: rest depth %.2f exceeds fairway clamp %.2f"
+				% [rest_depth, Balance.FLIGHT_MAX_REST_DEPTH_YARDS]
+			)
+			ok = false
+			break
+	if ok:
+		print("OK: bounce runout rest position stays on the fairway grass")
+	return ok
+
+
+## Tiny whiffs/dribbles settle where they land — no comedy hops off a 2yd tap.
+func _check_dribble_skips_bounce() -> bool:
+	var ok := true
+	var stats := _maxed_stats()
+	var path := BallFlight3D.build_path(
+		2.0, Balance.TimingTier.MISS, stats, Balance.ContactFlavor.THIN
+	)
+	if not path.bounces.is_empty():
+		print("FAIL: 2yd thin dribble should not bounce, got %d bounces" % path.bounces.size())
+		ok = false
+	if path.rest_position.distance_to(path.landing) > 0.001:
+		print(
+			"FAIL: dribble rest %s should equal landing %s"
+			% [path.rest_position, path.landing]
+		)
+		ok = false
+	if absf(path.total_time - path.flight_time) > 0.001:
+		print(
+			"FAIL: dribble total_time %.2fs should equal flight_time %.2fs"
+			% [path.total_time, path.flight_time]
+		)
+		ok = false
+	if ok:
+		print("OK: tiny dribbles settle at carry landing with no bounce")
 	return ok
 
 
