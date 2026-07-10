@@ -9,3 +9,6 @@ export_presets.cfg
 # IDE
 .idea/
 .vscode/
+
+# Cursor MCP (API tokens)
+.cursor/mcp.json

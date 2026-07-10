@@ -11,8 +11,8 @@ static func _init_defs() -> void:
 		return
 	var defs: Array[Dictionary] = [
 		_def(
-			"rattling_more", Balance.UpgradeBranch.BASE_PAY, "More Rattlings",
-			"Hire another Rattling to work the forest edge.",
+			"rattling_more", Balance.UpgradeBranch.BASE_PAY, "Rattlings",
+			"Hire a Rattling to work the forest edge. Each level adds one more.",
 			24, 10.0, 1.45,
 			[{"type": "add", "stat": "rattling_count", "value_per_level": Balance.RATTLING_COUNT_BONUS_PER_LEVEL}],
 			"", {}

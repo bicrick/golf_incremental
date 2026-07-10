@@ -189,7 +189,7 @@ const RATTLING_PIXEL_SIZE: float = 0.015
 const RATTLING_GROUND_Y: float = 0.42861152
 const RATTLING_SPAWN_STAGGER_SEC: float = 0.6
 const RATTLING_FADE_SEC: float = 0.5
-## More Rattlings upgrade — extra active agent per level (level 0 = 1 owned).
+## Rattlings hire — each upgrade level adds one active collector (level 0 = 0 owned).
 const RATTLING_COUNT_BONUS_PER_LEVEL: float = 1.0
 
 
@@ -264,7 +264,7 @@ static func default_ratina_stats() -> PlayerStats:
 ## Rattling tree's own mechanical/bonus knobs layered on top of delivery.
 static func default_rattling_stats() -> PlayerStats:
 	var stats := PlayerStats.new()
-	stats.rattling_count = 1.0
+	stats.rattling_count = 0.0
 	stats.rattling_walk_speed = 3.2
 	stats.rattling_pickup_speed_multiplier = 1.0
 	stats.rattling_golden_bonus_chance = 0.0

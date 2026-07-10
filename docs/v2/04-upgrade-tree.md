@@ -26,7 +26,7 @@ flowchart TB
   metronome --> quickReset[Quick Reset]
   pickup --> comboBonus[Combo Bonus]
   pickup --> rangePicker[Range Picker]
-  pickup --> rattlingMore[More Rattlings]
+  pickup --> rattlingMore[Rattlings]
   rattlingMore --> rattlingSpeed[Scurry Speed]
   rattlingMore --> quickPaws[Quick Paws]
   rattlingMore --> keenNose[Keen Nose]
@@ -63,7 +63,7 @@ flowchart TB
 | `ball_count` | Pickup | +bucket capacity | More balls per bucket |
 | `golden_ball` | Quality | golden chance | Double-pay balls |
 | `ratina_hire` | Base Pay | unlock Ratina | Hire autonomous hitter ($100, Base Pay Lv.3) |
-| `rattling_more` | Pickup | +rattling count | Hire collectors ($10 Lv.1, Pickup Lv.2) |
+| `rattling_more` | Pickup | hire + count | Hire collectors ($10 Lv.1 = one Rattling, Pickup Lv.2) |
 
 ### Ratina subtree
 

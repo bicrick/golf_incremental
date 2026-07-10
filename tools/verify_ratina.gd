@@ -126,6 +126,7 @@ func _run() -> void:
 		print("OK: ratina_frequency lowers swing interval")
 
 	ok = await _test_controller_cooldown_refresh(gs, range_view, ratina_controller) and ok
+	ok = await _test_ratina_harvest_trail_uses_flight_camera(range_view, ratina_controller) and ok
 
 	var swing_state := {
 		"fired": false,
@@ -234,6 +235,110 @@ func _test_ratina_swings_during_harvest(gs: Node, ratina_controller: Node) -> bo
 	gs.exit_harvest_early()
 	print("OK: Ratina keeps swinging from the stash during the player's collect mode")
 	return true
+
+
+func _test_ratina_harvest_trail_uses_flight_camera(
+	range_view: Node3D, ratina_controller: Node
+) -> bool:
+	const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
+
+	var view_mode: Node = range_view.get_node_or_null("ViewModeController")
+	if view_mode == null or not view_mode.has_method("_enter_harvest_immediate"):
+		print("FAIL: ViewModeController missing for harvest trail test")
+		return false
+
+	var perspective: Camera3D = range_view.get_perspective_camera()
+	var ortho: Camera3D = range_view.camera
+	if perspective == null or ortho == null:
+		print("FAIL: expected strike perspective + harvest ortho cameras")
+		return false
+
+	view_mode._enter_harvest_immediate()
+	await process_frame
+
+	var flight_cam: Camera3D = range_view.get_flight_camera()
+	if flight_cam != ortho:
+		print("FAIL: get_flight_camera should return ortho in harvest")
+		view_mode._enter_strike_immediate()
+		return false
+
+	if ratina_controller._camera != ortho:
+		print("FAIL: view_mode_changed should set Ratina flight camera to ortho")
+		view_mode._enter_strike_immediate()
+		return false
+
+	var resolved: Camera3D = ratina_controller.call("_resolve_flight_camera")
+	if resolved != ortho:
+		print("FAIL: Ratina _resolve_flight_camera should return harvest ortho")
+		view_mode._enter_strike_immediate()
+		return false
+
+	var fx_layer: Node2D = range_view.get_node_or_null("FxLayer")
+	if fx_layer == null:
+		print("FAIL: FxLayer missing for harvest trail test")
+		view_mode._enter_strike_immediate()
+		return false
+
+	var trail = BallFlightTrailScript.begin(
+		fx_layer,
+		resolved,
+		Balance.TimingTier.GOOD,
+		range_view.get_fx_reference_ortho_size()
+	)
+	var world_points := [
+		Vector3(2.0, 0.05, -4.0),
+		Vector3(2.2, 1.2, -18.0),
+		Vector3(2.4, 0.4, -36.0),
+	]
+	for point in world_points:
+		trail.track(point)
+	await process_frame
+
+	var ok := true
+	for i in trail.point_count():
+		var expected: Vector2 = fx_layer.to_local(ortho.unproject_position(trail.world_point_at(i)))
+		var actual: Vector2 = trail.screen_point_at(i)
+		if expected.distance_to(actual) > 0.5:
+			print(
+				"FAIL: Ratina harvest trail point %d mismatch (expected %s, got %s)"
+				% [i, expected, actual]
+			)
+			ok = false
+			break
+		var stale: Vector2 = fx_layer.to_local(
+			perspective.unproject_position(trail.world_point_at(i))
+		)
+		if actual.distance_to(stale) < 1.0:
+			print(
+				"FAIL: Ratina harvest trail point %d still matches perspective (%s)"
+				% [i, actual]
+			)
+			ok = false
+			break
+
+	# Mid-flight camera swap (strike → harvest path in reverse for coverage).
+	trail.set_camera(perspective)
+	await process_frame
+	for i in trail.point_count():
+		var expected_p: Vector2 = fx_layer.to_local(
+			perspective.unproject_position(trail.world_point_at(i))
+		)
+		var actual_p: Vector2 = trail.screen_point_at(i)
+		if expected_p.distance_to(actual_p) > 0.5:
+			print(
+				"FAIL: Ratina trail set_camera point %d mismatch (expected %s, got %s)"
+				% [i, expected_p, actual_p]
+			)
+			ok = false
+			break
+
+	trail.finish()
+	view_mode._enter_strike_immediate()
+	await process_frame
+
+	if ok:
+		print("OK: Ratina harvest tracers use live get_flight_camera / ortho reprojection")
+	return ok
 
 
 func _test_swing_sprite_frames() -> bool:

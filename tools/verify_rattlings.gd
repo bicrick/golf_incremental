@@ -122,16 +122,36 @@ func _check_upgrade_effects(gs: Node) -> bool:
 	gs.rattlings_unlocked = true
 	gs.rattling_upgrade_levels = {}
 	gs._recompute_stats()
-	var base_count: float = gs.rattling_stats.rattling_count
 	var base_speed: float = gs.rattling_stats.rattling_walk_speed
 	gs.currency = 500.0
+
+	if not is_equal_approx(gs.rattling_stats.rattling_count, 0.0):
+		print(
+			"FAIL: before hire rattling_count should be 0, got %.0f"
+			% gs.rattling_stats.rattling_count
+		)
+		ok = false
 
 	if not gs.purchase_rattling_upgrade("rattling_more"):
 		print("FAIL: could not purchase rattling_more")
 		ok = false
-	elif gs.rattling_stats.rattling_count <= base_count:
-		print("FAIL: rattling_more did not increase rattling_count")
+	elif not is_equal_approx(gs.rattling_stats.rattling_count, 1.0):
+		print(
+			"FAIL: first rattling hire should grant 1 Rattling, got %.0f"
+			% gs.rattling_stats.rattling_count
+		)
 		ok = false
+	elif not gs.purchase_rattling_upgrade("rattling_more"):
+		print("FAIL: could not purchase second rattling_more level")
+		ok = false
+	elif not is_equal_approx(gs.rattling_stats.rattling_count, 2.0):
+		print(
+			"FAIL: second rattling level should grant 2 Rattlings, got %.0f"
+			% gs.rattling_stats.rattling_count
+		)
+		ok = false
+	else:
+		print("OK: rattling hire starts at 1, then scales up")
 
 	if not gs.purchase_rattling_upgrade("rattling_speed"):
 		print("FAIL: could not purchase rattling_speed")

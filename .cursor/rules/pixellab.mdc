@@ -1,0 +1,12 @@
+---
+description: PixelLab MCP — use for pixel art, sprites, tilesets, and animations
+alwaysApply: false
+---
+
+# PixelLab MCP
+
+When generating or editing pixel art, sprites, tilesets, or animations with PixelLab, first read the full tool overview:
+
+https://api.pixellab.ai/mcp/docs
+
+Use the `pixellab` MCP server configured in [`.cursor/mcp.json`](../mcp.json). Follow the docs for tool names, parameters, and workflows rather than guessing.

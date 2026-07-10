@@ -28,6 +28,7 @@ func _run() -> void:
 	ok = _check_dribble_skips_bounce() and ok
 	ok = await _check_flight_trail() and ok
 	ok = await _check_flight_trail_zoom_anchor() and ok
+	ok = await _check_flight_trail_set_camera() and ok
 	ok = await _check_hit_poof_anchor() and ok
 	ok = await _check_hit_poof_zoom_compensation() and ok
 	print("ball_flight_ok=", ok)
@@ -569,6 +570,65 @@ func _check_flight_trail_zoom_anchor() -> bool:
 	trail.finish()
 	if ok:
 		print("OK: flight trail head tracks ball at extreme zoom")
+	return ok
+
+
+func _check_flight_trail_set_camera() -> bool:
+	var ok := true
+	var fx_layer := Node2D.new()
+	root.add_child(fx_layer)
+
+	var perspective := Camera3D.new()
+	perspective.projection = Camera3D.PROJECTION_PERSPECTIVE
+	perspective.position = Vector3(0.24, 1.24, -2.016)
+	perspective.rotation_degrees = Vector3(1.2, 3.0, 0.0)
+	root.add_child(perspective)
+
+	var ortho := Camera3D.new()
+	ortho.projection = Camera3D.PROJECTION_ORTHOGONAL
+	ortho.position = Vector3(12.0, 18.0, 12.0)
+	ortho.rotation_degrees = Vector3(-35.264, 45.0, 0.0)
+	ortho.size = 10.0
+	root.add_child(ortho)
+	await process_frame
+
+	var trail = BallFlightTrailScript.begin(fx_layer, perspective, Balance.TimingTier.GOOD)
+	var world_points := [
+		Vector3(-0.545, 0.05, -6.395),
+		Vector3(-0.4, 1.5, -20.0),
+		Vector3(-0.2, 0.8, -40.0),
+	]
+	for point in world_points:
+		trail.track(point)
+	await process_frame
+
+	trail.set_camera(ortho)
+	await process_frame
+
+	for i in trail.point_count():
+		var expected: Vector2 = fx_layer.to_local(ortho.unproject_position(trail.world_point_at(i)))
+		var actual: Vector2 = trail.screen_point_at(i)
+		if expected.distance_to(actual) > 0.5:
+			print(
+				"FAIL: trail set_camera point %d mismatch (expected %s, got %s)"
+				% [i, expected, actual]
+			)
+			ok = false
+			break
+		var stale: Vector2 = fx_layer.to_local(
+			perspective.unproject_position(trail.world_point_at(i))
+		)
+		if actual.distance_to(stale) < 1.0:
+			print(
+				"FAIL: trail set_camera point %d still matches perspective (%s)"
+				% [i, actual]
+			)
+			ok = false
+			break
+
+	trail.finish()
+	if ok:
+		print("OK: flight trail set_camera reprojects under the new camera")
 	return ok
 
 

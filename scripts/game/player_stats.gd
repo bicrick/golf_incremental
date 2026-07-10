@@ -70,7 +70,7 @@ extends Resource
 @export var consistency: float = 0.0
 
 # Rattling — forest-edge ball collectors (only used by Rattling tree)
-@export var rattling_count: float = 1.0
+@export var rattling_count: float = 0.0
 @export var rattling_walk_speed: float = 3.2
 @export var rattling_pickup_speed_multiplier: float = 1.0
 @export var rattling_golden_bonus_chance: float = 0.0

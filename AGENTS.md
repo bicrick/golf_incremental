@@ -19,3 +19,11 @@ v2 redesign (bucket, pickup, contact swing): [`docs/v2/README.md`](docs/v2/READM
 v4 redesign (orthographic camera, buildable grid, physical crew bays — design phase): [`docs/v4/README.md`](docs/v4/README.md) and phased rollout [`docs/v4/05-migration-and-phasing.md`](docs/v4/05-migration-and-phasing.md)
 
 Run game: open project in Godot Editor → **F5**
+
+## PixelLab (pixel art MCP)
+
+For sprites / tilesets / animations via PixelLab, read the tool overview first:
+
+https://api.pixellab.ai/mcp/docs
+
+Project MCP config: [`.cursor/mcp.json`](.cursor/mcp.json). Rule: [`.cursor/rules/pixellab.mdc`](.cursor/rules/pixellab.mdc).

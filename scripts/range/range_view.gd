@@ -367,6 +367,8 @@ func _update_backdrop_visibility(mode: ViewModeController.Mode) -> void:
 
 func _on_view_mode_changed(mode: ViewModeController.Mode) -> void:
 	_update_backdrop_visibility(mode)
+	if _ratina != null and _ratina.has_method("set_flight_camera"):
+		_ratina.set_flight_camera(get_flight_camera())
 
 
 func _camera_home_size() -> float:

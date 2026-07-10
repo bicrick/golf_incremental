@@ -170,6 +170,8 @@ func apply_unlock_layout(golfer_scale: Vector3, ball_scale: Vector3) -> void:
 
 func set_flight_camera(cam: Camera3D) -> void:
 	_camera = cam
+	if _flight_trail != null and is_instance_valid(_flight_trail) and _flight_trail.has_method("set_camera"):
+		_flight_trail.set_camera(cam)
 
 
 func apply_atmosphere_tint(tint: Color) -> void:
@@ -415,6 +417,7 @@ func _launch_ball() -> void:
 		_abort_swing_no_ball()
 		return
 	_start_cooldown_timer()
+	_camera = _resolve_flight_camera()
 	var tier := RatinaSwingResolver.roll_tier(GameState.ratina_stats.consistency)
 	var strike_quality: float = Balance.TIER_MULTS[tier]
 	var quality := Economy.quality_for_tier(tier)
@@ -474,6 +477,7 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 
 	_ball_in_flight = true
 	_flight_with_bounces = will_litter
+	_camera = _resolve_flight_camera()
 	if _flight_trail:
 		_flight_trail.finish()
 		_flight_trail = null
@@ -598,6 +602,12 @@ func _strike_text_offset() -> Vector2:
 	return Balance.RATINA_STRIKE_TEXT_OFFSET
 
 
+func _resolve_flight_camera() -> Camera3D:
+	if _range_view != null and _range_view.has_method("get_flight_camera"):
+		return _range_view.get_flight_camera()
+	return _camera
+
+
 func _fx_reference_ortho_size() -> float:
 	if _range_view != null and _range_view.has_method("get_fx_reference_ortho_size"):
 		return _range_view.get_fx_reference_ortho_size()
@@ -607,6 +617,7 @@ func _fx_reference_ortho_size() -> float:
 
 
 func _project_to_screen(world_pos: Vector3) -> Vector2:
-	if _camera == null:
+	var cam := _resolve_flight_camera()
+	if cam == null:
 		return Vector2.ZERO
-	return _camera.unproject_position(world_pos)
+	return cam.unproject_position(world_pos)

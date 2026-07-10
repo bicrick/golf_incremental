@@ -75,6 +75,12 @@ func track(world_pos: Vector3) -> void:
 	_refresh_line()
 
 
+func set_camera(camera: Camera3D) -> void:
+	_camera = camera
+	if not _world_points.is_empty():
+		_refresh_line()
+
+
 func finish() -> void:
 	if not _tracking:
 		return

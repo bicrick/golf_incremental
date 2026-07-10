@@ -64,7 +64,7 @@ custom_minimum_size = Vector2(88, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 1, 0.45, 1)
 theme_override_font_sizes/font_size = 7
-text = "More Rattlings"
+text = "Rattlings"
 autowrap_mode = 3
 
 [node name="DescLabel" type="Label" parent="TooltipPanel/Margin/VBox"]
@@ -72,7 +72,7 @@ custom_minimum_size = Vector2(88, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.86, 0.66, 1)
 theme_override_font_sizes/font_size = 6
-text = "Hire another Rattling."
+text = "Hire a Rattling."
 autowrap_mode = 3
 
 [node name="LevelLabel" type="Label" parent="TooltipPanel/Margin/VBox"]

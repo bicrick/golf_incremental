@@ -17,7 +17,7 @@ const TOOLTIP_GAP := 5
 const TOOLTIP_EDGE_MARGIN := 4
 
 const SHORT_NAMES: Dictionary = {
-	"rattling_more": "MOR",
+	"rattling_more": "RAT",
 	"rattling_speed": "SPD",
 	"rattling_quick_paws": "QCK",
 	"rattling_keen_nose": "NOS",
