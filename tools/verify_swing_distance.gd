@@ -50,6 +50,7 @@ func _run() -> void:
 
 	ok = _check_balance_targets() and ok
 	ok = _check_visual_depth() and ok
+	ok = _check_yardage_stack() and ok
 
 	print("swing_distance_ok=", ok)
 	quit(0 if ok else 1)
@@ -220,6 +221,53 @@ func _check_visual_depth() -> bool:
 		]
 	)
 	print("landing Y table: 30yd→%.1f 100yd→%.1f 150yd→%.1f 300yd→%.1f" % [y30, y100, y150, y300])
+	return ok
+
+
+func _check_yardage_stack() -> bool:
+	var ok := true
+	var stack: YardageStack = load("res://scripts/visual/yardage_stack.gd").new()
+	root.add_child(stack)
+
+	var id_a := stack.begin(Balance.TimingTier.MISS, 40.0)
+	if id_a < 0:
+		print("FAIL: yardage stack begin returned invalid id")
+		ok = false
+	stack.set_progress(id_a, 0.5)
+	var entry_a: Label = null
+	for child in stack.get_children():
+		if child.get_child_count() > 0 and child.get_child(0) is Label:
+			entry_a = child.get_child(0)
+			break
+	if entry_a == null:
+		print("FAIL: yardage stack missing label after begin")
+		ok = false
+	elif not ("20 yds" in entry_a.text):
+		print("FAIL: expected mid-flight '20 yds', got '%s'" % entry_a.text)
+		ok = false
+
+	var id_b := stack.begin(Balance.TimingTier.GOOD, 10.0)
+	if stack.get_child_count() > YardageStack.MAX_ENTRIES:
+		print(
+			"FAIL: yardage stack exceeded max entries (%d > %d)"
+			% [stack.get_child_count(), YardageStack.MAX_ENTRIES]
+		)
+		ok = false
+
+	# Third begin should cap at MAX_ENTRIES.
+	var _id_c := stack.begin(Balance.TimingTier.PERFECT, 30.0)
+	if stack.get_child_count() > YardageStack.MAX_ENTRIES:
+		print(
+			"FAIL: yardage stack did not trim on third begin (%d)"
+			% stack.get_child_count()
+		)
+		ok = false
+
+	stack.finish(id_a)
+	stack.finish(id_b)
+	if ok:
+		print("OK: yardage stack begin/progress/cap")
+	stack.queue_free()
 	return ok
 
 

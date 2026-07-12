@@ -7,7 +7,6 @@ extends Node3D
 
 const CHARGE_METER_POSITION := Vector2(236.0, 185.143)
 const RATINA_UNLOCKED_CHARGE_METER_POSITION := Vector2(225.0, 185.143)
-const SWING_RESULT_TEXT_OFFSET := Vector2(0.0, -38.0)
 const BALL_PIXEL_SIZE := 0.021
 const VANISH_DISTANCE_YARDS := Balance.VANISH_DISTANCE_YARDS
 const PICKUP_FLY_DURATION_SEC := 0.35
@@ -20,7 +19,7 @@ const RangePickerIndicatorScript := preload("res://scripts/range/range_picker_in
 const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
 const RattlingControllerScript := preload("res://scripts/range/rattling_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
-const FloatStrikeTextScript := preload("res://scripts/visual/float_strike_text.gd")
+const YardageStackScript := preload("res://scripts/visual/yardage_stack.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
 const GoldenBallAuraScript := preload("res://scripts/visual/golden_ball_aura.gd")
 const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.tscn")
@@ -77,6 +76,7 @@ var _picker_indicator: Node3D
 var _ratina: Node
 var _rattling_controller: Node
 var _active_flights: Array[Dictionary] = []
+var _yardage_stack: YardageStack
 var _sprite_atmosphere_tint: Color = Color.WHITE
 var _ratina_layout_applied: bool = false
 var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
@@ -755,7 +755,6 @@ func _on_swing_resolved(
 		get_fx_reference_ortho_size()
 	)
 	var quality := Economy.quality_for_tier(tier)
-	_spawn_float_text(tier, yards)
 	if feedback_tier == Balance.FeedbackTier.JACKPOT:
 		_play_golfer_joy()
 	elif not _golfer_joy_active:
@@ -905,17 +904,22 @@ func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:
 		icon.queue_free()
 
 
-func _spawn_float_text(tier: int, yards: float) -> void:
-	if fx_layer == null or charge_meter == null:
-		return
-	var anchor := fx_layer.to_local(charge_meter.global_position)
-	FloatStrikeTextScript.spawn(
-		fx_layer,
-		anchor,
-		tier,
-		yards,
-		SWING_RESULT_TEXT_OFFSET
-	)
+func _ensure_yardage_stack() -> YardageStack:
+	if _yardage_stack != null and is_instance_valid(_yardage_stack):
+		return _yardage_stack
+	if fx_layer == null:
+		return null
+	_yardage_stack = YardageStackScript.new()
+	fx_layer.add_child(_yardage_stack)
+	return _yardage_stack
+
+
+func _begin_yardage_counter(tier: int, yards: float) -> int:
+	var stack := _ensure_yardage_stack()
+	if stack == null or charge_meter == null:
+		return -1
+	stack.position = fx_layer.to_local(charge_meter.global_position)
+	return stack.begin(tier, yards)
 
 
 func _on_bucket_changed(_count: int, _capacity: int) -> void:
@@ -1131,6 +1135,9 @@ func _apply_flight_sample(progress: float, flight: Dictionary, path: BallFlight3
 	var trail = flight.get("trail")
 	if trail:
 		trail.track(sprite.global_position)
+	var yardage_id: int = int(flight.get("yardage_id", -1))
+	if yardage_id >= 0 and _yardage_stack != null and is_instance_valid(_yardage_stack):
+		_yardage_stack.set_progress(yardage_id, progress)
 
 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int) -> void:
@@ -1167,6 +1174,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		"trail": null,
 		"is_golden": is_golden,
 		"with_bounces": will_litter,
+		"yardage_id": _begin_yardage_counter(timing_tier, yards),
 	}
 	var flight_cam := get_flight_camera()
 	if fx_layer and flight_cam:
@@ -1191,6 +1199,9 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		if is_instance_valid(flight_sprite):
 			flight_sprite.queue_free()
 		_finish_flight(flight)
+		var yardage_id: int = int(flight.get("yardage_id", -1))
+		if yardage_id >= 0 and _yardage_stack != null and is_instance_valid(_yardage_stack):
+			_yardage_stack.finish(yardage_id)
 		if will_litter:
 			_leave_litter_ball(path.rest_position, _base_ball_scale, quality, yards, is_golden)
 		else:
