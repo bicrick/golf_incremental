@@ -26,6 +26,7 @@ func _run() -> void:
 	ok = _check_bounce_decay() and ok
 	ok = _check_bounce_path_continuity() and ok
 	ok = _check_bounce_rest_clamped_to_fairway() and ok
+	ok = _check_litter_uses_fairway_edge() and ok
 	ok = _check_dribble_skips_bounce() and ok
 	ok = await _check_flight_trail() and ok
 	ok = await _check_flight_trail_zoom_anchor() and ok
@@ -440,7 +441,7 @@ func _check_bounce_rest_clamped_to_fairway() -> bool:
 	var stats := _maxed_stats()
 	for i in 20:
 		var path := BallFlight3D.build_path(
-			Balance.VANISH_DISTANCE_YARDS, Balance.TimingTier.PERFECT, stats,
+			350.0, Balance.TimingTier.PERFECT, stats,
 			Balance.ContactFlavor.PURE
 		)
 		var rest_depth := -path.rest_position.z
@@ -454,6 +455,32 @@ func _check_bounce_rest_clamped_to_fairway() -> bool:
 	if ok:
 		print("OK: bounce runout rest position stays on the fairway grass")
 	return ok
+
+
+## Litter vs vanish is decided by fairway far edge, not a fixed yardage horizon.
+func _check_litter_uses_fairway_edge() -> bool:
+	var stats := _maxed_stats()
+	var tee := Vector3(0.0, 0.17, -10.57)
+	var on_fairway := BallFlight3D.build_path(
+		200.0, Balance.TimingTier.PERFECT, stats, Balance.ContactFlavor.PURE, tee
+	)
+	var past_edge := BallFlight3D.build_path(
+		450.0, Balance.TimingTier.PERFECT, stats, Balance.ContactFlavor.PURE, tee
+	)
+	if on_fairway.landing.z < -RangeGrid.DEPTH_YARDS:
+		print(
+			"FAIL: 200yd from tee should land on fairway, got z=%.2f"
+			% on_fairway.landing.z
+		)
+		return false
+	if past_edge.landing.z >= -RangeGrid.DEPTH_YARDS:
+		print(
+			"FAIL: 450yd from tee should land past fairway edge, got z=%.2f"
+			% past_edge.landing.z
+		)
+		return false
+	print("OK: carry landing crosses fairway far edge only for off-range shots")
+	return true
 
 
 ## Tiny whiffs/dribbles settle where they land — no comedy hops off a 2yd tap.

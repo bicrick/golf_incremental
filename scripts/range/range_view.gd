@@ -8,7 +8,6 @@ extends Node3D
 const CHARGE_METER_POSITION := Vector2(236.0, 185.143)
 const RATINA_UNLOCKED_CHARGE_METER_POSITION := Vector2(225.0, 185.143)
 const BALL_PIXEL_SIZE := 0.021
-const VANISH_DISTANCE_YARDS := Balance.VANISH_DISTANCE_YARDS
 const PICKUP_FLY_DURATION_SEC := 0.35
 const PICKUP_FLY_ARC_PX := 36.0
 const PLATE_CAPTURE_CYCLE_TIME := 40.0
@@ -1155,9 +1154,9 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 	_ball_at_tee = false
 	ball.visible = false
 
-	# Vanished balls fly past the horizon — no bounce runout for those; the
-	# twinkle fires at carry touchdown as before.
-	var will_litter := path.visual_yards <= VANISH_DISTANCE_YARDS
+	# Litter on the fairway (including bounce runout). Shots that carry past
+	# the far grass edge vanish at touchdown instead.
+	var will_litter := path.landing.z >= -RangeGrid.DEPTH_YARDS
 	var animate_time := path.total_time if will_litter else path.flight_time
 
 	var flight_sprite := _spawn_flight_sprite()

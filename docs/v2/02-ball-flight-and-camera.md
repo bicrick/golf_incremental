@@ -84,9 +84,9 @@ Balls don't carry-and-stick. After carry touchdown, `BallFlight3D._build_bounces
 - First bounce apex = carry apex × `FLIGHT_BOUNCE_APEX_RATIO`, forward travel = carry yards × `FLIGHT_BOUNCE_DISTANCE_RATIO`; both capped (`FLIGHT_BOUNCE_MAX_APEX_YARDS` / `FLIGHT_BOUNCE_MAX_FORWARD_YARDS`) so long carries don't produce skyscraper hops.
 - Each subsequent bounce decays by `FLIGHT_BOUNCE_APEX_DECAY` / `FLIGHT_BOUNCE_DISTANCE_DECAY`; bounces smaller than `FLIGHT_BOUNCE_MIN_APEX_YARDS` are dropped, so tiny dribbles still settle where they land.
 - Bounce direction continues the carry's horizontal velocity, so side scatter carries through the runout.
-- Runout is clamped so the rest position never passes the fairway grass (`FLIGHT_MAX_REST_DEPTH_YARDS`).
+- Runout is clamped so the rest position never passes the fairway grass (`FLIGHT_MAX_REST_DEPTH_YARDS`, aligned with `RangeGrid.DEPTH_YARDS`).
 
-`FlightPath.total_time` covers carry + bounces and `FlightPath.rest_position` is the final lie; runtime animation samples `BallFlight3D.sample_total()` over `total_time` and spawns litter at `rest_position`. The litter-vs-vanish decision still uses **carry** yards (`visual_yards` vs `VANISH_DISTANCE_YARDS`); vanished shots skip the bounce runout and twinkle at carry touchdown as before.
+`FlightPath.total_time` covers carry + bounces and `FlightPath.rest_position` is the final lie; runtime animation samples `BallFlight3D.sample_total()` over `total_time` and spawns litter at `rest_position`. The litter-vs-vanish decision uses **carry landing** vs the fairway far edge (`landing.z >= -RangeGrid.DEPTH_YARDS`); shots that touch down past the grass vanish (skip bounce runout, twinkle at carry touchdown) instead of littering.
 
 ## Litter sprite
 

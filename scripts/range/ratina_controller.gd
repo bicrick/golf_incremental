@@ -470,9 +470,9 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 		tee_world
 	)
 
-	# Litter shots get the bounce runout; past-horizon shots vanish at carry
-	# touchdown as before.
-	var will_litter := path.visual_yards <= Balance.VANISH_DISTANCE_YARDS
+	# Litter on the fairway (including bounce runout). Shots that carry past
+	# the far grass edge vanish at touchdown instead.
+	var will_litter := path.landing.z >= -RangeGrid.DEPTH_YARDS
 	var animate_time := path.total_time if will_litter else path.flight_time
 
 	_ball_in_flight = true
@@ -511,15 +511,15 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 			_flight_trail.finish()
 			_flight_trail = null
 		_flight_tween = null
-		_resolve_landing(landing, quality, yards, path.visual_yards)
+		_resolve_landing(landing, quality, yards)
 		_try_pending_swing()
 	)
 
 
-func _resolve_landing(landing: Vector3, quality: int, yards: float, visual_yards: float) -> void:
+func _resolve_landing(landing: Vector3, quality: int, yards: float) -> void:
 	if _range_view == null:
 		return
-	if visual_yards <= Balance.VANISH_DISTANCE_YARDS:
+	if landing.z >= -RangeGrid.DEPTH_YARDS:
 		if _range_view.has_method("leave_litter_ball"):
 			_range_view.leave_litter_ball(
 				landing, _base_ball_scale, quality, yards, false, "ratina"
