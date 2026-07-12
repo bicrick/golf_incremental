@@ -10,7 +10,8 @@ A cozy, Miyazaki-adjacent pixel art golf incremental on a driving range, rendere
 
 | Doc | Read if you are working on… |
 |-----|----------------------------|
-| **[v4/ README](v4/README.md)** | **v4 redesign — orthographic camera, buildable grid, physical crew bays (current design frontier)** |
+| **[v7/ README](v7/README.md)** | **v7 prestige — cheese currency, OP prestige tree, early $5k cash-out (current progression frontier)** |
+| **[v4/ README](v4/README.md)** | **v4 redesign — orthographic camera, buildable grid, physical crew bays (design phase; not blocking v7)** |
 | **[v2/ README](v2/README.md)** | **v2 redesign — bucket, pickup, contact swing, range tycoon** |
 | **[v3/ README](v3/README.md)** | **v3 polish — economy tuning, long-tail progression, crew (start here for balance)** |
 | [design/00-vision.md](design/00-vision.md) | Project pillars, tone, inspiration, north star |
@@ -61,5 +62,6 @@ A cozy, Miyazaki-adjacent pixel art golf incremental on a driving range, rendere
 | **v2 redesign** | **Bucket, pickup, contact swing, range tycoon** | **[v2/README.md](v2/README.md)** |
 | **v3 polish** | **Economy rebalance, milestones, crew, range amenities** | **[v3/README.md](v3/README.md)** |
 | **v4 redesign (design phase)** | **Orthographic camera, buildable grid strip, physical crew bays** | **[v4/README.md](v4/README.md)** |
+| **v7 prestige** | **$5k prestige, cheese, OP prestige tab, trim Play tree** | **[v7/README.md](v7/README.md)** |
 | v2 (legacy note) | Golf friend passive income | superseded by [v2/05-characters-and-crew.md](v2/05-characters-and-crew.md) |
 | Later | GodotSteam, Steam release | [00-stack.md](technical/00-stack.md) |
