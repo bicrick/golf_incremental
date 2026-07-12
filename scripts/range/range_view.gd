@@ -37,6 +37,7 @@ const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 @onready var backdrop: Node3D = $Backdrop
 @onready var bays: Node3D = $Bays
 @onready var littered_balls: Node3D = $Foreground/LitteredBalls
+@onready var yardage_markers: Node3D = $Foreground/YardageMarkers
 @onready var foreground: Node3D = $Foreground
 @onready var player_bay: Node3D = $Bays/PlayerBay
 @onready var charge_meter: Node2D = $ChargeMeter
@@ -483,6 +484,10 @@ func _apply_sprite_atmosphere_tint() -> void:
 					child.modulate = Balance.GOLDEN_BALL_TINT
 				else:
 					child.modulate = _sprite_atmosphere_tint
+	if yardage_markers:
+		for child in yardage_markers.get_children():
+			if child is SpriteBase3D:
+				(child as SpriteBase3D).modulate = _sprite_atmosphere_tint
 	if _ratina and _ratina.has_method("apply_atmosphere_tint"):
 		_ratina.apply_atmosphere_tint(_sprite_atmosphere_tint)
 	if _rattling_controller and _rattling_controller.has_method("apply_atmosphere_tint"):

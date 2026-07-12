@@ -106,7 +106,7 @@ script = ExtResource("9_rattling_placeholder")
 
 [node name="YardageMarkers" type="Node3D" parent="Foreground" unique_id=816687626]
 
-[node name="Marker50" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=1330937824]
+[node name="Marker50Right" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=1330937824]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -60.57)
 pixel_size = 0.015
 billboard = 1
@@ -114,7 +114,7 @@ alpha_cut = 1
 texture_filter = 0
 texture = ExtResource("12_marker_50")
 
-[node name="Marker100" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=1242433491]
+[node name="Marker100Right" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=1242433491]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -110.57)
 pixel_size = 0.015
 billboard = 1
@@ -122,7 +122,7 @@ alpha_cut = 1
 texture_filter = 0
 texture = ExtResource("13_marker_100")
 
-[node name="Marker150" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=874229304]
+[node name="Marker150Right" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=874229304]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -160.57)
 pixel_size = 0.015
 billboard = 1
@@ -130,7 +130,7 @@ alpha_cut = 1
 texture_filter = 0
 texture = ExtResource("14_marker_150")
 
-[node name="Marker200" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=98576565]
+[node name="Marker200Right" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=98576565]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -210.57)
 pixel_size = 0.015
 billboard = 1
@@ -138,7 +138,7 @@ alpha_cut = 1
 texture_filter = 0
 texture = ExtResource("15_marker_200")
 
-[node name="Marker250" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=286977929]
+[node name="Marker250Right" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=286977929]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -260.57)
 pixel_size = 0.015
 billboard = 1
@@ -146,8 +146,56 @@ alpha_cut = 1
 texture_filter = 0
 texture = ExtResource("16_marker_250")
 
-[node name="Marker300" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=628641713]
+[node name="Marker300Right" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=628641713]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -310.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("17_marker_300")
+
+[node name="Marker50Left" type="Sprite3D" parent="Foreground/YardageMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.37896824, -60.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("12_marker_50")
+
+[node name="Marker100Left" type="Sprite3D" parent="Foreground/YardageMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.37896824, -110.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("13_marker_100")
+
+[node name="Marker150Left" type="Sprite3D" parent="Foreground/YardageMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.37896824, -160.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("14_marker_150")
+
+[node name="Marker200Left" type="Sprite3D" parent="Foreground/YardageMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.37896824, -210.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("15_marker_200")
+
+[node name="Marker250Left" type="Sprite3D" parent="Foreground/YardageMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.37896824, -260.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("16_marker_250")
+
+[node name="Marker300Left" type="Sprite3D" parent="Foreground/YardageMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 0.37896824, -310.57)
 pixel_size = 0.015
 billboard = 1
 alpha_cut = 1

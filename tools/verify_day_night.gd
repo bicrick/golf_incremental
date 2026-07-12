@@ -18,6 +18,7 @@ func _run() -> void:
 	ok = _check_celestial_arc() and ok
 	ok = await _check_celestial_placement() and ok
 	ok = await _check_atmosphere_application() and ok
+	ok = await _check_yardage_marker_atmosphere() and ok
 	ok = await _check_ground_mesh_stability() and ok
 	ok = await _check_sun_light_scene() and ok
 	ok = await _check_sky_dome() and ok
@@ -196,6 +197,53 @@ func _check_atmosphere_application() -> bool:
 
 	range_view.queue_free()
 	print("OK: apply_atmosphere drives WorldEnvironment background by cycle time")
+	return true
+
+
+func _check_yardage_marker_atmosphere() -> bool:
+	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
+	if scene == null:
+		print("FAIL: could not load range_view.tscn for yardage marker tint check")
+		return false
+
+	var range_view: Node3D = scene.instantiate()
+	root.add_child(range_view)
+	range_view.visible = true
+	await process_frame
+
+	var cycle: Node = range_view.get_node_or_null("DayNightCycle")
+	if cycle:
+		cycle.set_process(false)
+
+	var markers: Node3D = range_view.get_node_or_null("Foreground/YardageMarkers")
+	if markers == null or markers.get_child_count() < 12:
+		print("FAIL: YardageMarkers missing or incomplete (need left+right sets)")
+		range_view.queue_free()
+		return false
+
+	var day_tint := DayNightPalette.sample_at(DAY_TIME).canvas_modulate
+	var night_tint := DayNightPalette.sample_at(NIGHT_TIME).canvas_modulate
+	if day_tint.is_equal_approx(night_tint):
+		print("FAIL: day and night canvas_modulate should differ")
+		range_view.queue_free()
+		return false
+
+	range_view.apply_atmosphere(DAY_TIME)
+	for child in markers.get_children():
+		if child is SpriteBase3D and not (child as SpriteBase3D).modulate.is_equal_approx(day_tint):
+			print("FAIL: ", child.name, " day modulate expected ", day_tint, " got ", (child as SpriteBase3D).modulate)
+			range_view.queue_free()
+			return false
+
+	range_view.apply_atmosphere(NIGHT_TIME)
+	for child in markers.get_children():
+		if child is SpriteBase3D and not (child as SpriteBase3D).modulate.is_equal_approx(night_tint):
+			print("FAIL: ", child.name, " night modulate expected ", night_tint, " got ", (child as SpriteBase3D).modulate)
+			range_view.queue_free()
+			return false
+
+	range_view.queue_free()
+	print("OK: yardage markers follow DayNightPalette canvas_modulate")
 	return true
 
 
