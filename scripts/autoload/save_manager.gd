@@ -237,7 +237,8 @@ func load_game() -> void:
 	var save_version: int = int(parsed.get("version", 0))
 	GameState.currency = float(parsed.get("currency", 0.0))
 	GameState.upgrade_levels = parsed.get("upgrade_levels", {})
-	GameState.upgrades_unlocked = bool(parsed.get("upgrades_unlocked", false))
+	# Upgrades menu is always available; migrate old locked saves.
+	GameState.upgrades_unlocked = true
 	GameState.shop_unlocked = bool(parsed.get("shop_unlocked", false))
 	GameState.ratina_unlocked = bool(parsed.get("ratina_unlocked", false))
 	GameState.rattlings_unlocked = bool(parsed.get("rattlings_unlocked", false))

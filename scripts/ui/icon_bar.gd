@@ -32,8 +32,6 @@ func _ready() -> void:
 	upgrades_button.pressed.connect(_on_upgrades_pressed)
 	upgrades_button.mouse_entered.connect(_on_upgrades_mouse_entered)
 	upgrades_button.mouse_exited.connect(_on_upgrades_mouse_exited)
-	EventBus.currency_changed.connect(_on_currency_changed)
-	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.phase_changed.connect(_on_phase_changed)
 	_style_hit_wrap()
 	_style_hit_button()
@@ -41,18 +39,13 @@ func _ready() -> void:
 	_style_upgrades_button()
 	_layout_top_right_corner()
 	_refresh_hit_visibility()
+	upgrades_button.disabled = false
 	upgrades_button.tooltip_text = ""
+	_upgrades_wrap.modulate = Color.WHITE
+	if _upgrades_glyph:
+		_upgrades_glyph.locked = false
 	call_deferred("_capture_button_rest_positions")
-	call_deferred("_refresh_upgrades_lock_state")
 	set_process(false)
-
-
-func _on_currency_changed(_currency: float) -> void:
-	_refresh_upgrades_lock_state()
-
-
-func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
-	_refresh_upgrades_lock_state()
 
 
 func _on_phase_changed(_phase: String) -> void:
@@ -65,27 +58,6 @@ func _refresh_hit_visibility() -> void:
 
 func _on_hit_pressed() -> void:
 	GameState.exit_harvest_early()
-
-
-func _refresh_upgrades_lock_state() -> void:
-	if upgrades_button == null:
-		return
-	var unlocked := GameState.upgrades_unlocked
-	var can_afford := GameState.currency >= Balance.UPGRADES_UNLOCK_COST
-	upgrades_button.disabled = not unlocked and not can_afford
-	if unlocked:
-		upgrades_button.tooltip_text = ""
-		_upgrades_wrap.modulate = Color.WHITE
-		if _upgrades_glyph:
-			_upgrades_glyph.locked = false
-	else:
-		upgrades_button.tooltip_text = "$%.2f" % Balance.UPGRADES_UNLOCK_COST
-		if can_afford:
-			_upgrades_wrap.modulate = Color(1.0, 1.0, 1.0, 0.85)
-		else:
-			_upgrades_wrap.modulate = Color(0.55, 0.52, 0.48, 0.75)
-		if _upgrades_glyph:
-			_upgrades_glyph.locked = true
 
 
 func _capture_button_rest_positions() -> void:
@@ -117,10 +89,6 @@ func _on_upgrades_mouse_exited() -> void:
 func _on_upgrades_pressed() -> void:
 	if _upgrade_panel == null:
 		return
-	if not GameState.upgrades_unlocked:
-		if not GameState.try_unlock_upgrades():
-			return
-		_refresh_upgrades_lock_state()
 	if _upgrade_panel.has_method("toggle"):
 		_upgrade_panel.toggle()
 		_upgrades_open = _upgrade_panel.is_open() if _upgrade_panel.has_method("is_open") else not _upgrades_open

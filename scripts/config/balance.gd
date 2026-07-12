@@ -162,8 +162,6 @@ enum ContactFlavor { PURE, SLIGHTLY_FAT, THIN, CHUNK }
 enum FeedbackTier { WHISPER, WARM, JACKPOT, MILESTONE }
 enum UpgradeBranch { BASE_PAY, POWER, QUALITY, PICKUP }
 
-## One-time cost to unlock the upgrade tree from the icon bar.
-const UPGRADES_UNLOCK_COST: float = 1.50
 ## One-time cost to hire Ratina from the upgrade tree.
 const RATINA_UNLOCK_COST: float = 100.0
 ## Per-level cost escalation — each successive upgrade costs more than pure exponential.

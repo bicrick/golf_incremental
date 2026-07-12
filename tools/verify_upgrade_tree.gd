@@ -237,27 +237,16 @@ func _run() -> void:
 	gs.reset_to_fresh()
 	await process_frame
 	var icon_bar_node: Node = main.get_node("UI/UIRoot/GameplayChrome/IconBar")
-	if icon_bar_node.has_method("_refresh_upgrades_lock_state"):
-		icon_bar_node._refresh_upgrades_lock_state()
-	if not gs.upgrades_unlocked and gs.currency < Balance.UPGRADES_UNLOCK_COST:
-		if not icon_bar_node.upgrades_button.disabled:
-			print("FAIL: upgrades button should be disabled below unlock cost")
-			ok = false
-	gs.currency = Balance.UPGRADES_UNLOCK_COST
-	if icon_bar_node.has_method("_refresh_upgrades_lock_state"):
-		icon_bar_node._refresh_upgrades_lock_state()
-	if gs.try_unlock_upgrades():
-		if not gs.upgrades_unlocked:
-			print("FAIL: try_unlock_upgrades should set flag")
-			ok = false
-		if gs.currency > 0.001:
-			print("FAIL: unlock should spend full cost, currency=%.2f" % gs.currency)
-			ok = false
-	else:
-		print("FAIL: try_unlock_upgrades failed at exact cost")
+	if not gs.upgrades_unlocked:
+		print("FAIL: upgrades should be unlocked by default after reset")
+		ok = false
+	if icon_bar_node.upgrades_button.disabled:
+		print("FAIL: upgrades button should be enabled by default")
+		ok = false
+	if not icon_bar_node.upgrades_button.tooltip_text.is_empty():
+		print("FAIL: upgrades button should have no unlock tooltip")
 		ok = false
 
-	gs.upgrades_unlocked = true
 	panel.close()
 	await process_frame
 	if icon_bar_node.has_method("_on_upgrades_pressed"):
@@ -615,10 +604,6 @@ func _check_upgrades_button_clickable_during_harvest(
 	main: Node, gs: Node, panel: Control, icon_bar_node: Node
 ) -> bool:
 	gs.reset_to_fresh()
-	gs.currency = Balance.UPGRADES_UNLOCK_COST
-	gs.upgrades_unlocked = true
-	if icon_bar_node.has_method("_refresh_upgrades_lock_state"):
-		icon_bar_node._refresh_upgrades_lock_state()
 	panel.close()
 	await process_frame
 	var range_view: Node3D = main.get_node("RangeView")

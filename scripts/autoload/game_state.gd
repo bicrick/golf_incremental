@@ -7,7 +7,7 @@ const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitio
 
 var currency: float = 0.0
 var upgrade_levels: Dictionary = {}
-var upgrades_unlocked: bool = false
+var upgrades_unlocked: bool = true
 var shop_unlocked: bool = false
 var ratina_unlocked: bool = false
 var rattlings_unlocked: bool = false
@@ -124,7 +124,6 @@ func prestige() -> bool:
 	rattlings_unlocked = false
 	ratina_active = true
 	rattlings_active = true
-	# Keep upgrades_unlocked so the menu stays available after first unlock this life
 	perfect_swing_streak = 0
 	current_phase = "strike"
 	harvest_collected = 0
@@ -379,18 +378,6 @@ func credit_rattling_ball(
 	return payout
 
 
-func try_unlock_upgrades() -> bool:
-	if upgrades_unlocked:
-		return true
-	if currency < Balance.UPGRADES_UNLOCK_COST:
-		return false
-	currency -= Balance.UPGRADES_UNLOCK_COST
-	upgrades_unlocked = true
-	EventBus.currency_changed.emit(currency)
-	EventBus.stats_changed.emit(stats, currency)
-	return true
-
-
 func purchase_upgrade(id: String) -> bool:
 	var def := UpgradeDefinitions.get_def(id)
 	if def.is_empty():
@@ -431,7 +418,7 @@ func get_upgrade_cost(id: String) -> float:
 func reset_to_fresh() -> void:
 	currency = 0.0
 	upgrade_levels.clear()
-	upgrades_unlocked = false
+	upgrades_unlocked = true
 	shop_unlocked = false
 	ratina_unlocked = false
 	rattlings_unlocked = false
