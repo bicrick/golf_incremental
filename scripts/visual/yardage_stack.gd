@@ -2,6 +2,7 @@ class_name YardageStack
 extends Node2D
 ## Flight-synced yardage counter stack (max 2). Newest sits at the base
 ## anchor; older entries bump upward when a new strike begins.
+## Yards count with one decimal in a fixed-width slot so "yds" never shifts.
 
 const MAX_ENTRIES := 2
 const BUMP_STEP_Y := -20.0
@@ -36,8 +37,7 @@ func set_progress(id: int, progress: float) -> void:
 	if entry.get("finished", false):
 		return
 	var yards: float = float(entry["final_yards"])
-	var shown := int(round(yards * clampf(progress, 0.0, 1.0)))
-	_write_yards(entry, shown)
+	_write_yards(entry, yards * clampf(progress, 0.0, 1.0))
 
 
 func finish(id: int) -> void:
@@ -47,8 +47,12 @@ func finish(id: int) -> void:
 	if entry.get("finished", false):
 		return
 	entry["finished"] = true
-	_write_yards(entry, int(round(float(entry["final_yards"]))))
+	_write_yards(entry, float(entry["final_yards"]))
 	_play_life(entry)
+
+
+static func format_yards(yards: float) -> String:
+	return "%.1f" % yards
 
 
 func _make_entry(id: int, tier: int, final_yards: float) -> Dictionary:
@@ -58,42 +62,79 @@ func _make_entry(id: int, tier: int, final_yards: float) -> Dictionary:
 	add_child(root)
 
 	var tier_name := Balance.TIER_NAMES[tier]
-	var label := Label.new()
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	PixelFont.apply_label(label, 8)
-	label.modulate = Balance.TIER_COLORS[tier]
-	label.text = "%s\n%d yds" % [tier_name, 0]
-	root.add_child(label)
-	label.reset_size()
-	var size := label.get_minimum_size()
-	label.position = Vector2(
-		BASE_TEXT_OFFSET.x - size.x * 0.5,
-		BASE_TEXT_OFFSET.y - size.y
-	)
+	var color: Color = Balance.TIER_COLORS[tier]
+	var final_str := format_yards(final_yards)
 
-	var entry := {
+	var tier_label := _make_colored_label(tier_name, color, HORIZONTAL_ALIGNMENT_CENTER)
+	var yards_label := _make_colored_label(final_str, color, HORIZONTAL_ALIGNMENT_RIGHT)
+	yards_label.reset_size()
+	var num_width := yards_label.get_minimum_size().x
+	yards_label.custom_minimum_size = Vector2(num_width, 0)
+	yards_label.size = Vector2(num_width, yards_label.get_minimum_size().y)
+	yards_label.text = format_yards(0.0)
+
+	var unit_label := _make_colored_label(" yds", color, HORIZONTAL_ALIGNMENT_LEFT)
+
+	root.add_child(tier_label)
+	root.add_child(yards_label)
+	root.add_child(unit_label)
+	_layout_entry(tier_label, yards_label, unit_label, num_width)
+
+	return {
 		"id": id,
 		"root": root,
-		"label": label,
+		"tier_label": tier_label,
+		"yards_label": yards_label,
+		"unit_label": unit_label,
 		"tier": tier,
-		"tier_name": tier_name,
 		"final_yards": final_yards,
 		"finished": false,
 		"base_y": 0.0,
 	}
-	return entry
 
 
-func _write_yards(entry: Dictionary, shown_yards: int) -> void:
-	var label: Label = entry["label"]
-	if label == null or not is_instance_valid(label):
+func _make_colored_label(text: String, color: Color, align: HorizontalAlignment) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = align
+	PixelFont.apply_label(label, 8)
+	label.add_theme_color_override(&"font_color", color)
+	return label
+
+
+func _layout_entry(
+	tier_label: Label,
+	yards_label: Label,
+	unit_label: Label,
+	num_width: float
+) -> void:
+	tier_label.reset_size()
+	yards_label.reset_size()
+	unit_label.reset_size()
+	var tier_size := tier_label.get_minimum_size()
+	var yards_size := yards_label.get_minimum_size()
+	var unit_size := unit_label.get_minimum_size()
+	var row_w := num_width + unit_size.x
+	var row_h := maxf(yards_size.y, unit_size.y)
+	var total_h := tier_size.y + row_h
+	var top_y := BASE_TEXT_OFFSET.y - total_h
+
+	tier_label.position = Vector2(BASE_TEXT_OFFSET.x - tier_size.x * 0.5, top_y)
+	var row_x := BASE_TEXT_OFFSET.x - row_w * 0.5
+	var row_y := top_y + tier_size.y
+	yards_label.position = Vector2(row_x, row_y)
+	unit_label.position = Vector2(row_x + num_width, row_y)
+
+
+func _write_yards(entry: Dictionary, shown_yards: float) -> void:
+	var yards_label: Label = entry.get("yards_label")
+	if yards_label == null or not is_instance_valid(yards_label):
 		return
-	label.text = "%s\n%d yds" % [String(entry["tier_name"]), shown_yards]
-	label.reset_size()
-	var size := label.get_minimum_size()
-	# Keep centered as digit width changes.
-	label.position.x = BASE_TEXT_OFFSET.x - size.x * 0.5
-	label.position.y = BASE_TEXT_OFFSET.y - size.y
+	yards_label.text = format_yards(shown_yards)
+	# Keep the reserved slot width so right-align stays stable.
+	var slot_w := yards_label.custom_minimum_size.x
+	if slot_w > 0.0:
+		yards_label.size = Vector2(slot_w, yards_label.get_minimum_size().y)
 
 
 func _bump_existing() -> void:
@@ -120,25 +161,23 @@ func _trim_overflow() -> void:
 func _refresh_dimming() -> void:
 	for i in _entries.size():
 		var entry: Dictionary = _entries[i]
-		var label: Label = entry.get("label")
-		if label == null or not is_instance_valid(label):
+		var root: Node2D = entry.get("root")
+		if root == null or not is_instance_valid(root):
 			continue
 		var dim := 1.0 if i == 0 else OLDER_DIM
-		var color: Color = Balance.TIER_COLORS[int(entry["tier"])]
-		label.modulate = Color(color.r * dim, color.g * dim, color.b * dim, label.modulate.a)
+		root.modulate = Color(dim, dim, dim, root.modulate.a)
 
 
 func _play_life(entry: Dictionary) -> void:
 	var root: Node2D = entry.get("root")
-	var label: Label = entry.get("label")
-	if root == null or not is_instance_valid(root) or label == null or not is_instance_valid(label):
+	if root == null or not is_instance_valid(root):
 		_discard_entry(entry)
 		return
 	_kill_life(root)
 	var tween := create_tween()
 	root.set_meta(META_LIFE_TWEEN, tween)
 	tween.tween_interval(HOLD_SEC)
-	tween.tween_property(label, "modulate:a", 0.0, FADE_SEC)\
+	tween.tween_property(root, "modulate:a", 0.0, FADE_SEC)\
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tween.tween_callback(_on_life_finished.bind(entry))
 

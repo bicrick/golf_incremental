@@ -234,16 +234,17 @@ func _check_yardage_stack() -> bool:
 		print("FAIL: yardage stack begin returned invalid id")
 		ok = false
 	stack.set_progress(id_a, 0.5)
-	var entry_a: Label = null
+	var yards_label: Label = null
 	for child in stack.get_children():
-		if child.get_child_count() > 0 and child.get_child(0) is Label:
-			entry_a = child.get_child(0)
+		# Entry root: tier_label, yards_label, unit_label
+		if child.get_child_count() >= 2 and child.get_child(1) is Label:
+			yards_label = child.get_child(1)
 			break
-	if entry_a == null:
-		print("FAIL: yardage stack missing label after begin")
+	if yards_label == null:
+		print("FAIL: yardage stack missing yards label after begin")
 		ok = false
-	elif not ("20 yds" in entry_a.text):
-		print("FAIL: expected mid-flight '20 yds', got '%s'" % entry_a.text)
+	elif yards_label.text != "20.0":
+		print("FAIL: expected mid-flight '20.0', got '%s'" % yards_label.text)
 		ok = false
 
 	var id_b := stack.begin(Balance.TimingTier.GOOD, 10.0)
