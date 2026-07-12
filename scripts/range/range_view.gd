@@ -21,8 +21,8 @@ const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
 const YardageStackScript := preload("res://scripts/visual/yardage_stack.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
 const GoldenBallAuraScript := preload("res://scripts/visual/golden_ball_aura.gd")
-const RatinaBayCellScene := preload("res://scenes/range/cells/ratina_bay_cell.tscn")
-const EmptyBayCellScene := preload("res://scenes/range/cells/empty_bay_cell.tscn")
+const RatinaBayCellScene: PackedScene = preload("res://scenes/range/cells/ratina_bay_cell.tscn")
+const EmptyBayCellScene: PackedScene = preload("res://scenes/range/cells/empty_bay_cell.tscn")
 const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
