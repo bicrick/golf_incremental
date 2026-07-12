@@ -23,7 +23,11 @@ const ASPECT_TOLERANCE := 0.08
 
 
 static func compute_positions(root_id: String = UpgradeGraph.ROOT_ID) -> Dictionary:
-	var children := _children_map()
+	return compute_positions_for(root_id, UpgradeGraph.connections())
+
+
+static func compute_positions_for(root_id: String, connections: Array) -> Dictionary:
+	var children := _children_map_from(connections)
 	var subtree_weights := _subtree_weights(root_id, children)
 	var angles := {}
 	_assign_angles(root_id, -PI, PI, children, subtree_weights, angles)
@@ -40,8 +44,12 @@ static func compute_positions(root_id: String = UpgradeGraph.ROOT_ID) -> Diction
 
 
 static func _children_map() -> Dictionary:
+	return _children_map_from(UpgradeGraph.connections())
+
+
+static func _children_map_from(connections: Array) -> Dictionary:
 	var children: Dictionary = {}
-	for link in UpgradeGraph.connections():
+	for link in connections:
 		var parent_id: String = link["from"]
 		var child_id: String = link["to"]
 		if not children.has(parent_id):

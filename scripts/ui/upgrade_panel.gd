@@ -1,17 +1,19 @@
 extends Control
-## Full-screen unified upgrade tree — pannable, zoomable radial mega-tree.
+## Full-screen unified upgrade tree — Play (cash) and Prestige (cheese) tabs.
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 const RadialTreeLayout = preload("res://scripts/ui/upgrade_tree_layout.gd")
+const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitions.gd")
 
 const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
-const RATINA_NODE_SCENE := preload("res://scenes/ui/ratina_tree_node.tscn")
-const RATTLING_NODE_SCENE := preload("res://scenes/ui/rattling_tree_node.tscn")
+const CHEESE_ICON := preload("res://assets/ui/cheese-currency-icon.png")
 
 const NODE_HALF := UpgradeIcon.NODE_HALF
 const BOUNDS_PADDING := 24.0
 const FIT_PADDING := 56.0
 const FIT_FILL := 0.98
+
+enum Tab { PLAY, PRESTIGE }
 
 @onready var tree_viewport: Control = $Content/TreeViewport
 @onready var tree_world: Control = $Content/TreeViewport/TreeWorld
@@ -23,6 +25,13 @@ const FIT_FILL := 0.98
 @onready var back_button: Button = $Content/Header/Row/BackButton
 @onready var _camera_controller: Node = $TreeCameraController
 
+var _tab_bar: TabBar
+var _prestige_count_label: Label
+var _cheese_icon: TextureRect
+var _prestige_button: Button
+var _confirm_dialog: ConfirmationDialog
+
+var _active_tab: Tab = Tab.PLAY
 var _is_open := false
 var _nodes: Dictionary = {}
 var _layout_positions: Dictionary = {}
@@ -31,19 +40,92 @@ var _refresh_pending := false
 
 func _ready() -> void:
 	visible = false
+	_ensure_tab_chrome()
 	back_button.pressed.connect(close)
+	_tab_bar.tab_changed.connect(_on_tab_changed)
+	_prestige_button.pressed.connect(_on_prestige_pressed)
+	_confirm_dialog.confirmed.connect(_on_prestige_confirmed)
 	EventBus.currency_changed.connect(_on_currency_changed)
+	EventBus.cheese_changed.connect(_on_cheese_changed)
 	EventBus.stats_changed.connect(_on_stats_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 	EventBus.shop_item_purchased.connect(_on_shop_item_purchased)
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 	EventBus.rattling_upgrade_purchased.connect(_on_rattling_upgrade_purchased)
+	EventBus.prestige_upgrade_purchased.connect(_on_prestige_upgrade_purchased)
+	EventBus.prestiged.connect(_on_prestiged)
 	_apply_fonts()
 	UiTheme.apply_wood_header_bar(header_bar)
 	_style_back_button()
+	_style_prestige_button()
 	_camera_controller.setup(tree_viewport, tree_world)
 	_build_tree()
 	_refresh_all()
+
+
+func _ensure_tab_chrome() -> void:
+	var row: HBoxContainer = $Content/Header/Row
+	_tab_bar = row.get_node_or_null("TabBar") as TabBar
+	if _tab_bar == null:
+		_tab_bar = TabBar.new()
+		_tab_bar.name = "TabBar"
+		_tab_bar.add_tab("Play")
+		_tab_bar.add_tab("Prestige")
+		_tab_bar.custom_minimum_size = Vector2(120, 18)
+		row.add_child(_tab_bar)
+		row.move_child(_tab_bar, 1)
+
+	_prestige_count_label = row.get_node_or_null("PrestigeCount") as Label
+	if _prestige_count_label == null:
+		_prestige_count_label = Label.new()
+		_prestige_count_label.name = "PrestigeCount"
+		_prestige_count_label.visible = false
+		_prestige_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(_prestige_count_label)
+		row.move_child(_prestige_count_label, row.get_child_count() - 2)
+
+	_cheese_icon = row.get_node_or_null("CheeseIcon") as TextureRect
+	if _cheese_icon == null:
+		_cheese_icon = TextureRect.new()
+		_cheese_icon.name = "CheeseIcon"
+		_cheese_icon.texture = CHEESE_ICON
+		_cheese_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_cheese_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_cheese_icon.custom_minimum_size = Vector2(14, 14)
+		_cheese_icon.visible = false
+		_cheese_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		row.add_child(_cheese_icon)
+		row.move_child(_cheese_icon, row.get_child_count() - 2)
+
+	_prestige_button = get_node_or_null("Content/PrestigeButton") as Button
+	if _prestige_button == null:
+		_prestige_button = Button.new()
+		_prestige_button.name = "PrestigeButton"
+		_prestige_button.text = "Prestige"
+		_prestige_button.visible = false
+		_prestige_button.anchor_left = 1.0
+		_prestige_button.anchor_top = 1.0
+		_prestige_button.anchor_right = 1.0
+		_prestige_button.anchor_bottom = 1.0
+		_prestige_button.offset_left = -88.0
+		_prestige_button.offset_top = -28.0
+		_prestige_button.offset_right = -8.0
+		_prestige_button.offset_bottom = -8.0
+		_prestige_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_prestige_button.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		$Content.add_child(_prestige_button)
+
+	_confirm_dialog = get_node_or_null("PrestigeConfirm") as ConfirmationDialog
+	if _confirm_dialog == null:
+		_confirm_dialog = ConfirmationDialog.new()
+		_confirm_dialog.name = "PrestigeConfirm"
+		_confirm_dialog.title = "Prestige"
+		_confirm_dialog.dialog_text = (
+			"Prestige now? You will lose all cash and Play upgrades. "
+			+ "You will gain cheese and keep Prestige upgrades."
+		)
+		_confirm_dialog.ok_button_text = "Prestige"
+		add_child(_confirm_dialog)
 
 
 func is_open() -> bool:
@@ -107,49 +189,106 @@ func _close_other_panels() -> void:
 		settings_panel.close()
 
 
+func _on_tab_changed(tab: int) -> void:
+	_active_tab = Tab.PRESTIGE if tab == 1 else Tab.PLAY
+	_build_tree()
+	_refresh_all()
+	call_deferred("fit_to_view")
+
+
 func _build_tree() -> void:
 	for child in nodes_root.get_children():
 		child.queue_free()
 	_nodes.clear()
-	_layout_positions = RadialTreeLayout.compute_positions()
 
-	for graph_node in UpgradeGraph.all_nodes():
-		var id: String = graph_node["id"]
-		var node_namespace: String = graph_node["namespace"]
-		var def: Dictionary = graph_node["def"]
-		var node: PanelContainer = _instantiate_node(node_namespace)
-		nodes_root.add_child(node)
-		node.setup(def, node_namespace)
-		var layout_pos: Vector2 = _layout_positions.get(id, Vector2.ZERO)
-		node.position = layout_pos - NODE_HALF
-		node.purchase_requested.connect(_on_purchase_requested)
-		_nodes[id] = node
+	if _active_tab == Tab.PRESTIGE:
+		_layout_positions = RadialTreeLayout.compute_positions_for(
+			"cheese_press", PrestigeDefinitionsScript.connections()
+		)
+		for def in PrestigeDefinitionsScript.all():
+			var id: String = def["id"]
+			var node: PanelContainer = NODE_SCENE.instantiate()
+			nodes_root.add_child(node)
+			node.setup(def, "prestige")
+			var layout_pos: Vector2 = _layout_positions.get(id, Vector2.ZERO)
+			node.position = layout_pos - NODE_HALF
+			node.purchase_requested.connect(_on_purchase_requested)
+			_nodes[id] = node
+		if connectors.has_method("setup"):
+			connectors.setup(_layout_positions, _nodes, "prestige")
+	else:
+		_layout_positions = RadialTreeLayout.compute_positions()
+		for graph_node in UpgradeGraph.all_nodes():
+			var id: String = graph_node["id"]
+			var node_namespace: String = graph_node["namespace"]
+			var def: Dictionary = graph_node["def"]
+			var node: PanelContainer = NODE_SCENE.instantiate()
+			nodes_root.add_child(node)
+			node.setup(def, node_namespace)
+			var layout_pos: Vector2 = _layout_positions.get(id, Vector2.ZERO)
+			node.position = layout_pos - NODE_HALF
+			node.purchase_requested.connect(_on_purchase_requested)
+			_nodes[id] = node
+		if connectors.has_method("setup"):
+			connectors.setup(_layout_positions, _nodes, "play")
 
-	if connectors.has_method("setup"):
-		connectors.setup(_layout_positions, _nodes)
 	_apply_tree_bounds(_layout_bounds(), BOUNDS_PADDING)
-
-
-func _instantiate_node(node_namespace: String) -> PanelContainer:
-	match node_namespace:
-		UpgradeGraph.NAMESPACE_RATINA:
-			return RATINA_NODE_SCENE.instantiate()
-		UpgradeGraph.NAMESPACE_RATTLING:
-			return RATTLING_NODE_SCENE.instantiate()
-		_:
-			return NODE_SCENE.instantiate()
 
 
 func _refresh_all() -> void:
 	_refresh_pending = false
-	currency_label.text = "$%s" % _format_currency(GameState.currency)
+	_refresh_header()
+	_refresh_prestige_button()
 	for id in _nodes:
 		var node: PanelContainer = _nodes[id]
-		var revealed := UpgradeGraph.is_revealed(id)
+		var revealed := _is_node_revealed(id)
 		node.visible = revealed
 		if revealed and node.has_method("refresh"):
 			node.refresh()
 	connectors.queue_redraw()
+
+
+func _is_node_revealed(id: String) -> bool:
+	if _active_tab == Tab.PRESTIGE:
+		if id == "cheese_press":
+			return true
+		var parent := str(PrestigeDefinitionsScript.get_def(id).get("parent_id", ""))
+		if parent.is_empty():
+			return true
+		return GameState.get_prestige_upgrade_level(parent) >= 1
+	return UpgradeGraph.is_revealed(id)
+
+
+func _refresh_header() -> void:
+	var on_prestige := _active_tab == Tab.PRESTIGE
+	_prestige_count_label.visible = on_prestige
+	_cheese_icon.visible = on_prestige
+	_prestige_button.visible = on_prestige
+	if on_prestige:
+		title_label.text = "Prestige"
+		_prestige_count_label.text = "Prestige #%d" % GameState.prestige_count
+		currency_label.text = "%s" % _format_currency(GameState.cheese)
+	else:
+		title_label.text = "Upgrade Tree"
+		currency_label.text = "$%s" % _format_currency(GameState.currency)
+
+
+func _refresh_prestige_button() -> void:
+	if not _prestige_button.visible:
+		return
+	var can := GameState.can_prestige()
+	_prestige_button.disabled = not can
+	var threshold := GameState.prestige_threshold
+	if can:
+		_prestige_button.tooltip_text = (
+			"Cash out for cheese. Reset Play upgrades. Keep Prestige perks."
+		)
+	else:
+		var need := maxf(0.0, threshold - GameState.currency)
+		_prestige_button.tooltip_text = (
+			"Need $%s on hand to prestige.\nRequires $%s. Reset cash upgrades and cash. Keep cheese and prestige perks."
+			% [_format_currency(need if need > 0.0 else threshold), _format_currency(threshold)]
+		)
 
 
 func _request_refresh() -> void:
@@ -171,13 +310,37 @@ func _flush_refresh() -> void:
 func _on_purchase_requested(id: String) -> void:
 	if _camera_controller.did_drag():
 		return
-	UpgradeGraph.purchase(id)
+	if _active_tab == Tab.PRESTIGE:
+		GameState.purchase_prestige_upgrade(id)
+	else:
+		UpgradeGraph.purchase(id)
+
+
+func _on_prestige_pressed() -> void:
+	if not GameState.can_prestige():
+		return
+	_confirm_dialog.popup_centered()
+
+
+func _on_prestige_confirmed() -> void:
+	GameState.prestige()
+	_refresh_all()
 
 
 func _on_currency_changed(currency: float) -> void:
 	if not _is_open:
 		return
-	currency_label.text = "$%s" % _format_currency(currency)
+	if _active_tab == Tab.PLAY:
+		currency_label.text = "$%s" % _format_currency(currency)
+	_refresh_prestige_button()
+	_request_refresh()
+
+
+func _on_cheese_changed(cheese: float) -> void:
+	if not _is_open:
+		return
+	if _active_tab == Tab.PRESTIGE:
+		currency_label.text = "%s" % _format_currency(cheese)
 	_request_refresh()
 
 
@@ -201,11 +364,19 @@ func _on_rattling_upgrade_purchased(_id: String, _level: int) -> void:
 	_request_refresh()
 
 
+func _on_prestige_upgrade_purchased(_id: String, _level: int) -> void:
+	_request_refresh()
+
+
+func _on_prestiged(_count: int, _gained: float) -> void:
+	_request_refresh()
+
+
 func _layout_bounds(revealed_only: bool = false) -> Rect2:
 	var min_pos := Vector2(INF, INF)
 	var max_pos := Vector2(-INF, -INF)
 	for id in _layout_positions:
-		if revealed_only and not UpgradeGraph.is_revealed(id):
+		if revealed_only and not _is_node_revealed(id):
 			continue
 		var pos: Vector2 = _layout_positions[id]
 		min_pos.x = minf(min_pos.x, pos.x - NODE_HALF.x)
@@ -245,6 +416,7 @@ func _apply_tree_bounds(bounds: Rect2, padding: float) -> void:
 func _apply_fonts() -> void:
 	PixelFont.apply_label(title_label, 10)
 	PixelFont.apply_label(currency_label, 8)
+	PixelFont.apply_label(_prestige_count_label, 8)
 
 
 func _style_back_button() -> void:
@@ -270,6 +442,35 @@ func _style_back_button() -> void:
 	hover.bg_color = Color(0.92, 0.82, 0.58, 0.95)
 	back_button.add_theme_stylebox_override(&"hover", hover)
 	back_button.add_theme_stylebox_override(&"pressed", hover)
+
+
+func _style_prestige_button() -> void:
+	_prestige_button.add_theme_font_override(&"font", PixelFont.font_for_size(8))
+	_prestige_button.add_theme_font_size_override(&"font_size", 8)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.86, 0.72, 0.28, 0.95)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.border_color = Color(0.45, 0.32, 0.08, 1)
+	style.corner_radius_top_left = 2
+	style.corner_radius_top_right = 2
+	style.corner_radius_bottom_left = 2
+	style.corner_radius_bottom_right = 2
+	style.content_margin_left = 6
+	style.content_margin_right = 6
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	_prestige_button.add_theme_stylebox_override(&"normal", style)
+	var hover := style.duplicate() as StyleBoxFlat
+	hover.bg_color = Color(0.94, 0.82, 0.38, 0.98)
+	_prestige_button.add_theme_stylebox_override(&"hover", hover)
+	_prestige_button.add_theme_stylebox_override(&"pressed", hover)
+	var disabled := style.duplicate() as StyleBoxFlat
+	disabled.bg_color = Color(0.45, 0.42, 0.38, 0.75)
+	disabled.border_color = Color(0.28, 0.26, 0.22, 1)
+	_prestige_button.add_theme_stylebox_override(&"disabled", disabled)
 
 
 func _format_currency(n: float) -> String:

@@ -3,12 +3,13 @@ extends PanelContainer
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
+const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitions.gd")
+const PrestigeEffectsScript = preload("res://scripts/game/prestige/effects.gd")
+const TooltipText := preload("res://scripts/ui/upgrade_tooltip_text.gd")
 
 signal purchase_requested(upgrade_id: String)
 
 enum NodeState { LOCKED, UNAFFORDABLE, PURCHASABLE, MAXED }
-
-const TooltipText := preload("res://scripts/ui/upgrade_tooltip_text.gd")
 
 const NODE_SIZE := UpgradeIcon.DEFAULT_NODE_SIZE
 const TOOLTIP_DELAY_SEC := 0.08
@@ -88,10 +89,11 @@ func refresh() -> void:
 
 	var level := _level_for_node()
 	var max_level := int(def["max_level"])
-	var unlocked := UpgradeGraph.is_unlocked(upgrade_id)
-	var cost := UpgradeGraph.cost(upgrade_id)
+	var unlocked := _is_unlocked()
+	var cost := _cost_for_node()
 	var maxed := level >= max_level
-	var affordable := unlocked and not maxed and GameState.currency >= cost
+	var currency := GameState.cheese if _namespace == "prestige" else GameState.currency
+	var affordable := unlocked and not maxed and currency >= cost
 
 	if maxed:
 		_state = NodeState.MAXED
@@ -156,17 +158,18 @@ func _update_tooltip_content() -> void:
 		_tooltip_level_label.text = "Lv %d/%d  MAX" % [_tooltip_level, max_level]
 		_tooltip_price_label.visible = false
 	elif not _tooltip_unlocked:
-		var hint := UpgradeGraph.lock_hint(upgrade_id)
+		var hint := _lock_hint()
 		_tooltip_level_label.text = hint if not hint.is_empty() else "Locked"
 		_tooltip_price_label.visible = false
 	else:
 		_tooltip_level_label.text = "Lv %d/%d" % [_tooltip_level, max_level]
 		_tooltip_price_label.visible = true
+		var currency_mark := "Cheese " if _namespace == "prestige" else "$"
 		if _tooltip_affordable:
-			_tooltip_price_label.text = "Cost: $%s" % _format_cost(_tooltip_cost)
+			_tooltip_price_label.text = "Cost: %s%s" % [currency_mark, _format_cost(_tooltip_cost)]
 			_tooltip_price_label.add_theme_color_override(&"font_color", TOOLTIP_PRICE)
 		else:
-			_tooltip_price_label.text = "Need: $%s" % _format_cost(_tooltip_cost)
+			_tooltip_price_label.text = "Need: %s%s" % [currency_mark, _format_cost(_tooltip_cost)]
 			_tooltip_price_label.add_theme_color_override(&"font_color", TOOLTIP_PRICE_DIM)
 
 
@@ -315,17 +318,41 @@ func _ensure_panel_style() -> void:
 
 
 func _def_for_node() -> Dictionary:
+	if _namespace == "prestige":
+		return PrestigeDefinitionsScript.get_def(upgrade_id)
 	return UpgradeGraph.get_def(upgrade_id)
 
 
 func _level_for_node() -> int:
+	if _namespace == "prestige":
+		return GameState.get_prestige_upgrade_level(upgrade_id)
 	return UpgradeGraph.level(upgrade_id)
+
+
+func _cost_for_node() -> float:
+	if _namespace == "prestige":
+		return GameState.get_prestige_upgrade_cost(upgrade_id)
+	return UpgradeGraph.cost(upgrade_id)
+
+
+func _is_unlocked() -> bool:
+	if _namespace == "prestige":
+		return PrestigeDefinitionsScript.is_unlocked(upgrade_id, GameState.prestige_levels)
+	return UpgradeGraph.is_unlocked(upgrade_id)
+
+
+func _lock_hint() -> String:
+	if _namespace == "prestige":
+		return PrestigeDefinitionsScript.lock_hint(upgrade_id, GameState.prestige_levels)
+	return UpgradeGraph.lock_hint(upgrade_id)
 
 
 func _levels_for_namespace() -> Dictionary:
 	match _namespace:
 		UpgradeGraph.NAMESPACE_SHOP:
 			return GameState.shop_levels
+		"prestige":
+			return GameState.prestige_levels
 		_:
 			return GameState.upgrade_levels
 
@@ -333,6 +360,8 @@ func _levels_for_namespace() -> Dictionary:
 func _preview_for_namespace() -> Callable:
 	if _namespace == UpgradeGraph.NAMESPACE_SHOP:
 		return Callable(ShopEffects, "preview_stats")
+	if _namespace == "prestige":
+		return Callable(PrestigeEffectsScript, "preview_stats")
 	return Callable(UpgradeEffects, "preview_stats")
 
 

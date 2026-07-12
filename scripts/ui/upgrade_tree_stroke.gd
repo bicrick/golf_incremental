@@ -2,6 +2,9 @@ class_name UpgradeTreeStroke
 extends RefCounted
 ## Shared stroke widths, colors, and dash drawing for upgrade tree edges/borders.
 
+const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
+const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitions.gd")
+
 enum EdgeState { DORMANT, LIVE, CHARGED, COMPLETE }
 enum BorderState { LOCKED, DEFAULT, AFFORD, MAXED }
 
@@ -142,6 +145,8 @@ static func palette_for_upgrade(upgrade_id: String) -> Dictionary:
 
 static func branch_for_upgrade(upgrade_id: String) -> int:
 	var def := UpgradeGraph.get_def(upgrade_id)
+	if def.is_empty():
+		def = PrestigeDefinitionsScript.get_def(upgrade_id)
 	return int(def.get("branch", Balance.UpgradeBranch.BASE_PAY))
 
 
