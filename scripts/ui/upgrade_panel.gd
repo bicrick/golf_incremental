@@ -8,6 +8,7 @@ const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitio
 const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
 const CHEESE_ICON := preload("res://assets/ui/cheese-currency-icon.png")
 const StyledHoverTooltipScript = preload("res://scripts/ui/styled_hover_tooltip.gd")
+const StyledConfirmModalScript = preload("res://scripts/ui/styled_confirm_modal.gd")
 
 const NODE_HALF := UpgradeIcon.NODE_HALF
 const BOUNDS_PADDING := 24.0
@@ -35,7 +36,7 @@ var _prestige_count_label: Label
 var _cheese_icon: TextureRect
 var _prestige_button: Button
 var _prestige_tooltip: Node
-var _confirm_dialog: ConfirmationDialog
+var _confirm_modal: Control
 
 var _active_tab: Tab = Tab.PLAY
 var _is_open := false
@@ -51,7 +52,6 @@ func _ready() -> void:
 	_base_tab_button.pressed.connect(_on_base_tab_pressed)
 	_prestige_tab_button.pressed.connect(_on_prestige_tab_pressed)
 	_prestige_button.pressed.connect(_on_prestige_pressed)
-	_confirm_dialog.confirmed.connect(_on_prestige_confirmed)
 	EventBus.currency_changed.connect(_on_currency_changed)
 	EventBus.cheese_changed.connect(_on_cheese_changed)
 	EventBus.stats_changed.connect(_on_stats_changed)
@@ -164,17 +164,25 @@ func _ensure_tab_chrome() -> void:
 		_prestige_button.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		$Content.add_child(_prestige_button)
 
-	_confirm_dialog = get_node_or_null("PrestigeConfirm") as ConfirmationDialog
-	if _confirm_dialog == null:
-		_confirm_dialog = ConfirmationDialog.new()
-		_confirm_dialog.name = "PrestigeConfirm"
-		_confirm_dialog.title = "Prestige"
-		_confirm_dialog.dialog_text = (
-			"Prestige now? You will lose all cash and Base upgrades. "
-			+ "You will gain cheese and keep Prestige upgrades."
-		)
-		_confirm_dialog.ok_button_text = "Prestige"
-		add_child(_confirm_dialog)
+	# Drop default Godot ConfirmationDialog from earlier builds.
+	var stale_confirm := get_node_or_null("PrestigeConfirm")
+	if stale_confirm != null:
+		remove_child(stale_confirm)
+		stale_confirm.free()
+
+	_confirm_modal = get_node_or_null("PrestigeConfirmModal") as Control
+	if _confirm_modal == null:
+		_confirm_modal = StyledConfirmModalScript.new()
+		_confirm_modal.name = "PrestigeConfirmModal"
+		add_child(_confirm_modal)
+	_confirm_modal.configure(
+		"Prestige",
+		"Prestige now? You will lose all cash and Base upgrades. You will gain cheese and keep Prestige upgrades.",
+		"Prestige",
+		"Cancel"
+	)
+	if not _confirm_modal.confirmed.is_connected(_on_prestige_confirmed):
+		_confirm_modal.confirmed.connect(_on_prestige_confirmed)
 
 
 func _make_tab_heading(node_name: String, text: String) -> Button:
@@ -228,6 +236,8 @@ func close() -> void:
 		connectors.set_animating(false)
 	if _prestige_tooltip and _prestige_tooltip.has_method("hide_now"):
 		_prestige_tooltip.hide_now()
+	if _confirm_modal and _confirm_modal.has_method("close_modal"):
+		_confirm_modal.close_modal()
 	_notify_icon_bar(false)
 	EventBus.ui_panel_toggled.emit("upgrades", false)
 
@@ -425,13 +435,13 @@ func _on_purchase_requested(id: String) -> void:
 func _on_prestige_pressed() -> void:
 	if not GameState.can_prestige():
 		return
-	_confirm_dialog.popup_centered()
+	if _confirm_modal and _confirm_modal.has_method("open_modal"):
+		_confirm_modal.open_modal()
 
 
 func _on_prestige_confirmed() -> void:
 	GameState.prestige()
 	_refresh_all()
-
 
 func _on_currency_changed(currency: float) -> void:
 	if not _is_open:
