@@ -17,25 +17,33 @@ func _run() -> void:
 	var ok := true
 
 	var player_defs := UpgradeDefinitions.all()
-	if player_defs.size() != 11:
-		print("FAIL: expected 11 player upgrades, got ", player_defs.size())
+	if player_defs.size() != 8:
+		print("FAIL: expected 8 player upgrades, got ", player_defs.size())
 		ok = false
 	var base_pay := UpgradeDefinitions.get_def("base_pay")
 	if base_pay.is_empty() or base_pay.get("parent_id", "x") != "":
 		print("FAIL: base_pay root missing or has parent")
 		ok = false
-	var branch_heads := ["distance_pay", "quality", "pickup", "ball_count"]
+	for removed_id in ["quick_reset", "combo_bonus", "ratina_hire"]:
+		if not UpgradeDefinitions.get_def(removed_id).is_empty():
+			print("FAIL: %s should be removed from Play defs" % removed_id)
+			ok = false
+	var branch_heads := ["distance_pay", "quality", "pickup"]
 	for head in branch_heads:
 		var graph_parent := UpgradeGraph.parent_id(head)
 		if graph_parent != "base_pay":
 			print("FAIL: %s should branch from base_pay in graph, got %s" % [head, graph_parent])
 			ok = false
-	if UpgradeGraph.all_nodes().size() != 23:
-		print("FAIL: expected 23 graph nodes, got ", UpgradeGraph.all_nodes().size())
+	if UpgradeGraph.all_nodes().size() != 8:
+		print("FAIL: expected 8 graph nodes, got ", UpgradeGraph.all_nodes().size())
 		ok = false
-	if UpgradeGraph.connections().size() != 22:
-		print("FAIL: expected 22 graph connections, got ", UpgradeGraph.connections().size())
+	if UpgradeGraph.connections().size() != 7:
+		print("FAIL: expected 7 graph connections, got ", UpgradeGraph.connections().size())
 		ok = false
+	for hidden_id in ["ball_count", "golden_ball", "ratina_hire", "rattling_more"]:
+		if not UpgradeGraph.get_node(hidden_id).is_empty():
+			print("FAIL: %s should be hidden from Play graph" % hidden_id)
+			ok = false
 
 	var icon_assets_ok := true
 	for node_def in UpgradeGraph.all_nodes():
@@ -54,8 +62,8 @@ func _run() -> void:
 
 	var layout_a := RadialTreeLayout.compute_positions()
 	var layout_b := RadialTreeLayout.compute_positions()
-	if layout_a.size() != 23:
-		print("FAIL: expected 23 layout positions, got ", layout_a.size())
+	if layout_a.size() != 8:
+		print("FAIL: expected 8 layout positions, got ", layout_a.size())
 		ok = false
 	if layout_a.get("base_pay", Vector2.ONE) != Vector2.ZERO:
 		print("FAIL: base_pay should be at origin")
@@ -95,8 +103,8 @@ func _run() -> void:
 	gs.upgrades_unlocked = true
 	gs.upgrade_levels = {}
 	gs._recompute_stats()
-	if not is_equal_approx(gs.get_upgrade_cost("base_pay"), 1.50):
-		print("FAIL: base_pay Lv.0 cost expected $1.50, got %.2f" % gs.get_upgrade_cost("base_pay"))
+	if not is_equal_approx(gs.get_upgrade_cost("base_pay"), 1.0):
+		print("FAIL: base_pay Lv.0 cost expected $1.00, got %.2f" % gs.get_upgrade_cost("base_pay"))
 		ok = false
 	var before_base: float = gs.stats.base_amount
 	if not gs.purchase_upgrade("base_pay"):
@@ -197,12 +205,12 @@ func _run() -> void:
 		panel._refresh_all()
 		await process_frame
 		var visible_after_base := _count_visible_nodes(nodes_root)
-		if visible_after_base != 6:
-			print("FAIL: expected 6 revealed nodes after base_pay, got ", visible_after_base)
+		if visible_after_base != 4:
+			print("FAIL: expected 4 revealed nodes after base_pay, got ", visible_after_base)
 			ok = false
 
-		if nodes_root.get_child_count() != 23:
-			print("FAIL: expected 23 tree nodes built, got ", nodes_root.get_child_count())
+		if nodes_root.get_child_count() != 8:
+			print("FAIL: expected 8 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
 		ok = _check_tree_node_icons(nodes_root) and ok

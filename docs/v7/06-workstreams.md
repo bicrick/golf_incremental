@@ -2,6 +2,8 @@
 
 Freeze **Workstream 0** contracts before splitting. Agents must not edit files outside their stream without updating this doc.
 
+**Task-level plan:** [`docs/superpowers/plans/2026-07-12-v7-prestige-cheese.md`](../superpowers/plans/2026-07-12-v7-prestige-cheese.md) (Parts 0–4 map to workstreams below).
+
 ## Workstream 0 — Contracts (do first, solo or tiny PR)
 
 **Owner:** one agent / human.

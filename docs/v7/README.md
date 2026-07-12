@@ -30,6 +30,7 @@ Same driving-range incremental — but you can cash out a run early for **cheese
 | [05-ui.md](05-ui.md) | Upgrade menu tabs, prestige button, cheese header |
 | [06-workstreams.md](06-workstreams.md) | Parallel agent splits and file ownership |
 | [specs/v7-acceptance.md](specs/v7-acceptance.md) | Testable done criteria |
+| [Implementation plan](../superpowers/plans/2026-07-12-v7-prestige-cheese.md) | Task-by-task build order (Parts 0–4) |
 
 ## Reading order
 

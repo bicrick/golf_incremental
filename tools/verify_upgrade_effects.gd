@@ -74,8 +74,8 @@ func _check_pickup_formula(gs: Node) -> bool:
 	gs.upgrade_levels = {}
 	gs._recompute_stats()
 	var flat := Economy.resolve_pickup_ball_payout(1, SAMPLE_YARDAGE, 1, gs.stats)
-	if not is_equal_approx(flat, 0.25):
-		print("FAIL: fresh pickup expected $0.25, got %.4f" % flat)
+	if not is_equal_approx(flat, 0.35):
+		print("FAIL: fresh pickup expected $0.35, got %.4f" % flat)
 		return false
 
 	gs.upgrade_levels = {"base_pay": 1, "distance_pay": 1}
@@ -109,12 +109,13 @@ func _check_pickup_formula(gs: Node) -> bool:
 		)
 		return false
 
-	gs.upgrade_levels = {"base_pay": 1, "pickup": 1, "combo_bonus": 1}
+	gs.upgrade_levels = {"base_pay": 1, "pickup": 1}
+	gs.prestige_levels = {"cheese_press": 1, "prestige_combo": 1}
 	gs._recompute_stats()
 	var combo2 := Economy.resolve_pickup_ball_payout(1, SAMPLE_YARDAGE, 2, gs.stats)
 	var combo1 := Economy.resolve_pickup_ball_payout(1, SAMPLE_YARDAGE, 1, gs.stats)
-	if not is_equal_approx(combo2, combo1 * 1.10):
-		print("FAIL: combo tier 2 expected 1.10x, got %.4f vs %.4f" % [combo2, combo1])
+	if not is_equal_approx(combo2, combo1 * 1.08):
+		print("FAIL: combo tier 2 expected 1.08x, got %.4f vs %.4f" % [combo2, combo1])
 		return false
 
 	print("OK: pickup formula unlock stages (distance-pays)")
@@ -219,8 +220,8 @@ func _check_upgrade(id: String, before: Dictionary, after: Dictionary) -> String
 	var a_stats: PlayerStats = after.stats
 	match id:
 		"base_pay":
-			if not is_equal_approx(a_stats.base_amount, 0.2875):
-				return "base_amount expected $0.2875 at Lv.1, got %.2f" % a_stats.base_amount
+			if not is_equal_approx(a_stats.base_amount, 0.4025):
+				return "base_amount expected $0.4025 at Lv.1, got %.2f" % a_stats.base_amount
 			if a_stats.base_amount <= b_stats.base_amount:
 				return "base_amount did not increase"
 			if after.pickup_payout <= before.pickup_payout:
