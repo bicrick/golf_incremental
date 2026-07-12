@@ -38,6 +38,7 @@ func _run() -> void:
 	ok = await _check_harvest_idle_at_home(main, gs) and ok
 	ok = await _check_no_swing_during_harvest(main, gs) and ok
 	ok = await _check_background_click_enters_harvest(main, gs) and ok
+	ok = await _check_mid_flight_view_switch_and_pickup_gate(main, gs) and ok
 	ok = await _check_combo_interrupted_by_swing(main, gs) and ok
 	_cleanup_save()
 	print("pickup_ok=", ok)
@@ -57,6 +58,13 @@ func _reset(gs: Node) -> void:
 func _enter_harvest(gs: Node) -> void:
 	gs.bucket_remaining = 0
 	gs.try_enter_harvest()
+
+
+func _start_playing(main: Node) -> void:
+	## Play fade shows the range before title hide — verifies must match that order.
+	if main.has_method("_on_play_transition_started"):
+		main._on_play_transition_started()
+	main._on_play_pressed()
 
 
 func _wait_harvest_view(range_view: Node, timeout_ms: int = 2000) -> void:
@@ -341,7 +349,7 @@ func _check_bucket_refill_and_strike(gs: Node) -> bool:
 
 func _check_space_exits_harvest(main: Node, gs: Node) -> bool:
 	_reset(gs)
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 	var range_view: Node3D = main.get_node("RangeView")
@@ -415,7 +423,7 @@ func _check_event_bus_signals(gs: Node) -> bool:
 
 func _check_phase_integration(main: Node, gs: Node) -> bool:
 	_reset(gs)
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 	var range_view: Node3D = main.get_node("RangeView")
@@ -462,7 +470,7 @@ func _check_phase_integration(main: Node, gs: Node) -> bool:
 
 func _check_harvest_idle_at_home(main: Node, gs: Node) -> bool:
 	_reset(gs)
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 	var range_view: Node3D = main.get_node("RangeView")
@@ -502,7 +510,7 @@ func _check_harvest_idle_at_home(main: Node, gs: Node) -> bool:
 
 func _check_no_swing_during_harvest(main: Node, gs: Node) -> bool:
 	_reset(gs)
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 	var range_view: Node3D = main.get_node("RangeView")
@@ -546,7 +554,7 @@ func _check_no_swing_during_harvest(main: Node, gs: Node) -> bool:
 
 func _check_background_click_enters_harvest(main: Node, gs: Node) -> bool:
 	_reset(gs)
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 	var range_view: Node3D = main.get_node("RangeView")
@@ -565,9 +573,55 @@ func _check_background_click_enters_harvest(main: Node, gs: Node) -> bool:
 	return true
 
 
+func _check_mid_flight_view_switch_and_pickup_gate(main: Node, gs: Node) -> bool:
+	_reset(gs)
+	_start_playing(main)
+	await process_frame
+	await process_frame
+	var range_view: Node3D = main.get_node("RangeView")
+	var vm: Node = range_view.get_node("ViewModeController")
+
+	# Simulate balls still in the air — view switch must not wait on flights.
+	range_view._active_flights.append({"debug": true})
+	gs.bucket_remaining = 2
+	if not gs.try_enter_harvest():
+		print("FAIL: try_enter_harvest should succeed mid-flight")
+		return false
+	await _wait_harvest_view(range_view, 500)
+	if not range_view.is_harvest_view_ready():
+		print("FAIL: harvest ortho should settle without waiting for active flights")
+		return false
+	if range_view._pickup == null or not range_view._pickup.is_active():
+		print("FAIL: pickup should be active once harvest view is ready")
+		return false
+
+	# Gate: pickup must ignore clicks while the harvest settle flag is false.
+	vm._harvest_view_ready = false
+	if range_view._pickup.is_active():
+		print("FAIL: pickup must stay inactive until harvest_view_ready")
+		return false
+	var blocked := InputEventMouseButton.new()
+	blocked.button_index = MOUSE_BUTTON_LEFT
+	blocked.pressed = false
+	blocked.position = Vector2(10, 10)
+	if range_view._pickup.handle_input(blocked):
+		print("FAIL: pickup handle_input must no-op before harvest view ready")
+		return false
+	vm._harvest_view_ready = true
+	if not range_view._pickup.is_active():
+		print("FAIL: pickup should reactivate when harvest_view_ready returns")
+		return false
+
+	range_view._active_flights.clear()
+	gs.exit_harvest_early()
+	await process_frame
+	print("OK: mid-flight view switch settles without flight wait; pickup gated on ready")
+	return true
+
+
 func _check_combo_interrupted_by_swing(main: Node, gs: Node) -> bool:
 	_reset(gs)
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 	var range_view: Node3D = main.get_node("RangeView")

@@ -25,6 +25,12 @@ func _spawn_main() -> Node:
 	return main
 
 
+func _start_playing(main: Node) -> void:
+	if main.has_method("_on_play_transition_started"):
+		main._on_play_transition_started()
+	main._on_play_pressed()
+
+
 func _enter_harvest(gs: Node) -> void:
 	gs.bucket_remaining = 0
 	gs.try_enter_harvest()
@@ -44,7 +50,7 @@ func _test_strike_arrow() -> bool:
 		print("FAIL: strike boot should apply arrow cursor")
 		main.queue_free()
 		return false
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 	if CursorManager.debug_applied_kind() != &"arrow":
@@ -58,7 +64,7 @@ func _test_strike_arrow() -> bool:
 
 func _test_harvest_before_view_ready() -> bool:
 	var main: Node = await _spawn_main()
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 
@@ -78,7 +84,7 @@ func _test_harvest_before_view_ready() -> bool:
 
 func _test_collect_hidden_cursor_when_view_ready() -> bool:
 	var main: Node = await _spawn_main()
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 
@@ -98,7 +104,7 @@ func _test_collect_hidden_cursor_when_view_ready() -> bool:
 
 func _test_pan_grab_overrides_hidden() -> bool:
 	var main: Node = await _spawn_main()
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 
@@ -124,7 +130,7 @@ func _test_pan_grab_overrides_hidden() -> bool:
 
 func _test_pan_end_restores_hidden() -> bool:
 	var main: Node = await _spawn_main()
-	main._on_play_pressed()
+	_start_playing(main)
 	await process_frame
 	await process_frame
 

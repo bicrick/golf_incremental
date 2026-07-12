@@ -20,6 +20,8 @@ func _run() -> void:
 func _spawn_playing_range() -> Node:
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
+	if main.has_method("_on_play_transition_started"):
+		main._on_play_transition_started()
 	main._on_play_pressed()
 	return main
 

@@ -216,13 +216,8 @@ func _setup_view_mode_controller() -> void:
 		var transition := main.get_node_or_null("ViewTransitionLayer/ViewTransition")
 		if transition:
 			_view_mode_controller.bind_transition(transition)
-	_view_mode_controller.set_has_active_flights_checker(_has_active_flights)
 	_view_mode_controller.view_mode_changed.connect(_on_view_mode_changed)
 	EventBus.phase_changed.connect(_view_mode_controller.on_phase_changed)
-
-
-func _has_active_flights() -> bool:
-	return not _active_flights.is_empty()
 
 
 func get_fx_reference_ortho_size() -> float:
@@ -509,8 +504,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not visible:
 		return
-	if is_transitioning():
-		return
+	# Pan/zoom only after harvest ortho settle (can_use_ortho_pan). View toggles
+	# (Space / Hit / background click) stay available mid-flight and mid-dissolve;
+	# pickup itself is gated by PickupController.is_active() / harvest_view_ready.
 	if _camera_controller and _camera_controller.consume_zoom_event(event):
 		get_viewport().set_input_as_handled()
 		return

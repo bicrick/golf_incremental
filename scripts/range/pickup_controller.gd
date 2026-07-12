@@ -34,7 +34,8 @@ func _harvest_view_ready() -> bool:
 
 
 func handle_input(event: InputEvent) -> bool:
-	if not _active:
+	## Pickup only after harvest ortho settle — phase alone is not enough.
+	if not is_active():
 		return false
 	if not event is InputEventMouseButton:
 		return false
