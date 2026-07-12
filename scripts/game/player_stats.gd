@@ -75,6 +75,9 @@ extends Resource
 @export var rattling_pickup_speed_multiplier: float = 1.0
 @export var rattling_golden_bonus_chance: float = 0.0
 
+## Prestige — Perfect Chain unlock (0/1)
+@export var perfect_chain_unlocked: float = 0.0
+
 
 static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	var copy := PlayerStats.new()
@@ -123,4 +126,5 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.rattling_walk_speed = from.rattling_walk_speed
 	copy.rattling_pickup_speed_multiplier = from.rattling_pickup_speed_multiplier
 	copy.rattling_golden_bonus_chance = from.rattling_golden_bonus_chance
+	copy.perfect_chain_unlocked = from.perfect_chain_unlocked
 	return copy

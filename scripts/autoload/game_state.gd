@@ -3,6 +3,7 @@ extends Node
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 const PrestigeEffectsScript = preload("res://scripts/game/prestige/effects.gd")
+const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitions.gd")
 
 var currency: float = 0.0
 var upgrade_levels: Dictionary = {}
@@ -133,6 +134,61 @@ func prestige() -> bool:
 	EventBus.phase_changed.emit("strike")
 	return true
 
+
+func get_prestige_upgrade_level(id: String) -> int:
+	return int(prestige_levels.get(id, 0))
+
+
+func get_prestige_upgrade_cost(id: String) -> float:
+	var def: Dictionary = PrestigeDefinitionsScript.get_def(id)
+	if def.is_empty():
+		return 0.0
+	return Economy.upgrade_cost(
+		float(def["base_cost"]), float(def["growth_rate"]), get_prestige_upgrade_level(id)
+	)
+
+
+func purchase_prestige_upgrade(id: String) -> bool:
+	var def: Dictionary = PrestigeDefinitionsScript.get_def(id)
+	if def.is_empty():
+		return false
+	var level: int = get_prestige_upgrade_level(id)
+	if level >= int(def["max_level"]):
+		return false
+	var parent_id: String = str(def.get("parent_id", ""))
+	if not parent_id.is_empty() and get_prestige_upgrade_level(parent_id) < 1:
+		return false
+	var prereq: Dictionary = def.get("prerequisite", {})
+	if not prereq.is_empty():
+		var req_id: String = str(prereq.get("upgrade_id", ""))
+		var req_lv: int = int(prereq.get("level", 1))
+		if get_prestige_upgrade_level(req_id) < req_lv:
+			return false
+	var cost: float = get_prestige_upgrade_cost(id)
+	if cheese < cost:
+		return false
+	cheese -= cost
+	prestige_levels[id] = level + 1
+	_recompute_stats()
+	EventBus.prestige_upgrade_purchased.emit(id, level + 1)
+	EventBus.cheese_changed.emit(cheese)
+	EventBus.stats_changed.emit(stats, currency)
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	return true
+
+
+func note_swing_tier(tier: int) -> void:
+	if int(stats.perfect_chain_unlocked) < 1:
+		perfect_swing_streak = 0
+		return
+	if tier == Balance.TimingTier.PERFECT:
+		perfect_swing_streak += 1
+	else:
+		perfect_swing_streak = 0
+
+
+func is_perfect_chain_golden_active() -> bool:
+	return int(stats.perfect_chain_unlocked) >= 1 and perfect_swing_streak >= 3
 
 
 func set_ratina_active(active: bool) -> void:
@@ -340,8 +396,6 @@ func purchase_upgrade(id: String) -> bool:
 		return false
 	currency -= cost
 	upgrade_levels[id] = level + 1
-	if id == "ratina_hire" and level == 0:
-		ratina_unlocked = true
 	var old_capacity := bucket_capacity
 	_recompute_stats()
 	if bucket_capacity > old_capacity:

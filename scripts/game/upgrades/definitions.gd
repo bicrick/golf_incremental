@@ -13,14 +13,14 @@ static func _init_defs() -> void:
 		_def(
 			"base_pay", Balance.UpgradeBranch.BASE_PAY, "Base Pay",
 			"Flat cash per ball picked up. Does not change how far you hit.",
-			25, 1.50, 1.48,
+			25, 1.0, 1.40,
 			[{"type": "multiply", "stat": "base_amount", "value_per_level": 1.15}],
 			"", {}
 		),
 		_def(
 			"distance_pay", Balance.UpgradeBranch.POWER, "Yardage Pay",
 			"Unlock pay per yard. Keep base $; each yard flown adds bonus cash at pickup.",
-			25, 3.0, 1.28,
+			25, 2.0, 1.24,
 			[
 				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
 				## 0.1 → ~10.0 at max: 1.20^25 ≈ 95.4 → 0.1×95.4 ≈ 9.5
@@ -31,7 +31,7 @@ static func _init_defs() -> void:
 		_def(
 			"quality", Balance.UpgradeBranch.QUALITY, "Sweet Spot",
 			"Cleaner contact flies farther — pulls high strikes toward Perfect power.",
-			20, 3.0, 1.34,
+			20, 2.5, 1.32,
 			[
 				{"type": "binary", "stat": "sweet_spot_unlocked", "value": 1},
 				{"type": "add", "stat": "sweet_spot_bonus", "value_per_level": 0.04},
@@ -41,19 +41,12 @@ static func _init_defs() -> void:
 		_def(
 			"pickup", Balance.UpgradeBranch.PICKUP, "Pickup",
 			"Unlock pickup bonuses on collected balls.",
-			20, 3.0, 1.38,
+			20, 2.5, 1.35,
 			[
 				{"type": "binary", "stat": "pickup_bonus_unlocked", "value": 1},
 				{"type": "multiply", "stat": "pickup_multiplier", "value_per_level": 1.06},
 			],
 			"base_pay", {"upgrade_id": "base_pay", "level": 1}
-		),
-		_def(
-			"ratina_hire", Balance.UpgradeBranch.BASE_PAY, "Ratina",
-			"Hire Ratina — an autonomous range star who swings from your bucket.",
-			1, Balance.RATINA_UNLOCK_COST, 1.0,
-			[],
-			"base_pay", {"upgrade_id": "base_pay", "level": 3}
 		),
 		_def(
 			"iron_set", Balance.UpgradeBranch.POWER, "Raw Power",
@@ -78,20 +71,6 @@ static func _init_defs() -> void:
 			15, 12.0, 1.28,
 			[{"type": "multiply", "stat": "perfect_power_bonus", "value_per_level": 1.08}],
 			"quality", {"upgrade_id": "quality", "level": 3}
-		),
-		_def(
-			"quick_reset", Balance.UpgradeBranch.QUALITY, "Quick Reset",
-			"Shorten swing cooldown — more strikes per bucket.",
-			10, 9.0, 1.40,
-			[{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.5}],
-			"metronome", {"upgrade_id": "metronome", "level": 1}
-		),
-		_def(
-			"combo_bonus", Balance.UpgradeBranch.PICKUP, "Combo Bonus",
-			"Fast harvest clicks multiply pickup payout.",
-			10, 4.5, 1.32,
-			[{"type": "add", "stat": "combo_mult_per_tier", "value_per_level": 0.10}],
-			"pickup", {"upgrade_id": "pickup", "level": 1}
 		),
 		_def(
 			"range_picker", Balance.UpgradeBranch.PICKUP, "Range Picker",

@@ -1,6 +1,6 @@
 class_name ShopDefinitions
 extends RefCounted
-## Pro Shop item definitions — separate from the upgrade tree.
+## Pro Shop item definitions — v7: ball_count / golden moved to cheese tree.
 
 static var _by_id: Dictionary = {}
 static var _order: Array[String] = []
@@ -9,21 +9,8 @@ static var _order: Array[String] = []
 static func _init_defs() -> void:
 	if not _order.is_empty():
 		return
-	var defs: Array[Dictionary] = [
-		_def(
-			"ball_count", "More Balls",
-			"Carry more balls per bucket before harvest.",
-			Balance.BUCKET_CAPACITY_MAX - Balance.BUCKET_CAPACITY_DEFAULT,
-			4.0, 1.18,
-			[{"type": "add", "stat": "bucket_capacity_bonus", "value_per_level": Balance.BALL_COUNT_BONUS_PER_LEVEL}]
-		),
-		_def(
-			"golden_ball", "Golden Balls",
-			"Chance each ball pays double at pickup. Lv.1 unlocks at 5%.",
-			10, 25.0, 1.40,
-			[{"type": "golden_chance", "stat": "golden_ball_chance"}]
-		),
-	]
+	# Play shop capacity / golden removed in v7 — Deep Bucket / Golden Tee on cheese.
+	var defs: Array[Dictionary] = []
 	for d in defs:
 		_by_id[d["id"]] = d
 		_order.append(d["id"])

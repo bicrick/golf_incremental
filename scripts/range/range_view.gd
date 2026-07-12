@@ -743,6 +743,7 @@ func _on_swing_resolved(
 	_payout: float,
 	feedback_tier: int
 ) -> void:
+	GameState.note_swing_tier(tier)
 	_flash_beat_ring(tier)
 	HitPoof.spawn(
 		fx_layer,
@@ -1080,6 +1081,8 @@ func _configure_billboard(sprite: SpriteBase3D, pixel_size: float) -> void:
 
 
 func _roll_is_golden() -> bool:
+	if GameState.is_perfect_chain_golden_active():
+		return true
 	var chance := GameState.stats.golden_ball_chance
 	if chance <= 0.0:
 		return false

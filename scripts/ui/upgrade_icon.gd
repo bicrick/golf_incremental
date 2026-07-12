@@ -7,11 +7,23 @@ const ICON_SIZE := Vector2i(32, 32)
 const DEFAULT_NODE_SIZE := Vector2(44, 44)
 const NODE_HALF := Vector2(22, 22)
 
+## Prestige ids reuse play/shop art until dedicated cheese sprites exist.
+const ICON_ALIASES := {
+	"cheese_press": "base_pay",
+	"ambition": "distance_pay",
+	"prestige_quick_reset": "quick_reset",
+	"prestige_combo": "combo_bonus",
+	"prestige_deep_bucket": "ball_count",
+	"prestige_golden_tee": "golden_ball",
+	"prestige_perfect_chain": "perfect_pop",
+}
+
 static var _cache: Dictionary = {}
 
 
 static func path_for(upgrade_id: String) -> String:
-	return ICON_DIR + upgrade_id + ".png"
+	var resolved: String = ICON_ALIASES.get(upgrade_id, upgrade_id)
+	return ICON_DIR + resolved + ".png"
 
 
 static func load_texture(upgrade_id: String) -> Texture2D:

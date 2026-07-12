@@ -15,30 +15,7 @@ static var _children: Dictionary = {}
 
 
 static func _graph_overrides() -> Dictionary:
-	return {
-		"ratina_hire": {
-			"parent_id": "base_pay",
-			"prerequisite": {"upgrade_id": "base_pay", "level": 3},
-		},
-		"ratina_base_pay": {
-			"parent_id": "ratina_hire",
-			"prerequisite": {"upgrade_id": "ratina_hire", "level": 1},
-		},
-		"ball_count": {
-			"parent_id": "base_pay",
-			"prerequisite": {"upgrade_id": "base_pay", "level": 1},
-			"branch": Balance.UpgradeBranch.PICKUP,
-		},
-		"golden_ball": {
-			"parent_id": "ball_count",
-			"prerequisite": {"upgrade_id": "ball_count", "level": 1},
-			"branch": Balance.UpgradeBranch.QUALITY,
-		},
-		"rattling_more": {
-			"parent_id": "pickup",
-			"prerequisite": {"upgrade_id": "pickup", "level": 2},
-		},
-	}
+	return {}
 
 
 static func _init_graph() -> void:
@@ -50,23 +27,8 @@ static func _init_graph() -> void:
 
 	for def in UpgradeDefinitions.all():
 		_register_node(def, NAMESPACE_PLAYER)
-	for def in ShopDefinitions.all():
-		var shop_def: Dictionary = def.duplicate(true)
-		if not shop_def.has("branch"):
-			shop_def["branch"] = Balance.UpgradeBranch.PICKUP
-		_register_node(shop_def, NAMESPACE_SHOP)
-	for def in RatinaUpgradeDefinitions.all():
-		_register_node(def, NAMESPACE_RATINA)
-	for def in RattlingUpgradeDefinitions.all():
-		_register_node(def, NAMESPACE_RATTLING)
-
-	for id in _tree_order:
-		var overrides: Dictionary = _graph_overrides().get(id, {})
-		for key in overrides:
-			_nodes[id][key] = overrides[key]
-			if key in ["parent_id", "prerequisite"]:
-				continue
-			_nodes[id]["def"][key] = overrides[key]
+	# v7: shop ball/golden and crew namespaces hidden from Play graph.
+	# ShopDefinitions may be empty; Ratina/Rattling remain dormant off-graph.
 
 
 static func _register_node(def: Dictionary, node_namespace: String) -> void:

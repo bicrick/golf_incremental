@@ -220,7 +220,7 @@ static func default_stats() -> PlayerStats:
 	stats.sweet_spot_unlocked = 0.0
 	stats.sweet_spot_bonus = 0.0
 	stats.perfect_power_bonus = 1.0
-	stats.base_amount = 0.25
+	stats.base_amount = 0.35
 	## Distance-pays spine — forgiving $/yard; Yardage Pay scales 0.1 → ~10.0 at max.
 	stats.pay_per_yard = 0.1
 	stats.quality_multiplier = 1.0
@@ -234,6 +234,7 @@ static func default_stats() -> PlayerStats:
 	stats.range_picker_radius_bonus = 0.0
 	stats.golden_ball_chance = 0.0
 	stats.golden_ball_payout_multiplier = GOLDEN_BALL_PAYOUT_MULTIPLIER
+	stats.perfect_chain_unlocked = 0.0
 	return stats
 
 
