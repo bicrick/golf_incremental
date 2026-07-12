@@ -2,6 +2,7 @@ extends Node
 ## Currency, upgrade levels, and computed stats.
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
+const PrestigeEffectsScript = preload("res://scripts/game/prestige/effects.gd")
 
 var currency: float = 0.0
 var upgrade_levels: Dictionary = {}
@@ -16,6 +17,12 @@ var rattlings_active: bool = true
 var shop_levels: Dictionary = {}
 var ratina_upgrade_levels: Dictionary = {}
 var rattling_upgrade_levels: Dictionary = {}
+var cheese: float = 0.0
+var prestige_count: int = 0
+var prestige_threshold: float = Balance.PRESTIGE_THRESHOLD_DEFAULT
+var prestige_levels: Dictionary = {}
+## Perfect Chain: consecutive Perfect swing count this life (runtime; optional to save)
+var perfect_swing_streak: int = 0
 var stats: PlayerStats = Balance.default_stats()
 var ratina_stats: PlayerStats = Balance.default_ratina_stats()
 var rattling_stats: PlayerStats = Balance.default_rattling_stats()
@@ -56,13 +63,75 @@ func get_upgrade_level(id: String) -> int:
 
 func _recompute_stats() -> void:
 	stats = Balance.default_stats()
+	# defaults → prestige → play → shop (crew dormant in v7 but keep apply harmless)
+	PrestigeEffectsScript.apply_all(stats, prestige_levels)
 	UpgradeEffects.apply_all(stats, upgrade_levels)
 	ShopEffects.apply_all(stats, shop_levels)
 	ratina_stats = Balance.default_ratina_stats()
 	RatinaUpgradeEffects.apply_all(ratina_stats, ratina_upgrade_levels)
 	rattling_stats = Balance.default_rattling_stats()
 	RattlingUpgradeEffects.apply_all(rattling_stats, rattling_upgrade_levels)
+	_apply_ambition_threshold()
 	bucket_capacity = get_bucket_capacity()
+
+
+func _apply_ambition_threshold() -> void:
+	var ambition: int = int(prestige_levels.get("ambition", 0))
+	var idx: int = mini(ambition, Balance.PRESTIGE_AMBITION_THRESHOLDS.size() - 1)
+	prestige_threshold = Balance.PRESTIGE_AMBITION_THRESHOLDS[idx]
+
+
+func can_prestige() -> bool:
+	return currency >= prestige_threshold
+
+
+func cheese_from_prestige_cash(cash_on_hand: float) -> float:
+	var base: float = Balance.PRESTIGE_CHEESE_BASE + float(prestige_levels.get("cheese_press", 0))
+	# Ambition also bumps base: +1 cheese per ambition level (tunable)
+	base += float(prestige_levels.get("ambition", 0))
+	var surplus: float = maxf(0.0, cash_on_hand - prestige_threshold)
+	var surplus_cheese: float = floorf(surplus / Balance.PRESTIGE_SURPLUS_PER_CHEESE)
+	return base + surplus_cheese
+
+
+func add_cheese(amount: float) -> void:
+	if amount == 0.0:
+		return
+	cheese += amount
+	EventBus.cheese_changed.emit(cheese)
+
+
+func prestige() -> bool:
+	if not can_prestige():
+		return false
+	var cash_before: float = currency
+	var gained: float = cheese_from_prestige_cash(cash_before)
+	# Wipe run (Play) progress — keep cheese tree + cheese balance
+	currency = 0.0
+	upgrade_levels.clear()
+	shop_levels.clear()
+	ratina_upgrade_levels.clear()
+	rattling_upgrade_levels.clear()
+	ratina_unlocked = false
+	rattlings_unlocked = false
+	ratina_active = true
+	rattlings_active = true
+	# Keep upgrades_unlocked so the menu stays available after first unlock this life
+	perfect_swing_streak = 0
+	current_phase = "strike"
+	harvest_collected = 0
+	harvest_stash = 0
+	pending_vanish_collects = 0
+	add_cheese(gained)
+	prestige_count += 1
+	_recompute_stats()
+	bucket_remaining = bucket_capacity
+	EventBus.prestiged.emit(prestige_count, gained)
+	EventBus.currency_changed.emit(currency)
+	EventBus.stats_changed.emit(stats, currency)
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	EventBus.phase_changed.emit("strike")
+	return true
 
 
 
@@ -308,6 +377,11 @@ func reset_to_fresh() -> void:
 	shop_levels.clear()
 	ratina_upgrade_levels.clear()
 	rattling_upgrade_levels.clear()
+	cheese = 0.0
+	prestige_count = 0
+	prestige_threshold = Balance.PRESTIGE_THRESHOLD_DEFAULT
+	prestige_levels.clear()
+	perfect_swing_streak = 0
 	stats = Balance.default_stats()
 	ratina_stats = Balance.default_ratina_stats()
 	rattling_stats = Balance.default_rattling_stats()
@@ -329,6 +403,7 @@ func reset_to_fresh() -> void:
 	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
 	EventBus.phase_changed.emit("strike")
 	EventBus.currency_changed.emit(currency)
+	EventBus.cheese_changed.emit(cheese)
 	EventBus.stats_changed.emit(stats, currency)
 
 

@@ -48,6 +48,10 @@ func save_game() -> void:
 		"shop_levels": GameState.shop_levels.duplicate(),
 		"ratina_upgrade_levels": GameState.ratina_upgrade_levels.duplicate(),
 		"rattling_upgrade_levels": GameState.rattling_upgrade_levels.duplicate(),
+		"cheese": GameState.cheese,
+		"prestige_count": GameState.prestige_count,
+		"prestige_threshold": GameState.prestige_threshold,
+		"prestige_levels": GameState.prestige_levels.duplicate(),
 		"lifetime": GameState.lifetime.duplicate(),
 		"bucket_remaining": GameState.bucket_remaining,
 		"bucket_capacity": GameState.bucket_capacity,
@@ -203,7 +207,16 @@ func _migrate_save(from_version: int) -> float:
 			GameState.rattling_upgrade_levels["rattling_more"] = 1
 	if from_version < 3:
 		refund += _migrate_distance_pays_prune()
+	if from_version < 4:
+		_migrate_v7_strip_play_op()
 	return refund
+
+
+func _migrate_v7_strip_play_op() -> void:
+	for stale_id in ["quick_reset", "combo_bonus", "ratina_hire"]:
+		GameState.upgrade_levels.erase(stale_id)
+	GameState.shop_levels.erase("ball_count")
+	GameState.shop_levels.erase("golden_ball")
 
 
 func load_game() -> void:
@@ -233,6 +246,12 @@ func load_game() -> void:
 	GameState.shop_levels = parsed.get("shop_levels", {})
 	GameState.ratina_upgrade_levels = parsed.get("ratina_upgrade_levels", {})
 	GameState.rattling_upgrade_levels = parsed.get("rattling_upgrade_levels", {})
+	GameState.cheese = float(parsed.get("cheese", 0.0))
+	GameState.prestige_count = int(parsed.get("prestige_count", 0))
+	GameState.prestige_levels = parsed.get("prestige_levels", {}).duplicate()
+	if typeof(GameState.prestige_levels) != TYPE_DICTIONARY:
+		GameState.prestige_levels = {}
+	# threshold recomputed in _recompute_stats via Ambition
 	GameState.currency += _refund_removed_rattling_payout()
 	GameState.lifetime = parsed.get("lifetime", GameState.lifetime)
 	GameState.bucket_capacity = int(parsed.get("bucket_capacity", Balance.BUCKET_CAPACITY_DEFAULT))
