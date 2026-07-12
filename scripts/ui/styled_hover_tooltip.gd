@@ -6,11 +6,13 @@ extends Node
 const DELAY_SEC := 0.08
 const MAX_WIDTH := 150.0
 const GAP := 5.0
-const EDGE_MARGIN := 4.0
+const EDGE_MARGIN := 8.0
 const BG := Color(0.08, 0.11, 0.06, 0.96)
 const BORDER := Color(0.78, 0.66, 0.28, 1)
 const TITLE_COLOR := Color(1.0, 0.9, 0.45, 1)
 const BODY_COLOR := Color(0.82, 0.78, 0.66, 1)
+
+const TooltipViewportClampScript = preload("res://scripts/ui/tooltip_viewport_clamp.gd")
 
 var _host: Control
 var _title: String = ""
@@ -159,13 +161,11 @@ func _position_panel() -> void:
 	_panel.size = tip_size
 
 	var host_rect := _host.get_global_rect()
-	var bounds := _host.get_viewport().get_visible_rect()
+	var bounds := TooltipViewportClampScript.visible_bounds(_host)
 	var pos := Vector2(
 		host_rect.position.x + host_rect.size.x + GAP,
 		host_rect.position.y + (host_rect.size.y - tip_size.y) * 0.5
 	)
 	if pos.x + tip_size.x > bounds.end.x - EDGE_MARGIN:
 		pos.x = host_rect.position.x - tip_size.x - GAP
-	pos.x = clampf(pos.x, bounds.position.x + EDGE_MARGIN, bounds.end.x - tip_size.x - EDGE_MARGIN)
-	pos.y = clampf(pos.y, bounds.position.y + EDGE_MARGIN, bounds.end.y - tip_size.y - EDGE_MARGIN)
-	_panel.global_position = pos
+	_panel.global_position = TooltipViewportClampScript.clamp_pos(pos, tip_size, bounds, EDGE_MARGIN)

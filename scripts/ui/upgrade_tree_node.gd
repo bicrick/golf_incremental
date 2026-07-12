@@ -6,6 +6,7 @@ const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
 const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitions.gd")
 const PrestigeEffectsScript = preload("res://scripts/game/prestige/effects.gd")
 const TooltipText := preload("res://scripts/ui/upgrade_tooltip_text.gd")
+const TooltipViewportClampScript = preload("res://scripts/ui/tooltip_viewport_clamp.gd")
 
 signal purchase_requested(upgrade_id: String)
 
@@ -15,7 +16,7 @@ const NODE_SIZE := UpgradeIcon.DEFAULT_NODE_SIZE
 const TOOLTIP_DELAY_SEC := 0.08
 const TOOLTIP_MAX_WIDTH := 150
 const TOOLTIP_GAP := 5
-const TOOLTIP_EDGE_MARGIN := 4
+const TOOLTIP_EDGE_MARGIN := 8.0
 const TOOLTIP_BG := Color(0.08, 0.11, 0.06, 0.96)
 const TOOLTIP_BORDER := Color(0.78, 0.66, 0.28, 1)
 const TOOLTIP_NAME := Color(1.0, 0.9, 0.45, 1)
@@ -181,7 +182,7 @@ func _position_tooltip() -> void:
 	_tooltip_panel.custom_minimum_size = tip_size
 	_tooltip_panel.size = tip_size
 
-	var bounds: Rect2 = _tooltip_bounds_rect()
+	var bounds: Rect2 = TooltipViewportClampScript.visible_bounds(self)
 	var y: float = (NODE_SIZE.y - tip_size.y) * 0.5
 	var x_right: float = NODE_SIZE.x + TOOLTIP_GAP
 	var x_left: float = -tip_size.x - TOOLTIP_GAP
@@ -205,16 +206,7 @@ func _position_tooltip() -> void:
 			x = x_left if global_position.x > bounds.position.x + bounds.size.x * 0.5 else x_right
 
 	var global_pos := global_position + Vector2(x, y)
-	global_pos.y = clampf(
-		global_pos.y,
-		bounds.position.y + TOOLTIP_EDGE_MARGIN,
-		bounds.end.y - tip_size.y - TOOLTIP_EDGE_MARGIN
-	)
-	global_pos.x = clampf(
-		global_pos.x,
-		bounds.position.x + TOOLTIP_EDGE_MARGIN,
-		bounds.end.x - tip_size.x - TOOLTIP_EDGE_MARGIN
-	)
+	global_pos = TooltipViewportClampScript.clamp_pos(global_pos, tip_size, bounds, TOOLTIP_EDGE_MARGIN)
 	# top_level tooltip uses viewport/global coordinates.
 	_tooltip_panel.global_position = global_pos
 	# Keep medallion size fixed even if layout reflows.
@@ -223,13 +215,7 @@ func _position_tooltip() -> void:
 
 
 func _tooltip_bounds_rect() -> Rect2:
-	var current: Node = self
-	while current:
-		if current.name in ["TreeCanvas", "TreeViewport", "TreeWorld"] and current is Control:
-			return (current as Control).get_global_rect()
-		current = current.get_parent()
-	return get_viewport().get_visible_rect()
-
+	return TooltipViewportClampScript.visible_bounds(self)
 
 func _apply_visual_state() -> void:
 	# Square ColorRect glow fights the circle medallion — ring glow handles purchasable.
