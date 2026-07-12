@@ -14,6 +14,12 @@
 [ext_resource type="Texture2D" uid="uid://b43kfonrkc5j3" path="res://assets/sprites/rattling/rattling.png" id="10_rattling_idle"]
 [ext_resource type="PackedScene" uid="uid://bvlapxpxrakay" path="res://scenes/range/cells/empty_bay_cell.tscn" id="10_rruw7"]
 [ext_resource type="Script" uid="uid://bucvu41qwwc7y" path="res://scripts/range/empty_bay_cell.gd" id="11_1ger1"]
+[ext_resource type="Texture2D" uid="uid://cy8ykib0kfl0s" path="res://assets/sprites/range/yardage_markers/50-transparent.png" id="12_marker_50"]
+[ext_resource type="Texture2D" uid="uid://u73nm0efpxac" path="res://assets/sprites/range/yardage_markers/100-transparent.png" id="13_marker_100"]
+[ext_resource type="Texture2D" uid="uid://bfwqdf73uu2rb" path="res://assets/sprites/range/yardage_markers/150-transparent.png" id="14_marker_150"]
+[ext_resource type="Texture2D" uid="uid://dgyr3ctrde6ht" path="res://assets/sprites/range/yardage_markers/200-transparent.png" id="15_marker_200"]
+[ext_resource type="Texture2D" uid="uid://bsbjyhhqhriei" path="res://assets/sprites/range/yardage_markers/250-transparent.png" id="16_marker_250"]
+[ext_resource type="Texture2D" uid="uid://bu8iq2k8c2336" path="res://assets/sprites/range/yardage_markers/300-transparent.png" id="17_marker_300"]
 
 [sub_resource type="Environment" id="Environment_range"]
 background_mode = 1
@@ -22,7 +28,7 @@ ambient_light_source = 2
 ambient_light_color = Color(0.55, 0.75, 0.92, 1)
 ambient_light_energy = 0.55
 
-[sub_resource type="ArrayMesh" id="ArrayMesh_ynish"]
+[sub_resource type="ArrayMesh" id="ArrayMesh_cr8p7"]
 _surfaces = [{
 "aabb": AABB(-19, 0, -300, 38, 1e-05, 300),
 "attribute_data": PackedByteArray(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 152, 65, 0, 0, 0, 0, 0, 0, 152, 65, 0, 0, 22, 67, 0, 0, 0, 0, 0, 0, 22, 67),
@@ -78,7 +84,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 77.093094, 71.31996, 247.4582
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1372404, 1.8787439, -6.744128)
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=560799956]
-mesh = SubResource("ArrayMesh_ynish")
+mesh = SubResource("ArrayMesh_cr8p7")
 surface_material_override/0 = SubResource("ShaderMaterial_pel0d")
 
 [node name="Backdrop" type="Node3D" parent="." unique_id=1982736451]
@@ -98,6 +104,56 @@ texture_filter = 0
 texture = ExtResource("10_rattling_idle")
 script = ExtResource("9_rattling_placeholder")
 
+[node name="YardageMarkers" type="Node3D" parent="Foreground" unique_id=816687626]
+
+[node name="Marker50" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=1330937824]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -60.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("12_marker_50")
+
+[node name="Marker100" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=1242433491]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -110.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("13_marker_100")
+
+[node name="Marker150" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=874229304]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -160.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("14_marker_150")
+
+[node name="Marker200" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=98576565]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -210.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("15_marker_200")
+
+[node name="Marker250" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=286977929]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -260.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("16_marker_250")
+
+[node name="Marker300" type="Sprite3D" parent="Foreground/YardageMarkers" unique_id=628641713]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0.37896824, -310.57)
+pixel_size = 0.015
+billboard = 1
+alpha_cut = 1
+texture_filter = 0
+texture = ExtResource("17_marker_300")
+
 [node name="Bays" type="Node3D" parent="." unique_id=787420339]
 
 [node name="PlayerBay" parent="Bays" unique_id=1111170110 instance=ExtResource("6_player_bay")]
@@ -105,63 +161,63 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -10)
 
 [node name="EmptyBays" type="Node3D" parent="Bays" unique_id=1724694882]
 
-[node name="EmptyBayCell" type="Node3D" parent="Bays/EmptyBays" unique_id=1667728624 instance=ExtResource("10_rruw7")]
+[node name="EmptyBayCell" type="Node3D" parent="Bays/EmptyBays" unique_id=1787636566 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -16, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24741" type="Node3D" parent="Bays/EmptyBays" unique_id=447324842 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25681" type="Node3D" parent="Bays/EmptyBays" unique_id=2105292883 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -14, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24742" type="Node3D" parent="Bays/EmptyBays" unique_id=1565481311 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25682" type="Node3D" parent="Bays/EmptyBays" unique_id=1000714856 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24743" type="Node3D" parent="Bays/EmptyBays" unique_id=2045334451 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25683" type="Node3D" parent="Bays/EmptyBays" unique_id=369533074 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24744" type="Node3D" parent="Bays/EmptyBays" unique_id=1620461486 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25684" type="Node3D" parent="Bays/EmptyBays" unique_id=19931708 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24745" type="Node3D" parent="Bays/EmptyBays" unique_id=1042354818 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25685" type="Node3D" parent="Bays/EmptyBays" unique_id=220297441 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24746" type="Node3D" parent="Bays/EmptyBays" unique_id=1560311564 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25686" type="Node3D" parent="Bays/EmptyBays" unique_id=521811958 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24747" type="Node3D" parent="Bays/EmptyBays" unique_id=335184308 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25687" type="Node3D" parent="Bays/EmptyBays" unique_id=1610436288 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24748" type="Node3D" parent="Bays/EmptyBays" unique_id=1355054487 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25688" type="Node3D" parent="Bays/EmptyBays" unique_id=397489580 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24749" type="Node3D" parent="Bays/EmptyBays" unique_id=1811761523 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25689" type="Node3D" parent="Bays/EmptyBays" unique_id=1908144512 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24750" type="Node3D" parent="Bays/EmptyBays" unique_id=478730660 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25690" type="Node3D" parent="Bays/EmptyBays" unique_id=1551915628 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24751" type="Node3D" parent="Bays/EmptyBays" unique_id=1172078253 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25691" type="Node3D" parent="Bays/EmptyBays" unique_id=1253986419 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24752" type="Node3D" parent="Bays/EmptyBays" unique_id=420640913 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25692" type="Node3D" parent="Bays/EmptyBays" unique_id=283781939 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24753" type="Node3D" parent="Bays/EmptyBays" unique_id=1090053622 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25693" type="Node3D" parent="Bays/EmptyBays" unique_id=1332064668 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, -10)
 script = ExtResource("11_1ger1")
 
-[node name="@Node3D@24754" type="Node3D" parent="Bays/EmptyBays" unique_id=1978736968 instance=ExtResource("10_rruw7")]
+[node name="@Node3D@25694" type="Node3D" parent="Bays/EmptyBays" unique_id=753971607 instance=ExtResource("10_rruw7")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, -10)
 script = ExtResource("11_1ger1")
 

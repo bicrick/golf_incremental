@@ -1,12 +1,12 @@
 class_name RangeGrid
 extends RefCounted
-## v4 range coordinate system — 2 yd cells, 38 yd wide × 300 yd deep.
+## v4 range coordinate system — 2 yd cells, 38 yd wide × 400 yd deep.
 
 const CELL_SIZE_YARDS := 2.0
 const GRID_WIDTH_CELLS := 19
-const GRID_DEPTH_CELLS := 150
+const GRID_DEPTH_CELLS := 200
 const HALF_WIDTH_YARDS := 19.0
-const DEPTH_YARDS := 300.0
+const DEPTH_YARDS := 400.0
 
 ## Player bay — midline column, row 5 (10 yd into fairway from near edge).
 const PLAYER_CELL := Vector2i(9, 5)
