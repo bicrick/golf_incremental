@@ -231,6 +231,15 @@ func play_bucket_full_chime() -> void:
 	_play("bucket_full_chime", -4.0)
 
 
+func play_prestige_fanfare() -> void:
+	_play("play_fanfare", -4.0)
+	_play("upgrade_bling")
+
+
+func play_upgrade_bling() -> void:
+	_play_upgrade_bling(1)
+
+
 func _refresh_music_tracks() -> void:
 	_music_tracks = _discover_music_tracks()
 

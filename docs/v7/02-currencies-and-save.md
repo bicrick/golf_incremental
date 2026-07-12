@@ -24,7 +24,7 @@ Add (names may match implementation style):
 |-------|------|---------|
 | `cheese` | float or int | Spendable prestige currency |
 | `prestige_count` | int | Times prestiged |
-| `prestige_threshold` | float | Current cash-on-hand requirement (default 5000; Ambition mutates) |
+| `prestige_threshold` | float | Current cash-on-hand requirement (default 500; Ambition mutates) |
 | `prestige_levels` | Dictionary | `upgrade_id → level` for cheese tree |
 | Cheese-derived runtime flags | via effects apply | e.g. combo unlocked, quick reset stacks, perfect streak rules |
 
@@ -40,7 +40,7 @@ Extend `SaveManager` payload:
 
 - Persist `cheese`, `prestige_count`, `prestige_threshold`, `prestige_levels`
 - On load: re-apply prestige effects to stats **before** Play levels (or compose clearly: defaults → prestige effects → play effects)
-- Migration: missing keys → cheese 0, prestige_count 0, threshold 5000, empty levels
+- Migration: missing keys → cheese 0, prestige_count 0, threshold 500, empty levels
 - Old saves with Ratina/Rattling/combo/quick_reset on play tree: strip or ignore removed ids; do not soft-lock
 
 ## Composition order for stats

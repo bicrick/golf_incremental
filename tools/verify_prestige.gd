@@ -20,12 +20,12 @@ func _run() -> void:
 	gs._recompute_stats()
 
 	# --- Part 0: prestige gate + wipe ---
-	gs.currency = 4999.0
+	gs.currency = 499.0
 	if gs.prestige():
 		print("FAIL: prestige allowed under threshold")
 		quit(1)
 		return
-	gs.currency = 5000.0
+	gs.currency = 500.0
 	gs.upgrade_levels = {"base_pay": 3}
 	if not gs.prestige():
 		print("FAIL: prestige denied at threshold")
@@ -39,8 +39,8 @@ func _run() -> void:
 		print("FAIL: play upgrades not wiped")
 		quit(1)
 		return
-	if gs.cheese < 1:
-		print("FAIL: expected cheese >= 1, got %d" % gs.cheese)
+	if gs.cheese != 3:
+		print("FAIL: expected base cheese 3, got %d" % gs.cheese)
 		quit(1)
 		return
 	if gs.prestige_count < 1:
@@ -72,42 +72,45 @@ func _run() -> void:
 		return
 	print("OK: cheese_press purchase")
 
-	# Surplus cheese when cash >> threshold (ambition 0)
-	# base 1 + cheese_press 1 = 2; surplus floor(5000/2500)=2 → total 4
+	# Extra cash does not grant surplus cheese (ambition 0, press 1 → 3+1=4)
 	gs.prestige_levels = {"cheese_press": 1}
 	gs._recompute_stats()
-	var surplus_gain: int = gs.cheese_from_prestige_cash(10000.0)
-	if surplus_gain != 4:
-		print("FAIL: surplus cheese expected 4, got %d" % surplus_gain)
+	var flat_gain: int = gs.cheese_from_prestige_cash(10000.0)
+	if flat_gain != 4:
+		print("FAIL: flat cheese expected 4 (no surplus), got %d" % flat_gain)
 		quit(1)
 		return
-	print("OK: surplus cheese payout")
+	var same_at_threshold: int = gs.cheese_from_prestige_cash(500.0)
+	if same_at_threshold != flat_gain:
+		print("FAIL: cheese should ignore cash above threshold")
+		quit(1)
+		return
+	print("OK: no surplus cheese for extra cash")
 
 	# Ambition raises threshold (×2) and multiplies cheese payout by 2^ambition
 	gs.prestige_levels = {"cheese_press": 1, "ambition": 1}
 	gs._recompute_stats()
-	if not is_equal_approx(gs.prestige_threshold, 10000.0):
-		print("FAIL: ambition threshold expected 10000, got %.0f" % gs.prestige_threshold)
+	if not is_equal_approx(gs.prestige_threshold, 1000.0):
+		print("FAIL: ambition threshold expected 1000, got %.0f" % gs.prestige_threshold)
 		quit(1)
 		return
-	# At threshold with press 1: (1+1+0 surplus) * 2^1 = 4
-	var amb1_gain: int = gs.cheese_from_prestige_cash(10000.0)
-	if amb1_gain != 4:
-		print("FAIL: ambition×2 base payout expected 4, got %d" % amb1_gain)
+	# press 1: (3+1) * 2^1 = 8
+	var amb1_gain: int = gs.cheese_from_prestige_cash(1000.0)
+	if amb1_gain != 8:
+		print("FAIL: ambition×2 base payout expected 8, got %d" % amb1_gain)
 		quit(1)
 		return
-	# Surplus 10000 over 10k → floor(10000/2500)=4; (2+4)*2 = 12
-	var amb1_surplus: int = gs.cheese_from_prestige_cash(20000.0)
-	if amb1_surplus != 12:
-		print("FAIL: ambition×2 surplus payout expected 12, got %d" % amb1_surplus)
+	var amb1_rich: int = gs.cheese_from_prestige_cash(20000.0)
+	if amb1_rich != amb1_gain:
+		print("FAIL: ambition payout should ignore extra cash")
 		quit(1)
 		return
 	gs.prestige_levels = {"cheese_press": 3, "ambition": 2}
 	gs._recompute_stats()
-	# press +3 → base 1+3=4; at threshold: 4 * 2^2 = 16
+	# press +3 → base 3+3=6; 6 * 2^2 = 24
 	var amb2_gain: int = gs.cheese_from_prestige_cash(gs.prestige_threshold)
-	if amb2_gain != 16:
-		print("FAIL: ambition×4 press payout expected 16, got %d" % amb2_gain)
+	if amb2_gain != 24:
+		print("FAIL: ambition×4 press payout expected 24, got %d" % amb2_gain)
 		quit(1)
 		return
 	print("OK: ambition threshold + cheese multiplier")
@@ -206,6 +209,47 @@ func _run() -> void:
 		quit(1)
 		return
 	print("OK: golden tee")
+
+	# Celebration flow scene is wired under UIRoot
+	var flow: Node = main.get_node_or_null("UI/UIRoot/PrestigeFlow")
+	if flow == null:
+		print("FAIL: PrestigeFlow missing from main scene")
+		quit(1)
+		return
+	if not flow.has_method("begin_ritual"):
+		print("FAIL: PrestigeFlow.begin_ritual missing")
+		quit(1)
+		return
+	var before_flow: int = int(gs.cheese)
+	flow.begin_ritual(before_flow - 1, 1)
+	await process_frame
+	if not flow.is_active():
+		print("FAIL: PrestigeFlow should be active after begin_ritual")
+		quit(1)
+		return
+	if not flow.is_celebrating():
+		print("FAIL: PrestigeFlow should be celebrating")
+		quit(1)
+		return
+	# Advance into shop then finish without asserting UI layout in headless.
+	flow._on_advance_pressed()
+	await process_frame
+	var panel: Node = main.get_node_or_null("UI/UIRoot/UpgradePanel")
+	if panel == null or not panel.is_ritual_shop():
+		print("FAIL: upgrade panel should be in ritual shop mode")
+		quit(1)
+		return
+	flow._on_advance_pressed()
+	await process_frame
+	if flow.is_active():
+		print("FAIL: PrestigeFlow should be idle after second Advance")
+		quit(1)
+		return
+	if panel.is_ritual_shop() or panel.is_open():
+		print("FAIL: ritual shop should close after Advance")
+		quit(1)
+		return
+	print("OK: prestige celebration flow")
 
 	print("OK verify_prestige")
 	quit(0)

@@ -4,13 +4,12 @@ extends RefCounted
 
 ## v7 Prestige
 const SAVE_VERSION: int = 4  # was 3 — bump when prestige fields land
-const PRESTIGE_THRESHOLD_DEFAULT: float = 5000.0
-## Whole cheese granted at threshold before press / ambition multipliers.
-const PRESTIGE_CHEESE_BASE: int = 1
-const PRESTIGE_SURPLUS_PER_CHEESE: float = 2500.0
+const PRESTIGE_THRESHOLD_DEFAULT: float = 500.0
+## Whole cheese granted per prestige before Cheese Press / Ambition multipliers.
+const PRESTIGE_CHEESE_BASE: int = 3
 ## Ambition level → cash threshold (index = ambition level; ×2 each step).
 const PRESTIGE_AMBITION_THRESHOLDS: Array[float] = [
-	5000.0, 10000.0, 20000.0, 40000.0, 80000.0, 160000.0,
+	500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0,
 ]
 
 const AUTOSAVE_INTERVAL_SEC: float = 30.0

@@ -28,16 +28,16 @@ Exact radial/grid positions are an implementation detail; **parent / prerequisit
 | ID | Name | Max | Prerequisite | Effect |
 |----|------|-----|--------------|--------|
 | `cheese_press` | Cheese Press | 10+ | — (root) | +base cheese granted each prestige |
-| `ambition` | Ambition | 5+ | `cheese_press` ≥ 1 | Raises `prestige_threshold` (5k → 10k → …) **and** increases base cheese payout for that tier |
+| `ambition` | Ambition | 5+ | `cheese_press` ≥ 1 | Raises `prestige_threshold` (500 → 1000 → …) **and** multiplies cheese payout ×2 per level |
 
 Starting Ambition table (tune in Balance):
 
 | Level | Threshold | Notes |
 |-------|-----------|-------|
-| 0 | 5000 | Default |
-| 1 | 10000 | |
-| 2 | 20000 | |
-| 3 | 40000 | |
+| 0 | 500 | Default |
+| 1 | 1000 | |
+| 2 | 2000 | |
+| 3 | 4000 | |
 | … | roughly ×2 | Keep payout scaling so higher tiers are worth waiting |
 
 ### Hitting
@@ -86,5 +86,5 @@ Use same style as cash upgrades: `Economy.upgrade_cost`-like curve with cheese a
 ## Purchase rules
 
 - Can buy anytime the Prestige tab is open (including mid-run), if `cheese` ≥ cost.
-- Spending cheese never blocks the $5k cash gate (different currency).
+- Spending cheese never blocks the $500 cash gate (different currency).
 - No refunds.

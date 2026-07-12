@@ -40,6 +40,7 @@ var _confirm_modal: Control
 
 var _active_tab: Tab = Tab.PLAY
 var _is_open := false
+var _ritual_shop := false
 var _nodes: Dictionary = {}
 var _layout_positions: Dictionary = {}
 var _refresh_pending := false
@@ -229,6 +230,9 @@ func open() -> void:
 
 
 func close() -> void:
+	if _ritual_shop:
+		# Ritual owns close via close_ritual_shop / Advance.
+		return
 	_is_open = false
 	visible = false
 	_camera_controller.set_enabled(false)
@@ -240,6 +244,41 @@ func close() -> void:
 		_confirm_modal.close_modal()
 	_notify_icon_bar(false)
 	EventBus.ui_panel_toggled.emit("upgrades", false)
+
+
+## Prestige celebration shop: Prestige tree only, no Base tab / cash-out button.
+func open_ritual_shop() -> void:
+	_ritual_shop = true
+	_close_other_panels()
+	_is_open = true
+	visible = true
+	_active_tab = Tab.PRESTIGE
+	_camera_controller.set_enabled(true)
+	if connectors.has_method("set_animating"):
+		connectors.set_animating(true)
+	_build_tree()
+	_refresh_all()
+	call_deferred("fit_to_view")
+	_notify_icon_bar(true)
+	EventBus.ui_panel_toggled.emit("upgrades", true)
+
+
+func close_ritual_shop() -> void:
+	_ritual_shop = false
+	_is_open = false
+	visible = false
+	_camera_controller.set_enabled(false)
+	if connectors.has_method("set_animating"):
+		connectors.set_animating(false)
+	if _prestige_tooltip and _prestige_tooltip.has_method("hide_now"):
+		_prestige_tooltip.hide_now()
+	_notify_icon_bar(false)
+	EventBus.ui_panel_toggled.emit("upgrades", false)
+	_active_tab = Tab.PLAY
+
+
+func is_ritual_shop() -> bool:
+	return _ritual_shop
 
 
 func consume_zoom_event(event: InputEvent) -> bool:
@@ -270,6 +309,8 @@ func _close_other_panels() -> void:
 
 
 func _on_base_tab_pressed() -> void:
+	if _ritual_shop:
+		return
 	_select_tab(Tab.PLAY)
 
 
@@ -349,7 +390,10 @@ func _refresh_header() -> void:
 	var on_prestige := _active_tab == Tab.PRESTIGE
 	_prestige_count_label.visible = on_prestige
 	_cheese_icon.visible = on_prestige
-	_prestige_button.visible = on_prestige
+	_prestige_button.visible = on_prestige and not _ritual_shop
+	_base_tab_button.visible = not _ritual_shop
+	_prestige_tab_button.visible = true
+	back_button.visible = not _ritual_shop
 	# Never disable tab headings — muted color is visual-only.
 	_base_tab_button.disabled = false
 	_prestige_tab_button.disabled = false
@@ -440,8 +484,28 @@ func _on_prestige_pressed() -> void:
 
 
 func _on_prestige_confirmed() -> void:
-	GameState.prestige()
-	_refresh_all()
+	if not GameState.can_prestige():
+		return
+	var cheese_before: int = GameState.cheese
+	var gained: int = GameState.cheese_from_prestige_cash(GameState.currency)
+	if not GameState.prestige():
+		return
+	if _confirm_modal and _confirm_modal.has_method("close_modal"):
+		_confirm_modal.close_modal()
+	# Hide normal upgrade panel; celebration flow takes over.
+	_is_open = false
+	visible = false
+	_camera_controller.set_enabled(false)
+	if connectors.has_method("set_animating"):
+		connectors.set_animating(false)
+	_notify_icon_bar(false)
+	EventBus.ui_panel_toggled.emit("upgrades", false)
+	var flow := get_parent().get_node_or_null("PrestigeFlow")
+	if flow != null and flow.has_method("begin_ritual"):
+		flow.begin_ritual(cheese_before, gained)
+	else:
+		# Fallback if flow missing — state already prestiged.
+		_refresh_all()
 
 func _on_currency_changed(currency: float) -> void:
 	if not _is_open:

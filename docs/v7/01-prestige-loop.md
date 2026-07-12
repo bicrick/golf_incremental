@@ -5,7 +5,7 @@
 ```text
 Play (cash tree) → bank cash on hand
         ↓
- cash >= prestige_threshold (default $5,000)
+ cash >= prestige_threshold (default $500)
         ↓
  Open Upgrade Menu → Prestige tab → Prestige button
         ↓
@@ -18,11 +18,11 @@ Play (cash tree) → bank cash on hand
 
 | Field | Default | Notes |
 |-------|---------|-------|
-| `prestige_threshold` | **5000** | Cash **on hand** (`GameState.currency`) |
+| `prestige_threshold` | **500** | Cash **on hand** (`GameState.currency`) |
 | Shown when | Always on Prestige tab | Greyed out + tooltip while `cash < threshold` |
 | Can prestige early? | **Yes** | Before meaningfully maxing the Play tree |
 
-**Ambition** (cheese node) raises `prestige_threshold` and increases base cheese payout (see [04-cheese-tree.md](04-cheese-tree.md)).
+**Ambition** (cheese node) raises `prestige_threshold` and multiplies cheese payout (see [04-cheese-tree.md](04-cheese-tree.md)).
 
 ## On prestige (reset)
 
@@ -38,28 +38,26 @@ Play (cash tree) → bank cash on hand
 
 ## Cheese payout
 
-Always grant cheese on a successful prestige (never zero).
+Always grant cheese on a successful prestige (never zero). Extra cash above the threshold does **not** grant bonus cheese.
 
-**Proposed formula (tune in Balance):**
+**Formula:**
 
 ```text
-base_cheese = cheese_press_base + cheese_press_bonus_from_tree
-surplus = max(0, cash_on_hand - prestige_threshold)
-surplus_cheese = floor(surplus / SURPLUS_PER_CHEESE)   # e.g. 2500
-total_cheese = base_cheese + surplus_cheese
+base_cheese = PRESTIGE_CHEESE_BASE + cheese_press_levels   # default base 3
+total_cheese = base_cheese × 2^ambition_level
 ```
 
 | Constant (starting point) | Value | Intent |
 |---------------------------|-------|--------|
-| `cheese_press_base` | 1 | Always get something at 5k |
-| `SURPLUS_PER_CHEESE` | 2500 | Chunky bonus for banking over threshold |
-| Cheese Press levels | +1 base per level (or +% — pick in implementation, document in Balance) | Root meta node |
+| `PRESTIGE_CHEESE_BASE` | 3 | Always get something at $500 |
+| Cheese Press levels | +1 base per level | Root meta node |
+| Ambition | ×2 cheese (and ×2 threshold) per level | Optional bigger dumps |
 
-**Feel goal:** Prestiging at exactly 5k is fine. Banking to 7.5k–10k feels a little greedier. Ambition makes “wait for a higher threshold” a real choice later.
+**Feel goal:** Prestiging at exactly $500 is the goal. Banking more cash only helps you buy Play upgrades before cash-out — not more cheese.
 
 ## Confirm UX
 
-- Prestige button disabled (grey) when under threshold; tooltip: need $X more / “Requires $5,000 on hand” (or current threshold).
+- Prestige button disabled (grey) when under threshold; tooltip: need $X more / “Requires $500 on hand” (or current threshold).
 - When affordable: short confirm dialog — you will lose cash and Play upgrades; keep cheese and Prestige upgrades.
 - After confirm: close or stay on Prestige tab; HUD cash shows 0 (or starting float if any — **none in v7**).
 

@@ -4,11 +4,11 @@ All must pass before calling prestige v7 done.
 
 ## Prestige loop
 
-- [x] With `currency >= prestige_threshold` (default 5000), Prestige tab button is enabled.
+- [x] With `currency >= prestige_threshold` (default 500), Prestige tab button is enabled.
 - [x] Below threshold, button is greyed out and tooltip explains the cash-on-hand requirement.
 - [x] Confirming prestige: cash → 0 (or fully consumed); all Play upgrade levels → 0; cheese increases by formula; `prestige_count` += 1.
 - [x] Prestige upgrades and cheese balance survive prestige and save/load.
-- [x] Surplus above threshold grants additional cheese (chunky steps per Balance).
+- [x] Extra cash above threshold does not grant bonus cheese (flat payout only).
 
 ## Currencies & UI
 
@@ -22,7 +22,7 @@ All must pass before calling prestige v7 done.
 - [x] Quick Reset and Combo Bonus are not on the Play tree.
 - [x] Ratina and Rattlings are not visible / purchasable on the Play tree.
 - [x] Default bucket capacity is 6 without Deep Bucket.
-- [ ] Fresh save can reach $5k on hand in a short session relative to pre-v7 (playtest sign-off).
+- [ ] Fresh save can reach $500 on hand in a short session relative to pre-v7 (playtest sign-off).
 
 ## Cheese tree
 

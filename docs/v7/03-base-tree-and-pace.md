@@ -38,7 +38,7 @@ Default bucket capacity remains **6** unless cheese Deep Bucket says otherwise.
 - Swing cooldown stays at default until cheese **Quick Reset** purchased.
 - Do not leave orphan nodes visible on the Play graph.
 
-## Pace: reach $5k faster
+## Pace: reach $500 faster
 
 Goal: a focused run can hit prestige threshold **without** grinding the deep tree.
 
@@ -51,7 +51,7 @@ Tune in `Balance` / upgrade `base_cost` / `growth_rate` / early `base_amount` (d
 | Early yardage unlock | Reachable quickly |
 | Deep max levels | Can stay deep for long-tail *after* multiple prestiges |
 
-**Acceptance pace (soft):** competent play reaches $5k on hand in roughly **5–15 minutes** on a fresh save with no cheese OP — exact target TBD in playtest, but “way under 45 minutes” is mandatory.
+**Acceptance pace (soft):** competent play reaches $500 on hand quickly on a fresh save with no cheese OP — exact target TBD in playtest, but “way under 45 minutes” is mandatory.
 
 ## Graph / UI
 

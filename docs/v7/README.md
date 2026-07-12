@@ -1,19 +1,19 @@
 # Golf Incremental — v7 Design
 
-**Design source of truth for prestige / cheese.** Strike → harvest → cash upgrades stay the core loop. v7 adds an early prestige at **$5,000 on hand**, a **cheese** currency, and a **separate Prestige tab** in the upgrade menu with OP perks. Landlord days, dual shop restructure, and field consumables are **out of scope** (parked for a later version).
+**Design source of truth for prestige / cheese.** Strike → harvest → cash upgrades stay the core loop. v7 adds an early prestige at **$500 on hand**, a **cheese** currency, and a **separate Prestige tab** in the upgrade menu with OP perks. Landlord days, dual shop restructure, and field consumables are **out of scope** (parked for a later version).
 
 ## One-liner
 
-Same driving-range incremental — but you can cash out a run early for **cheese**, reset the normal tree, and spend cheese on **game-changing prestige perks** so the next climb to 5k is faster and weirder.
+Same driving-range incremental — but you can cash out a run early for **cheese**, reset the normal tree, and spend cheese on **game-changing prestige perks** so the next climb to $500 is faster and weirder.
 
 ## Relationship to prior versions
 
 | Prior (foundation) | v7 (this doc set) |
 |---|---|
-| Continuous cash climb; no prestige | Prestige at $5k on hand → cheese → reset normal progress |
+| Continuous cash climb; no prestige | Prestige at $500 on hand → cheese → reset normal progress |
 | One upgrade tree (cash) | **Play** tab (cash tree) + **Prestige** tab (cheese tree) |
 | Quick Reset, Combo, More Balls, Ratina, Rattlings on/near main tree | OP toys move to cheese (or are hidden pending rework) |
-| ~45 min toward deep distance | Faster early economy so 5k is reachable without maxing the tree |
+| ~45 min toward deep distance | Faster early economy so $500 is reachable without maxing the tree |
 | v4 camera / bay placement | Untouched — not part of v7 |
 
 **Explicit non-goals (v7):** landlord / day-night dues, field consumables, vacuum, Caddy’s Whistle, primers, Ratina/Rattling rework (hide only), dual “shop vs identity” restructure.
@@ -23,9 +23,9 @@ Same driving-range incremental — but you can cash out a run early for **cheese
 | Doc | Read if you are working on… |
 |-----|----------------------------|
 | [00-vision.md](00-vision.md) | Pillars, scope, what v7 is / isn’t |
-| [01-prestige-loop.md](01-prestige-loop.md) | $5k gate, reset rules, cheese payout |
+| [01-prestige-loop.md](01-prestige-loop.md) | $500 gate, reset rules, cheese payout |
 | [02-currencies-and-save.md](02-currencies-and-save.md) | Cheese, prestige count, save schema |
-| [03-base-tree-and-pace.md](03-base-tree-and-pace.md) | What stays on cash tree, removals, faster 5k |
+| [03-base-tree-and-pace.md](03-base-tree-and-pace.md) | What stays on cash tree, removals, faster $500 |
 | [04-cheese-tree.md](04-cheese-tree.md) | Prestige OP skill tree nodes |
 | [05-ui.md](05-ui.md) | Upgrade menu tabs, prestige button, cheese header |
 | [06-workstreams.md](06-workstreams.md) | Parallel agent splits and file ownership |

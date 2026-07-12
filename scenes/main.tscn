@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/pause_menu.tscn" id="9_pause"]
 [ext_resource type="PackedScene" path="res://scenes/ui/view_transition.tscn" id="10_view_transition"]
 [ext_resource type="Script" uid="uid://3g0s7b6lia27" path="res://scripts/ui/gameplay_ui_atmosphere.gd" id="11_gameplay_chrome"]
+[ext_resource type="PackedScene" path="res://scenes/ui/prestige_flow.tscn" id="12_prestige_flow"]
 
 [node name="Main" type="Node" unique_id=785145167]
 script = ExtResource("7_main")
@@ -53,6 +54,9 @@ layout_mode = 1
 layout_mode = 1
 
 [node name="UpgradePanel" parent="UI/UIRoot" unique_id=811323415 instance=ExtResource("4_panel")]
+layout_mode = 1
+
+[node name="PrestigeFlow" parent="UI/UIRoot" instance=ExtResource("12_prestige_flow")]
 layout_mode = 1
 
 [node name="SettingsLayer" type="CanvasLayer" parent="." unique_id=1079990672]

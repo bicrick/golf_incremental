@@ -16,6 +16,10 @@ func _bind_viewport() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
+	var prestige_flow := get_node_or_null("PrestigeFlow")
+	if prestige_flow and prestige_flow.has_method(&"is_celebrating") and prestige_flow.is_celebrating():
+		accept_event()
+		return
 	var upgrade_panel := get_node_or_null("UpgradePanel")
 	if upgrade_panel and upgrade_panel.has_method(&"is_open") and upgrade_panel.is_open():
 		if upgrade_panel.has_method(&"consume_pan_drag_event") and upgrade_panel.consume_pan_drag_event(event):

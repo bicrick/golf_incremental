@@ -11,16 +11,24 @@ const SCALE_PULSE := 1.04
 var _host: Control
 var _label: Label
 var _format: Callable
+var _prefix: String = "$"
 var _display: float = 0.0
 var _target: float = 0.0
 var _tween: Tween
 var _spinning: bool = false
 
 
-func setup(host: Control, label: Label, format_cb: Callable, initial: float) -> void:
+func setup(
+	host: Control,
+	label: Label,
+	format_cb: Callable,
+	initial: float,
+	prefix: String = "$"
+) -> void:
 	_host = host
 	_label = label
 	_format = format_cb
+	_prefix = prefix
 	_display = initial
 	_target = initial
 	_write_label()
@@ -93,7 +101,7 @@ func _on_tween_finished() -> void:
 func _write_label() -> void:
 	if _label == null:
 		return
-	_label.text = "$%s" % str(_format.call(_display))
+	_label.text = "%s%s" % [_prefix, str(_format.call(_display))]
 
 
 func _reset_juice() -> void:

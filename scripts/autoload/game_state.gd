@@ -89,16 +89,14 @@ func can_prestige() -> bool:
 
 ## Cheese payout (always int):
 ##   base = PRESTIGE_CHEESE_BASE + cheese_press_levels
-##   surplus_cheese = floor(max(0, cash - threshold) / PRESTIGE_SURPLUS_PER_CHEESE)
-##   total = (base + surplus_cheese) * 2^ambition_level
-func cheese_from_prestige_cash(cash_on_hand: float) -> int:
+##   total = base * 2^ambition_level
+## Cash above the threshold does not grant extra cheese.
+func cheese_from_prestige_cash(_cash_on_hand: float) -> int:
 	var press: int = int(prestige_levels.get("cheese_press", 0))
 	var ambition: int = int(prestige_levels.get("ambition", 0))
 	var base: int = Balance.PRESTIGE_CHEESE_BASE + press
-	var surplus: float = maxf(0.0, cash_on_hand - prestige_threshold)
-	var surplus_cheese: int = int(floor(surplus / Balance.PRESTIGE_SURPLUS_PER_CHEESE))
 	var ambition_mult: int = 1 << clampi(ambition, 0, 30)
-	return (base + surplus_cheese) * ambition_mult
+	return base * ambition_mult
 
 
 func add_cheese(amount: int) -> void:
