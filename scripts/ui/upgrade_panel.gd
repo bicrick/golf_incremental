@@ -12,6 +12,8 @@ const NODE_HALF := UpgradeIcon.NODE_HALF
 const BOUNDS_PADDING := 24.0
 const FIT_PADDING := 56.0
 const FIT_FILL := 0.98
+const TAB_ACTIVE_COLOR := Color(1.0, 0.92, 0.45, 1.0)
+const TAB_INACTIVE_COLOR := Color(0.52, 0.48, 0.42, 0.72)
 
 enum Tab { PLAY, PRESTIGE }
 
@@ -25,7 +27,8 @@ enum Tab { PLAY, PRESTIGE }
 @onready var back_button: Button = $Content/Header/Row/BackButton
 @onready var _camera_controller: Node = $TreeCameraController
 
-var _tab_bar: TabBar
+var _base_tab_label: Label
+var _prestige_tab_label: Label
 var _prestige_count_label: Label
 var _cheese_icon: TextureRect
 var _prestige_button: Button
@@ -42,7 +45,6 @@ func _ready() -> void:
 	visible = false
 	_ensure_tab_chrome()
 	back_button.pressed.connect(close)
-	_tab_bar.tab_changed.connect(_on_tab_changed)
 	_prestige_button.pressed.connect(_on_prestige_pressed)
 	_confirm_dialog.confirmed.connect(_on_prestige_confirmed)
 	EventBus.currency_changed.connect(_on_currency_changed)
@@ -65,15 +67,37 @@ func _ready() -> void:
 
 func _ensure_tab_chrome() -> void:
 	var row: HBoxContainer = $Content/Header/Row
-	_tab_bar = row.get_node_or_null("TabBar") as TabBar
-	if _tab_bar == null:
-		_tab_bar = TabBar.new()
-		_tab_bar.name = "TabBar"
-		_tab_bar.add_tab("Play")
-		_tab_bar.add_tab("Prestige")
-		_tab_bar.custom_minimum_size = Vector2(120, 18)
-		row.add_child(_tab_bar)
-		row.move_child(_tab_bar, 1)
+	# Drop runtime TabBar chrome from earlier builds (bordered Play + arrows).
+	var stale_tab_bar := row.get_node_or_null("TabBar")
+	if stale_tab_bar != null:
+		stale_tab_bar.queue_free()
+
+	title_label.visible = false
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var headings: HBoxContainer = row.get_node_or_null("TabHeadings") as HBoxContainer
+	if headings == null:
+		headings = HBoxContainer.new()
+		headings.name = "TabHeadings"
+		headings.alignment = BoxContainer.ALIGNMENT_CENTER
+		headings.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		headings.add_theme_constant_override(&"separation", 16)
+		row.add_child(headings)
+		row.move_child(headings, title_label.get_index())
+
+	_base_tab_label = headings.get_node_or_null("BaseTab") as Label
+	if _base_tab_label == null:
+		_base_tab_label = _make_tab_heading("BaseTab", "Base")
+		headings.add_child(_base_tab_label)
+	_prestige_tab_label = headings.get_node_or_null("PrestigeTab") as Label
+	if _prestige_tab_label == null:
+		_prestige_tab_label = _make_tab_heading("PrestigeTab", "Prestige")
+		headings.add_child(_prestige_tab_label)
+
+	if not _base_tab_label.gui_input.is_connected(_on_base_tab_gui_input):
+		_base_tab_label.gui_input.connect(_on_base_tab_gui_input)
+	if not _prestige_tab_label.gui_input.is_connected(_on_prestige_tab_gui_input):
+		_prestige_tab_label.gui_input.connect(_on_prestige_tab_gui_input)
 
 	_prestige_count_label = row.get_node_or_null("PrestigeCount") as Label
 	if _prestige_count_label == null:
@@ -121,11 +145,22 @@ func _ensure_tab_chrome() -> void:
 		_confirm_dialog.name = "PrestigeConfirm"
 		_confirm_dialog.title = "Prestige"
 		_confirm_dialog.dialog_text = (
-			"Prestige now? You will lose all cash and Play upgrades. "
+			"Prestige now? You will lose all cash and Base upgrades. "
 			+ "You will gain cheese and keep Prestige upgrades."
 		)
 		_confirm_dialog.ok_button_text = "Prestige"
 		add_child(_confirm_dialog)
+
+
+func _make_tab_heading(node_name: String, text: String) -> Label:
+	var label := Label.new()
+	label.name = node_name
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_STOP
+	label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	return label
 
 
 func is_open() -> bool:
@@ -189,8 +224,20 @@ func _close_other_panels() -> void:
 		settings_panel.close()
 
 
-func _on_tab_changed(tab: int) -> void:
-	_active_tab = Tab.PRESTIGE if tab == 1 else Tab.PLAY
+func _on_base_tab_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_select_tab(Tab.PLAY)
+
+
+func _on_prestige_tab_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_select_tab(Tab.PRESTIGE)
+
+
+func _select_tab(tab: Tab) -> void:
+	if _active_tab == tab:
+		return
+	_active_tab = tab
 	_build_tree()
 	_refresh_all()
 	call_deferred("fit_to_view")
@@ -264,12 +311,16 @@ func _refresh_header() -> void:
 	_prestige_count_label.visible = on_prestige
 	_cheese_icon.visible = on_prestige
 	_prestige_button.visible = on_prestige
+	_base_tab_label.add_theme_color_override(
+		&"font_color", TAB_INACTIVE_COLOR if on_prestige else TAB_ACTIVE_COLOR
+	)
+	_prestige_tab_label.add_theme_color_override(
+		&"font_color", TAB_ACTIVE_COLOR if on_prestige else TAB_INACTIVE_COLOR
+	)
 	if on_prestige:
-		title_label.text = "Prestige"
 		_prestige_count_label.text = "Prestige #%d" % GameState.prestige_count
 		currency_label.text = "%s" % _format_currency(GameState.cheese)
 	else:
-		title_label.text = "Upgrade Tree"
 		currency_label.text = "$%s" % _format_currency(GameState.currency)
 
 
@@ -414,7 +465,8 @@ func _apply_tree_bounds(bounds: Rect2, padding: float) -> void:
 
 
 func _apply_fonts() -> void:
-	PixelFont.apply_label(title_label, 10)
+	PixelFont.apply_label(_base_tab_label, 10)
+	PixelFont.apply_label(_prestige_tab_label, 10)
 	PixelFont.apply_label(currency_label, 8)
 	PixelFont.apply_label(_prestige_count_label, 8)
 
