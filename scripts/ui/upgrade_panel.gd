@@ -7,6 +7,7 @@ const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitio
 
 const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
 const CHEESE_ICON := preload("res://assets/ui/cheese-currency-icon.png")
+const StyledHoverTooltipScript = preload("res://scripts/ui/styled_hover_tooltip.gd")
 
 const NODE_HALF := UpgradeIcon.NODE_HALF
 const BOUNDS_PADDING := 24.0
@@ -33,6 +34,7 @@ var _prestige_tab_button: Button
 var _prestige_count_label: Label
 var _cheese_icon: TextureRect
 var _prestige_button: Button
+var _prestige_tooltip: Node
 var _confirm_dialog: ConfirmationDialog
 
 var _active_tab: Tab = Tab.PLAY
@@ -63,9 +65,22 @@ func _ready() -> void:
 	UiTheme.apply_wood_header_bar(header_bar)
 	_style_back_button()
 	_style_prestige_button()
+	_setup_prestige_tooltip()
 	_camera_controller.setup(tree_viewport, tree_world)
 	_build_tree()
 	_refresh_all()
+
+
+func _setup_prestige_tooltip() -> void:
+	_prestige_tooltip = get_node_or_null("PrestigeButtonTooltip")
+	if _prestige_tooltip == null:
+		_prestige_tooltip = StyledHoverTooltipScript.new()
+		_prestige_tooltip.name = "PrestigeButtonTooltip"
+		add_child(_prestige_tooltip)
+	# Keep button mouse events alive when "disabled" so styled hover works.
+	_prestige_button.tooltip_text = ""
+	_prestige_tooltip.bind(_prestige_button)
+	_refresh_prestige_button()
 
 
 func _ensure_tab_chrome() -> void:
@@ -211,6 +226,8 @@ func close() -> void:
 	_camera_controller.set_enabled(false)
 	if connectors.has_method("set_animating"):
 		connectors.set_animating(false)
+	if _prestige_tooltip and _prestige_tooltip.has_method("hide_now"):
+		_prestige_tooltip.hide_now()
 	_notify_icon_bar(false)
 	EventBus.ui_panel_toggled.emit("upgrades", false)
 
@@ -346,21 +363,38 @@ func _apply_tab_heading_colors(on_prestige: bool) -> void:
 
 func _refresh_prestige_button() -> void:
 	if not _prestige_button.visible:
+		if _prestige_tooltip and _prestige_tooltip.has_method("hide_now"):
+			_prestige_tooltip.hide_now()
 		return
 	# Cash-out only — does not gate tab access or tree visibility.
+	# Stay enabled for hover (Godot suppresses mouse_entered on disabled buttons).
 	var can := GameState.can_prestige()
-	_prestige_button.disabled = not can
+	_prestige_button.disabled = false
+	_prestige_button.tooltip_text = ""
+	_apply_prestige_button_afford_look(can)
 	var threshold := GameState.prestige_threshold
+	var title := "Prestige"
+	var body: String
 	if can:
-		_prestige_button.tooltip_text = (
-			"Cash out for cheese. Reset Play upgrades. Keep Prestige perks."
-		)
+		body = "Cash out for cheese. Reset Play upgrades. Keep Prestige perks."
+		_prestige_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	else:
 		var need := maxf(0.0, threshold - GameState.currency)
-		_prestige_button.tooltip_text = (
+		body = (
 			"Need $%s on hand to prestige.\nRequires $%s. Reset cash upgrades and cash. Keep cheese and prestige perks."
 			% [_format_currency(need if need > 0.0 else threshold), _format_currency(threshold)]
 		)
+		_prestige_button.mouse_default_cursor_shape = Control.CURSOR_ARROW
+	if _prestige_tooltip and _prestige_tooltip.has_method("set_content"):
+		_prestige_tooltip.set_content(title, body)
+
+
+func _apply_prestige_button_afford_look(can_afford: bool) -> void:
+	# Visual grey-out without Button.disabled so styled tooltips still hover.
+	if can_afford:
+		_prestige_button.modulate = Color.WHITE
+	else:
+		_prestige_button.modulate = Color(0.72, 0.7, 0.66, 0.85)
 
 
 func _request_refresh() -> void:
