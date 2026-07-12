@@ -55,16 +55,9 @@ func _connections() -> Array:
 
 
 func _is_revealed(id: String) -> bool:
+	# Prestige: always draw the full cheese tree (cash-out does not hide nodes).
 	if _tab_mode == "prestige":
-		if id == "cheese_press":
-			return true
-		var parent := str(PrestigeDefinitionsScript.get_def(id).get("parent_id", ""))
-		if parent.is_empty():
-			return true
-		var gs := _game_state()
-		if gs == null:
-			return false
-		return gs.get_prestige_upgrade_level(parent) >= 1
+		return true
 	return UpgradeGraph.is_revealed(id)
 
 

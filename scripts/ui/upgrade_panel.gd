@@ -13,7 +13,8 @@ const BOUNDS_PADDING := 24.0
 const FIT_PADDING := 56.0
 const FIT_FILL := 0.98
 const TAB_ACTIVE_COLOR := Color(1.0, 0.92, 0.45, 1.0)
-const TAB_INACTIVE_COLOR := Color(0.52, 0.48, 0.42, 0.72)
+## Opaque muted grey — inactive look only; tabs stay fully clickable.
+const TAB_INACTIVE_COLOR := Color(0.58, 0.54, 0.48, 1.0)
 
 enum Tab { PLAY, PRESTIGE }
 
@@ -27,8 +28,8 @@ enum Tab { PLAY, PRESTIGE }
 @onready var back_button: Button = $Content/Header/Row/BackButton
 @onready var _camera_controller: Node = $TreeCameraController
 
-var _base_tab_label: Label
-var _prestige_tab_label: Label
+var _base_tab_button: Button
+var _prestige_tab_button: Button
 var _prestige_count_label: Label
 var _cheese_icon: TextureRect
 var _prestige_button: Button
@@ -45,6 +46,8 @@ func _ready() -> void:
 	visible = false
 	_ensure_tab_chrome()
 	back_button.pressed.connect(close)
+	_base_tab_button.pressed.connect(_on_base_tab_pressed)
+	_prestige_tab_button.pressed.connect(_on_prestige_tab_pressed)
 	_prestige_button.pressed.connect(_on_prestige_pressed)
 	_confirm_dialog.confirmed.connect(_on_prestige_confirmed)
 	EventBus.currency_changed.connect(_on_currency_changed)
@@ -81,23 +84,30 @@ func _ensure_tab_chrome() -> void:
 		headings.name = "TabHeadings"
 		headings.alignment = BoxContainer.ALIGNMENT_CENTER
 		headings.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		headings.mouse_filter = Control.MOUSE_FILTER_STOP
 		headings.add_theme_constant_override(&"separation", 16)
 		row.add_child(headings)
 		row.move_child(headings, title_label.get_index())
 
-	_base_tab_label = headings.get_node_or_null("BaseTab") as Label
-	if _base_tab_label == null:
-		_base_tab_label = _make_tab_heading("BaseTab", "Base")
-		headings.add_child(_base_tab_label)
-	_prestige_tab_label = headings.get_node_or_null("PrestigeTab") as Label
-	if _prestige_tab_label == null:
-		_prestige_tab_label = _make_tab_heading("PrestigeTab", "Prestige")
-		headings.add_child(_prestige_tab_label)
+	# Migrate earlier Label-based headings to always-clickable flat Buttons.
+	for stale_name in ["BaseTab", "PrestigeTab"]:
+		var stale := headings.get_node_or_null(stale_name)
+		if stale != null and not (stale is Button):
+			headings.remove_child(stale)
+			stale.free()
 
-	if not _base_tab_label.gui_input.is_connected(_on_base_tab_gui_input):
-		_base_tab_label.gui_input.connect(_on_base_tab_gui_input)
-	if not _prestige_tab_label.gui_input.is_connected(_on_prestige_tab_gui_input):
-		_prestige_tab_label.gui_input.connect(_on_prestige_tab_gui_input)
+	_base_tab_button = headings.get_node_or_null("BaseTab") as Button
+	if _base_tab_button == null:
+		_base_tab_button = _make_tab_heading("BaseTab", "Base")
+		headings.add_child(_base_tab_button)
+	_prestige_tab_button = headings.get_node_or_null("PrestigeTab") as Button
+	if _prestige_tab_button == null:
+		_prestige_tab_button = _make_tab_heading("PrestigeTab", "Prestige")
+		headings.add_child(_prestige_tab_button)
+
+	# Tab access is never gated by cash / can_prestige().
+	_base_tab_button.disabled = false
+	_prestige_tab_button.disabled = false
 
 	_prestige_count_label = row.get_node_or_null("PrestigeCount") as Label
 	if _prestige_count_label == null:
@@ -152,15 +162,23 @@ func _ensure_tab_chrome() -> void:
 		add_child(_confirm_dialog)
 
 
-func _make_tab_heading(node_name: String, text: String) -> Label:
-	var label := Label.new()
-	label.name = node_name
-	label.text = text
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_STOP
-	label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	return label
+func _make_tab_heading(node_name: String, text: String) -> Button:
+	var button := Button.new()
+	button.name = node_name
+	button.text = text
+	button.flat = true
+	button.focus_mode = Control.FOCUS_NONE
+	button.disabled = false
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.custom_minimum_size = Vector2(64, 18)
+	# Text-only heading: no bordered chrome.
+	var empty := StyleBoxEmpty.new()
+	button.add_theme_stylebox_override(&"normal", empty)
+	button.add_theme_stylebox_override(&"hover", empty)
+	button.add_theme_stylebox_override(&"pressed", empty)
+	button.add_theme_stylebox_override(&"disabled", empty)
+	button.add_theme_stylebox_override(&"focus", empty)
+	return button
 
 
 func is_open() -> bool:
@@ -224,14 +242,13 @@ func _close_other_panels() -> void:
 		settings_panel.close()
 
 
-func _on_base_tab_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_select_tab(Tab.PLAY)
+func _on_base_tab_pressed() -> void:
+	_select_tab(Tab.PLAY)
 
 
-func _on_prestige_tab_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_select_tab(Tab.PRESTIGE)
+func _on_prestige_tab_pressed() -> void:
+	# Always allow visiting the Prestige tree — cash-out is a separate button.
+	_select_tab(Tab.PRESTIGE)
 
 
 func _select_tab(tab: Tab) -> void:
@@ -241,7 +258,6 @@ func _select_tab(tab: Tab) -> void:
 	_build_tree()
 	_refresh_all()
 	call_deferred("fit_to_view")
-
 
 func _build_tree() -> void:
 	for child in nodes_root.get_children():
@@ -296,13 +312,9 @@ func _refresh_all() -> void:
 
 
 func _is_node_revealed(id: String) -> bool:
+	# Prestige tree is always fully visible — cash-out threshold does not hide it.
 	if _active_tab == Tab.PRESTIGE:
-		if id == "cheese_press":
-			return true
-		var parent := str(PrestigeDefinitionsScript.get_def(id).get("parent_id", ""))
-		if parent.is_empty():
-			return true
-		return GameState.get_prestige_upgrade_level(parent) >= 1
+		return true
 	return UpgradeGraph.is_revealed(id)
 
 
@@ -311,12 +323,10 @@ func _refresh_header() -> void:
 	_prestige_count_label.visible = on_prestige
 	_cheese_icon.visible = on_prestige
 	_prestige_button.visible = on_prestige
-	_base_tab_label.add_theme_color_override(
-		&"font_color", TAB_INACTIVE_COLOR if on_prestige else TAB_ACTIVE_COLOR
-	)
-	_prestige_tab_label.add_theme_color_override(
-		&"font_color", TAB_ACTIVE_COLOR if on_prestige else TAB_INACTIVE_COLOR
-	)
+	# Never disable tab headings — muted color is visual-only.
+	_base_tab_button.disabled = false
+	_prestige_tab_button.disabled = false
+	_apply_tab_heading_colors(on_prestige)
 	if on_prestige:
 		_prestige_count_label.text = "Prestige #%d" % GameState.prestige_count
 		currency_label.text = "%s" % _format_currency(GameState.cheese)
@@ -324,9 +334,20 @@ func _refresh_header() -> void:
 		currency_label.text = "$%s" % _format_currency(GameState.currency)
 
 
+func _apply_tab_heading_colors(on_prestige: bool) -> void:
+	var base_color := TAB_INACTIVE_COLOR if on_prestige else TAB_ACTIVE_COLOR
+	var prestige_color := TAB_ACTIVE_COLOR if on_prestige else TAB_INACTIVE_COLOR
+	for key in [&"font_color", &"font_hover_color", &"font_pressed_color", &"font_focus_color"]:
+		_base_tab_button.add_theme_color_override(key, base_color)
+		_prestige_tab_button.add_theme_color_override(key, prestige_color)
+	_base_tab_button.add_theme_color_override(&"font_disabled_color", base_color)
+	_prestige_tab_button.add_theme_color_override(&"font_disabled_color", prestige_color)
+
+
 func _refresh_prestige_button() -> void:
 	if not _prestige_button.visible:
 		return
+	# Cash-out only — does not gate tab access or tree visibility.
 	var can := GameState.can_prestige()
 	_prestige_button.disabled = not can
 	var threshold := GameState.prestige_threshold
@@ -465,8 +486,10 @@ func _apply_tree_bounds(bounds: Rect2, padding: float) -> void:
 
 
 func _apply_fonts() -> void:
-	PixelFont.apply_label(_base_tab_label, 10)
-	PixelFont.apply_label(_prestige_tab_label, 10)
+	_base_tab_button.add_theme_font_override(&"font", PixelFont.font_for_size(10))
+	_base_tab_button.add_theme_font_size_override(&"font_size", 10)
+	_prestige_tab_button.add_theme_font_override(&"font", PixelFont.font_for_size(10))
+	_prestige_tab_button.add_theme_font_size_override(&"font_size", 10)
 	PixelFont.apply_label(currency_label, 8)
 	PixelFont.apply_label(_prestige_count_label, 8)
 
