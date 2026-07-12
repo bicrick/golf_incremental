@@ -12,7 +12,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var gs: Node = root.get_node("GameState")
-	gs.cheese = 0.0
+	gs.cheese = 0
 	gs.prestige_count = 0
 	gs.prestige_levels = {}
 	gs.upgrade_levels = {}
@@ -39,8 +39,8 @@ func _run() -> void:
 		print("FAIL: play upgrades not wiped")
 		quit(1)
 		return
-	if gs.cheese < 1.0:
-		print("FAIL: expected cheese >= 1")
+	if gs.cheese < 1:
+		print("FAIL: expected cheese >= 1, got %d" % gs.cheese)
 		quit(1)
 		return
 	if gs.prestige_count < 1:
@@ -49,8 +49,15 @@ func _run() -> void:
 		return
 	print("OK: prestige cash-out wipe")
 
+	# --- Costs are always 1 cheese ---
+	if gs.get_prestige_upgrade_cost("cheese_press") != 1:
+		print("FAIL: cheese_press cost expected 1, got %d" % gs.get_prestige_upgrade_cost("cheese_press"))
+		quit(1)
+		return
+	print("OK: prestige upgrade base cost is 1")
+
 	# --- Part 1: purchase cheese_press ---
-	var cheese_before: float = gs.cheese
+	var cheese_before: int = int(gs.cheese)
 	if not gs.purchase_prestige_upgrade("cheese_press"):
 		print("FAIL: could not buy cheese_press")
 		quit(1)
@@ -59,31 +66,69 @@ func _run() -> void:
 		print("FAIL: cheese_press level")
 		quit(1)
 		return
-	if gs.cheese >= cheese_before:
-		print("FAIL: cheese not spent")
+	if gs.cheese != cheese_before - 1:
+		print("FAIL: cheese spend expected %d, got %d" % [cheese_before - 1, gs.cheese])
 		quit(1)
 		return
 	print("OK: cheese_press purchase")
 
-	# Surplus cheese when cash >> threshold
+	# Surplus cheese when cash >> threshold (ambition 0)
+	# base 1 + cheese_press 1 = 2; surplus floor(5000/2500)=2 → total 4
 	gs.prestige_levels = {"cheese_press": 1}
 	gs._recompute_stats()
-	var surplus_gain: float = gs.cheese_from_prestige_cash(10000.0)
-	# base 1 + cheese_press 1 = 2; surplus floor(5000/2500)=2 → total 4
-	if surplus_gain < 4.0:
-		print("FAIL: surplus cheese expected >= 4, got %.1f" % surplus_gain)
+	var surplus_gain: int = gs.cheese_from_prestige_cash(10000.0)
+	if surplus_gain != 4:
+		print("FAIL: surplus cheese expected 4, got %d" % surplus_gain)
 		quit(1)
 		return
 	print("OK: surplus cheese payout")
 
-	# Ambition raises threshold
+	# Ambition raises threshold (×2) and multiplies cheese payout by 2^ambition
 	gs.prestige_levels = {"cheese_press": 1, "ambition": 1}
 	gs._recompute_stats()
 	if not is_equal_approx(gs.prestige_threshold, 10000.0):
 		print("FAIL: ambition threshold expected 10000, got %.0f" % gs.prestige_threshold)
 		quit(1)
 		return
-	print("OK: ambition threshold")
+	# At threshold with press 1: (1+1+0 surplus) * 2^1 = 4
+	var amb1_gain: int = gs.cheese_from_prestige_cash(10000.0)
+	if amb1_gain != 4:
+		print("FAIL: ambition×2 base payout expected 4, got %d" % amb1_gain)
+		quit(1)
+		return
+	# Surplus 10000 over 10k → floor(10000/2500)=4; (2+4)*2 = 12
+	var amb1_surplus: int = gs.cheese_from_prestige_cash(20000.0)
+	if amb1_surplus != 12:
+		print("FAIL: ambition×2 surplus payout expected 12, got %d" % amb1_surplus)
+		quit(1)
+		return
+	gs.prestige_levels = {"cheese_press": 3, "ambition": 2}
+	gs._recompute_stats()
+	# press +3 → base 1+3=4; at threshold: 4 * 2^2 = 16
+	var amb2_gain: int = gs.cheese_from_prestige_cash(gs.prestige_threshold)
+	if amb2_gain != 16:
+		print("FAIL: ambition×4 press payout expected 16, got %d" % amb2_gain)
+		quit(1)
+		return
+	print("OK: ambition threshold + cheese multiplier")
+
+	# Ambition purchase also costs 1
+	gs.cheese = 5
+	gs.prestige_levels = {"cheese_press": 1}
+	gs._recompute_stats()
+	if gs.get_prestige_upgrade_cost("ambition") != 1:
+		print("FAIL: ambition cost expected 1")
+		quit(1)
+		return
+	if not gs.purchase_prestige_upgrade("ambition"):
+		print("FAIL: could not buy ambition")
+		quit(1)
+		return
+	if gs.cheese != 4:
+		print("FAIL: ambition should cost 1 cheese")
+		quit(1)
+		return
+	print("OK: ambition costs 1 cheese")
 
 	# Deep Bucket capacity after prestige wipe of play levels
 	gs.prestige_levels = {"cheese_press": 1, "prestige_deep_bucket": 2}

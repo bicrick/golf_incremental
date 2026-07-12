@@ -18,7 +18,8 @@ var rattlings_active: bool = true
 var shop_levels: Dictionary = {}
 var ratina_upgrade_levels: Dictionary = {}
 var rattling_upgrade_levels: Dictionary = {}
-var cheese: float = 0.0
+## Whole-number prestige currency — never store fractional cheese.
+var cheese: int = 0
 var prestige_count: int = 0
 var prestige_threshold: float = Balance.PRESTIGE_THRESHOLD_DEFAULT
 var prestige_levels: Dictionary = {}
@@ -86,19 +87,25 @@ func can_prestige() -> bool:
 	return currency >= prestige_threshold
 
 
-func cheese_from_prestige_cash(cash_on_hand: float) -> float:
-	var base: float = Balance.PRESTIGE_CHEESE_BASE + float(prestige_levels.get("cheese_press", 0))
-	# Ambition also bumps base: +1 cheese per ambition level (tunable)
-	base += float(prestige_levels.get("ambition", 0))
+## Cheese payout (always int):
+##   base = PRESTIGE_CHEESE_BASE + cheese_press_levels
+##   surplus_cheese = floor(max(0, cash - threshold) / PRESTIGE_SURPLUS_PER_CHEESE)
+##   total = (base + surplus_cheese) * 2^ambition_level
+func cheese_from_prestige_cash(cash_on_hand: float) -> int:
+	var press: int = int(prestige_levels.get("cheese_press", 0))
+	var ambition: int = int(prestige_levels.get("ambition", 0))
+	var base: int = Balance.PRESTIGE_CHEESE_BASE + press
 	var surplus: float = maxf(0.0, cash_on_hand - prestige_threshold)
-	var surplus_cheese: float = floorf(surplus / Balance.PRESTIGE_SURPLUS_PER_CHEESE)
-	return base + surplus_cheese
+	var surplus_cheese: int = int(floor(surplus / Balance.PRESTIGE_SURPLUS_PER_CHEESE))
+	var ambition_mult: int = 1 << clampi(ambition, 0, 30)
+	return (base + surplus_cheese) * ambition_mult
 
 
-func add_cheese(amount: float) -> void:
-	if amount == 0.0:
+func add_cheese(amount: int) -> void:
+	var grant: int = amount
+	if grant == 0:
 		return
-	cheese += amount
+	cheese += grant
 	EventBus.cheese_changed.emit(cheese)
 
 
@@ -106,7 +113,7 @@ func prestige() -> bool:
 	if not can_prestige():
 		return false
 	var cash_before: float = currency
-	var gained: float = cheese_from_prestige_cash(cash_before)
+	var gained: int = cheese_from_prestige_cash(cash_before)
 	# Wipe run (Play) progress — keep cheese tree + cheese balance
 	currency = 0.0
 	upgrade_levels.clear()
@@ -139,12 +146,14 @@ func get_prestige_upgrade_level(id: String) -> int:
 	return int(prestige_levels.get(id, 0))
 
 
-func get_prestige_upgrade_cost(id: String) -> float:
+## Whole-number cheese cost — no cash stretch. With base_cost 1 and growth_rate 1.0 → always 1.
+func get_prestige_upgrade_cost(id: String) -> int:
 	var def: Dictionary = PrestigeDefinitionsScript.get_def(id)
 	if def.is_empty():
-		return 0.0
-	return Economy.upgrade_cost(
-		float(def["base_cost"]), float(def["growth_rate"]), get_prestige_upgrade_level(id)
+		return 0
+	var level: int = get_prestige_upgrade_level(id)
+	return int(
+		floor(float(def["base_cost"]) * pow(float(def["growth_rate"]), float(level)) + 0.0001)
 	)
 
 
@@ -164,7 +173,7 @@ func purchase_prestige_upgrade(id: String) -> bool:
 		var req_lv: int = int(prereq.get("level", 1))
 		if get_prestige_upgrade_level(req_id) < req_lv:
 			return false
-	var cost: float = get_prestige_upgrade_cost(id)
+	var cost: int = get_prestige_upgrade_cost(id)
 	if cheese < cost:
 		return false
 	cheese -= cost
@@ -431,7 +440,7 @@ func reset_to_fresh() -> void:
 	shop_levels.clear()
 	ratina_upgrade_levels.clear()
 	rattling_upgrade_levels.clear()
-	cheese = 0.0
+	cheese = 0
 	prestige_count = 0
 	prestige_threshold = Balance.PRESTIGE_THRESHOLD_DEFAULT
 	prestige_levels.clear()

@@ -246,7 +246,7 @@ func load_game() -> void:
 	GameState.shop_levels = parsed.get("shop_levels", {})
 	GameState.ratina_upgrade_levels = parsed.get("ratina_upgrade_levels", {})
 	GameState.rattling_upgrade_levels = parsed.get("rattling_upgrade_levels", {})
-	GameState.cheese = float(parsed.get("cheese", 0.0))
+	GameState.cheese = int(floor(float(parsed.get("cheese", 0))))
 	GameState.prestige_count = int(parsed.get("prestige_count", 0))
 	GameState.prestige_levels = parsed.get("prestige_levels", {}).duplicate()
 	if typeof(GameState.prestige_levels) != TYPE_DICTIONARY:

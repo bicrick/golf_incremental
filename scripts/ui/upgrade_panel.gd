@@ -346,7 +346,7 @@ func _refresh_header() -> void:
 	_apply_tab_heading_colors(on_prestige)
 	if on_prestige:
 		_prestige_count_label.text = "Prestige #%d" % GameState.prestige_count
-		currency_label.text = "%s" % _format_currency(GameState.cheese)
+		currency_label.text = "%d" % GameState.cheese
 	else:
 		currency_label.text = "$%s" % _format_currency(GameState.currency)
 
@@ -442,11 +442,11 @@ func _on_currency_changed(currency: float) -> void:
 	_request_refresh()
 
 
-func _on_cheese_changed(cheese: float) -> void:
+func _on_cheese_changed(cheese: int) -> void:
 	if not _is_open:
 		return
 	if _active_tab == Tab.PRESTIGE:
-		currency_label.text = "%s" % _format_currency(cheese)
+		currency_label.text = "%d" % cheese
 	_request_refresh()
 
 

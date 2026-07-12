@@ -9,53 +9,54 @@ static var _tree_order: Array[String] = []
 static func _init_defs() -> void:
 	if not _tree_order.is_empty():
 		return
+	# Every purchase costs 1 cheese (base_cost 1, growth_rate 1.0).
 	var defs: Array[Dictionary] = [
 		_def(
 			"cheese_press", Balance.UpgradeBranch.BASE_PAY, "Cheese Press",
 			"+1 base cheese granted each prestige.",
-			10, 1.0, 1.35,
+			10, 1.0, 1.0,
 			[],
 			"", {}
 		),
 		_def(
 			"ambition", Balance.UpgradeBranch.POWER, "Ambition",
-			"Raise the prestige cash threshold and +1 base cheese per level.",
-			5, 3.0, 1.55,
+			"Double the prestige cash threshold and double cheese payout per level.",
+			5, 1.0, 1.0,
 			[],
 			"cheese_press", {"upgrade_id": "cheese_press", "level": 1}
 		),
 		_def(
 			"prestige_quick_reset", Balance.UpgradeBranch.QUALITY, "Quick Reset",
 			"Shorten swing cooldown (×0.85 per level).",
-			5, 2.0, 1.40,
+			5, 1.0, 1.0,
 			[{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.85}],
 			"cheese_press", {"upgrade_id": "cheese_press", "level": 1}
 		),
 		_def(
 			"prestige_combo", Balance.UpgradeBranch.PICKUP, "Combo Hands",
 			"Fast harvest clicks multiply pickup payout.",
-			5, 2.0, 1.40,
+			5, 1.0, 1.0,
 			[{"type": "add", "stat": "combo_mult_per_tier", "value_per_level": 0.08}],
 			"cheese_press", {"upgrade_id": "cheese_press", "level": 1}
 		),
 		_def(
 			"prestige_deep_bucket", Balance.UpgradeBranch.PICKUP, "Deep Bucket",
 			"+1 permanent bucket capacity per level.",
-			4, 2.5, 1.45,
+			4, 1.0, 1.0,
 			[{"type": "add", "stat": "bucket_capacity_bonus", "value_per_level": 1.0}],
 			"cheese_press", {"upgrade_id": "cheese_press", "level": 1}
 		),
 		_def(
 			"prestige_golden_tee", Balance.UpgradeBranch.QUALITY, "Golden Tee",
 			"+2% golden ball chance per level.",
-			10, 2.0, 1.38,
+			10, 1.0, 1.0,
 			[{"type": "add", "stat": "golden_ball_chance", "value_per_level": 0.02}],
 			"cheese_press", {"upgrade_id": "cheese_press", "level": 1}
 		),
 		_def(
 			"prestige_perfect_chain", Balance.UpgradeBranch.QUALITY, "Perfect Chain",
 			"After 3 Perfects in a row, teed balls stay golden while the streak lasts.",
-			1, 4.0, 1.0,
+			1, 1.0, 1.0,
 			[{"type": "binary", "stat": "perfect_chain_unlocked", "value": 1}],
 			"cheese_press", {"upgrade_id": "cheese_press", "level": 1}
 		),

@@ -92,8 +92,10 @@ func refresh() -> void:
 	var unlocked := _is_unlocked()
 	var cost := _cost_for_node()
 	var maxed := level >= max_level
-	var currency := GameState.cheese if _namespace == "prestige" else GameState.currency
-	var affordable := unlocked and not maxed and currency >= cost
+	var currency: float = (
+		float(GameState.cheese) if _namespace == "prestige" else GameState.currency
+	)
+	var affordable: bool = unlocked and not maxed and currency >= cost
 
 	if maxed:
 		_state = NodeState.MAXED
@@ -366,4 +368,6 @@ func _preview_for_namespace() -> Callable:
 
 
 func _format_cost(n: float) -> String:
+	if _namespace == "prestige":
+		return "%d" % int(floor(n))
 	return FloatCashText.format_amount(n)
