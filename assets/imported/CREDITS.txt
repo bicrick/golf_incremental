@@ -14,5 +14,5 @@ Used in Golf Incremental for HUD panels, buttons, and upgrade UI chrome (Pass 1+
 Assets: assets/imported/rpg_ui_kit/
 
 Background music (assets/audio/music/):
-- 8-Bit Memories — title screen
-- Night Range, Range Rat Main Theme, Sunrise Pulse, Sunrise Resolve, Ticklish Blips, Warm Memories, 旅立ちの街 — gameplay rotation
+- early-riser, sunrise, midday, dusk, night, midnight, main-theme, final — playlist rotation
+  (timing-named tracks; day/night cycle switching not wired yet)
