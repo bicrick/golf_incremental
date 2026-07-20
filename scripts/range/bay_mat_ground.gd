@@ -30,7 +30,7 @@ static func apply_to_mesh(
 
 	mesh_instance.mesh = build_mat_mesh()
 	var mat_color := mat_stripe_color(fairway_dark)
-	var mat := FairwayGrassTiles3D.make_fairway_material()
+	var mat := FairwayGrassTiles3D.make_bay_mat_material()
 	mat.set_shader_parameter(&"fairway_light", mat_color)
 	mat.set_shader_parameter(&"fairway_dark", mat_color)
 	mesh_instance.set_surface_override_material(0, mat)

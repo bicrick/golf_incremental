@@ -21,6 +21,7 @@ const DEBUG_MONEY_AMOUNT := 1_000_000.0
 @onready var exit_button: Button = $Content/Center/MainRow/LeftPane/ExitButton
 @onready var debug_label: Label = $Content/Center/MainRow/LeftPane/DebugSection/DebugLabel
 @onready var add_money_button: Button = $Content/Center/MainRow/LeftPane/DebugSection/AddMoneyButton
+@onready var desert_mode_toggle: CheckButton = $Content/Center/MainRow/LeftPane/DebugSection/DesertModeToggle
 
 var _is_open := false
 
@@ -31,11 +32,13 @@ func _ready() -> void:
 	settings_button.pressed.connect(_on_settings_pressed)
 	exit_button.pressed.connect(_on_exit_pressed)
 	add_money_button.pressed.connect(_on_add_money_pressed)
+	desert_mode_toggle.toggled.connect(_on_desert_mode_toggled)
 	_apply_fonts()
 	_style_menu_button(resume_button)
 	_style_menu_button(settings_button)
 	_style_exit_button(exit_button)
 	_style_menu_button(add_money_button)
+	_style_menu_button(desert_mode_toggle)
 
 
 func is_open() -> bool:
@@ -55,6 +58,7 @@ func open() -> void:
 	visible = true
 	if music_player.has_method("refresh"):
 		music_player.refresh()
+	_sync_desert_mode_toggle()
 	EventBus.ui_panel_toggled.emit("pause", true)
 
 
@@ -85,6 +89,33 @@ func _on_exit_pressed() -> void:
 
 func _on_add_money_pressed() -> void:
 	GameState.add_currency(DEBUG_MONEY_AMOUNT)
+
+
+func _on_desert_mode_toggled(pressed: bool) -> void:
+	var range_view := _range_view()
+	if range_view == null or not range_view.has_method(&"set_desert_mode"):
+		return
+	range_view.set_desert_mode(pressed)
+
+
+func _sync_desert_mode_toggle() -> void:
+	var range_view := _range_view()
+	if range_view == null or not range_view.has_method(&"is_desert_mode"):
+		return
+	var enabled: bool = range_view.is_desert_mode()
+	if desert_mode_toggle.button_pressed != enabled:
+		desert_mode_toggle.set_pressed_no_signal(enabled)
+
+
+func _range_view() -> Node:
+	# PauseMenu lives under Main/SettingsLayer — walk up so headless tests work too.
+	var node: Node = self
+	while node != null:
+		var range_view := node.get_node_or_null("RangeView")
+		if range_view != null:
+			return range_view
+		node = node.get_parent()
+	return null
 
 
 func _close_other_panels() -> void:

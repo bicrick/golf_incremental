@@ -310,6 +310,18 @@ static func fairway_stripe_colors(snap: AtmosphereSnapshot, day_factor: float) -
 	]
 
 
+## Warm sand multipliers for desert fairway atlas tile — avoids green day/night crush.
+static func desert_stripe_colors(day_factor: float) -> Array:
+	var light := Color(1.05, 0.98, 0.85, 1.0)
+	var dark := Color(0.85, 0.72, 0.52, 1.0)
+	var night_blend := (1.0 - clampf(day_factor, 0.0, 1.0)) * FAIRWAY_NIGHT_DARKEN_STRENGTH
+	var night_mul := Color(0.55, 0.48, 0.42, 1.0)
+	return [
+		light.lerp(light * night_mul, night_blend),
+		dark.lerp(dark * night_mul, night_blend),
+	]
+
+
 ## Painted backdrop tint — one color for the whole image, darkens with (1 - day_factor).
 static func backdrop_tint(snap: AtmosphereSnapshot, day_factor: float) -> Color:
 	var day := _day()

@@ -98,6 +98,13 @@ size_flags_horizontal = 4
 mouse_default_cursor_shape = 2
 text = "+$1,000,000"
 
+[node name="DesertModeToggle" type="CheckButton" parent="Content/Center/MainRow/LeftPane/DebugSection"]
+custom_minimum_size = Vector2(160, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_default_cursor_shape = 2
+text = "Desert mode"
+
 [node name="Divider" type="VSeparator" parent="Content/Center/MainRow"]
 layout_mode = 2
 

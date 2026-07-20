@@ -83,6 +83,8 @@ var _view_mode_started := false
 var _backdrop_mesh: MeshInstance3D
 var _editor_backdrop_camera_xform: Transform3D = Transform3D()
 var _empty_bays_container: Node3D
+var _desert_mode := false
+var _last_atmosphere_cycle_time := 60.0
 
 
 func _should_use_editor_rig() -> bool:
@@ -308,7 +310,7 @@ func _setup_empty_bays() -> void:
 			if root:
 				bay.owner = root
 
-
+ 
 func _ensure_empty_bays_container() -> Node3D:
 	if _empty_bays_container != null and is_instance_valid(_empty_bays_container):
 		return _empty_bays_container
@@ -361,12 +363,43 @@ func _apply_ground_palette(light_color: Color, dark_color: Color) -> void:
 	CellGround.apply_palette_uniforms(ground, light_color, dark_color)
 
 
+func is_desert_mode() -> bool:
+	return _desert_mode
+
+
+func set_desert_mode(enabled: bool) -> void:
+	if _desert_mode == enabled:
+		return
+	_desert_mode = enabled
+	_apply_desert_visuals()
+	apply_atmosphere(_last_atmosphere_cycle_time)
+
+
+func _apply_desert_visuals() -> void:
+	if ground:
+		if _desert_mode:
+			FairwayGrassTiles3D.apply_tile_uv(
+				ground, FairwayGrassTiles3D.DESERT_TILE_COL, FairwayGrassTiles3D.DESERT_TILE_ROW
+			)
+		else:
+			FairwayGrassTiles3D.apply_tile_uv(
+				ground, FairwayGrassTiles3D.GRASS_TILE_COL, FairwayGrassTiles3D.GRASS_TILE_ROW
+			)
+	if _backdrop_mesh:
+		var path := (
+			RangeBackdrop.DESERT_TEXTURE_PATH if _desert_mode else RangeBackdrop.TEXTURE_PATH
+		)
+		RangeBackdrop.set_texture(_backdrop_mesh, path)
+
+
 func _build_backdrop() -> void:
 	var backdrop_node := get_node_or_null("Backdrop") as Node3D
 	var cam := get_node_or_null("PerspectiveCamera") as Camera3D
 	if backdrop_node == null or cam == null:
 		return
 	_backdrop_mesh = RangeBackdrop.populate(backdrop_node, cam)
+	if _desert_mode:
+		_apply_desert_visuals()
 	if not Engine.is_editor_hint() and backdrop_node.visible and _view_mode_controller != null:
 		_update_backdrop_visibility(_view_mode_controller.get_mode())
 	elif Engine.is_editor_hint():
@@ -441,6 +474,7 @@ func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float
 
 
 func apply_atmosphere(cycle_time: float) -> void:
+	_last_atmosphere_cycle_time = cycle_time
 	var snap := DayNightPalette.sample_at(cycle_time)
 	_sprite_atmosphere_tint = snap.canvas_modulate
 	var day_factor := DayNightPalette.day_light_factor(cycle_time)
@@ -449,7 +483,10 @@ func apply_atmosphere(cycle_time: float) -> void:
 		env.background_color = snap.sky
 		env.ambient_light_color = snap.sky.lerp(snap.fairway_light, (1.0 - day_factor) * 0.45)
 	var fairway_colors := DayNightPalette.fairway_stripe_colors(snap, day_factor)
-	_apply_ground_palette(fairway_colors[0], fairway_colors[1])
+	var ground_colors: Array = (
+		DayNightPalette.desert_stripe_colors(day_factor) if _desert_mode else fairway_colors
+	)
+	_apply_ground_palette(ground_colors[0], ground_colors[1])
 	if sun_light:
 		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)
 		sun_light.light_energy = lerpf(0.30, 1.15, day_factor)
@@ -458,6 +495,7 @@ func apply_atmosphere(cycle_time: float) -> void:
 		sky_dome.update_atmosphere(cycle_time, snap)
 	if perspective_sky_dome:
 		perspective_sky_dome.update_atmosphere(cycle_time, snap)
+	# Bay mats always keep grass stripe colors so they stay green in desert mode.
 	if player_bay:
 		player_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if ratina_bay:

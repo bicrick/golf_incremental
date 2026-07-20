@@ -318,6 +318,35 @@ func _test_pause_menu() -> bool:
 		main.queue_free()
 		return false
 
+	var desert_toggle: CheckButton = pause_menu.get_node(
+		"Content/Center/MainRow/LeftPane/DebugSection/DesertModeToggle"
+	)
+	var range_view: Node = main.get_node_or_null("RangeView")
+	if desert_toggle == null or range_view == null:
+		print("FAIL: desert mode toggle or RangeView missing")
+		main.queue_free()
+		return false
+	if not range_view.has_method(&"is_desert_mode") or not range_view.has_method(&"set_desert_mode"):
+		print("FAIL: RangeView missing desert mode API")
+		main.queue_free()
+		return false
+	if range_view.is_desert_mode():
+		print("FAIL: desert mode should start off")
+		main.queue_free()
+		return false
+	desert_toggle.toggled.emit(true)
+	await process_frame
+	if not range_view.is_desert_mode():
+		print("FAIL: desert mode toggle should enable desert mode")
+		main.queue_free()
+		return false
+	desert_toggle.toggled.emit(false)
+	await process_frame
+	if range_view.is_desert_mode():
+		print("FAIL: desert mode toggle should disable desert mode")
+		main.queue_free()
+		return false
+
 	pause_menu.close()
 	await process_frame
 

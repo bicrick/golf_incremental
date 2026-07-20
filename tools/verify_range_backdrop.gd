@@ -8,6 +8,7 @@ func _initialize() -> void:
 	var ok := true
 	ok = _verify_populate() and ok
 	ok = _verify_palette_tints() and ok
+	ok = _verify_desert_texture_swap() and ok
 	print("range_backdrop_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -76,4 +77,29 @@ func _verify_palette_tints() -> bool:
 		return false
 
 	print("OK: backdrop palette tint uniforms")
+	return true
+
+
+func _verify_desert_texture_swap() -> bool:
+	var desert_tex := load(RangeBackdrop.DESERT_TEXTURE_PATH) as Texture2D
+	if desert_tex == null:
+		print("FAIL: desert backdrop texture missing at ", RangeBackdrop.DESERT_TEXTURE_PATH)
+		return false
+
+	var range_view := RANGE_VIEW_SCENE.instantiate()
+	root.add_child(range_view)
+	var backdrop := range_view.get_node_or_null("Backdrop") as Node3D
+	var camera := range_view.get_node_or_null("PerspectiveCamera") as Camera3D
+	var mesh_instance := RangeBackdrop.populate(backdrop, camera)
+	if mesh_instance == null:
+		print("FAIL: populate failed before desert texture swap")
+		return false
+
+	RangeBackdrop.set_texture(mesh_instance, RangeBackdrop.DESERT_TEXTURE_PATH)
+	var mat := mesh_instance.get_surface_override_material(0) as ShaderMaterial
+	if mat == null or mat.get_shader_parameter(&"albedo_tex") != desert_tex:
+		print("FAIL: set_texture did not apply desert backdrop")
+		return false
+
+	print("OK: desert backdrop texture swap")
 	return true

@@ -4,6 +4,7 @@ extends RefCounted
 ## Transparent sky in the texture lets the dynamic sky dome show through.
 
 const TEXTURE_PATH := "res://assets/sprites/background/range_backdrop.png"
+const DESERT_TEXTURE_PATH := "res://assets/sprites/background/desert_backdrop.png"
 const BACKDROP_SHADER := preload("res://shaders/range_backdrop.gdshader")
 ## Far behind the ground mesh (300 yd deep) so live geometry can never reach or
 ## clip through the backdrop plane, but still inside the 500 yd sky dome.
@@ -51,6 +52,18 @@ static func populate(
 
 static func apply_tint(mesh_instance: MeshInstance3D, tint: Color) -> void:
 	apply_palette_tints(mesh_instance, tint, tint)
+
+
+static func set_texture(mesh_instance: MeshInstance3D, texture_path: String) -> void:
+	if mesh_instance == null:
+		return
+	var tex := load(texture_path) as Texture2D
+	if tex == null:
+		push_error("RangeBackdrop: missing texture at %s" % texture_path)
+		return
+	var mat := mesh_instance.get_surface_override_material(0) as ShaderMaterial
+	if mat:
+		mat.set_shader_parameter(&"albedo_tex", tex)
 
 
 static func apply_palette_tints(

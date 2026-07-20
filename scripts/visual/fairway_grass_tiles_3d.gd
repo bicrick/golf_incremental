@@ -17,6 +17,8 @@ const FAIRWAY_DEPTH_YARDS := 224.0
 
 const GRASS_TILE_COL := 0
 const GRASS_TILE_ROW := 0
+const DESERT_TILE_COL := 1
+const DESERT_TILE_ROW := 0
 const APRON_TILE_COL := 0
 const APRON_TILE_ROW := 1
 const DARK_STRIPE_PALETTE_BLEND := 0.45
@@ -71,12 +73,28 @@ static func make_fairway_material() -> ShaderMaterial:
 	return _make_shader_material(GROUND_MODE_FAIRWAY, GRASS_TILE_COL, GRASS_TILE_ROW)
 
 
+static func make_bay_mat_material() -> ShaderMaterial:
+	## Hitting mats always stay on the green grass tile (col 0, row 0).
+	return _make_shader_material(GROUND_MODE_FAIRWAY, GRASS_TILE_COL, GRASS_TILE_ROW)
+
+
 static func make_apron_material() -> ShaderMaterial:
 	return _make_shader_material(GROUND_MODE_APRON, APRON_TILE_COL, APRON_TILE_ROW)
 
 
 static func make_material() -> ShaderMaterial:
 	return make_fairway_material()
+
+
+static func uv_for_tile(col: int, row: int) -> Vector4:
+	return _uv_for_tile(col, row)
+
+
+static func apply_tile_uv(mesh_instance: MeshInstance3D, col: int, row: int) -> void:
+	if mesh_instance == null:
+		return
+	var mat := _get_shader_material(mesh_instance, make_fairway_material)
+	mat.set_shader_parameter(&"tile_uv_bounds", _uv_for_tile(col, row))
 
 
 static func apply_palette_uniforms(
