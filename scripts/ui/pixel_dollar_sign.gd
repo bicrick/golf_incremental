@@ -4,7 +4,7 @@ extends Control
 const PIXEL := 2
 const GRID := 11
 
-const COLOR_FILL := UiTheme.COLOR_PANEL_TEXT
+const COLOR_FILL := UiTheme.COLOR_BORDER
 const COLOR_FILL_HOVER := UiTheme.COLOR_GLYPH_BRIGHT
 const COLOR_OUTLINE := UiTheme.COLOR_GLYPH_OUTLINE
 const COLOR_LOCKED_FILL := Color(0.45, 0.42, 0.38, 1.0)

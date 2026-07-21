@@ -15,9 +15,9 @@ const BOUNDS_PADDING := 24.0
 const FIT_PADDING := 56.0
 const FIT_FILL := 0.98
 const REVEAL_STAGGER_SEC := 0.05
-const TAB_ACTIVE_COLOR := Color(1.0, 0.92, 0.45, 1.0)
-## Opaque muted grey — inactive look only; tabs stay fully clickable.
-const TAB_INACTIVE_COLOR := Color(0.58, 0.54, 0.48, 1.0)
+const TAB_ACTIVE_COLOR := UiTheme.COLOR_TAB_ACTIVE
+## Muted green — inactive look only; tabs stay fully clickable.
+const TAB_INACTIVE_COLOR := UiTheme.COLOR_TAB_INACTIVE
 
 enum Tab { PLAY, PRESTIGE }
 
@@ -658,6 +658,8 @@ func _apply_fonts() -> void:
 	_prestige_tab_button.add_theme_font_size_override(&"font_size", 10)
 	PixelFont.apply_label(currency_label, 8)
 	PixelFont.apply_label(_prestige_count_label, 8)
+	UiTheme.apply_panel_label(currency_label)
+	UiTheme.apply_panel_label(_prestige_count_label)
 
 
 func _style_back_button() -> void:

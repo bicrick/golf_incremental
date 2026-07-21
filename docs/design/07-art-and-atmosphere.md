@@ -158,7 +158,7 @@ Effects (1–3 seconds, then decay):
 ## UI visual style
 
 - **Single source of truth:** [`scripts/ui/ui_theme.gd`](../../scripts/ui/ui_theme.gd) (`UiTheme`) — colors, 2px borders, corner radius 0, plate/button StyleBox factories and apply helpers
-- HUD chips + menus: **opaque** ink plates, warm cream 2px rims, sharp corners; flat two-tone glyphs (no fake shading)
+- HUD chips + menus: **opaque** cream plates + green 2px rims (golfer palette), sharp corners; flat two-tone glyphs (no fake shading)
 - Upgrade rows: `HBoxContainer` with buy `Button`
 - Currency: large `Label`, K/M/B formatting
 - Number popups: gold `modulate` on jackpot

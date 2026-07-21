@@ -425,24 +425,26 @@ func _check_gameplay_ui_atmosphere() -> bool:
 	range_view.apply_atmosphere(0.0)
 	await process_frame
 	var midnight_tint := DayNightPalette.sample_at(0.0).canvas_modulate
-	if not gameplay_chrome.modulate.is_equal_approx(midnight_tint):
+	var expected_midnight: Color = UiTheme.ui_atmosphere_modulate(midnight_tint)
+	if not gameplay_chrome.modulate.is_equal_approx(expected_midnight):
 		print(
 			"FAIL: GameplayChrome modulate at midnight expected %s, got %s"
-			% [midnight_tint, gameplay_chrome.modulate]
+			% [expected_midnight, gameplay_chrome.modulate]
 		)
 		main.queue_free()
 		return false
 
 	range_view.apply_atmosphere(DAY_TIME)
 	await process_frame
-	if not gameplay_chrome.modulate.is_equal_approx(Color.WHITE):
+	var expected_day: Color = UiTheme.ui_atmosphere_modulate(Color.WHITE)
+	if not gameplay_chrome.modulate.is_equal_approx(expected_day):
 		print(
-			"FAIL: GameplayChrome modulate at day expected white, got %s"
-			% gameplay_chrome.modulate
+			"FAIL: GameplayChrome modulate at day expected %s, got %s"
+			% [expected_day, gameplay_chrome.modulate]
 		)
 		main.queue_free()
 		return false
 
 	main.queue_free()
-	print("OK: gameplay UI chrome modulate follows day/night canvas_modulate")
+	print("OK: gameplay UI chrome uses soft day/night atmosphere tint")
 	return true

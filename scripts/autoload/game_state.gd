@@ -579,6 +579,20 @@ func credit_free_harvest_balls(count: int) -> int:
 	return credited
 
 
+## Fill any missing harvest slots for free (no payout) and restore a full bucket.
+## Used when the player quits collect via the bucket counter — never leave them
+## short because litter despawned or vanished off the field.
+func return_all_balls_free() -> int:
+	if current_phase != "harvest":
+		return 0
+	var remaining := _harvest_target() - harvest_collected
+	if remaining > 0:
+		harvest_collected += remaining
+		EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	complete_harvest(0)
+	return remaining
+
+
 func credit_vanished_ball(
 	world_pos: Vector3,
 	quality: int,

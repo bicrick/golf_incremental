@@ -189,6 +189,11 @@ func _apply_fonts() -> void:
 func _style_toggle(toggle: CheckButton) -> void:
 	toggle.add_theme_font_override(&"font", PixelFont.font_for_size(8))
 	toggle.add_theme_font_size_override(&"font_size", 8)
+	toggle.add_theme_color_override(&"font_color", UiTheme.COLOR_LABEL)
+	toggle.add_theme_color_override(&"font_hover_color", UiTheme.COLOR_LABEL)
+	toggle.add_theme_color_override(&"font_pressed_color", UiTheme.COLOR_LABEL)
+	toggle.add_theme_color_override(&"font_outline_color", UiTheme.COLOR_LABEL_OUTLINE)
+	toggle.add_theme_constant_override(&"outline_size", 1)
 
 
 func _style_reset_button() -> void:

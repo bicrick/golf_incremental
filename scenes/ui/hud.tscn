@@ -35,8 +35,8 @@ size_flags_vertical = 4
 
 [node name="CurrencyLabel" type="Label" parent="Margin/VBox/TopRow/CurrencyPanel"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.96, 0.94, 0.86, 1)
-theme_override_colors/font_outline_color = Color(0.06, 0.07, 0.08, 1)
+theme_override_colors/font_color = Color(0.22, 0.48, 0.28, 1)
+theme_override_colors/font_outline_color = Color(0.98, 0.96, 0.88, 1)
 theme_override_constants/outline_size = 1
 theme_override_font_sizes/font_size = 12
 text = "$0"

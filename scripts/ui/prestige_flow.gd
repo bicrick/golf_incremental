@@ -135,7 +135,7 @@ func _build_ui() -> void:
 	_prestige_num_label = Label.new()
 	_prestige_num_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_prestige_num_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_prestige_num_label.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE)
+	_prestige_num_label.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE_ON_DARK)
 	PixelFont.apply_label(_prestige_num_label, 8)
 	_counter_row.add_child(_prestige_num_label)
 
@@ -153,7 +153,7 @@ func _build_ui() -> void:
 
 	_counter_label = Label.new()
 	_counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_counter_label.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE)
+	_counter_label.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE_ON_DARK)
 	PixelFont.apply_label(_counter_label, 10)
 	_counter_anchor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_counter_anchor.add_child(_counter_label)
@@ -180,13 +180,13 @@ func _build_ui() -> void:
 
 	_title_label = Label.new()
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE)
+	_title_label.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE_ON_DARK)
 	PixelFont.apply_label(_title_label, 16)
 	center.add_child(_title_label)
 
 	_gained_label = Label.new()
 	_gained_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_gained_label.add_theme_color_override(&"font_color", UiTheme.COLOR_LABEL)
+	_gained_label.add_theme_color_override(&"font_color", UiTheme.COLOR_LABEL_ON_DARK)
 	PixelFont.apply_label(_gained_label, 10)
 	center.add_child(_gained_label)
 
@@ -214,9 +214,9 @@ func _style_advance_button() -> void:
 	UiTheme.apply_primary_button(
 		_advance_button, UiTheme.MARGIN_BUTTON_COMPACT_H + 2, UiTheme.MARGIN_BUTTON_COMPACT_V + 2
 	)
-	_advance_button.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE)
-	_advance_button.add_theme_color_override(&"font_hover_color", UiTheme.COLOR_TITLE)
-	_advance_button.add_theme_color_override(&"font_pressed_color", UiTheme.COLOR_TITLE)
+	_advance_button.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE_ON_DARK)
+	_advance_button.add_theme_color_override(&"font_hover_color", UiTheme.COLOR_TITLE_ON_DARK)
+	_advance_button.add_theme_color_override(&"font_pressed_color", UiTheme.COLOR_TITLE_ON_DARK)
 
 
 func _process(delta: float) -> void:

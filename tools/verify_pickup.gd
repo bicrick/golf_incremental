@@ -29,6 +29,7 @@ func _run() -> void:
 	ok = _check_harvest_target_accounts_for_stash(gs) and ok
 	ok = _check_collect_increments(gs) and ok
 	ok = _check_free_harvest_credit_no_payout(gs) and ok
+	ok = _check_return_all_balls_free_full_bucket(gs) and ok
 	ok = _check_economy_grants(gs) and ok
 	ok = _check_currency_changed_not_stats(gs) and ok
 	ok = _check_combo_logic() and ok
@@ -203,6 +204,60 @@ func _check_free_harvest_credit_no_payout(gs: Node) -> bool:
 		print("FAIL: capped free credit must not change currency")
 		return false
 	print("OK: free harvest credit fills without payout")
+	return true
+
+
+func _check_return_all_balls_free_full_bucket(gs: Node) -> bool:
+	_reset(gs)
+	gs.bucket_remaining = 0
+	gs.try_enter_harvest()
+	gs.collect_harvest_ball(Vector3.ZERO, 1)
+	var before: float = gs.currency
+	var filled: int = gs.return_all_balls_free()
+	if gs.current_phase != "strike":
+		print(
+			"FAIL: return_all_balls_free should return to strike, got %s"
+			% gs.current_phase
+		)
+		return false
+	if gs.bucket_remaining != gs.bucket_capacity:
+		print(
+			"FAIL: return_all_balls_free should refill full capacity, got %d/%d"
+			% [gs.bucket_remaining, gs.bucket_capacity]
+		)
+		return false
+	if filled != gs.bucket_capacity - 1:
+		print(
+			"FAIL: return_all_balls_free should fill remaining %d, got %d"
+			% [gs.bucket_capacity - 1, filled]
+		)
+		return false
+	if not is_equal_approx(gs.currency, before):
+		print("FAIL: return_all_balls_free must not change currency")
+		return false
+
+	# Even with zero progress / no litter accounting, free return restores full.
+	_reset(gs)
+	gs.bucket_remaining = 2
+	gs.try_enter_harvest()
+	before = gs.currency
+	filled = gs.return_all_balls_free()
+	if gs.bucket_remaining != gs.bucket_capacity:
+		print(
+			"FAIL: free return with stash should still end at full capacity, got %d"
+			% gs.bucket_remaining
+		)
+		return false
+	if filled != gs.bucket_capacity - 2:
+		print(
+			"FAIL: free return should fill capacity-minus-stash (%d), got %d"
+			% [gs.bucket_capacity - 2, filled]
+		)
+		return false
+	if not is_equal_approx(gs.currency, before):
+		print("FAIL: free return with stash must not change currency")
+		return false
+	print("OK: return_all_balls_free always restores a full bucket with no payout")
 	return true
 
 

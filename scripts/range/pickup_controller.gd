@@ -66,19 +66,17 @@ func try_complete_harvest() -> void:
 		_finish_harvest()
 
 
-## Return all fairway litter to the bucket with no payout, then leave harvest.
-## Credits only enough balls to fill the harvest target; surplus litter is cleared.
+## Return every missing ball for free (litter, vanished, despawned), clear the
+## fairway, discard unresolved flights, and restore a full bucket.
 func return_all_litter_free() -> bool:
 	if not GameState.is_collect_mode():
 		return false
-	var litter_count := _count_litter()
-	GameState.credit_free_harvest_balls(litter_count)
 	_clear_litter()
-	if GameState.is_harvest_complete():
-		_finish_harvest()
-	else:
-		GameState.exit_harvest_early()
-		_return_to_strike()
+	if _range_view != null and _range_view.has_method("discard_active_flights"):
+		_range_view.discard_active_flights()
+	GameState.return_all_balls_free()
+	SfxManager.play_bucket_full_chime()
+	_return_to_strike()
 	return true
 
 
@@ -230,16 +228,6 @@ func _clear_litter() -> void:
 		return
 	for child in _littered_balls.get_children():
 		child.queue_free()
-
-
-func _count_litter() -> int:
-	if _littered_balls == null:
-		return 0
-	var count := 0
-	for child in _littered_balls.get_children():
-		if child is Sprite3D and child.get_meta("collectible", false):
-			count += 1
-	return count
 
 
 func _bind_bucket_counter_click() -> void:

@@ -5,6 +5,7 @@ extends PanelContainer
 signal return_all_pressed
 
 const COLOR_NORMAL := UiTheme.COLOR_PANEL_TEXT
+const COLOR_ICON_NORMAL := Color.WHITE
 const COLOR_EMPTY := Color(0.95, 0.55, 0.45, 0.85)
 const GLOW_MODULATE := Color(1.18, 1.24, 1.14, 1.0)
 const GLOW_HALF_CYCLE_SEC := 0.7
@@ -58,9 +59,10 @@ func _on_phase_changed(_phase: String) -> void:
 
 func _update_count(count: int, capacity: int) -> void:
 	_count_label.text = "%d/%d" % [count, capacity]
-	var tint := COLOR_EMPTY if count <= 0 and not GameState.is_harvest_phase() else COLOR_NORMAL
-	_count_label.add_theme_color_override(&"font_color", tint)
-	_ball_icon.modulate = tint
+	var empty := count <= 0 and not GameState.is_harvest_phase()
+	_count_label.add_theme_color_override(&"font_color", COLOR_EMPTY if empty else COLOR_NORMAL)
+	# Never tint the ball sprite with text green — that reads as near-black.
+	_ball_icon.modulate = COLOR_EMPTY if empty else COLOR_ICON_NORMAL
 
 
 func get_tween_target_global() -> Vector2:

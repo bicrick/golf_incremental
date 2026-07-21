@@ -200,14 +200,8 @@ func is_harvest_view_ready() -> bool:
 	return _view_mode_controller != null and _view_mode_controller.is_harvest_view_ready()
 
 
-## After prestige ritual: strike camera, clear litter, ready tee.
-func prepare_after_prestige() -> void:
-	if GameState.is_harvest_phase():
-		GameState.exit_harvest_early()
-	if littered_balls != null:
-		for child in littered_balls.get_children():
-			child.queue_free()
-	# Drop in-flight player balls without resolving litter.
+## Drop in-flight player balls without resolving litter / vanish payout.
+func discard_active_flights() -> void:
 	for flight in _active_flights.duplicate():
 		var sprite: Node = flight.get("sprite")
 		if sprite != null and is_instance_valid(sprite):
@@ -217,6 +211,16 @@ func prepare_after_prestige() -> void:
 			trail.finish()
 	_active_flights.clear()
 	_ball_in_flight = false
+
+
+## After prestige ritual: strike camera, clear litter, ready tee.
+func prepare_after_prestige() -> void:
+	if GameState.is_harvest_phase():
+		GameState.exit_harvest_early()
+	if littered_balls != null:
+		for child in littered_balls.get_children():
+			child.queue_free()
+	discard_active_flights()
 	if ball != null:
 		ball.visible = false
 

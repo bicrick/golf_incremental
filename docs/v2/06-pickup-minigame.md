@@ -35,7 +35,7 @@ Litter sprites cluster **up-screen** along fairway stripes (see screenshot refer
 | Exit | Trigger | Result |
 |------|---------|--------|
 | **Early** | Hit button (icon bar) or **Space** | Return to strike now; `bucket_remaining = stash + collected` — litter stays on the fairway |
-| **Free return** | Click bucket counter while incomplete | Credit remaining litter into the bucket with **$0** payout, clear all litter, then complete harvest if full else early-exit merge |
+| **Free return** | Click bucket counter while incomplete | Restore a **full** bucket with **$0** for any still-missing balls (litter, vanished, or despawned), clear fairway litter / unresolved flights, return to strike |
 | **Full** | Auto, when `stash + collected` reaches bucket capacity | Return to strike; bucket refills to full capacity, remaining litter clears |
 
 No swinging in harvest, ever — Space always exits to strike instead of starting a swing, regardless of how many balls have been collected.
@@ -74,7 +74,7 @@ Adjust so first upgrade affordable after **2–4 full cycles**.
 ## UI elements
 
 - Bucket icon with fill `n/capacity` — during harvest `n = stash + collected` (inventory you keep on exit), not collect-progress alone
-- While incomplete in harvest, the bucket card **pulses** (click affordance) and clicking it free-returns all fairway litter
+- While incomplete in harvest, the bucket card **pulses/bobs** (click affordance); clicking it free-returns **all** missing balls and refills the bucket to capacity
 - Combo counter
 - **Hit button** (icon bar, bottom-right, next to the bucket counter) — visible only during harvest; returns to strike immediately, same as pressing Space
 - Phase label: `STRIKE` / `COLLECT`

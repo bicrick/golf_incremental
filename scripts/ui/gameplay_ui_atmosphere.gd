@@ -1,5 +1,5 @@
 extends Control
-## Applies day/night canvas_modulate tint to gameplay HUD chrome (currency, bucket, icon buttons).
+## Soft day/night tint on gameplay HUD chrome — keeps cream plates readable.
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -9,4 +9,4 @@ func _ready() -> void:
 
 
 func _on_atmosphere_tint_changed(tint: Color) -> void:
-	modulate = tint
+	modulate = UiTheme.ui_atmosphere_modulate(tint)

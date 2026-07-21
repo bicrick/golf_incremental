@@ -95,5 +95,5 @@ func _close_other_panels() -> void:
 func _apply_fonts() -> void:
 	PixelFont.apply_label(title_label, 12)
 	PixelFont.apply_label(debug_label, 8)
-	UiTheme.apply_title_label(title_label)
-	UiTheme.apply_body_label(debug_label)
+	UiTheme.apply_title_on_dark(title_label)
+	UiTheme.apply_body_on_dark(debug_label)
