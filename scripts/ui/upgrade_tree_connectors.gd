@@ -8,11 +8,14 @@ const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitio
 const NODE_HALF := UpgradeIcon.NODE_HALF
 ## Pull endpoints slightly inside the node so strokes meet drawn borders.
 const EDGE_INSET := 0.92
+const SURGE_DURATION_SEC := 0.35
 
 var _layout_positions: Dictionary = {}
 var _animating := false
 ## "play" uses UpgradeGraph; "prestige" uses PrestigeDefinitions connections.
 var _tab_mode: String = "play"
+## to_id → remaining surge time (seconds).
+var _edge_surges: Dictionary = {}
 
 
 func _ready() -> void:
@@ -23,14 +26,25 @@ func _ready() -> void:
 func setup(layout_positions: Dictionary, _nodes: Dictionary = {}, tab_mode: String = "play") -> void:
 	_layout_positions = layout_positions
 	_tab_mode = tab_mode
+	_edge_surges.clear()
 	queue_redraw()
 
 
 func set_animating(enabled: bool) -> void:
 	_animating = enabled
+	if not enabled:
+		_edge_surges.clear()
 	set_process(enabled)
 	if enabled:
 		queue_redraw()
+
+
+func surge_edge(to_id: String, duration: float = SURGE_DURATION_SEC) -> void:
+	if to_id.is_empty():
+		return
+	_edge_surges[to_id] = duration
+	set_process(true)
+	queue_redraw()
 
 
 func get_phase() -> float:
@@ -38,10 +52,19 @@ func get_phase() -> float:
 
 
 func _process(delta: float) -> void:
-	if not _animating:
-		return
-	UpgradeTreeStroke.advance_phase(delta)
+	if _animating:
+		UpgradeTreeStroke.advance_phase(delta)
+	if not _edge_surges.is_empty():
+		var finished: Array[String] = []
+		for id in _edge_surges:
+			_edge_surges[id] = float(_edge_surges[id]) - delta
+			if float(_edge_surges[id]) <= 0.0:
+				finished.append(id)
+		for id in finished:
+			_edge_surges.erase(id)
 	queue_redraw()
+	if not _animating and _edge_surges.is_empty():
+		set_process(false)
 
 
 func _game_state() -> Node:
@@ -62,6 +85,7 @@ func _is_revealed(id: String) -> bool:
 
 
 func _draw() -> void:
+	var corner_r := UpgradeTreeStroke.squircle_corner_radius(NODE_HALF * 2.0)
 	for link in _connections():
 		var from_id: String = link["from"]
 		var to_id: String = link["to"]
@@ -71,11 +95,20 @@ func _draw() -> void:
 			continue
 		var from_center: Vector2 = _layout_positions[from_id]
 		var to_center: Vector2 = _layout_positions[to_id]
-		var from_point: Vector2 = _circle_edge_point(from_center, to_center, NODE_HALF.x)
-		var to_point: Vector2 = _circle_edge_point(to_center, from_center, NODE_HALF.x)
+		var from_point: Vector2 = UpgradeTreeStroke.squircle_rim_point(
+			from_center, to_center, NODE_HALF, corner_r, EDGE_INSET
+		)
+		var to_point: Vector2 = UpgradeTreeStroke.squircle_rim_point(
+			to_center, from_center, NODE_HALF, corner_r, EDGE_INSET
+		)
 		var edge_state := resolve_edge_state(to_id, _tab_mode)
+		if _edge_surges.has(to_id):
+			edge_state = UpgradeTreeStroke.EdgeState.CHARGED
 		var style := UpgradeTreeStroke.edge_style_for_upgrade(edge_state, to_id)
 		var palette := UpgradeTreeStroke.palette_for_upgrade(to_id)
+		var speed: float = style["speed"]
+		if _edge_surges.has(to_id):
+			speed = UpgradeTreeStroke.SPEED_CHARGED * 1.6
 		UpgradeTreeStroke.draw_flow_segment(
 			self,
 			from_point,
@@ -83,9 +116,9 @@ func _draw() -> void:
 			style["color"],
 			style["width"],
 			UpgradeTreeStroke.get_phase(),
-			style["speed"],
+			speed,
 			style["animated"],
-			style["glow"],
+			style["glow"] or _edge_surges.has(to_id),
 			palette["glow"]
 		)
 
@@ -117,10 +150,3 @@ static func resolve_edge_state(to_id: String, tab_mode: String = "play") -> Upgr
 	if gs != null and level < max_level and gs.currency >= cost:
 		return UpgradeTreeStroke.EdgeState.CHARGED
 	return UpgradeTreeStroke.EdgeState.LIVE
-
-
-func _circle_edge_point(center: Vector2, toward: Vector2, radius: float) -> Vector2:
-	var delta: Vector2 = toward - center
-	if delta.length_squared() < 1.0:
-		return center
-	return center + delta.normalized() * radius * EDGE_INSET

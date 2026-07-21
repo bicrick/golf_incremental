@@ -1,5 +1,5 @@
 extends PanelContainer
-## Compact icon medallion — sprite-first; details in top-level tooltip only.
+## Compact icon squircle — sprite-first; details in top-level tooltip only.
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
@@ -17,6 +17,14 @@ const TOOLTIP_DELAY_SEC := 0.08
 const TOOLTIP_MAX_WIDTH := 150
 const TOOLTIP_GAP := 5
 const TOOLTIP_EDGE_MARGIN := 8.0
+const TOOLTIP_FADE_SEC := 0.12
+const TOOLTIP_SLIDE_PX := 4.0
+const HOVER_SCALE := 1.12
+const HOVER_TWEEN_SEC := 0.12
+const BURST_PEAK_SCALE := 1.2
+const BURST_UP_SEC := 0.08
+const BURST_DOWN_SEC := 0.14
+const REVEAL_TWEEN_SEC := 0.22
 const TOOLTIP_BG := Color(0.08, 0.11, 0.06, 0.96)
 const TOOLTIP_BORDER := Color(0.78, 0.66, 0.28, 1)
 const TOOLTIP_NAME := Color(1.0, 0.9, 0.45, 1)
@@ -41,6 +49,14 @@ var _tooltip_cost := 0.0
 var _tooltip_maxed := false
 var _tooltip_unlocked := false
 var _tooltip_affordable := false
+var _hover_boost := false
+var _motion_busy := false
+var _base_modulate := Color.WHITE
+var _scale_tween: Tween
+var _tooltip_tween: Tween
+var _burst_tween: Tween
+var _reveal_tween: Tween
+var _tooltip_rest_global := Vector2.ZERO
 
 @onready var _button: Button = $HitButton
 @onready var _glow: ColorRect = $GlowOverlay
@@ -57,6 +73,7 @@ var _tooltip_affordable := false
 func _ready() -> void:
 	custom_minimum_size = NODE_SIZE
 	size = NODE_SIZE
+	pivot_offset = NODE_SIZE * 0.5
 	_button.pressed.connect(_on_pressed)
 	_button.mouse_entered.connect(_on_mouse_entered)
 	_button.mouse_exited.connect(_on_mouse_exited)
@@ -125,15 +142,97 @@ func get_center() -> Vector2:
 	return position + size * 0.5
 
 
+func play_hover_in() -> void:
+	if _state == NodeState.LOCKED or _motion_busy:
+		return
+	_hover_boost = true
+	_apply_visual_state()
+	_kill_scale_tween()
+	_scale_tween = create_tween()
+	_scale_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_scale_tween.tween_property(self, "scale", Vector2.ONE * HOVER_SCALE, HOVER_TWEEN_SEC)
+
+
+func play_hover_out() -> void:
+	_hover_boost = false
+	if not _motion_busy:
+		_apply_visual_state()
+	_kill_scale_tween()
+	_scale_tween = create_tween()
+	_scale_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	_scale_tween.tween_property(self, "scale", Vector2.ONE, HOVER_TWEEN_SEC)
+
+
+func play_purchase_burst() -> void:
+	_motion_busy = true
+	_hover_boost = false
+	_kill_scale_tween()
+	_kill_burst_tween()
+	# Flash border to charged, then settle via refresh-driven state.
+	var charged := UpgradeTreeStroke.border_color_for_upgrade(
+		upgrade_id, UpgradeTreeStroke.BorderState.AFFORD
+	)
+	var glow := UpgradeTreeStroke.glow_color_for_upgrade(upgrade_id)
+	if _border and _border.has_method("configure"):
+		_border.configure(charged, true, true, glow, UpgradeTreeStroke.BORDER_WIDTH_MAXED, 1.8)
+	scale = Vector2.ONE
+	_burst_tween = create_tween()
+	_burst_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_burst_tween.tween_property(self, "scale", Vector2.ONE * BURST_PEAK_SCALE, BURST_UP_SEC)
+	_burst_tween.tween_property(self, "scale", Vector2.ONE, BURST_DOWN_SEC).set_trans(Tween.TRANS_QUAD)
+	_burst_tween.finished.connect(_on_burst_finished, CONNECT_ONE_SHOT)
+
+
+func prep_reveal_in() -> void:
+	## Hide at zero scale immediately so refresh does not flash a full node.
+	_motion_busy = true
+	_kill_reveal_tween()
+	_kill_scale_tween()
+	scale = Vector2.ZERO
+	modulate = Color(_base_modulate.r, _base_modulate.g, _base_modulate.b, 0.0)
+
+
+func play_reveal_in() -> void:
+	if not _motion_busy or scale != Vector2.ZERO:
+		prep_reveal_in()
+	_reveal_tween = create_tween()
+	_reveal_tween.set_parallel(true)
+	_reveal_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	_reveal_tween.tween_property(self, "scale", Vector2.ONE, REVEAL_TWEEN_SEC)
+	_reveal_tween.tween_property(self, "modulate", _base_modulate, REVEAL_TWEEN_SEC * 0.85)
+	_reveal_tween.finished.connect(_on_reveal_finished, CONNECT_ONE_SHOT)
+
+
+func _on_burst_finished() -> void:
+	_motion_busy = false
+	if _hovering and _state != NodeState.LOCKED:
+		play_hover_in()
+	else:
+		scale = Vector2.ONE
+		_apply_visual_state()
+
+
+func _on_reveal_finished() -> void:
+	_motion_busy = false
+	modulate = _base_modulate
+	scale = Vector2.ONE
+	if _hovering and _state != NodeState.LOCKED:
+		play_hover_in()
+
+
 func _on_mouse_entered() -> void:
 	_hovering = true
 	_tooltip_timer.start()
+	if _state != NodeState.LOCKED:
+		play_hover_in()
 
 
 func _on_mouse_exited() -> void:
 	_hovering = false
 	_tooltip_timer.stop()
 	_hide_tooltip()
+	if not _motion_busy:
+		play_hover_out()
 
 
 func _on_tooltip_timer_timeout() -> void:
@@ -207,38 +306,75 @@ func _position_tooltip() -> void:
 
 	var global_pos := global_position + Vector2(x, y)
 	global_pos = TooltipViewportClampScript.clamp_pos(global_pos, tip_size, bounds, TOOLTIP_EDGE_MARGIN)
-	# top_level tooltip uses viewport/global coordinates.
+	_tooltip_rest_global = global_pos
 	_tooltip_panel.global_position = global_pos
 	# Keep medallion size fixed even if layout reflows.
 	custom_minimum_size = NODE_SIZE
 	size = NODE_SIZE
+	pivot_offset = NODE_SIZE * 0.5
 
 
 func _tooltip_bounds_rect() -> Rect2:
 	return TooltipViewportClampScript.visible_bounds(self)
 
+
 func _apply_visual_state() -> void:
-	# Square ColorRect glow fights the circle medallion — ring glow handles purchasable.
+	# Soft fill comes from squircle draw; ColorRect glow stays off.
 	_glow.visible = false
 	set_process(false)
 
 	match _state:
 		NodeState.PURCHASABLE:
-			modulate = Color.WHITE
+			_base_modulate = Color.WHITE
 			_shape_icon.modulate = Color.WHITE
-			_configure_border(UpgradeTreeStroke.BorderState.AFFORD, true, true)
+			_configure_border(
+				UpgradeTreeStroke.BorderState.AFFORD,
+				true,
+				true,
+				UpgradeTreeStroke.BORDER_WIDTH,
+				1.35 if _hover_boost else 1.0
+			)
 		NodeState.MAXED:
-			modulate = MODULATE_MAXED
+			_base_modulate = MODULATE_MAXED
 			_shape_icon.modulate = MODULATE_MAXED
-			_configure_border(UpgradeTreeStroke.BorderState.MAXED, false, true)
+			_configure_border(
+				UpgradeTreeStroke.BorderState.MAXED,
+				false,
+				true,
+				UpgradeTreeStroke.BORDER_WIDTH_MAXED,
+				1.0
+			)
 		NodeState.LOCKED:
-			modulate = MODULATE_LOCKED
+			_base_modulate = MODULATE_LOCKED
 			_shape_icon.modulate = MODULATE_LOCKED
 			_configure_border(UpgradeTreeStroke.BorderState.LOCKED, false, false)
 		NodeState.UNAFFORDABLE:
-			modulate = MODULATE_UNAFFORDABLE
+			_base_modulate = MODULATE_UNAFFORDABLE
 			_shape_icon.modulate = MODULATE_UNAFFORDABLE
 			_configure_border(UpgradeTreeStroke.BorderState.DEFAULT, false, false)
+
+	if _hover_boost and _state != NodeState.LOCKED:
+		var charged := UpgradeTreeStroke.border_color_for_upgrade(
+			upgrade_id, UpgradeTreeStroke.BorderState.AFFORD
+		)
+		var glow := UpgradeTreeStroke.glow_color_for_upgrade(upgrade_id)
+		var width := (
+			UpgradeTreeStroke.BORDER_WIDTH_MAXED
+			if _state == NodeState.MAXED
+			else UpgradeTreeStroke.BORDER_WIDTH
+		)
+		if _border and _border.has_method("configure"):
+			_border.configure(
+				charged,
+				_state == NodeState.PURCHASABLE,
+				true,
+				glow,
+				width,
+				1.6 if _state == NodeState.PURCHASABLE else 1.0
+			)
+
+	if not _motion_busy:
+		modulate = _base_modulate
 
 
 func _style_tooltip_panel() -> void:
@@ -270,39 +406,82 @@ func _show_tooltip() -> void:
 		return
 	_update_tooltip_content()
 	_position_tooltip()
+	_kill_tooltip_tween()
 	_tooltip_panel.visible = true
+	_tooltip_panel.modulate = Color(1, 1, 1, 0)
+	_tooltip_panel.global_position = _tooltip_rest_global + Vector2(0, TOOLTIP_SLIDE_PX)
+	_tooltip_tween = create_tween()
+	_tooltip_tween.set_parallel(true)
+	_tooltip_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	_tooltip_tween.tween_property(_tooltip_panel, "modulate:a", 1.0, TOOLTIP_FADE_SEC)
+	_tooltip_tween.tween_property(
+		_tooltip_panel, "global_position", _tooltip_rest_global, TOOLTIP_FADE_SEC
+	)
 
 
 func _hide_tooltip() -> void:
+	_kill_tooltip_tween()
 	_tooltip_panel.visible = false
+	_tooltip_panel.modulate = Color.WHITE
 
 
-func _configure_border(border_state: UpgradeTreeStroke.BorderState, animated: bool, with_glow: bool) -> void:
+func _configure_border(
+	border_state: UpgradeTreeStroke.BorderState,
+	animated: bool,
+	with_glow: bool,
+	width: float = UpgradeTreeStroke.BORDER_WIDTH,
+	pulse_speed_mult: float = 1.0
+) -> void:
 	if _border and _border.has_method("configure"):
 		var border_color := UpgradeTreeStroke.border_color_for_upgrade(upgrade_id, border_state)
 		var glow_color := UpgradeTreeStroke.glow_color_for_upgrade(upgrade_id)
-		_border.configure(border_color, animated, with_glow, glow_color)
+		_border.configure(border_color, animated, with_glow, glow_color, width, pulse_speed_mult)
 
 
 func _ensure_panel_style() -> void:
 	if _panel_style != null:
 		return
 	_panel_style = StyleBoxFlat.new()
-	# Fill comes from the circle medallion draw; panel chrome stays transparent.
+	# Fill comes from the squircle medallion draw; panel chrome stays transparent.
 	_panel_style.bg_color = Color(0, 0, 0, 0)
 	_panel_style.border_width_left = 0
 	_panel_style.border_width_top = 0
 	_panel_style.border_width_right = 0
 	_panel_style.border_width_bottom = 0
-	_panel_style.corner_radius_top_left = 0
-	_panel_style.corner_radius_top_right = 0
-	_panel_style.corner_radius_bottom_left = 0
-	_panel_style.corner_radius_bottom_right = 0
+	var corner := int(round(UpgradeTreeStroke.squircle_corner_radius(NODE_SIZE)))
+	_panel_style.corner_radius_top_left = corner
+	_panel_style.corner_radius_top_right = corner
+	_panel_style.corner_radius_bottom_left = corner
+	_panel_style.corner_radius_bottom_right = corner
 	_panel_style.content_margin_left = 0
 	_panel_style.content_margin_top = 0
 	_panel_style.content_margin_right = 0
 	_panel_style.content_margin_bottom = 0
 	add_theme_stylebox_override(&"panel", _panel_style)
+
+
+func _kill_scale_tween() -> void:
+	if _scale_tween != null and _scale_tween.is_valid():
+		_scale_tween.kill()
+	_scale_tween = null
+
+
+func _kill_tooltip_tween() -> void:
+	if _tooltip_tween != null and _tooltip_tween.is_valid():
+		_tooltip_tween.kill()
+	_tooltip_tween = null
+
+
+func _kill_burst_tween() -> void:
+	if _burst_tween != null and _burst_tween.is_valid():
+		_burst_tween.kill()
+	_burst_tween = null
+
+
+func _kill_reveal_tween() -> void:
+	if _reveal_tween != null and _reveal_tween.is_valid():
+		_reveal_tween.kill()
+	_reveal_tween = null
 
 
 func _def_for_node() -> Dictionary:

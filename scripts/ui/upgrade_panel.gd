@@ -14,6 +14,7 @@ const NODE_HALF := UpgradeIcon.NODE_HALF
 const BOUNDS_PADDING := 24.0
 const FIT_PADDING := 56.0
 const FIT_FILL := 0.98
+const REVEAL_STAGGER_SEC := 0.05
 const TAB_ACTIVE_COLOR := Color(1.0, 0.92, 0.45, 1.0)
 ## Opaque muted grey — inactive look only; tabs stay fully clickable.
 const TAB_INACTIVE_COLOR := Color(0.58, 0.54, 0.48, 1.0)
@@ -44,6 +45,8 @@ var _ritual_shop := false
 var _nodes: Dictionary = {}
 var _layout_positions: Dictionary = {}
 var _refresh_pending := false
+## Blocks currency/stats deferred refresh from stomping purchase/reveal tweens.
+var _suppress_deferred_refresh := false
 
 
 func _ready() -> void:
@@ -379,6 +382,61 @@ func _refresh_all() -> void:
 	connectors.queue_redraw()
 
 
+func _handle_purchase_fx(purchased_id: String) -> void:
+	if not _is_open:
+		_request_refresh()
+		return
+	_suppress_deferred_refresh = true
+	var was_visible: Dictionary = {}
+	for id in _nodes:
+		was_visible[id] = (_nodes[id] as PanelContainer).visible
+	_refresh_pending = false
+	_refresh_header()
+	_refresh_prestige_button()
+	var newly_revealed: Array[String] = []
+	for id in _nodes:
+		var node: PanelContainer = _nodes[id]
+		var revealed := _is_node_revealed(id)
+		var was_shown := bool(was_visible.get(id, false))
+		node.visible = revealed
+		if revealed and node.has_method("refresh"):
+			node.refresh()
+		if revealed and not was_shown:
+			newly_revealed.append(id)
+			if node.has_method("prep_reveal_in"):
+				node.prep_reveal_in()
+	connectors.queue_redraw()
+	var purchased: PanelContainer = _nodes.get(purchased_id) as PanelContainer
+	if purchased != null and purchased.has_method("play_purchase_burst"):
+		purchased.play_purchase_burst()
+	if connectors.has_method("surge_edge"):
+		connectors.surge_edge(purchased_id)
+	_animate_reveals(newly_revealed)
+	call_deferred("_clear_purchase_fx_suppress")
+
+
+func _clear_purchase_fx_suppress() -> void:
+	_suppress_deferred_refresh = false
+	_refresh_pending = false
+
+
+func _animate_reveals(ids: Array[String]) -> void:
+	if ids.is_empty():
+		return
+	var delay := 0.0
+	for id in ids:
+		var node: PanelContainer = _nodes.get(id) as PanelContainer
+		if node == null or not node.has_method("play_reveal_in"):
+			continue
+		var captured := node
+		get_tree().create_timer(delay).timeout.connect(
+			func() -> void:
+				if is_instance_valid(captured) and captured.has_method("play_reveal_in"):
+					captured.play_reveal_in()
+		)
+		delay += REVEAL_STAGGER_SEC
+
+
 func _is_node_revealed(id: String) -> bool:
 	# Prestige tree is always fully visible — cash-out threshold does not hide it.
 	if _active_tab == Tab.PRESTIGE:
@@ -452,7 +510,7 @@ func _apply_prestige_button_afford_look(can_afford: bool) -> void:
 
 
 func _request_refresh() -> void:
-	if not _is_open or _refresh_pending:
+	if not _is_open or _refresh_pending or _suppress_deferred_refresh:
 		return
 	_refresh_pending = true
 	call_deferred("_flush_refresh")
@@ -528,24 +586,24 @@ func _on_stats_changed(_stats: PlayerStats, _currency: float) -> void:
 	_request_refresh()
 
 
-func _on_upgrade_purchased(_id: String, _level: int, _branch: int) -> void:
-	_request_refresh()
+func _on_upgrade_purchased(id: String, _level: int, _branch: int) -> void:
+	_handle_purchase_fx(id)
 
 
-func _on_shop_item_purchased(_id: String, _level: int) -> void:
-	_request_refresh()
+func _on_shop_item_purchased(id: String, _level: int) -> void:
+	_handle_purchase_fx(id)
 
 
-func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
-	_request_refresh()
+func _on_ratina_upgrade_purchased(id: String, _level: int) -> void:
+	_handle_purchase_fx(id)
 
 
-func _on_rattling_upgrade_purchased(_id: String, _level: int) -> void:
-	_request_refresh()
+func _on_rattling_upgrade_purchased(id: String, _level: int) -> void:
+	_handle_purchase_fx(id)
 
 
-func _on_prestige_upgrade_purchased(_id: String, _level: int) -> void:
-	_request_refresh()
+func _on_prestige_upgrade_purchased(id: String, _level: int) -> void:
+	_handle_purchase_fx(id)
 
 
 func _on_prestiged(_count: int, _gained: float) -> void:

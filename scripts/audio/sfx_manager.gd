@@ -43,6 +43,7 @@ func _ready() -> void:
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 	EventBus.shop_item_purchased.connect(_on_shop_item_purchased)
 	EventBus.rattling_upgrade_purchased.connect(_on_rattling_upgrade_purchased)
+	EventBus.prestige_upgrade_purchased.connect(_on_prestige_upgrade_purchased)
 
 
 func get_music_tracks() -> Array[String]:
@@ -423,6 +424,10 @@ func _on_shop_item_purchased(_id: String, level: int) -> void:
 
 
 func _on_rattling_upgrade_purchased(_id: String, level: int) -> void:
+	_play_upgrade_bling(level)
+
+
+func _on_prestige_upgrade_purchased(_id: String, level: int) -> void:
 	_play_upgrade_bling(level)
 
 

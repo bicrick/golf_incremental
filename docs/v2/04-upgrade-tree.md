@@ -6,7 +6,7 @@
 
 All progression lives in one **pannable, zoomable radial mega-tree** — player upgrades, shop items (ball count, golden balls), Ratina hire + subtree, and Rattlings hire + subtree. No separate shop panel or tabs.
 
-Nodes use custom **32×32 pixel-art icons** (`assets/sprites/upgrades/<upgrade_id>.png`, nearest filter) in compact **44×44 circle medallions** — soft disc fill + thin ring so the sprite dominates. Icons use `STRETCH_KEEP_CENTERED`. Nodes are icon-only; level, cost, and effect preview appear in a **top-level hover tooltip** that does not resize the node. Edges and borders share stroke widths so they scale together under TreeWorld pan/zoom.
+Nodes use custom **32×32 pixel-art icons** (`assets/sprites/upgrades/<upgrade_id>.png`, nearest filter) in compact **44×44 squircle medallions** — soft rounded-square fill + thin branch-colored ring so the sprite dominates. Icons use `STRETCH_KEEP_CENTERED`. Nodes are icon-only; level, cost, and effect preview appear in a **top-level hover tooltip** that does not resize the node. Edges and borders share stroke widths so they scale together under TreeWorld pan/zoom.
 
 **Stroke colors** (borders use the node's palette; connector edges use the target child's palette):
 - **Base Pay** — warm gold
@@ -15,7 +15,9 @@ Nodes use custom **32×32 pixel-art icons** (`assets/sprites/upgrades/<upgrade_i
 - **Pickup** — green
 - **Ratina** (hire + Ratina subtree) — pink
 
-**Edge states:** dormant (target locked) → live marching dashes (unlocked) → charged faster flow + glow (purchasable) → complete slow shimmer (maxed). **Border rings:** solid for locked/unlocked/maxed; dashed orbit + glow only when purchasable.
+**Edge states:** dormant (target locked) → live marching dashes (unlocked) → charged faster flow + glow (purchasable) → complete slow shimmer (maxed). **Borders:** solid for locked/unlocked; thicker solid + glow when maxed; dashed orbit + glow only when purchasable. Connectors attach to the squircle rim.
+
+**Dynamics:** Hover scales the node and brightens its border; tooltips fade/slide in. Purchase plays a short squash-stretch burst, surges the inbound edge in branch color, and staggered-pops newly revealed children. Prestige cheese buys use the same unlock bling SFX as cash upgrades. Warm parallax sky + wood header stay; no CRT/grid restyle.
 
 ## Fan-out structure
 
