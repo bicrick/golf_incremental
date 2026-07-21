@@ -6,7 +6,7 @@
 
 All progression lives in one **pannable, zoomable radial mega-tree** — player upgrades, shop items (ball count, golden balls), Ratina hire + subtree, and Rattlings hire + subtree. No separate shop panel or tabs.
 
-Nodes use custom **32×32 pixel-art icons** (`assets/sprites/upgrades/<upgrade_id>.png`, nearest filter) in compact **44×44 squircle medallions** — soft rounded-square fill + thin branch-colored ring so the sprite dominates. Icons use `STRETCH_KEEP_CENTERED`. Nodes are icon-only; level, cost, and effect preview appear in a **top-level hover tooltip** that does not resize the node. Edges and borders share stroke widths so they scale together under TreeWorld pan/zoom.
+Nodes use custom **32×32 pixel-art icons** (`assets/sprites/upgrades/<upgrade_id>.png`, nearest filter) in compact **44×44 pixel squircle medallions** — dark fill + branch-colored outline with **chunky stepped corners** (axis-aligned stairs, not smooth arcs) so the chrome matches the pixel-art icons. Icons use `STRETCH_KEEP_CENTERED`. Nodes are icon-only; level, cost, and effect preview appear in a **top-level hover tooltip** that does not resize the node. Edges and borders share stroke widths so they scale together under TreeWorld pan/zoom. Opening the panel (and tab fit) zooms to the **full tree layout**, not only currently revealed nodes.
 
 **Stroke colors** (borders use the node's palette; connector edges use the target child's palette):
 - **Base Pay** — warm gold

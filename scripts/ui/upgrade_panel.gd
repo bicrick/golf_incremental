@@ -12,7 +12,7 @@ const StyledConfirmModalScript = preload("res://scripts/ui/styled_confirm_modal.
 
 const NODE_HALF := UpgradeIcon.NODE_HALF
 const BOUNDS_PADDING := 24.0
-const FIT_PADDING := 56.0
+const FIT_PADDING := 68.0
 const FIT_FILL := 0.98
 const REVEAL_STAGGER_SEC := 0.05
 const TAB_ACTIVE_COLOR := UiTheme.COLOR_TAB_ACTIVE
@@ -629,8 +629,9 @@ func _layout_bounds(revealed_only: bool = false) -> Rect2:
 func fit_to_view() -> void:
 	if not _is_open:
 		return
-	var world_bounds := _layout_bounds()
-	var fit_bounds := _layout_bounds(true)
+	# Fit the full graph layout (not just revealed nodes) so open starts zoomed out.
+	var world_bounds := _layout_bounds(false)
+	var fit_bounds := world_bounds
 	var tree_size := fit_bounds.size + Vector2(FIT_PADDING * 2.0, FIT_PADDING * 2.0)
 	var tree_center := fit_bounds.get_center()
 	var vp_size := tree_viewport.size

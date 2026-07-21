@@ -21,6 +21,7 @@ func _run() -> void:
 	ok = await _check_yardage_marker_atmosphere() and ok
 	ok = await _check_ground_mesh_stability() and ok
 	ok = await _check_sun_light_scene() and ok
+	ok = await _check_celestial_lights_and_fog() and ok
 	ok = await _check_procedural_sky() and ok
 	ok = await _check_gameplay_ui_atmosphere() and ok
 	print("day_night_ok=", ok)
@@ -137,6 +138,16 @@ func _check_celestial_placement() -> bool:
 		print("FAIL: noon sun should be near zenith, y=", sun_noon.y)
 		range_view.queue_free()
 		return false
+	if absf(sun_noon.x) > 0.05:
+		print("FAIL: noon sun should stay on fairway -Z axis (x≈0), x=", sun_noon.x)
+		range_view.queue_free()
+		return false
+
+	var sun_dawn := DayNightPalette.celestial_view_direction(30.0, false, Vector3.ZERO)
+	if sun_dawn.z > -0.85 or absf(sun_dawn.x) > 0.05:
+		print("FAIL: dawn sun should be on far -Z horizon, dir=", sun_dawn)
+		range_view.queue_free()
+		return false
 
 	var sun_midnight := DayNightPalette.celestial_view_direction(NIGHT_TIME, false, Vector3.ZERO)
 	if sun_midnight.y > -0.5:
@@ -149,10 +160,18 @@ func _check_celestial_placement() -> bool:
 		print("FAIL: midnight moon should be opposite the sun, y=", moon_midnight.y)
 		range_view.queue_free()
 		return false
+	if absf(moon_midnight.x) > 0.05:
+		print("FAIL: midnight moon should stay on fairway -Z axis (x≈0), x=", moon_midnight.x)
+		range_view.queue_free()
+		return false
 
 	for check_time in [0.0, 30.0, 60.0, 90.0]:
 		var sun_v := DayNightPalette.celestial_view_direction(check_time, false, Vector3.ZERO)
 		var moon_v := DayNightPalette.celestial_view_direction(check_time, true, Vector3.ZERO)
+		if absf(sun_v.x) > 0.05 or absf(moon_v.x) > 0.05:
+			print("FAIL: celestial dirs should stay on -Z axis (x≈0) at t=", check_time)
+			range_view.queue_free()
+			return false
 		if absf(sun_v.dot(moon_v) + 1.0) > 0.15:
 			print(
 				"FAIL: sun/moon should stay 180° apart at t=%.0f, dot=%.3f"
@@ -162,7 +181,7 @@ func _check_celestial_placement() -> bool:
 			return false
 
 	range_view.queue_free()
-	print("OK: vertical orbit with rise/set and 180° opposition")
+	print("OK: fairway -Z orbit with rise/set and 180° opposition")
 	return true
 
 
@@ -311,6 +330,14 @@ func _check_sun_light_scene() -> bool:
 	range_view.apply_atmosphere(0.0)
 	var night_energy := sun.light_energy
 
+	if day_energy <= 0.5:
+		print("FAIL: sun should be bright at midday, energy=", day_energy)
+		range_view.queue_free()
+		return false
+	if night_energy > 0.01:
+		print("FAIL: sun energy should be ~0 at midnight, got ", night_energy)
+		range_view.queue_free()
+		return false
 	if day_energy <= night_energy:
 		print(
 			"FAIL: sun light should be brighter by day than at midnight (day=%.2f night=%.2f)"
@@ -329,6 +356,74 @@ func _check_sun_light_scene() -> bool:
 		"OK: DirectionalLight3D energy follows day/night (day=%.2f night=%.2f)"
 		% [day_energy, night_energy]
 	)
+	return true
+
+
+func _check_celestial_lights_and_fog() -> bool:
+	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
+	if scene == null:
+		print("FAIL: could not load range_view.tscn for celestial lights/fog check")
+		return false
+
+	var range_view: Node3D = scene.instantiate()
+	root.add_child(range_view)
+	range_view.visible = true
+	await process_frame
+
+	var sun: DirectionalLight3D = range_view.get_node_or_null("Sun")
+	var moon: DirectionalLight3D = range_view.get_node_or_null("Moon")
+	if sun == null or moon == null:
+		print("FAIL: RangeView missing Sun or Moon DirectionalLight3D")
+		range_view.queue_free()
+		return false
+
+	range_view.apply_atmosphere(DAY_TIME)
+	var sun_dir_day := DayNightPalette.celestial_view_direction(DAY_TIME, false, Vector3.ZERO)
+	var sun_forward := -sun.global_transform.basis.z.normalized()
+	if sun_forward.dot(-sun_dir_day) < 0.95:
+		print(
+			"FAIL: midday sun -Z should align with -celestial dir, dot=",
+			sun_forward.dot(-sun_dir_day)
+		)
+		range_view.queue_free()
+		return false
+	if moon.light_energy > 0.01:
+		print("FAIL: moon energy should be ~0 at midday, got ", moon.light_energy)
+		range_view.queue_free()
+		return false
+
+	range_view.apply_atmosphere(NIGHT_TIME)
+	if sun.light_energy > 0.01:
+		print("FAIL: sun energy should be ~0 at midnight, got ", sun.light_energy)
+		range_view.queue_free()
+		return false
+	if moon.light_energy <= 0.05:
+		print("FAIL: moon should be visible at midnight, energy=", moon.light_energy)
+		range_view.queue_free()
+		return false
+	var moon_dir := DayNightPalette.celestial_view_direction(NIGHT_TIME, true, Vector3.ZERO)
+	var moon_forward := -moon.global_transform.basis.z.normalized()
+	if moon_forward.dot(-moon_dir) < 0.95:
+		print(
+			"FAIL: midnight moon -Z should align with -celestial dir, dot=",
+			moon_forward.dot(-moon_dir)
+		)
+		range_view.queue_free()
+		return false
+	if moon.shadow_enabled:
+		print("FAIL: moon shadows should stay disabled")
+		range_view.queue_free()
+		return false
+
+	var world_env: WorldEnvironment = range_view.get_node("WorldEnvironment")
+	var env := world_env.environment
+	if env.fog_enabled:
+		print("FAIL: fog should stay disabled")
+		range_view.queue_free()
+		return false
+
+	range_view.queue_free()
+	print("OK: sun/moon aim+energy on fairway -Z axis; fog disabled")
 	return true
 
 

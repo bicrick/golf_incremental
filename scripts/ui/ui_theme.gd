@@ -61,12 +61,13 @@ const COLOR_GLYPH_OUTLINE := Color(0.16, 0.38, 0.20, 1.0)
 const COLOR_GLYPH_HI := Color(0.38, 0.72, 0.44, 1.0)
 const COLOR_GLYPH_BRIGHT := Color(0.44, 0.78, 0.50, 1.0)
 
-## HUD chrome stays golfer cream/green — no day/night multiply (was crushing greens).
-const UI_ATMOSPHERE_STRENGTH := 0.0
+## Day/night mood on HUD chrome. Full tint (1.0) crushed cream/greens; 0 ignored time of day.
+## ~0.45 softens night without turning plates olive/black.
+const UI_ATMOSPHERE_STRENGTH := 0.45
 
 
-static func ui_atmosphere_modulate(_tint: Color) -> Color:
-	return Color.WHITE
+static func ui_atmosphere_modulate(tint: Color) -> Color:
+	return Color.WHITE.lerp(tint, UI_ATMOSPHERE_STRENGTH)
 
 
 # --- Factories ---

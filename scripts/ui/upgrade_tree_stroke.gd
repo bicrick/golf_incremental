@@ -10,15 +10,15 @@ enum BorderState { LOCKED, DEFAULT, AFFORD, MAXED }
 
 const EDGE_WIDTH := 1.5
 const EDGE_GLOW_WIDTH := 3.5
-const BORDER_WIDTH := 1.5
-const BORDER_GLOW_WIDTH := 3.0
-const BORDER_WIDTH_MAXED := 2.25
+const BORDER_WIDTH := 1.0
+const BORDER_GLOW_WIDTH := 2.0
+const BORDER_WIDTH_MAXED := 2.0
 const CORNER_RADIUS := 2.0
-## Corner radius as a fraction of half the shorter side (~squircle, not circle).
-const SQUIRCLE_CORNER_RATIO := 0.38
+## Pixel stair cut on each corner (44×44 medallion → chunky rounded square).
+const PIXEL_CORNER_CUT := 3
 const CIRCLE_SEGMENTS := 28
-const SQUIRCLE_CORNER_SEGMENTS := 6
 const FILL_COLOR := Color(0.12, 0.10, 0.08, 0.55)
+const GLOW_ALPHA_SCALE := 0.65
 
 const DASH_LENGTH := 4.0
 const DASH_GAP := 3.5
@@ -269,8 +269,13 @@ static func draw_flow_segment(
 
 
 static func squircle_corner_radius(size: Vector2) -> float:
-	var half := minf(size.x, size.y) * 0.5
-	return half * SQUIRCLE_CORNER_RATIO
+	## Pixel stair depth (not a smooth arc radius).
+	return float(pixel_corner_cut(size))
+
+
+static func pixel_corner_cut(size: Vector2) -> int:
+	var max_cut := int(floor(minf(size.x, size.y) * 0.5)) - 1
+	return clampi(PIXEL_CORNER_CUT, 1, maxi(max_cut, 1))
 
 
 static func draw_rounded_border(
@@ -297,19 +302,23 @@ static func draw_squircle_border(
 	glow_color: Color = COLOR_BASE_PAY_GLOW,
 	draw_fill: bool = true
 ) -> void:
-	var inset := width * 0.5
-	var inner := rect.grow(-inset)
+	var snapped := _snap_rect(rect)
+	var inset := maxf(width * 0.5, 0.5)
+	var inner := snapped.grow(-inset)
+	inner = _snap_rect(inner)
 	if inner.size.x < 2.0 or inner.size.y < 2.0:
 		return
-	var corner_r := squircle_corner_radius(inner.size)
+	var cut := pixel_corner_cut(inner.size)
 	if draw_fill:
-		canvas.draw_colored_polygon(_squircle_points(inner, corner_r, false), FILL_COLOR)
-	var points := _squircle_points(inner, corner_r, true)
+		canvas.draw_colored_polygon(_pixel_squircle_points(inner, cut, false), FILL_COLOR)
+	var points := _pixel_squircle_points(inner, cut, true)
 	var perimeter := _polyline_length(points)
 	if perimeter < 1.0:
 		return
 	if with_glow:
-		var soft := Color(glow_color.r, glow_color.g, glow_color.b, glow_color.a)
+		var soft := Color(
+			glow_color.r, glow_color.g, glow_color.b, glow_color.a * GLOW_ALPHA_SCALE
+		)
 		if animated:
 			_draw_dashed_polyline(canvas, points, perimeter, soft, BORDER_GLOW_WIDTH, phase, SPEED_BORDER)
 		else:
@@ -343,7 +352,9 @@ static func draw_circle_border(
 	if perimeter < 1.0:
 		return
 	if with_glow:
-		var soft := Color(glow_color.r, glow_color.g, glow_color.b, glow_color.a)
+		var soft := Color(
+			glow_color.r, glow_color.g, glow_color.b, glow_color.a * GLOW_ALPHA_SCALE
+		)
 		if animated:
 			_draw_dashed_polyline(canvas, points, perimeter, soft, BORDER_GLOW_WIDTH, phase, SPEED_BORDER)
 		else:
@@ -354,7 +365,7 @@ static func draw_circle_border(
 		canvas.draw_polyline(points, color, width, true)
 
 
-## Closest rim point on a centered squircle from `center` toward `toward`.
+## Rim point on a centered pixel squircle from `center` toward `toward`.
 static func squircle_rim_point(
 	center: Vector2,
 	toward: Vector2,
@@ -366,27 +377,24 @@ static func squircle_rim_point(
 	if delta.length_squared() < 1.0:
 		return center
 	var dir := delta.normalized()
-	var hx := half_extents.x
-	var hy := half_extents.y
-	var r := corner_radius
-	if r < 0.0:
-		r = squircle_corner_radius(half_extents * 2.0)
-	r = minf(r, minf(hx, hy))
-	var tx := INF if absf(dir.x) < 0.0001 else hx / absf(dir.x)
-	var ty := INF if absf(dir.y) < 0.0001 else hy / absf(dir.y)
-	var t_box := minf(tx, ty)
-	var hit := dir * t_box
-	var inner_x := hx - r
-	var inner_y := hy - r
-	if absf(hit.x) > inner_x and absf(hit.y) > inner_y:
-		var corner_c := Vector2(signf(dir.x) * inner_x, signf(dir.y) * inner_y)
-		var b := dir.dot(corner_c)
-		var c := corner_c.length_squared() - r * r
-		var disc := b * b - c
-		if disc >= 0.0:
-			t_box = b + sqrt(disc)
-			hit = dir * t_box
-	return center + hit * inset
+	var size := half_extents * 2.0
+	var cut := int(round(corner_radius)) if corner_radius >= 0.0 else pixel_corner_cut(size)
+	cut = clampi(cut, 1, pixel_corner_cut(size))
+	var local_rect := Rect2(-half_extents, size)
+	var points := _pixel_squircle_points(local_rect, cut, true)
+	var hit_t := _ray_polyline_exit_t(Vector2.ZERO, dir, points)
+	if hit_t < 0.0:
+		# Fallback: axis box.
+		var tx := INF if absf(dir.x) < 0.0001 else half_extents.x / absf(dir.x)
+		var ty := INF if absf(dir.y) < 0.0001 else half_extents.y / absf(dir.y)
+		hit_t = minf(tx, ty)
+	return center + dir * hit_t * inset
+
+
+static func _snap_rect(rect: Rect2) -> Rect2:
+	var pos := Vector2(roundf(rect.position.x), roundf(rect.position.y))
+	var end := Vector2(roundf(rect.end.x), roundf(rect.end.y))
+	return Rect2(pos, end - pos)
 
 
 static func _circle_points(center: Vector2, radius: float) -> PackedVector2Array:
@@ -397,34 +405,56 @@ static func _circle_points(center: Vector2, radius: float) -> PackedVector2Array
 	return points
 
 
-static func _squircle_points(rect: Rect2, radius: float, close: bool = true) -> PackedVector2Array:
-	var r := minf(radius, minf(rect.size.x, rect.size.y) * 0.5)
-	var left := rect.position.x
-	var top := rect.position.y
-	var right := rect.end.x
-	var bottom := rect.end.y
+## Axis-aligned pixel stair outline (chunky rounded square).
+static func _pixel_squircle_points(rect: Rect2, cut: int, close: bool = true) -> PackedVector2Array:
+	var c := clampi(cut, 1, int(floor(minf(rect.size.x, rect.size.y) * 0.5)) - 1)
+	var left := roundf(rect.position.x)
+	var top := roundf(rect.position.y)
+	var right := roundf(rect.end.x)
+	var bottom := roundf(rect.end.y)
 	var points := PackedVector2Array()
-	# Clockwise from top-right corner, with arc samples at each corner.
-	_append_corner_arc(points, Vector2(right - r, top + r), r, -PI * 0.5, 0.0)
-	_append_corner_arc(points, Vector2(right - r, bottom - r), r, 0.0, PI * 0.5)
-	_append_corner_arc(points, Vector2(left + r, bottom - r), r, PI * 0.5, PI)
-	_append_corner_arc(points, Vector2(left + r, top + r), r, PI, PI * 1.5)
+	# Top edge.
+	points.append(Vector2(left + c, top))
+	points.append(Vector2(right - c, top))
+	# Top-right stair down-right.
+	for i in range(1, c + 1):
+		points.append(Vector2(right - c + i, top + i))
+	# Right edge.
+	points.append(Vector2(right, bottom - c))
+	# Bottom-right stair down-left.
+	for i in range(1, c + 1):
+		points.append(Vector2(right - i, bottom - c + i))
+	# Bottom edge.
+	points.append(Vector2(left + c, bottom))
+	# Bottom-left stair up-left.
+	for i in range(1, c + 1):
+		points.append(Vector2(left + c - i, bottom - i))
+	# Left edge.
+	points.append(Vector2(left, top + c))
+	# Top-left stair up-right (stop before repeating the first vertex).
+	for i in range(1, c):
+		points.append(Vector2(left + i, top + c - i))
 	if close and not points.is_empty():
 		points.append(points[0])
 	return points
 
 
-static func _append_corner_arc(
-	points: PackedVector2Array,
-	center: Vector2,
-	radius: float,
-	from_angle: float,
-	to_angle: float
-) -> void:
-	for i in range(SQUIRCLE_CORNER_SEGMENTS + 1):
-		var t := float(i) / float(SQUIRCLE_CORNER_SEGMENTS)
-		var angle := lerpf(from_angle, to_angle, t)
-		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+static func _ray_polyline_exit_t(origin: Vector2, dir: Vector2, points: PackedVector2Array) -> float:
+	var best_t := -1.0
+	for i in range(points.size() - 1):
+		var a: Vector2 = points[i]
+		var b: Vector2 = points[i + 1]
+		var seg := b - a
+		var denom := dir.x * seg.y - dir.y * seg.x
+		if absf(denom) < 0.0001:
+			continue
+		var ao := a - origin
+		var t := (ao.x * seg.y - ao.y * seg.x) / denom
+		var u := (ao.x * dir.y - ao.y * dir.x) / denom
+		if t > 0.001 and u >= -0.001 and u <= 1.001:
+			if best_t < 0.0 or t < best_t:
+				best_t = t
+	return best_t
 
 
 static func _draw_dashed_line(

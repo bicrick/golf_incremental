@@ -25,8 +25,11 @@ const RatinaBayCellScene: PackedScene = preload("res://scenes/range/cells/ratina
 const EmptyBayCellScene: PackedScene = preload("res://scenes/range/cells/empty_bay_cell.tscn")
 const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 
+const MOON_LIGHT_ENERGY := 0.12
+
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var sun_light: DirectionalLight3D = $Sun
+@onready var moon_light: DirectionalLight3D = $Moon
 @onready var camera: Camera3D = $Camera3D
 @onready var perspective_camera: Camera3D = $PerspectiveCamera
 @onready var ground: MeshInstance3D = $Ground
@@ -466,10 +469,7 @@ func apply_atmosphere(cycle_time: float) -> void:
 		_apply_procedural_sky(env, snap)
 	var fairway_colors := DayNightPalette.fairway_stripe_colors(snap, day_factor)
 	_apply_ground_palette(fairway_colors[0], fairway_colors[1])
-	if sun_light:
-		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)
-		sun_light.light_energy = lerpf(0.30, 1.15, day_factor)
-		sun_light.rotation_degrees = Vector3(lerpf(-70.0, -35.0, day_factor), 35.0, 0.0)
+	_apply_celestial_lights(cycle_time, day_factor)
 	if player_bay:
 		player_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if ratina_bay:
@@ -498,6 +498,35 @@ func _apply_procedural_sky(env: Environment, snap: DayNightPalette.AtmosphereSna
 	sky_mat.sky_top_color = zenith
 	sky_mat.ground_horizon_color = horizon
 	sky_mat.ground_bottom_color = snap.sky.darkened(0.20)
+
+
+func _apply_celestial_lights(cycle_time: float, day_factor: float) -> void:
+	var sun_dir := DayNightPalette.celestial_view_direction(cycle_time, false, Vector3.ZERO)
+	var sun_alpha := DayNightPalette.celestial_alpha(cycle_time, false)
+	if sun_light:
+		_aim_celestial_light(sun_light, sun_dir)
+		sun_light.light_color = DayNightPalette.SUN_COLOR
+		sun_light.light_energy = lerpf(0.30, 1.15, day_factor) * sun_alpha
+		sun_light.shadow_enabled = false
+
+	var moon_dir := DayNightPalette.celestial_view_direction(cycle_time, true, Vector3.ZERO)
+	var moon_alpha := DayNightPalette.celestial_alpha(cycle_time, true)
+	if moon_light:
+		_aim_celestial_light(moon_light, moon_dir)
+		moon_light.light_color = DayNightPalette.MOON_COLOR
+		moon_light.light_energy = MOON_LIGHT_ENERGY * moon_alpha
+		moon_light.shadow_enabled = false
+
+
+func _aim_celestial_light(light: DirectionalLight3D, sky_dir: Vector3) -> void:
+	if light == null or sky_dir.length_squared() < 0.0001:
+		return
+	var dir := sky_dir.normalized()
+	var up := Vector3.UP
+	if absf(dir.dot(up)) > 0.99:
+		up = Vector3.RIGHT
+	# DirectionalLight shines along -Z; aim so rays come from the sky body.
+	light.look_at(light.global_position - dir, up)
 
 
 func _apply_divider_brightness(day_factor: float) -> void:

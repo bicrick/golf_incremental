@@ -36,9 +36,10 @@ class AtmosphereSnapshot:
 	var moon_sky_cutout: Color
 
 
-## Sun/moon share one vertical orbit (east → up → west → down). Moon is 180° opposite.
+## Sun/moon share one vertical orbit in the fairway YZ plane (rise on -Z horizon →
+## zenith → set on +Z). Moon is 180° opposite. X stays 0 so discs stay on the
+## player's forward view axis down the range.
 const MOON_ORBIT_OFFSET := PI
-const CELESTIAL_ORBIT_TILT_Z := 0.55
 
 
 static func _snap(
@@ -190,10 +191,10 @@ static func celestial_view_direction(
 	_viewer_position: Vector3
 ) -> Vector3:
 	var angle := _body_orbit_angle(cycle_time, is_moon)
-	var x := cos(angle)
+	# YZ-plane arc: dawn at far fairway horizon (-Z), noon at zenith, dusk behind.
 	var y := sin(angle)
-	var z := -CELESTIAL_ORBIT_TILT_Z * y
-	return Vector3(x, y, z).normalized()
+	var z := -cos(angle)
+	return Vector3(0.0, y, z).normalized()
 
 
 static func celestial_alpha(cycle_time: float, is_moon: bool) -> float:

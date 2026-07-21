@@ -36,6 +36,7 @@ sky = SubResource("Sky_range")
 ambient_light_source = 2
 ambient_light_color = Color(0.55, 0.75, 0.92, 1)
 ambient_light_energy = 0.55
+fog_enabled = false
 
 [sub_resource type="ArrayMesh" id="ArrayMesh_cr8p7"]
 _surfaces = [{
@@ -75,6 +76,13 @@ environment = SubResource("Environment_range")
 transform = Transform3D(0.81915206, -0.32898995, 0.46984634, 0, 0.81915206, 0.57357645, -0.57357645, -0.46984634, 0.6710101, 0, 3, 0)
 light_color = Color(1, 0.92, 0.55, 1)
 light_energy = 1.15
+shadow_enabled = false
+
+[node name="Moon" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+light_color = Color(0.85, 0.88, 0.95, 1)
+light_energy = 0.12
+shadow_enabled = false
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1433708473]
 transform = Transform3D(0.9608136, -0.06625118, 0.26916188, 0, 0.97101825, 0.23900528, -0.27719548, -0.2296395, 0.93296754, 77.093094, 71.31996, 247.45828)
