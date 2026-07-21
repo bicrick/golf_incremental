@@ -326,6 +326,7 @@ func _select_tab(tab: Tab) -> void:
 	if _active_tab == tab:
 		return
 	_active_tab = tab
+	SfxManager.play_ui_page()
 	_build_tree()
 	_refresh_all()
 	call_deferred("fit_to_view")
@@ -528,10 +529,13 @@ func _flush_refresh() -> void:
 func _on_purchase_requested(id: String) -> void:
 	if _camera_controller.did_drag():
 		return
+	var bought := false
 	if _active_tab == Tab.PRESTIGE:
-		GameState.purchase_prestige_upgrade(id)
+		bought = GameState.purchase_prestige_upgrade(id)
 	else:
-		UpgradeGraph.purchase(id)
+		bought = UpgradeGraph.purchase(id)
+	if not bought:
+		SfxManager.play_ui_error()
 
 
 func _on_prestige_pressed() -> void:

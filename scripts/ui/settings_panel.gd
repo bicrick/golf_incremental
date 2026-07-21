@@ -120,6 +120,7 @@ func _sync_controls_from_manager() -> void:
 
 
 func _on_frame_graph_toggled(enabled: bool) -> void:
+	SfxManager.play_ui_toggle()
 	SaveManager.frame_graph_enabled = enabled
 	SaveManager.save_settings()
 	frame_graph_toggle.text = "On" if enabled else "Off"
@@ -140,11 +141,17 @@ func _on_music_volume_changed(volume: float) -> void:
 
 
 func _on_sfx_toggled(enabled: bool) -> void:
-	SfxManager.set_sfx_enabled(enabled)
+	if enabled:
+		SfxManager.set_sfx_enabled(true)
+		SfxManager.play_ui_toggle()
+	else:
+		SfxManager.play_ui_toggle()
+		SfxManager.set_sfx_enabled(false)
 	sfx_toggle.text = "On" if enabled else "Off"
 
 
 func _on_music_toggled(enabled: bool) -> void:
+	SfxManager.play_ui_toggle()
 	SfxManager.set_music_enabled(enabled)
 	music_toggle.text = "On" if enabled else "Off"
 

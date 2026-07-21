@@ -161,7 +161,8 @@ func _test_sfx_manager_volume_api() -> bool:
 	await process_frame
 	for child in sfx.get_children():
 		if child is AudioStreamPlayer and child.name.begins_with("SfxPlayer") and child.playing:
-			var expected_sfx_db: float = -8.0 + linear_to_db(0.5)
+			# ui_click is a Cuelume cue — includes CUELUME_GAIN_DB.
+			var expected_sfx_db: float = -8.0 + float(sfx.CUELUME_GAIN_DB) + linear_to_db(0.5)
 			if not is_equal_approx(child.volume_db, expected_sfx_db):
 				print("FAIL: sfx volume_db expected %.2f got %.2f" % [expected_sfx_db, child.volume_db])
 				return false

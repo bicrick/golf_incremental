@@ -101,6 +101,7 @@ func _camera() -> Camera3D:
 func _try_collect_at(screen_pos: Vector2) -> bool:
 	var litter: Sprite3D = _pick_litter_at(screen_pos)
 	if litter == null:
+		SfxManager.play_pickup_miss()
 		return false
 	_collect_litter(litter)
 	return true

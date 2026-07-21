@@ -49,19 +49,19 @@ func _refresh_play_pause_glyph() -> void:
 
 func _on_rewind_pressed() -> void:
 	SfxManager.previous_music_track()
-	EventBus.ui_panel_toggled.emit("pause", true)
+	SfxManager.play_ui_tick()
 	refresh()
 
 
 func _on_play_pause_pressed() -> void:
 	SfxManager.toggle_music_playback()
-	EventBus.ui_panel_toggled.emit("pause", true)
+	SfxManager.play_ui_toggle()
 	refresh()
 
 
 func _on_skip_pressed() -> void:
 	SfxManager.skip_music_track()
-	EventBus.ui_panel_toggled.emit("pause", true)
+	SfxManager.play_ui_tick()
 	refresh()
 
 

@@ -1,5 +1,7 @@
 extends Node
-## Procedural placeholder SFX + BGM from assets/audio/music/.
+## Game SFX (Cuelume UI cues + Mixkit golf hits) and BGM from assets/audio/music/.
+
+const UiHoverTickScript = preload("res://scripts/audio/ui_hover_tick.gd")
 
 signal music_track_changed(path: String)
 
@@ -7,9 +9,27 @@ const POOL_SIZE := 8
 const MIX_RATE := 22050
 const MUSIC_DIR := "res://assets/audio/music/"
 const PICKUP_PLINK_PATH := "res://assets/audio/sfx/pickup/throwing-a-coin-into-a-piggy-bank.mp3"
-const UPGRADE_BLING_PATH := "res://assets/audio/sfx/ui/mixkit-unlock-game-notification-253.wav"
+const CUELUME_DIR := "res://assets/audio/sfx/ui/cuelume/"
+## Cuelume recipes peak very soft; +24 dB ≈ 16× amplitude so UI cues read clearly over BGM.
+const CUELUME_GAIN_DB := 24.0
 const BGM_VOLUME_DB := -9.0
 const MUSIC_EXTENSIONS := ["mp3", "ogg", "wav", "flac"]
+
+const CUELUME_STREAMS := {
+	"perfect_chime": "cuelume-chime.wav",
+	"ui_click": "cuelume-press.wav",
+	"menu_open": "cuelume-bloom.wav",
+	"menu_close": "cuelume-droplet.wav",
+	"upgrade_bling": "cuelume-sparkle.wav",
+	"bucket_full_chime": "cuelume-success.wav",
+	"ui_toggle": "cuelume-toggle.wav",
+	"pickup_miss": "cuelume-whisper.wav",
+	"ui_tick": "cuelume-tick.wav",
+	"ui_error": "cuelume-error.wav",
+	"ui_page": "cuelume-page.wav",
+	"play_loading": "cuelume-loading.wav",
+	"harvest_ready": "cuelume-ready.wav",
+}
 
 var _pool: Array[AudioStreamPlayer] = []
 var _pool_index := 0
@@ -25,6 +45,7 @@ var _sfx_enabled := true
 var _music_enabled := true
 var _sfx_volume := 1.0
 var _music_volume := 1.0
+var _ui_hover_tick = UiHoverTickScript.new()
 
 
 func _ready() -> void:
@@ -39,11 +60,21 @@ func _ready() -> void:
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
 	EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
+	EventBus.helper_toggled.connect(_on_helper_toggled)
+	EventBus.phase_changed.connect(_on_phase_changed)
 	EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 	EventBus.shop_item_purchased.connect(_on_shop_item_purchased)
 	EventBus.rattling_upgrade_purchased.connect(_on_rattling_upgrade_purchased)
 	EventBus.prestige_upgrade_purchased.connect(_on_prestige_upgrade_purchased)
+
+
+func _process(_delta: float) -> void:
+	if not _sfx_enabled:
+		return
+	var hovered := get_viewport().gui_get_hovered_control()
+	if _ui_hover_tick.poll(hovered):
+		play_ui_tick()
 
 
 func get_music_tracks() -> Array[String]:
@@ -216,12 +247,32 @@ func start_bgm() -> void:
 
 func play_start() -> void:
 	_play("play_whoosh", -8.0, 0.95)
-	_play("play_fanfare", -4.0)
+	_play("play_loading", -4.0)
 
 
 func play_pickup_plink(combo_tier: int) -> void:
 	var pitch := 1.0 + 0.08 * float(maxi(combo_tier, 1) - 1)
 	_play("pickup_plink", -6.0, pitch)
+
+
+func play_pickup_miss() -> void:
+	_play("pickup_miss", -10.0)
+
+
+func play_ui_toggle() -> void:
+	_play("ui_toggle", -8.0)
+
+
+func play_ui_tick() -> void:
+	_play("ui_tick", -10.0)
+
+
+func play_ui_error() -> void:
+	_play("ui_error", -6.0)
+
+
+func play_ui_page() -> void:
+	_play("ui_page", -8.0)
 
 
 func play_ratina_hit(timing_tier: int) -> void:
@@ -233,7 +284,7 @@ func play_bucket_full_chime() -> void:
 
 
 func play_prestige_fanfare() -> void:
-	_play("play_fanfare", -4.0)
+	_play("play_loading", -4.0)
 	_play("upgrade_bling")
 
 
@@ -353,7 +404,10 @@ func _set_music_volume(volume_db: float) -> void:
 func _play(stream_key: String, volume_db: float = 0.0, pitch_scale: float = 1.0) -> void:
 	if not _streams.has(stream_key):
 		return
-	_play_stream(_streams[stream_key], volume_db, pitch_scale)
+	var db := volume_db
+	if CUELUME_STREAMS.has(stream_key):
+		db += CUELUME_GAIN_DB
+	_play_stream(_streams[stream_key], db, pitch_scale)
 
 
 func _play_stream(stream: AudioStream, volume_db: float = 0.0, pitch_scale: float = 1.0) -> void:
@@ -403,12 +457,20 @@ func _on_swing_resolved(
 func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
 	if panel_id == "upgrades" or panel_id == "settings":
 		if is_open:
-			_play("menu_open_pop", -12.0)
 			_play("menu_open", -6.0)
 		else:
 			_play("menu_close", -7.0)
 		return
 	_play("ui_click", -8.0)
+
+
+func _on_helper_toggled(_helper: String, _active: bool) -> void:
+	play_ui_toggle()
+
+
+func _on_phase_changed(phase: String) -> void:
+	if phase == "harvest":
+		_play("harvest_ready", -6.0)
 
 
 func _on_upgrade_purchased(_id: String, level: int, _branch: int) -> void:
@@ -445,19 +507,38 @@ func _build_pool() -> void:
 
 
 func _build_streams() -> void:
+	for stream_key in CUELUME_STREAMS:
+		var file_name: String = CUELUME_STREAMS[stream_key]
+		_streams[stream_key] = _load_cuelume_stream(file_name, stream_key)
+	# Keep charge feedback procedural — do not use Cuelume release here.
 	_streams["charge_start"] = _make_click(620.0, 0.05, 0.32)
-	_streams["perfect_chime"] = _make_chime([880.0, 1320.0], 0.22, 0.3)
 	_streams["cash_register"] = _make_chime([660.0, 880.0, 1108.0, 1320.0], 0.18, 0.32)
-	_streams["ui_click"] = _make_click(980.0, 0.035, 0.28)
-	_streams["menu_open_pop"] = _make_click(660.0, 0.028, 0.34)
-	_streams["menu_open"] = _make_arpeggio([523.0, 659.0, 784.0, 988.0], 0.045, 0.3)
-	_streams["menu_close"] = _make_arpeggio([880.0, 698.0, 554.0, 440.0], 0.04, 0.24)
-	_streams["upgrade_bling"] = _load_upgrade_bling_stream()
 	_streams["play_whoosh"] = _make_thwack(150.0, 0.14, 0.2, 0.5)
-	_streams["play_fanfare"] = _make_chime([440.0, 554.0, 659.0, 880.0, 1108.0], 0.38, 0.24)
 	_streams["pickup_plink"] = _load_pickup_plink_stream()
-	_streams["bucket_full_chime"] = _make_chime([523.0, 659.0, 784.0, 1047.0], 0.32, 0.34)
 	_streams["ambient_wind"] = _make_wind_loop(2.5, 0.06)
+
+
+func _load_cuelume_stream(file_name: String, stream_key: String) -> AudioStream:
+	var path := CUELUME_DIR.path_join(file_name)
+	var stream: AudioStream = load(path)
+	if stream == null:
+		push_warning("SfxManager: failed to load Cuelume cue at %s" % path)
+		return _cuelume_fallback(stream_key)
+	return stream
+
+
+func _cuelume_fallback(stream_key: String) -> AudioStream:
+	match stream_key:
+		"upgrade_bling":
+			return _make_coin_bling(0.14, 0.72)
+		"perfect_chime", "bucket_full_chime", "play_loading", "harvest_ready":
+			return _make_chime([880.0, 1175.0, 1568.0], 0.18, 0.28)
+		"menu_open":
+			return _make_arpeggio([523.0, 659.0, 784.0, 988.0], 0.045, 0.3)
+		"menu_close":
+			return _make_arpeggio([880.0, 698.0, 554.0, 440.0], 0.04, 0.24)
+		_:
+			return _make_click(980.0, 0.035, 0.28)
 
 
 func _load_pickup_plink_stream() -> AudioStream:
@@ -465,14 +546,6 @@ func _load_pickup_plink_stream() -> AudioStream:
 	if stream == null:
 		push_warning("SfxManager: failed to load pickup plink at %s" % PICKUP_PLINK_PATH)
 		return _make_chime([880.0, 1175.0, 1568.0], 0.12, 0.28)
-	return stream
-
-
-func _load_upgrade_bling_stream() -> AudioStream:
-	var stream: AudioStream = load(UPGRADE_BLING_PATH)
-	if stream == null:
-		push_warning("SfxManager: failed to load upgrade bling at %s" % UPGRADE_BLING_PATH)
-		return _make_coin_bling(0.14, 0.72)
 	return stream
 
 
