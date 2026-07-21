@@ -6,7 +6,6 @@
 [ext_resource type="Script" uid="uid://0pj3dw47dl76" path="res://scripts/range/day_night_cycle.gd" id="3_cycle"]
 [ext_resource type="Script" uid="uid://dbeyvdqwco6n3" path="res://scripts/ui/contact_charge_ring.gd" id="4_charge_ring"]
 [ext_resource type="Shader" uid="uid://du5s632oec2js" path="res://scripts/visual/fairway_ground.gdshader" id="4_p8kfu"]
-[ext_resource type="PackedScene" path="res://scenes/visual/range_sky_dome.tscn" id="5_sky_dome"]
 [ext_resource type="PackedScene" uid="uid://br0iki0w8fge0" path="res://scenes/range/cells/player_bay_cell.tscn" id="6_player_bay"]
 [ext_resource type="Script" uid="uid://dqw2xmrq7ha6m" path="res://scripts/range/view_mode_controller.gd" id="7_view_mode"]
 [ext_resource type="Script" uid="uid://b4xlbcun05quq" path="res://scripts/visual/range_backdrop_node.gd" id="8_backdrop_node"]
@@ -21,9 +20,19 @@
 [ext_resource type="Texture2D" uid="uid://bsbjyhhqhriei" path="res://assets/sprites/range/yardage_markers/250-transparent.png" id="16_marker_250"]
 [ext_resource type="Texture2D" uid="uid://bu8iq2k8c2336" path="res://assets/sprites/range/yardage_markers/300-transparent.png" id="17_marker_300"]
 
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_range"]
+sky_top_color = Color(0.506, 0.69, 0.8464, 1)
+sky_horizon_color = Color(0.604, 0.78, 0.9296, 1)
+ground_bottom_color = Color(0.44, 0.6, 0.736, 1)
+ground_horizon_color = Color(0.604, 0.78, 0.9296, 1)
+
+[sub_resource type="Sky" id="Sky_range"]
+sky_material = SubResource("ProceduralSkyMaterial_range")
+
 [sub_resource type="Environment" id="Environment_range"]
-background_mode = 1
+background_mode = 2
 background_color = Color(0.55, 0.75, 0.92, 1)
+sky = SubResource("Sky_range")
 ambient_light_source = 2
 ambient_light_color = Color(0.55, 0.75, 0.92, 1)
 ambient_light_energy = 0.55
@@ -76,12 +85,6 @@ size = 13.277695
 [node name="PerspectiveCamera" type="Camera3D" parent="." unique_id=120344469]
 transform = Transform3D(0.9959977, 0.0017635126, 0.08936121, 0, 0.99980533, -0.019730812, -0.08937861, 0.019651845, 0.99580383, 1.1372404, 1.8787439, -6.744128)
 current = true
-
-[node name="SkyDome" parent="." unique_id=1582083225 instance=ExtResource("5_sky_dome")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 77.093094, 71.31996, 247.45828)
-
-[node name="PerspectiveSkyDome" parent="." unique_id=1597684650 instance=ExtResource("5_sky_dome")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.1372404, 1.8787439, -6.744128)
 
 [node name="Ground" type="MeshInstance3D" parent="." unique_id=560799956]
 mesh = SubResource("ArrayMesh_cr8p7")

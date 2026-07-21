@@ -1,13 +1,14 @@
 extends Control
-## Dollar-sign glyph for the Pro Shop button — wood-panel palette, no squircle frame.
+## Flat dollar-sign glyph — two-tone, no shading speckles.
 
 const PIXEL := 2
 const GRID := 11
 
-const COLOR_FILL := UiTheme.COLOR_BORDER
-const COLOR_FILL_BRIGHT := Color(0.92, 0.78, 0.22, 1.0)
-const COLOR_OUTLINE := Color(0.12, 0.32, 0.28, 1.0)
-const COLOR_HI := Color(1.0, 0.92, 0.45, 1.0)
+const COLOR_FILL := UiTheme.COLOR_PANEL_TEXT
+const COLOR_FILL_HOVER := UiTheme.COLOR_GLYPH_BRIGHT
+const COLOR_OUTLINE := UiTheme.COLOR_GLYPH_OUTLINE
+const COLOR_LOCKED_FILL := Color(0.45, 0.42, 0.38, 1.0)
+const COLOR_LOCKED_OUTLINE := Color(0.32, 0.30, 0.28, 1.0)
 
 # Centered dollar sign: O=outline, #=fill (7 cols x 7 rows).
 const DOLLAR: PackedStringArray = [
@@ -55,14 +56,11 @@ func _draw() -> void:
 	var fill := COLOR_FILL
 	var outline := COLOR_OUTLINE
 	if _locked:
-		fill = Color(0.45, 0.42, 0.38, 1.0)
-		outline = Color(0.32, 0.30, 0.28, 1.0)
+		fill = COLOR_LOCKED_FILL
+		outline = COLOR_LOCKED_OUTLINE
 	elif _highlighted:
-		fill = COLOR_FILL_BRIGHT
-		outline = COLOR_OUTLINE
+		fill = COLOR_FILL_HOVER
 	_draw_grid(DOLLAR, {"O": outline, "#": fill}, GLYPH_OFFSET)
-	if not _locked and not _highlighted:
-		_draw_highlights()
 
 
 func _draw_grid(
@@ -80,13 +78,3 @@ func _draw_grid(
 				Rect2((offset.x + x) * PIXEL, (offset.y + y) * PIXEL, PIXEL, PIXEL),
 				colors[ch]
 			)
-
-
-func _draw_highlights() -> void:
-	var highlights := [Vector2i(3, 1), Vector2i(4, 2), Vector2i(3, 4)]
-	var origin := GLYPH_OFFSET
-	for cell in highlights:
-		draw_rect(
-			Rect2((origin.x + cell.x) * PIXEL, (origin.y + cell.y) * PIXEL, PIXEL, PIXEL),
-			COLOR_HI
-		)

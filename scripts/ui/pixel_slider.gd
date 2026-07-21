@@ -8,6 +8,7 @@ const THUMB_WIDTH := 10
 const THUMB_HEIGHT := 14
 const BORDER := 2
 
+# TODO: fold slider palette into UiTheme when chrome tokens expand further.
 const COLOR_TRACK_BORDER := Color("#2A4420")
 const COLOR_TRACK_BG := Color("#3A3428")
 const COLOR_TRACK_FILL := Color("#3DDC84")

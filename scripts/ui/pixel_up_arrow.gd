@@ -1,13 +1,14 @@
 extends Control
-## Up-arrow glyph for the upgrades button — wood-panel palette, no squircle frame.
+## Flat up-arrow glyph for the upgrades button — two-tone, no shading.
 
 const PIXEL := 2
 const GRID := 11
 
-const COLOR_ARROW := UiTheme.COLOR_BORDER
-const COLOR_ARROW_BRIGHT := Color(0.26, 0.64, 0.58, 1.0)
-const COLOR_ARROW_OUTLINE := Color(0.12, 0.32, 0.28, 1.0)
-const COLOR_ARROW_HI := Color(0.34, 0.68, 0.62, 1.0)
+const COLOR_FILL := UiTheme.COLOR_PANEL_TEXT
+const COLOR_FILL_HOVER := UiTheme.COLOR_GLYPH_BRIGHT
+const COLOR_OUTLINE := UiTheme.COLOR_GLYPH_OUTLINE
+const COLOR_LOCKED_FILL := Color(0.45, 0.42, 0.38, 1.0)
+const COLOR_LOCKED_OUTLINE := Color(0.32, 0.30, 0.28, 1.0)
 
 # Centered arrow: O=outline, #=fill (7 cols x 7 rows).
 const ARROW: PackedStringArray = [
@@ -52,16 +53,14 @@ func _ready() -> void:
 
 
 func _draw() -> void:
-	var fill := COLOR_ARROW_HI if _highlighted else COLOR_ARROW
-	var outline := COLOR_ARROW_OUTLINE
+	var fill := COLOR_FILL
+	var outline := COLOR_OUTLINE
 	if _locked:
-		fill = Color(0.45, 0.42, 0.38, 1.0)
-		outline = Color(0.32, 0.30, 0.28, 1.0)
+		fill = COLOR_LOCKED_FILL
+		outline = COLOR_LOCKED_OUTLINE
 	elif _highlighted:
-		fill = COLOR_ARROW_BRIGHT
-		outline = COLOR_ARROW
+		fill = COLOR_FILL_HOVER
 	_draw_grid(ARROW, {"O": outline, "#": fill}, ARROW_OFFSET)
-	_draw_arrow_highlights()
 
 
 func _draw_grid(
@@ -79,18 +78,3 @@ func _draw_grid(
 				Rect2((offset.x + x) * PIXEL, (offset.y + y) * PIXEL, PIXEL, PIXEL),
 				colors[ch]
 			)
-
-
-func _draw_arrow_highlights() -> void:
-	if _highlighted or _locked:
-		return
-	var highlights := [
-		Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2),
-		Vector2i(4, 3),
-	]
-	var origin := ARROW_OFFSET
-	for cell in highlights:
-		draw_rect(
-			Rect2((origin.x + cell.x) * PIXEL, (origin.y + cell.y) * PIXEL, PIXEL, PIXEL),
-			COLOR_ARROW_HI
-		)

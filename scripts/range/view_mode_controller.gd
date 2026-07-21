@@ -11,8 +11,6 @@ const VIEW_DISSOLVE_SEC := 0.30
 var _mode: Mode = Mode.STRIKE
 var _perspective_camera: Camera3D
 var _ortho_camera: Camera3D
-var _sky_dome: RangeSkyDome
-var _perspective_sky_dome: RangeSkyDome
 var _camera_controller: RangeCameraController
 var _range_view: Node3D
 var _transition: Control
@@ -24,15 +22,11 @@ func setup(
 	range_view: Node3D,
 	perspective_camera: Camera3D,
 	ortho_camera: Camera3D,
-	sky_dome: RangeSkyDome,
-	perspective_sky_dome: RangeSkyDome,
 	camera_controller: RangeCameraController
 ) -> void:
 	_range_view = range_view
 	_perspective_camera = perspective_camera
 	_ortho_camera = ortho_camera
-	_sky_dome = sky_dome
-	_perspective_sky_dome = perspective_sky_dome
 	_camera_controller = camera_controller
 
 
@@ -155,8 +149,6 @@ func _apply_strike_cameras() -> void:
 		_perspective_camera.current = true
 	if _ortho_camera:
 		_ortho_camera.current = false
-	if _perspective_sky_dome and _perspective_camera:
-		_perspective_sky_dome.setup(_perspective_camera)
 	if _camera_controller:
 		_camera_controller.set_enabled(false)
 
@@ -167,8 +159,6 @@ func _apply_harvest_cameras() -> void:
 		_ortho_camera.current = true
 	if _perspective_camera:
 		_perspective_camera.current = false
-	if _sky_dome and _ortho_camera:
-		_sky_dome.setup(_ortho_camera)
 	if _camera_controller:
 		_camera_controller.set_enabled(false)
 

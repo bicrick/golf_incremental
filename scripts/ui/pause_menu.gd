@@ -4,14 +4,6 @@ extends Control
 signal settings_requested
 signal exit_requested
 
-const COLOR_TITLE := Color(1.0, 0.92, 0.45, 1.0)
-const COLOR_LABEL := Color(0.92, 0.88, 0.78, 1.0)
-const COLOR_MENU_FILL := Color(0.82, 0.72, 0.48, 0.92)
-const COLOR_MENU_BORDER := Color(0.18, 0.52, 0.48, 1.0)
-const COLOR_MENU_HOVER := Color(0.92, 0.82, 0.58, 0.95)
-const COLOR_EXIT_FILL := Color(0.72, 0.32, 0.28, 1.0)
-const COLOR_EXIT_BORDER := Color(0.45, 0.12, 0.1, 1.0)
-const COLOR_EXIT_HOVER := Color(0.82, 0.38, 0.32, 1.0)
 const DEBUG_MONEY_AMOUNT := 1_000_000.0
 
 @onready var title_label: Label = $Content/Center/MainRow/LeftPane/Title
@@ -32,10 +24,10 @@ func _ready() -> void:
 	exit_button.pressed.connect(_on_exit_pressed)
 	add_money_button.pressed.connect(_on_add_money_pressed)
 	_apply_fonts()
-	_style_menu_button(resume_button)
-	_style_menu_button(settings_button)
-	_style_exit_button(exit_button)
-	_style_menu_button(add_money_button)
+	UiTheme.apply_primary_button(resume_button)
+	UiTheme.apply_primary_button(settings_button)
+	UiTheme.apply_danger_button(exit_button)
+	UiTheme.apply_primary_button(add_money_button)
 
 
 func is_open() -> bool:
@@ -103,42 +95,5 @@ func _close_other_panels() -> void:
 func _apply_fonts() -> void:
 	PixelFont.apply_label(title_label, 12)
 	PixelFont.apply_label(debug_label, 8)
-	title_label.add_theme_color_override(&"font_color", COLOR_TITLE)
-	debug_label.add_theme_color_override(&"font_color", COLOR_LABEL)
-
-
-func _style_menu_button(button: Button) -> void:
-	button.add_theme_font_override(&"font", PixelFont.font_for_size(8))
-	button.add_theme_font_size_override(&"font_size", 8)
-	button.add_theme_color_override(&"font_color", Color(0.12, 0.1, 0.08, 1))
-	button.add_theme_stylebox_override(&"normal", _make_button_style(COLOR_MENU_FILL, COLOR_MENU_BORDER))
-	button.add_theme_stylebox_override(&"hover", _make_button_style(COLOR_MENU_HOVER, COLOR_MENU_BORDER))
-	button.add_theme_stylebox_override(&"pressed", _make_button_style(COLOR_MENU_FILL.darkened(0.08), COLOR_MENU_BORDER))
-
-
-func _style_exit_button(button: Button) -> void:
-	button.add_theme_font_override(&"font", PixelFont.font_for_size(8))
-	button.add_theme_font_size_override(&"font_size", 8)
-	button.add_theme_color_override(&"font_color", Color(1.0, 0.95, 0.9, 1.0))
-	button.add_theme_stylebox_override(&"normal", _make_button_style(COLOR_EXIT_FILL, COLOR_EXIT_BORDER))
-	button.add_theme_stylebox_override(&"hover", _make_button_style(COLOR_EXIT_HOVER, COLOR_EXIT_BORDER))
-	button.add_theme_stylebox_override(&"pressed", _make_button_style(COLOR_EXIT_FILL.darkened(0.12), COLOR_EXIT_BORDER))
-
-
-func _make_button_style(fill: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = border
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
-	return style
+	UiTheme.apply_title_label(title_label)
+	UiTheme.apply_body_label(debug_label)

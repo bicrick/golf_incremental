@@ -3,12 +3,6 @@ extends Control
 
 signal wipe_confirmed
 
-const COLOR_TITLE := Color(1.0, 0.92, 0.45, 1.0)
-const COLOR_LABEL := Color(0.92, 0.88, 0.78, 1.0)
-const COLOR_DANGER_FILL := Color(0.72, 0.32, 0.28, 1.0)
-const COLOR_DANGER_BORDER := Color(0.45, 0.12, 0.1, 1.0)
-const COLOR_DANGER_HOVER := Color(0.82, 0.38, 0.32, 1.0)
-
 @onready var header_bar: PanelContainer = $Content/Header
 @onready var back_button: Button = $Content/Header/Row/BackButton
 @onready var title_label: Label = $Content/Header/Row/Title
@@ -37,8 +31,8 @@ func _ready() -> void:
 	reset_dialog.get_ok_button().mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	reset_dialog.get_cancel_button().mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	_apply_fonts()
-	UiTheme.apply_wood_header_bar(header_bar)
-	_style_back_button()
+	UiTheme.apply_header_bar(header_bar)
+	UiTheme.apply_compact_primary_button(back_button)
 	_style_toggle(sfx_toggle)
 	_style_toggle(music_toggle)
 	_style_toggle(frame_graph_toggle)
@@ -184,37 +178,12 @@ func _apply_fonts() -> void:
 	PixelFont.apply_label($Content/Body/SfxVolumeRow/SfxVolumeLabel, 8)
 	PixelFont.apply_label($Content/Body/MusicVolumeRow/MusicVolumeLabel, 8)
 	PixelFont.apply_label($Content/Body/FrameGraphRow/FrameGraphLabel, 8)
-	$Content/Body/SfxRow/SfxLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
-	$Content/Body/MusicRow/MusicLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
-	$Content/Body/SfxVolumeRow/SfxVolumeLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
-	$Content/Body/MusicVolumeRow/MusicVolumeLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
-	$Content/Body/FrameGraphRow/FrameGraphLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
-	title_label.add_theme_color_override(&"font_color", COLOR_TITLE)
-
-
-func _style_back_button() -> void:
-	back_button.add_theme_font_override(&"font", PixelFont.font_for_size(8))
-	back_button.add_theme_font_size_override(&"font_size", 8)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.82, 0.72, 0.48, 0.92)
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = Color(0.18, 0.52, 0.48, 1)
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
-	style.content_margin_left = 6
-	style.content_margin_right = 6
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
-	back_button.add_theme_stylebox_override(&"normal", style)
-	var hover := style.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(0.92, 0.82, 0.58, 0.95)
-	back_button.add_theme_stylebox_override(&"hover", hover)
-	back_button.add_theme_stylebox_override(&"pressed", hover)
+	UiTheme.apply_body_label($Content/Body/SfxRow/SfxLabel)
+	UiTheme.apply_body_label($Content/Body/MusicRow/MusicLabel)
+	UiTheme.apply_body_label($Content/Body/SfxVolumeRow/SfxVolumeLabel)
+	UiTheme.apply_body_label($Content/Body/MusicVolumeRow/MusicVolumeLabel)
+	UiTheme.apply_body_label($Content/Body/FrameGraphRow/FrameGraphLabel)
+	UiTheme.apply_title_label(title_label)
 
 
 func _style_toggle(toggle: CheckButton) -> void:
@@ -224,12 +193,7 @@ func _style_toggle(toggle: CheckButton) -> void:
 
 func _style_reset_button() -> void:
 	reset_button.text = "Reset Character"
-	reset_button.add_theme_font_override(&"font", PixelFont.font_for_size(8))
-	reset_button.add_theme_font_size_override(&"font_size", 8)
-	reset_button.add_theme_color_override(&"font_color", Color(1.0, 0.95, 0.9, 1.0))
-	reset_button.add_theme_stylebox_override(&"normal", _make_button_style(COLOR_DANGER_FILL, COLOR_DANGER_BORDER))
-	reset_button.add_theme_stylebox_override(&"hover", _make_button_style(COLOR_DANGER_HOVER, COLOR_DANGER_BORDER))
-	reset_button.add_theme_stylebox_override(&"pressed", _make_button_style(COLOR_DANGER_FILL.darkened(0.12), COLOR_DANGER_BORDER))
+	UiTheme.apply_danger_button(reset_button)
 	reset_dialog.add_theme_font_override(&"font", PixelFont.font_for_size(8))
 	reset_dialog.add_theme_font_size_override(&"font_size", 8)
 	reset_dialog.dialog_text = (
@@ -239,22 +203,3 @@ func _style_reset_button() -> void:
 	)
 	reset_dialog.ok_button_text = "Reset"
 	reset_dialog.cancel_button_text = "Cancel"
-
-
-func _make_button_style(fill: Color, border: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = border
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
-	return style

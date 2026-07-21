@@ -7,8 +7,6 @@ const CHEESE_ICON := preload("res://assets/ui/cheese-currency-icon.png")
 const CurrencyReelScript := preload("res://scripts/ui/currency_reel.gd")
 const ParallaxSkyScript := preload("res://scripts/ui/parallax_sky_background.gd")
 
-const TITLE_COLOR := Color(1.0, 0.92, 0.45, 1.0)
-const BODY_COLOR := Color(0.92, 0.88, 0.78, 1.0)
 const PANEL_BG := Color(0.06, 0.09, 0.05, 0.82)
 
 const SPAWN_STAGGER_SEC := 0.028
@@ -119,7 +117,7 @@ func _build_ui() -> void:
 	top_bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	top_bar.offset_bottom = 28.0
 	top_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UiTheme.apply_wood_header_bar(top_bar)
+	UiTheme.apply_header_bar(top_bar)
 	_celebrate_root.add_child(top_bar)
 
 	_counter_row = HBoxContainer.new()
@@ -137,7 +135,7 @@ func _build_ui() -> void:
 	_prestige_num_label = Label.new()
 	_prestige_num_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_prestige_num_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_prestige_num_label.add_theme_color_override(&"font_color", TITLE_COLOR)
+	_prestige_num_label.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE)
 	PixelFont.apply_label(_prestige_num_label, 8)
 	_counter_row.add_child(_prestige_num_label)
 
@@ -155,7 +153,7 @@ func _build_ui() -> void:
 
 	_counter_label = Label.new()
 	_counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_counter_label.add_theme_color_override(&"font_color", TITLE_COLOR)
+	_counter_label.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE)
 	PixelFont.apply_label(_counter_label, 10)
 	_counter_anchor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_counter_anchor.add_child(_counter_label)
@@ -182,13 +180,13 @@ func _build_ui() -> void:
 
 	_title_label = Label.new()
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.add_theme_color_override(&"font_color", TITLE_COLOR)
+	_title_label.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE)
 	PixelFont.apply_label(_title_label, 16)
 	center.add_child(_title_label)
 
 	_gained_label = Label.new()
 	_gained_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_gained_label.add_theme_color_override(&"font_color", BODY_COLOR)
+	_gained_label.add_theme_color_override(&"font_color", UiTheme.COLOR_LABEL)
 	PixelFont.apply_label(_gained_label, 10)
 	center.add_child(_gained_label)
 
@@ -213,27 +211,12 @@ func _build_ui() -> void:
 
 
 func _style_advance_button() -> void:
-	_advance_button.add_theme_font_override(&"font", PixelFont.font_for_size(8))
-	_advance_button.add_theme_font_size_override(&"font_size", 8)
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.22, 0.18, 0.12, 0.95)
-	normal.border_color = Color(0.78, 0.66, 0.28, 1.0)
-	normal.set_border_width_all(2)
-	normal.set_corner_radius_all(2)
-	normal.content_margin_left = 8
-	normal.content_margin_right = 8
-	normal.content_margin_top = 4
-	normal.content_margin_bottom = 4
-	var hover := normal.duplicate()
-	hover.bg_color = Color(0.30, 0.24, 0.14, 0.98)
-	var pressed := normal.duplicate()
-	pressed.bg_color = Color(0.16, 0.13, 0.08, 0.98)
-	_advance_button.add_theme_stylebox_override(&"normal", normal)
-	_advance_button.add_theme_stylebox_override(&"hover", hover)
-	_advance_button.add_theme_stylebox_override(&"pressed", pressed)
-	_advance_button.add_theme_color_override(&"font_color", TITLE_COLOR)
-	_advance_button.add_theme_color_override(&"font_hover_color", TITLE_COLOR)
-	_advance_button.add_theme_color_override(&"font_pressed_color", TITLE_COLOR)
+	UiTheme.apply_primary_button(
+		_advance_button, UiTheme.MARGIN_BUTTON_COMPACT_H + 2, UiTheme.MARGIN_BUTTON_COMPACT_V + 2
+	)
+	_advance_button.add_theme_color_override(&"font_color", UiTheme.COLOR_TITLE)
+	_advance_button.add_theme_color_override(&"font_hover_color", UiTheme.COLOR_TITLE)
+	_advance_button.add_theme_color_override(&"font_pressed_color", UiTheme.COLOR_TITLE)
 
 
 func _process(delta: float) -> void:

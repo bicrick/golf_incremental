@@ -66,7 +66,7 @@ func _ready() -> void:
 	EventBus.prestige_upgrade_purchased.connect(_on_prestige_upgrade_purchased)
 	EventBus.prestiged.connect(_on_prestiged)
 	_apply_fonts()
-	UiTheme.apply_wood_header_bar(header_bar)
+	UiTheme.apply_header_bar(header_bar)
 	_style_back_button()
 	_style_prestige_button()
 	_setup_prestige_tooltip()
@@ -661,57 +661,11 @@ func _apply_fonts() -> void:
 
 
 func _style_back_button() -> void:
-	back_button.add_theme_font_override(&"font", PixelFont.font_for_size(8))
-	back_button.add_theme_font_size_override(&"font_size", 8)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.82, 0.72, 0.48, 0.92)
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = Color(0.18, 0.52, 0.48, 1)
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
-	style.content_margin_left = 6
-	style.content_margin_right = 6
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
-	back_button.add_theme_stylebox_override(&"normal", style)
-	var hover := style.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(0.92, 0.82, 0.58, 0.95)
-	back_button.add_theme_stylebox_override(&"hover", hover)
-	back_button.add_theme_stylebox_override(&"pressed", hover)
+	UiTheme.apply_compact_primary_button(back_button)
 
 
 func _style_prestige_button() -> void:
-	_prestige_button.add_theme_font_override(&"font", PixelFont.font_for_size(8))
-	_prestige_button.add_theme_font_size_override(&"font_size", 8)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.86, 0.72, 0.28, 0.95)
-	style.border_width_left = 2
-	style.border_width_top = 2
-	style.border_width_right = 2
-	style.border_width_bottom = 2
-	style.border_color = Color(0.45, 0.32, 0.08, 1)
-	style.corner_radius_top_left = 2
-	style.corner_radius_top_right = 2
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
-	style.content_margin_left = 6
-	style.content_margin_right = 6
-	style.content_margin_top = 2
-	style.content_margin_bottom = 2
-	_prestige_button.add_theme_stylebox_override(&"normal", style)
-	var hover := style.duplicate() as StyleBoxFlat
-	hover.bg_color = Color(0.94, 0.82, 0.38, 0.98)
-	_prestige_button.add_theme_stylebox_override(&"hover", hover)
-	_prestige_button.add_theme_stylebox_override(&"pressed", hover)
-	var disabled := style.duplicate() as StyleBoxFlat
-	disabled.bg_color = Color(0.45, 0.42, 0.38, 0.75)
-	disabled.border_color = Color(0.28, 0.26, 0.22, 1)
-	_prestige_button.add_theme_stylebox_override(&"disabled", disabled)
+	UiTheme.apply_accent_button(_prestige_button)
 
 
 func _format_currency(n: float) -> String:

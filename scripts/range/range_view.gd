@@ -29,8 +29,6 @@ const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 @onready var sun_light: DirectionalLight3D = $Sun
 @onready var camera: Camera3D = $Camera3D
 @onready var perspective_camera: Camera3D = $PerspectiveCamera
-@onready var sky_dome: RangeSkyDome = $SkyDome
-@onready var perspective_sky_dome: RangeSkyDome = $PerspectiveSkyDome
 @onready var ground: MeshInstance3D = $Ground
 @onready var backdrop: Node3D = $Backdrop
 @onready var bays: Node3D = $Bays
@@ -111,14 +109,10 @@ func _ready() -> void:
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
 	if _should_use_editor_rig():
-		if perspective_sky_dome and perspective_camera:
-			perspective_sky_dome.setup(perspective_camera)
 		if perspective_camera:
 			perspective_camera.make_current()
 		elif camera:
 			camera.make_current()
-			if sky_dome:
-				sky_dome.setup(camera)
 		set_process(_should_use_editor_rig())
 	apply_atmosphere(60.0)
 
@@ -234,8 +228,6 @@ func _setup_view_mode_controller() -> void:
 		self,
 		perspective_camera,
 		camera,
-		sky_dome,
-		perspective_sky_dome,
 		_camera_controller
 	)
 	var main := get_tree().root.get_node_or_null("Main")
@@ -467,16 +459,13 @@ func apply_atmosphere(cycle_time: float) -> void:
 		var env := world_environment.environment
 		env.background_color = snap.sky
 		env.ambient_light_color = snap.sky.lerp(snap.fairway_light, (1.0 - day_factor) * 0.45)
+		_apply_procedural_sky(env, snap)
 	var fairway_colors := DayNightPalette.fairway_stripe_colors(snap, day_factor)
 	_apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if sun_light:
 		sun_light.light_color = DayNightPalette.MOON_COLOR.lerp(DayNightPalette.SUN_COLOR, day_factor)
 		sun_light.light_energy = lerpf(0.30, 1.15, day_factor)
 		sun_light.rotation_degrees = Vector3(lerpf(-70.0, -35.0, day_factor), 35.0, 0.0)
-	if sky_dome:
-		sky_dome.update_atmosphere(cycle_time, snap)
-	if perspective_sky_dome:
-		perspective_sky_dome.update_atmosphere(cycle_time, snap)
 	if player_bay:
 		player_bay.apply_ground_palette(fairway_colors[0], fairway_colors[1])
 	if ratina_bay:
@@ -491,6 +480,20 @@ func apply_atmosphere(cycle_time: float) -> void:
 	_apply_divider_brightness(day_factor)
 	_apply_sprite_atmosphere_tint()
 	EventBus.atmosphere_tint_changed.emit(_sprite_atmosphere_tint)
+
+
+func _apply_procedural_sky(env: Environment, snap: DayNightPalette.AtmosphereSnapshot) -> void:
+	if env.sky == null:
+		return
+	var sky_mat := env.sky.sky_material as ProceduralSkyMaterial
+	if sky_mat == null:
+		return
+	var horizon := snap.sky.lightened(0.12)
+	var zenith := snap.sky.darkened(0.08)
+	sky_mat.sky_horizon_color = horizon
+	sky_mat.sky_top_color = zenith
+	sky_mat.ground_horizon_color = horizon
+	sky_mat.ground_bottom_color = snap.sky.darkened(0.20)
 
 
 func _apply_divider_brightness(day_factor: float) -> void:

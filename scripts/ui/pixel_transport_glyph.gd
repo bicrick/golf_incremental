@@ -5,10 +5,10 @@ enum Type { MUSIC_NOTE, PLAY, PAUSE, SKIP_FORWARD, SKIP_BACK }
 
 const PIXEL := 2
 
-const COLOR_FILL := Color(0.12, 0.1, 0.08, 1.0)
-const COLOR_NOTE_FILL := Color(1.0, 0.92, 0.45, 1.0)
-const COLOR_NOTE_OUTLINE := Color(0.18, 0.52, 0.48, 1.0)
-const COLOR_DISABLED := Color(0.55, 0.52, 0.48, 1.0)
+const COLOR_FILL := UiTheme.COLOR_BUTTON_TEXT
+const COLOR_NOTE_FILL := UiTheme.COLOR_TITLE
+const COLOR_NOTE_OUTLINE := UiTheme.COLOR_BORDER
+const COLOR_DISABLED := UiTheme.COLOR_DISABLED
 
 @export var glyph_type: Type = Type.PLAY
 

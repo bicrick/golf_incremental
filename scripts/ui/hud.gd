@@ -1,5 +1,5 @@
 extends Control
-## HUD: currency display in a wood panel (top-left) with slot-reel count-up
+## HUD: currency display in a themed plate (top-left) with slot-reel count-up
 ## and a newest-on-top income stack under the bank.
 
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
@@ -16,7 +16,7 @@ var _reel
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	UiTheme.apply_wood_panel(_currency_panel)
+	UiTheme.apply_hud_plate(_currency_panel)
 	PixelFont.apply_label(currency_label, 12)
 	UiTheme.apply_panel_label(currency_label)
 	call_deferred("_layout_top_left")

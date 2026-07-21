@@ -1,5 +1,5 @@
 extends PanelContainer
-## Bottom-right ball bucket count — wood panel, Dinky ball icon + current/max fraction.
+## Bottom-right ball bucket count — themed plate, Dinky ball icon + current/max fraction.
 ## In collect mode (incomplete bucket), pulses/bobs and accepts click to return all litter free.
 
 signal return_all_pressed
@@ -24,7 +24,7 @@ var _rest_captured := false
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	gui_input.connect(_on_gui_input)
-	UiTheme.apply_wood_panel(self)
+	UiTheme.apply_hud_plate(self)
 	_ball_icon.texture = DinkySpriteFrames.ball_lay_texture()
 	_ball_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	$Row.mouse_filter = Control.MOUSE_FILTER_IGNORE

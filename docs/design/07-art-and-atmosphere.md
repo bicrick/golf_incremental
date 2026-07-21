@@ -157,7 +157,8 @@ Effects (1–3 seconds, then decay):
 
 ## UI visual style
 
-- Side panel: `PanelContainer` warm wood/cream theme
+- **Single source of truth:** [`scripts/ui/ui_theme.gd`](../../scripts/ui/ui_theme.gd) (`UiTheme`) — colors, 2px borders, corner radius 0, plate/button StyleBox factories and apply helpers
+- HUD chips + menus: **opaque** ink plates, warm cream 2px rims, sharp corners; flat two-tone glyphs (no fake shading)
 - Upgrade rows: `HBoxContainer` with buy `Button`
 - Currency: large `Label`, K/M/B formatting
 - Number popups: gold `modulate` on jackpot
@@ -165,7 +166,7 @@ Effects (1–3 seconds, then decay):
 
 ### RPG UI kit (Craftpix #255216)
 
-Source sprites live in `assets/imported/rpg_ui_kit/PNG/` (parchment panels, teal accents, 9-slice buttons). Use **Nearest** texture filter (project default) and integer scale — same rules as parallax pixel art. Prefer parchment/teal kit tones over purple UI chrome when reskinning HUD and upgrade panels (Pass 1+).
+Source sprites live in `assets/imported/rpg_ui_kit/PNG/` (9-slice panels/buttons). Optional asset source for denser widgets later — live HUD/menu chrome is StyleBox-driven via `UiTheme`, not the parchment/teal kit. Use **Nearest** texture filter (project default) and integer scale — same rules as parallax pixel art.
 
 ---
 

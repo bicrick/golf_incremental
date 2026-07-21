@@ -5,8 +5,8 @@ extends PanelContainer
 
 const COLOR_ACTIVE := Color(1.0, 1.0, 1.0, 1.0)
 const COLOR_SILHOUETTE := Color(0.06, 0.06, 0.06, 1.0)
-const COLOR_COUNT_ACTIVE := Color(0.85, 0.92, 0.98, 1.0)
-const COLOR_COUNT_INACTIVE := Color(0.5, 0.5, 0.5, 1.0)
+const COLOR_COUNT_ACTIVE := UiTheme.COLOR_PANEL_TEXT
+const COLOR_COUNT_INACTIVE := UiTheme.COLOR_DISABLED
 const SIZE_SOLO := Vector2(22, 22)
 const SIZE_WITH_COUNT := Vector2(38, 24)
 

@@ -21,7 +21,7 @@ func _run() -> void:
 	ok = await _check_yardage_marker_atmosphere() and ok
 	ok = await _check_ground_mesh_stability() and ok
 	ok = await _check_sun_light_scene() and ok
-	ok = await _check_sky_dome() and ok
+	ok = await _check_procedural_sky() and ok
 	ok = await _check_gameplay_ui_atmosphere() and ok
 	print("day_night_ok=", ok)
 	quit(0 if ok else 1)
@@ -184,13 +184,18 @@ func _check_atmosphere_application() -> bool:
 
 	range_view.apply_atmosphere(DAY_TIME)
 	var world_env: WorldEnvironment = range_view.get_node("WorldEnvironment")
-	if not world_env.environment.background_color.is_equal_approx(DayNightPalette.SKY_DAY):
+	var env := world_env.environment
+	if env.background_mode != Environment.BG_SKY:
+		print("FAIL: expected Environment.BG_SKY, got ", env.background_mode)
+		range_view.queue_free()
+		return false
+	if not env.background_color.is_equal_approx(DayNightPalette.SKY_DAY):
 		print("FAIL: background not day-colored at t=", DAY_TIME)
 		range_view.queue_free()
 		return false
 
 	range_view.apply_atmosphere(0.0)
-	if world_env.environment.background_color.g > 0.2:
+	if env.background_color.g > 0.2:
 		print("FAIL: background not dark at midnight")
 		range_view.queue_free()
 		return false
@@ -327,10 +332,10 @@ func _check_sun_light_scene() -> bool:
 	return true
 
 
-func _check_sky_dome() -> bool:
+func _check_procedural_sky() -> bool:
 	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
 	if scene == null:
-		print("FAIL: could not load range_view.tscn for sky dome check")
+		print("FAIL: could not load range_view.tscn for procedural sky check")
 		return false
 
 	var range_view: Node3D = scene.instantiate()
@@ -338,37 +343,64 @@ func _check_sky_dome() -> bool:
 	range_view.visible = true
 	await process_frame
 
-	var sky_dome := range_view.get_node_or_null("SkyDome")
-	if sky_dome == null:
-		print("FAIL: RangeView missing SkyDome node")
+	if range_view.get_node_or_null("SkyDome") != null:
+		print("FAIL: SkyDome mesh path should be removed")
 		range_view.queue_free()
 		return false
 
-	if not sky_dome.has_method(&"update_atmosphere"):
-		print("FAIL: SkyDome missing update_atmosphere")
+	var world_env: WorldEnvironment = range_view.get_node("WorldEnvironment")
+	var env := world_env.environment
+	if env.background_mode != Environment.BG_SKY:
+		print("FAIL: expected Environment.BG_SKY, got ", env.background_mode)
+		range_view.queue_free()
+		return false
+	if env.sky == null:
+		print("FAIL: Environment missing Sky resource")
+		range_view.queue_free()
+		return false
+
+	var sky_mat := env.sky.sky_material as ProceduralSkyMaterial
+	if sky_mat == null:
+		print("FAIL: expected ProceduralSkyMaterial on Environment.sky")
 		range_view.queue_free()
 		return false
 
 	range_view.apply_atmosphere(DAY_TIME)
-	if sky_dome.get_sun_alpha() < 0.5:
-		print("FAIL: sun should be visible during day, alpha=", sky_dome.get_sun_alpha())
+	var day_horizon := DayNightPalette.SKY_DAY.lightened(0.12)
+	var day_top := DayNightPalette.SKY_DAY.darkened(0.08)
+	if not sky_mat.sky_horizon_color.is_equal_approx(day_horizon):
+		print(
+			"FAIL: day sky_horizon_color expected ",
+			day_horizon,
+			" got ",
+			sky_mat.sky_horizon_color
+		)
+		range_view.queue_free()
+		return false
+	if not sky_mat.sky_top_color.is_equal_approx(day_top):
+		print("FAIL: day sky_top_color expected ", day_top, " got ", sky_mat.sky_top_color)
 		range_view.queue_free()
 		return false
 
-	range_view.apply_atmosphere(0.0)
-	if sky_dome.get_sun_alpha() > 0.15:
-		print("FAIL: sun should be hidden at midnight, alpha=", sky_dome.get_sun_alpha())
+	range_view.apply_atmosphere(NIGHT_TIME)
+	var night_snap := DayNightPalette.sample_at(NIGHT_TIME)
+	var night_horizon := night_snap.sky.lightened(0.12)
+	if not sky_mat.sky_horizon_color.is_equal_approx(night_horizon):
+		print(
+			"FAIL: night sky_horizon_color expected ",
+			night_horizon,
+			" got ",
+			sky_mat.sky_horizon_color
+		)
 		range_view.queue_free()
 		return false
-
-	range_view.apply_atmosphere(105.0)
-	if sky_dome.get_star_alpha() <= 0.0:
-		print("FAIL: stars should be visible at night, alpha=", sky_dome.get_star_alpha())
+	if sky_mat.sky_top_color.g > 0.25:
+		print("FAIL: night sky_top_color should be dark, got ", sky_mat.sky_top_color)
 		range_view.queue_free()
 		return false
 
 	range_view.queue_free()
-	print("OK: SkyDome sun and star visibility follow day/night cycle")
+	print("OK: ProceduralSkyMaterial colors follow day/night cycle")
 	return true
 
 

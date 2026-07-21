@@ -5,7 +5,7 @@ signal upgrades_toggled(is_open: bool)
 
 const ICON_SIZE := Vector2i(24, 24)
 const MARGIN := 8
-const PANEL_BORDER := 2
+const PANEL_BORDER := UiTheme.BORDER_WIDTH
 const WRAP_MARGIN_H := 2
 const WRAP_MARGIN_V := 1
 
@@ -125,15 +125,15 @@ func _wrap_outer_size() -> Vector2i:
 
 
 func _make_wrap_panel_style(hovering: bool = false, pressed: bool = false) -> StyleBoxFlat:
-	var style := UiTheme.make_wood_panel()
+	var style := UiTheme.make_hud_plate()
 	style.content_margin_left = WRAP_MARGIN_H
 	style.content_margin_right = WRAP_MARGIN_H
 	style.content_margin_top = WRAP_MARGIN_V
 	style.content_margin_bottom = WRAP_MARGIN_V
 	if pressed:
-		style.bg_color = UiTheme.COLOR_PARCHMENT.darkened(0.05)
+		style.bg_color = UiTheme.COLOR_PLATE_PRESSED
 	elif hovering:
-		style.bg_color = UiTheme.COLOR_PARCHMENT.lightened(0.06)
+		style.bg_color = UiTheme.COLOR_PLATE_HOVER
 	return style
 
 
