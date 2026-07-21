@@ -31,6 +31,7 @@ static func bind_gameplay(range_view: Node3D) -> void:
 	if range_view.has_method(&"is_harvest_view_ready"):
 		_harvest_view_ready = range_view.is_harvest_view_ready
 	_game_state = range_view.get_node_or_null("/root/GameState")
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if _bound:
 		refresh()
 		return

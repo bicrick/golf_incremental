@@ -18,7 +18,7 @@ const RangePickerIndicatorScript := preload("res://scripts/range/range_picker_in
 const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
 const RattlingControllerScript := preload("res://scripts/range/rattling_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
-const YardageStackScript := preload("res://scripts/visual/yardage_stack.gd")
+const StrikeFeedbackBillboardScript := preload("res://scripts/visual/strike_feedback_billboard.gd")
 const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
 const GoldenBallAuraScript := preload("res://scripts/visual/golden_ball_aura.gd")
 const RatinaBayCellScene: PackedScene = preload("res://scenes/range/cells/ratina_bay_cell.tscn")
@@ -41,6 +41,10 @@ const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 @onready var charge_meter: Node2D = $ChargeMeter
 @onready var contact_ring = $ChargeMeter/BeatRing
 @onready var fx_layer: Node2D = $FxLayer
+## User-placeable in the editor — hover point for the player's world-space
+## strike feedback billboard (tier name + yardage). Defaults to the empty
+## fairway cell to the right of the player bay; reposition freely.
+@onready var strike_feedback_anchor: Marker3D = $StrikeFeedbackAnchor
 @onready var _camera_controller: RangeCameraController = $CameraController
 @onready var _view_mode_controller: ViewModeController = $ViewModeController
 
@@ -75,7 +79,7 @@ var _picker_indicator: Node3D
 var _ratina: Node
 var _rattling_controller: Node
 var _active_flights: Array[Dictionary] = []
-var _yardage_stack: YardageStack
+var _strike_feedback_billboard: StrikeFeedbackBillboard
 var _sprite_atmosphere_tint: Color = Color.WHITE
 var _ratina_layout_applied: bool = false
 var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
@@ -128,6 +132,7 @@ func _ready() -> void:
 	_setup_player_refs()
 	_camera_controller.setup(camera)
 	_setup_view_mode_controller()
+	_setup_strike_feedback_billboard()
 
 	if contact_ring:
 		contact_ring.frozen_fade_completed.connect(_on_contact_ring_fade_completed)
@@ -173,6 +178,11 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 
 
 func get_camera() -> Camera3D:
+	## Prefer whichever camera is actually rendering (covers TRANSITIONING after swap).
+	if camera and camera.current:
+		return camera
+	if perspective_camera and perspective_camera.current:
+		return perspective_camera
 	if _view_mode_controller and _view_mode_controller.get_mode() == ViewModeController.Mode.HARVEST:
 		return camera
 	if perspective_camera:
@@ -181,11 +191,7 @@ func get_camera() -> Camera3D:
 
 
 func get_flight_camera() -> Camera3D:
-	if _view_mode_controller and _view_mode_controller.get_mode() == ViewModeController.Mode.HARVEST:
-		return camera
-	if perspective_camera:
-		return perspective_camera
-	return camera
+	return get_camera()
 
 
 func get_perspective_camera() -> Camera3D:
@@ -383,8 +389,21 @@ func _update_backdrop_visibility(mode: ViewModeController.Mode) -> void:
 
 func _on_view_mode_changed(mode: ViewModeController.Mode) -> void:
 	_update_backdrop_visibility(mode)
+	var flight_cam := get_flight_camera()
 	if _ratina != null and _ratina.has_method("set_flight_camera"):
-		_ratina.set_flight_camera(get_flight_camera())
+		_ratina.set_flight_camera(flight_cam)
+	## Player trails stay bound to the strike camera unless we rebind — otherwise
+	## mid-flight harvest switch leaves a perspective-projected Line2D on ortho.
+	_rebind_active_flight_trails(flight_cam)
+
+
+func _rebind_active_flight_trails(flight_cam: Camera3D) -> void:
+	if flight_cam == null:
+		return
+	for flight in _active_flights:
+		var trail = flight.get("trail")
+		if trail != null and is_instance_valid(trail) and trail.has_method("set_camera"):
+			trail.set_camera(flight_cam)
 
 
 func _camera_home_size() -> float:
@@ -531,13 +550,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _camera_controller and _camera_controller.consume_zoom_event(event):
 		get_viewport().set_input_as_handled()
 		return
-	if _camera_controller and _camera_controller.consume_pan_drag_event(event):
-		get_viewport().set_input_as_handled()
-		return
+	## Collect before pan so LMB press can pick up; pan arms on press but only
+	## claims the gesture after the drag threshold.
 	if GameState.is_harvest_phase():
 		_handle_harvest_input(event)
+		if get_viewport().is_input_handled():
+			return
 	else:
 		_handle_strike_input(event)
+		if get_viewport().is_input_handled():
+			return
+	if _camera_controller and _camera_controller.consume_pan_drag_event(event):
+		get_viewport().set_input_as_handled()
 
 
 ## Collect mode: pickup click only. Space returns to hitting mode (same as the
@@ -550,6 +574,8 @@ func _handle_harvest_input(event: InputEvent) -> void:
 			GameState.exit_harvest_early()
 		return
 	if _pickup and _pickup.handle_input(event):
+		if _camera_controller and _camera_controller.has_method(&"cancel_pending_pan"):
+			_camera_controller.cancel_pending_pan()
 		get_viewport().set_input_as_handled()
 
 
@@ -921,22 +947,30 @@ func spawn_pickup_fly_icon(start_screen: Vector2, end_screen: Vector2) -> void:
 		icon.queue_free()
 
 
-func _ensure_yardage_stack() -> YardageStack:
-	if _yardage_stack != null and is_instance_valid(_yardage_stack):
-		return _yardage_stack
-	if fx_layer == null:
+func _setup_strike_feedback_billboard() -> void:
+	_ensure_strike_feedback_billboard()
+
+
+## Creates the player's world-space strike feedback billboard under the
+## editor-placed anchor on first use. Bound once to the perspective/strike
+## camera — never `get_flight_camera()` — so it keeps facing that camera
+## even after a harvest (ortho) view-mode switch.
+func _ensure_strike_feedback_billboard() -> StrikeFeedbackBillboard:
+	if _strike_feedback_billboard != null and is_instance_valid(_strike_feedback_billboard):
+		return _strike_feedback_billboard
+	if strike_feedback_anchor == null:
 		return null
-	_yardage_stack = YardageStackScript.new()
-	fx_layer.add_child(_yardage_stack)
-	return _yardage_stack
+	_strike_feedback_billboard = StrikeFeedbackBillboardScript.new()
+	strike_feedback_anchor.add_child(_strike_feedback_billboard)
+	_strike_feedback_billboard.setup(perspective_camera)
+	return _strike_feedback_billboard
 
 
 func _begin_yardage_counter(tier: int, yards: float) -> int:
-	var stack := _ensure_yardage_stack()
-	if stack == null or charge_meter == null:
+	var billboard := _ensure_strike_feedback_billboard()
+	if billboard == null:
 		return -1
-	stack.position = fx_layer.to_local(charge_meter.global_position)
-	return stack.begin(tier, yards)
+	return billboard.begin(tier, yards)
 
 
 func _on_bucket_changed(_count: int, _capacity: int) -> void:
@@ -1155,8 +1189,12 @@ func _apply_flight_sample(progress: float, flight: Dictionary, path: BallFlight3
 	if trail:
 		trail.track(sprite.global_position)
 	var yardage_id: int = int(flight.get("yardage_id", -1))
-	if yardage_id >= 0 and _yardage_stack != null and is_instance_valid(_yardage_stack):
-		_yardage_stack.set_progress(yardage_id, progress)
+	if (
+		yardage_id >= 0
+		and _strike_feedback_billboard != null
+		and is_instance_valid(_strike_feedback_billboard)
+	):
+		_strike_feedback_billboard.set_progress(yardage_id, progress)
 
 
 func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int) -> void:
@@ -1219,8 +1257,12 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 			flight_sprite.queue_free()
 		_finish_flight(flight)
 		var yardage_id: int = int(flight.get("yardage_id", -1))
-		if yardage_id >= 0 and _yardage_stack != null and is_instance_valid(_yardage_stack):
-			_yardage_stack.finish(yardage_id)
+		if (
+			yardage_id >= 0
+			and _strike_feedback_billboard != null
+			and is_instance_valid(_strike_feedback_billboard)
+		):
+			_strike_feedback_billboard.finish(yardage_id)
 		if will_litter:
 			_leave_litter_ball(path.rest_position, _base_ball_scale, quality, yards, is_golden)
 		else:

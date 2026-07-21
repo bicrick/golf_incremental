@@ -49,7 +49,7 @@ theme_override_constants/separation = 8
 [node name="BackButton" type="Button" parent="Content/Header/Row"]
 custom_minimum_size = Vector2(48, 18)
 layout_mode = 2
-mouse_default_cursor_shape = 2
+mouse_default_cursor_shape = 0
 theme_override_colors/font_color = Color(0.12, 0.1, 0.08, 1)
 theme_override_font_sizes/font_size = 8
 text = "Back"
@@ -70,10 +70,10 @@ layout_mode = 2
 [node name="Body" type="VBoxContainer" parent="Content"]
 layout_mode = 0
 offset_left = 48.0
-offset_top = 48.0
+offset_top = 40.0
 offset_right = 432.0
-offset_bottom = 248.0
-theme_override_constants/separation = 10
+offset_bottom = 255.0
+theme_override_constants/separation = 8
 
 [node name="MusicRow" type="HBoxContainer" parent="Content/Body"]
 layout_mode = 2
@@ -87,7 +87,7 @@ text = "Music"
 
 [node name="MusicToggle" type="CheckButton" parent="Content/Body/MusicRow"]
 layout_mode = 2
-mouse_default_cursor_shape = 2
+mouse_default_cursor_shape = 0
 button_pressed = true
 text = "On"
 
@@ -118,7 +118,7 @@ text = "Sound Effects"
 
 [node name="SfxToggle" type="CheckButton" parent="Content/Body/SfxRow"]
 layout_mode = 2
-mouse_default_cursor_shape = 2
+mouse_default_cursor_shape = 0
 button_pressed = true
 text = "On"
 
@@ -137,10 +137,25 @@ custom_minimum_size = Vector2(120, 18)
 layout_mode = 2
 script = ExtResource("3_slider")
 
+[node name="FrameGraphRow" type="HBoxContainer" parent="Content/Body"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="FrameGraphLabel" type="Label" parent="Content/Body/FrameGraphRow"]
+custom_minimum_size = Vector2(180, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+text = "Frame Time Graph"
+
+[node name="FrameGraphToggle" type="CheckButton" parent="Content/Body/FrameGraphRow"]
+layout_mode = 2
+mouse_default_cursor_shape = 0
+text = "Off"
+
 [node name="ResetButton" type="Button" parent="Content/Body"]
 layout_mode = 2
 size_flags_horizontal = 4
-mouse_default_cursor_shape = 2
+mouse_default_cursor_shape = 0
 
 [node name="ResetDialog" type="ConfirmationDialog" parent="."]
 title = "Reset Character?"

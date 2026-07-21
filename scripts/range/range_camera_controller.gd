@@ -69,6 +69,14 @@ func consume_zoom_event(event: InputEvent) -> bool:
 	return true
 
 
+## Call when a click was used for gameplay (collect) so it cannot become a pan.
+func cancel_pending_pan() -> void:
+	if _drag_active:
+		_end_drag()
+		return
+	_pending = false
+
+
 func consume_pan_drag_event(event: InputEvent) -> bool:
 	if not _enabled or _camera == null:
 		return false
@@ -79,10 +87,12 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 		if mb.button_index != drag_button:
 			return false
 		if mb.pressed:
+			## Arm pan, but do not claim the press — collect-on-press needs it first.
+			## Drag only claims the gesture after motion past drag_threshold_px.
 			_pending = true
 			_drag_origin = mb.position
 			_last_drag_screen = mb.position
-			return true
+			return false
 		if _drag_active:
 			_end_drag()
 			return true
@@ -94,7 +104,7 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 		var motion := event as InputEventMouseMotion
 		if _pending and not _drag_active:
 			if motion.position.distance_to(_drag_origin) <= drag_threshold_px:
-				return true
+				return false
 			_pending = false
 			_drag_active = true
 			CursorManager.set_pan_dragging(true)
@@ -102,7 +112,7 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 			_apply_drag_motion(motion.position)
 			_last_drag_screen = motion.position
 			return true
-		return _pending
+		return false
 	return false
 
 

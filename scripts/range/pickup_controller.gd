@@ -40,7 +40,7 @@ func handle_input(event: InputEvent) -> bool:
 	if not event is InputEventMouseButton:
 		return false
 	var click := event as InputEventMouseButton
-	if click.button_index != MOUSE_BUTTON_LEFT or click.pressed:
+	if click.button_index != MOUSE_BUTTON_LEFT or not click.pressed:
 		return false
 	return _try_collect_at(click.position)
 

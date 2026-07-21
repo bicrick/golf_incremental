@@ -1,9 +1,13 @@
 extends Control
-## Full-screen snapshot dissolve for view mode switches.
+## GPU freeze-frame dissolve for strike/harvest camera switches.
+## Renders the outgoing camera once into a shared-world SubViewport and fades
+## that ViewportTexture out — no CPU get_image() readback.
+
+const FALLBACK_SIZE := Vector2i(480, 270)
 
 @onready var _snapshot: TextureRect = $Snapshot
-
-var _capture_ui_hook: Callable = Callable()
+@onready var _freeze_viewport: SubViewport = $FreezeViewport
+@onready var _freeze_camera: Camera3D = $FreezeViewport/FreezeCamera
 
 
 func _ready() -> void:
@@ -14,28 +18,34 @@ func _ready() -> void:
 	_snapshot.visible = false
 	_snapshot.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_snapshot.stretch_mode = TextureRect.STRETCH_SCALE
+	_freeze_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_freeze_viewport.handle_input_locally = false
+	_freeze_viewport.transparent_bg = true
+	_freeze_camera.current = true
 
 
-func set_capture_ui_hook(hook: Callable) -> void:
-	_capture_ui_hook = hook
-
-
-func capture_from_viewport() -> void:
-	_set_gameplay_ui_visible(false)
+## Freeze the outgoing 3D camera into a GPU ViewportTexture and show the overlay.
+func capture_from_camera(from_camera: Camera3D) -> void:
+	if from_camera == null or _freeze_viewport == null or _freeze_camera == null:
+		return
+	_sync_freeze_size()
+	_copy_camera(from_camera, _freeze_camera)
+	var world := from_camera.get_world_3d()
+	if world != null:
+		_freeze_viewport.world_3d = world
+	_freeze_camera.current = true
+	_freeze_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 	await get_tree().process_frame
 	await get_tree().process_frame
-	var viewport_tex := get_viewport().get_texture()
-	_set_gameplay_ui_visible(true)
-	if viewport_tex == null:
+	var tex := _freeze_viewport.get_texture()
+	if tex == null:
+		_freeze_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 		return
-	var image := viewport_tex.get_image()
-	if image == null or image.is_empty():
-		return
-	var texture := ImageTexture.create_from_image(image)
-	_snapshot.texture = texture
+	_snapshot.texture = tex
 	_snapshot.visible = true
 	visible = true
 	modulate.a = 1.0
+	_freeze_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 
 
 func dissolve_out(duration: float) -> void:
@@ -54,12 +64,31 @@ func _clear_snapshot() -> void:
 	visible = false
 	_snapshot.visible = false
 	_snapshot.texture = null
+	if _freeze_viewport != null:
+		_freeze_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 
 
-func _set_gameplay_ui_visible(show_ui: bool) -> void:
-	if _capture_ui_hook.is_valid():
-		_capture_ui_hook.call(show_ui)
-		return
-	var main := get_tree().root.get_node_or_null("Main")
-	if main and main.has_method(&"set_capture_ui_visible"):
-		main.set_capture_ui_visible(show_ui)
+func _sync_freeze_size() -> void:
+	var root := get_viewport()
+	var size := FALLBACK_SIZE
+	if root != null:
+		var visible_size := root.get_visible_rect().size
+		if visible_size.x >= 1.0 and visible_size.y >= 1.0:
+			size = Vector2i(maxi(1, int(round(visible_size.x))), maxi(1, int(round(visible_size.y))))
+	_freeze_viewport.size = size
+
+
+func _copy_camera(from_cam: Camera3D, to_cam: Camera3D) -> void:
+	to_cam.global_transform = from_cam.global_transform
+	to_cam.projection = from_cam.projection
+	to_cam.fov = from_cam.fov
+	to_cam.size = from_cam.size
+	to_cam.near = from_cam.near
+	to_cam.far = from_cam.far
+	to_cam.keep_aspect = from_cam.keep_aspect
+	to_cam.cull_mask = from_cam.cull_mask
+	to_cam.h_offset = from_cam.h_offset
+	to_cam.v_offset = from_cam.v_offset
+	to_cam.environment = from_cam.environment
+	to_cam.attributes = from_cam.attributes
+	to_cam.compositor = from_cam.compositor

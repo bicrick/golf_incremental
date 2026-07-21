@@ -286,6 +286,9 @@ polygon = PackedVector2Array(-20, 0, 0, -20, 20, 0, 0, 20)
 
 [node name="FxLayer" type="Node2D" parent="." unique_id=1233085450]
 
+[node name="StrikeFeedbackAnchor" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1.25, -10.2)
+
 [node name="CameraController" type="Node" parent="." unique_id=102786506]
 script = ExtResource("2_camera_controller")
 

@@ -12,6 +12,8 @@ extends Node
 
 func _ready() -> void:
 	CursorManager.bind_gameplay(range_view)
+	## Per-event mouse delivery — avoids macOS click batching quirks.
+	Input.set_use_accumulated_input(false)
 	range_view.visible = false
 	ui.visible = false
 	title_screen.play_transition_started.connect(_on_play_transition_started)

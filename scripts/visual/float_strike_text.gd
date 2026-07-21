@@ -28,6 +28,7 @@ func _play(tier: int, yards: float, text_offset: Vector2) -> void:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	PixelFont.apply_label(label, 8)
 	label.modulate = Balance.TIER_COLORS[tier]
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(label)
 	label.reset_size()
 	var size := label.get_minimum_size()

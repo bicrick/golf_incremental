@@ -45,6 +45,7 @@ func _play(amount: float, _combo_tier: int, color_override: Color = Color.TRANSP
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	PixelFont.apply_label(label, 8)
 	label.modulate = color_override if color_override.a > 0.0 else COLOR_CASH
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.position = LABEL_OFFSET
 	add_child(label)
 

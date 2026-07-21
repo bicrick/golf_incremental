@@ -8,6 +8,7 @@ var sfx_enabled: bool = true
 var music_enabled: bool = true
 var sfx_volume: float = 1.0
 var music_volume: float = 1.0
+var frame_graph_enabled: bool = false
 
 var _autosave_timer: float = 0.0
 
@@ -79,6 +80,7 @@ func load_settings() -> void:
 	music_enabled = bool(parsed.get("music_enabled", true))
 	sfx_volume = clampf(float(parsed.get("sfx_volume", 1.0)), 0.0, 1.0)
 	music_volume = clampf(float(parsed.get("music_volume", 1.0)), 0.0, 1.0)
+	frame_graph_enabled = bool(parsed.get("frame_graph_enabled", false))
 
 
 func save_settings() -> void:
@@ -87,6 +89,7 @@ func save_settings() -> void:
 		"music_enabled": music_enabled,
 		"sfx_volume": sfx_volume,
 		"music_volume": music_volume,
+		"frame_graph_enabled": frame_graph_enabled,
 	}
 	var file := FileAccess.open(SETTINGS_PATH, FileAccess.WRITE)
 	if file:

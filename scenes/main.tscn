@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/view_transition.tscn" id="10_view_transition"]
 [ext_resource type="Script" uid="uid://3g0s7b6lia27" path="res://scripts/ui/gameplay_ui_atmosphere.gd" id="11_gameplay_chrome"]
 [ext_resource type="PackedScene" path="res://scenes/ui/prestige_flow.tscn" id="12_prestige_flow"]
+[ext_resource type="PackedScene" path="res://scenes/debug/frame_time_overlay.tscn" id="13_frame_graph"]
 
 [node name="Main" type="Node" unique_id=785145167]
 script = ExtResource("7_main")
@@ -34,7 +35,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 1
+mouse_filter = 2
 script = ExtResource("5_ui_root")
 
 [node name="GameplayChrome" type="Control" parent="UI/UIRoot" unique_id=574565937]
@@ -44,7 +45,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 1
+mouse_filter = 2
 script = ExtResource("11_gameplay_chrome")
 
 [node name="HUD" parent="UI/UIRoot/GameplayChrome" unique_id=647788328 instance=ExtResource("2_hud")]
@@ -67,3 +68,5 @@ layer = 25
 [node name="PauseMenu" parent="SettingsLayer" unique_id=611848345 instance=ExtResource("9_pause")]
 
 [node name="TitleScreen" parent="." unique_id=1287109368 instance=ExtResource("6_title")]
+
+[node name="FrameTimeOverlay" parent="." instance=ExtResource("13_frame_graph")]

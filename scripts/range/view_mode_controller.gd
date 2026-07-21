@@ -103,19 +103,21 @@ func _run_transition(apply_cameras: Callable, final_mode: Mode) -> void:
 func _run_transition_async(
 	apply_cameras: Callable, final_mode: Mode, dissolve: float, gen: int
 ) -> void:
-	if _transition.has_method(&"capture_from_viewport"):
-		await _transition.capture_from_viewport()
+	var outgoing: Camera3D = (
+		_perspective_camera if final_mode == Mode.HARVEST else _ortho_camera
+	)
+	if _transition.has_method(&"capture_from_camera") and outgoing != null:
+		await _transition.capture_from_camera(outgoing)
 	if gen != _transition_gen:
 		return
 	apply_cameras.call()
 	await get_tree().process_frame
 	if gen != _transition_gen:
 		return
+	# Unlock pan/pickup as soon as the new camera is live; dissolve is visual only.
+	_finish_transition(final_mode, gen)
 	if _transition.has_method(&"dissolve_out"):
 		await _transition.dissolve_out(dissolve)
-	if gen != _transition_gen:
-		return
-	_finish_transition(final_mode, gen)
 
 
 func _finish_transition(final_mode: Mode, gen: int) -> void:

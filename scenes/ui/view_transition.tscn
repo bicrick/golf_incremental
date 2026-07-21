@@ -22,3 +22,11 @@ grow_vertical = 2
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 6
+
+[node name="FreezeViewport" type="SubViewport" parent="."]
+transparent_bg = true
+handle_input_locally = false
+size = Vector2i(480, 270)
+render_target_update_mode = 0
+
+[node name="FreezeCamera" type="Camera3D" parent="FreezeViewport"]

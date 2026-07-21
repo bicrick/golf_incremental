@@ -106,8 +106,9 @@ func _test_click_does_not_pan() -> bool:
 
 	var start_pos := camera.position
 	var origin := Vector2(120.0, 80.0)
-	if not controller.consume_pan_drag_event(_left_down(origin)):
-		print("FAIL: left mouse down should be consumed while pending drag")
+	## Press arms pan but must not claim the event (collect-on-press needs it).
+	if controller.consume_pan_drag_event(_left_down(origin)):
+		print("FAIL: left mouse down should arm pan without consuming the press")
 		main.queue_free()
 		return false
 	if controller.is_dragging():
@@ -116,8 +117,8 @@ func _test_click_does_not_pan() -> bool:
 		return false
 
 	var wiggle := origin + Vector2(2.0, 2.0)
-	if not controller.consume_pan_drag_event(_mouse_motion(wiggle)):
-		print("FAIL: sub-threshold motion should stay pending")
+	if controller.consume_pan_drag_event(_mouse_motion(wiggle)):
+		print("FAIL: sub-threshold motion should not be consumed")
 		main.queue_free()
 		return false
 	if controller.is_dragging():
@@ -129,9 +130,7 @@ func _test_click_does_not_pan() -> bool:
 		print("FAIL: click release should not be consumed by pan controller")
 		main.queue_free()
 		return false
-	if camera.position.is_equal_approx(start_pos):
-		pass
-	else:
+	if not camera.position.is_equal_approx(start_pos):
 		print("FAIL: click path should not move camera")
 		main.queue_free()
 		return false
@@ -163,8 +162,8 @@ func _test_drag_pans_camera() -> bool:
 		return false
 
 	var start_pos := camera.position
-	if not controller.consume_pan_drag_event(_left_down(Vector2(120.0, 80.0))):
-		print("FAIL: left mouse down should start pending drag")
+	if controller.consume_pan_drag_event(_left_down(Vector2(120.0, 80.0))):
+		print("FAIL: left mouse down should arm pan without consuming the press")
 		main.queue_free()
 		return false
 	if controller.is_dragging():
@@ -212,8 +211,8 @@ func _test_range_view_routes_drag() -> bool:
 	var camera: Camera3D = range_view.get_node("Camera3D")
 	var start_pos := camera.position
 
-	if not range_view.consume_pan_drag_event(_left_down(Vector2(200.0, 100.0))):
-		print("FAIL: range_view should route left mouse down to camera drag")
+	if range_view.consume_pan_drag_event(_left_down(Vector2(200.0, 100.0))):
+		print("FAIL: range_view press should arm pan without consuming")
 		main.queue_free()
 		return false
 

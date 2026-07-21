@@ -450,7 +450,7 @@ func _check_phase_integration(main: Node, gs: Node) -> bool:
 
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
-	click.pressed = false
+	click.pressed = true
 	click.position = range_view.get_flight_camera().unproject_position(litter.global_position)
 	if not range_view._pickup.handle_input(click):
 		print("FAIL: pickup click did not collect litter")

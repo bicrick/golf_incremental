@@ -32,6 +32,7 @@ func _run() -> void:
 	ok = await _check_flight_trail_zoom_anchor() and ok
 	ok = await _check_flight_trail_set_camera() and ok
 	ok = await _check_flight_trail_depth_scale() and ok
+	ok = await _check_player_trail_rebinds_on_harvest() and ok
 	ok = await _check_hit_poof_anchor() and ok
 	ok = await _check_hit_poof_zoom_compensation() and ok
 	print("ball_flight_ok=", ok)
@@ -704,6 +705,64 @@ func _check_flight_trail_set_camera() -> bool:
 	trail.finish()
 	if ok:
 		print("OK: flight trail set_camera reprojects under the new camera")
+	return ok
+
+
+## Player mid-flight trails must rebind when strike → harvest swaps cameras.
+func _check_player_trail_rebinds_on_harvest() -> bool:
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	if main.has_method("_on_play_transition_started"):
+		main._on_play_transition_started()
+	main._on_play_pressed()
+	await process_frame
+	await process_frame
+
+	var range_view: Node3D = main.get_node("RangeView")
+	var view_mode: Node = range_view.get_node_or_null("ViewModeController")
+	var fx_layer: Node2D = range_view.get_node_or_null("FxLayer")
+	var perspective: Camera3D = range_view.get_perspective_camera()
+	var ortho: Camera3D = range_view.camera
+	if view_mode == null or fx_layer == null or perspective == null or ortho == null:
+		print("FAIL: missing range pieces for player trail rebind test")
+		main.queue_free()
+		return false
+
+	var trail = BallFlightTrailScript.begin(
+		fx_layer,
+		perspective,
+		Balance.TimingTier.GOOD,
+		range_view.get_fx_reference_ortho_size()
+	)
+	var world := Vector3(-0.4, 1.5, -20.0)
+	trail.track(Vector3(-0.545, 0.05, -6.395))
+	trail.track(world)
+	await process_frame
+
+	range_view._active_flights.append({"trail": trail})
+	view_mode._enter_harvest_immediate()
+	await process_frame
+
+	var expected: Vector2 = fx_layer.to_local(ortho.unproject_position(world))
+	var actual: Vector2 = trail.screen_point_at(trail.point_count() - 1)
+	var stale: Vector2 = fx_layer.to_local(perspective.unproject_position(world))
+	var ok := true
+	if expected.distance_to(actual) > 0.5:
+		print(
+			"FAIL: player trail should reproject under harvest ortho (expected %s, got %s)"
+			% [expected, actual]
+		)
+		ok = false
+	elif actual.distance_to(stale) < 1.0:
+		print("FAIL: player trail still matches strike perspective after harvest switch")
+		ok = false
+
+	trail.finish()
+	range_view._active_flights.clear()
+	view_mode._enter_strike_immediate()
+	main.queue_free()
+	if ok:
+		print("OK: player trail rebinds on harvest view switch")
 	return ok
 
 

@@ -16,6 +16,7 @@ const COLOR_DANGER_HOVER := Color(0.82, 0.38, 0.32, 1.0)
 @onready var music_toggle: CheckButton = $Content/Body/MusicRow/MusicToggle
 @onready var sfx_volume_slider: Control = $Content/Body/SfxVolumeRow/SfxVolumeSlider
 @onready var music_volume_slider: Control = $Content/Body/MusicVolumeRow/MusicVolumeSlider
+@onready var frame_graph_toggle: CheckButton = $Content/Body/FrameGraphRow/FrameGraphToggle
 @onready var reset_button: Button = $Content/Body/ResetButton
 @onready var reset_dialog: ConfirmationDialog = $ResetDialog
 
@@ -28,6 +29,7 @@ func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 	sfx_toggle.toggled.connect(_on_sfx_toggled)
 	music_toggle.toggled.connect(_on_music_toggled)
+	frame_graph_toggle.toggled.connect(_on_frame_graph_toggled)
 	sfx_volume_slider.value_changed.connect(_on_sfx_volume_changed)
 	music_volume_slider.value_changed.connect(_on_music_volume_changed)
 	reset_button.pressed.connect(_on_reset_pressed)
@@ -39,6 +41,7 @@ func _ready() -> void:
 	_style_back_button()
 	_style_toggle(sfx_toggle)
 	_style_toggle(music_toggle)
+	_style_toggle(frame_graph_toggle)
 	_style_reset_button()
 	_sync_controls_from_manager()
 
@@ -104,6 +107,8 @@ func _sync_controls_from_manager() -> void:
 	music_toggle.set_block_signals(true)
 	sfx_toggle.button_pressed = SfxManager.is_sfx_enabled()
 	music_toggle.button_pressed = SfxManager.is_music_enabled()
+	sfx_toggle.text = "On" if SfxManager.is_sfx_enabled() else "Off"
+	music_toggle.text = "On" if SfxManager.is_music_enabled() else "Off"
 	sfx_toggle.set_block_signals(false)
 	music_toggle.set_block_signals(false)
 
@@ -113,6 +118,23 @@ func _sync_controls_from_manager() -> void:
 	music_volume_slider.value = SfxManager.get_music_volume()
 	sfx_volume_slider.set_block_signals(false)
 	music_volume_slider.set_block_signals(false)
+
+	frame_graph_toggle.set_block_signals(true)
+	frame_graph_toggle.button_pressed = SaveManager.frame_graph_enabled
+	frame_graph_toggle.text = "On" if SaveManager.frame_graph_enabled else "Off"
+	frame_graph_toggle.set_block_signals(false)
+
+
+func _on_frame_graph_toggled(enabled: bool) -> void:
+	SaveManager.frame_graph_enabled = enabled
+	SaveManager.save_settings()
+	frame_graph_toggle.text = "On" if enabled else "Off"
+	var main := get_tree().root.get_node_or_null("Main")
+	if main == null:
+		return
+	var overlay := main.get_node_or_null("FrameTimeOverlay")
+	if overlay and overlay.has_method("set_enabled"):
+		overlay.set_enabled(enabled)
 
 
 func _on_sfx_volume_changed(volume: float) -> void:
@@ -125,10 +147,12 @@ func _on_music_volume_changed(volume: float) -> void:
 
 func _on_sfx_toggled(enabled: bool) -> void:
 	SfxManager.set_sfx_enabled(enabled)
+	sfx_toggle.text = "On" if enabled else "Off"
 
 
 func _on_music_toggled(enabled: bool) -> void:
 	SfxManager.set_music_enabled(enabled)
+	music_toggle.text = "On" if enabled else "Off"
 
 
 func _on_reset_pressed() -> void:
@@ -159,10 +183,12 @@ func _apply_fonts() -> void:
 	PixelFont.apply_label($Content/Body/MusicRow/MusicLabel, 8)
 	PixelFont.apply_label($Content/Body/SfxVolumeRow/SfxVolumeLabel, 8)
 	PixelFont.apply_label($Content/Body/MusicVolumeRow/MusicVolumeLabel, 8)
+	PixelFont.apply_label($Content/Body/FrameGraphRow/FrameGraphLabel, 8)
 	$Content/Body/SfxRow/SfxLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
 	$Content/Body/MusicRow/MusicLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
 	$Content/Body/SfxVolumeRow/SfxVolumeLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
 	$Content/Body/MusicVolumeRow/MusicVolumeLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
+	$Content/Body/FrameGraphRow/FrameGraphLabel.add_theme_color_override(&"font_color", COLOR_LABEL)
 	title_label.add_theme_color_override(&"font_color", COLOR_TITLE)
 
 

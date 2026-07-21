@@ -2,23 +2,25 @@ class_name YardageStack
 extends Node2D
 ## Flight-synced yardage counter stack (max 2). Newest sits at the base
 ## anchor; older entries bump upward when a new strike begins.
-## Yards count with one decimal in a fixed-width slot so "yds" never shifts.
+## Yards count with one decimal as a single "N.N yds" label.
 
 const MAX_ENTRIES := 2
-const BUMP_STEP_Y := -24.0
+## Layout / fonts are 2x the screen-space originals so the SubViewport RT
+## stays sharp; world size is controlled by StrikeFeedbackBillboard.pixel_size.
+const BUMP_STEP_Y := -48.0
 const BUMP_DURATION_SEC := 0.15
 const HOLD_SEC := 0.35
 const FADE_SEC := 1.0
-## Higher in the frame so text clears the tree line / fairway stripes.
-const BASE_TEXT_OFFSET := Vector2(0.0, -72.0)
+## Slightly less than a full 2x of the old -72 so the stack sits a bit lower.
+const BASE_TEXT_OFFSET := Vector2(0.0, -100.0)
 const OLDER_DIM := 0.78
-const TIER_FONT_SIZE := 7
-const YARDS_FONT_SIZE := 10
+const TIER_FONT_SIZE := 14
+const YARDS_FONT_SIZE := 20
 const TIER_COLOR_DIM := 0.88
 const OUTLINE_COLOR := Color(0.2, 0.15, 0.1, 0.85)
-const OUTLINE_SIZE := 1
+const OUTLINE_SIZE := 2
 ## Soft lift while the ball travels (negative Y = up).
-const RISE_PX := -8.0
+const RISE_PX := -16.0
 const SETTLE_SCALE := 1.1
 const SETTLE_UP_SEC := 0.06
 const SETTLE_DOWN_SEC := 0.1
@@ -72,6 +74,11 @@ static func format_yards(yards: float) -> String:
 	return "%.1f" % yards
 
 
+## Number + unit on one line with a single natural space.
+static func format_yards_line(yards: float) -> String:
+	return "%s yds" % format_yards(yards)
+
+
 func _make_entry(id: int, tier: int, final_yards: float) -> Dictionary:
 	var root := Node2D.new()
 	root.z_as_relative = false
@@ -86,35 +93,26 @@ func _make_entry(id: int, tier: int, final_yards: float) -> Dictionary:
 		color.b * TIER_COLOR_DIM,
 		color.a
 	)
-	var final_str := format_yards(final_yards)
 
 	var tier_label := _make_styled_label(
 		tier_name, tier_color, HORIZONTAL_ALIGNMENT_CENTER, TIER_FONT_SIZE
 	)
 	var yards_label := _make_styled_label(
-		final_str, color, HORIZONTAL_ALIGNMENT_RIGHT, YARDS_FONT_SIZE
-	)
-	yards_label.reset_size()
-	var num_width := yards_label.get_minimum_size().x
-	yards_label.custom_minimum_size = Vector2(num_width, 0)
-	yards_label.size = Vector2(num_width, yards_label.get_minimum_size().y)
-	yards_label.text = format_yards(0.0)
-
-	var unit_label := _make_styled_label(
-		" yds", color, HORIZONTAL_ALIGNMENT_LEFT, YARDS_FONT_SIZE
+		format_yards_line(0.0),
+		color,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		YARDS_FONT_SIZE
 	)
 
 	root.add_child(tier_label)
 	root.add_child(yards_label)
-	root.add_child(unit_label)
-	_layout_entry(tier_label, yards_label, unit_label, num_width)
+	_layout_entry(tier_label, yards_label)
 
 	return {
 		"id": id,
 		"root": root,
 		"tier_label": tier_label,
 		"yards_label": yards_label,
-		"unit_label": unit_label,
 		"tier": tier,
 		"final_yards": final_yards,
 		"finished": false,
@@ -140,38 +138,29 @@ func _make_styled_label(
 	return label
 
 
-func _layout_entry(
-	tier_label: Label,
-	yards_label: Label,
-	unit_label: Label,
-	num_width: float
-) -> void:
+func _layout_entry(tier_label: Label, yards_label: Label) -> void:
 	tier_label.reset_size()
 	yards_label.reset_size()
-	unit_label.reset_size()
 	var tier_size := tier_label.get_minimum_size()
 	var yards_size := yards_label.get_minimum_size()
-	var unit_size := unit_label.get_minimum_size()
-	var row_w := num_width + unit_size.x
-	var row_h := maxf(yards_size.y, unit_size.y)
-	var total_h := tier_size.y + row_h
+	var total_h := tier_size.y + yards_size.y
 	var top_y := BASE_TEXT_OFFSET.y - total_h
 
 	tier_label.position = Vector2(BASE_TEXT_OFFSET.x - tier_size.x * 0.5, top_y)
-	var row_x := BASE_TEXT_OFFSET.x - row_w * 0.5
-	var row_y := top_y + tier_size.y
-	yards_label.position = Vector2(row_x, row_y)
-	unit_label.position = Vector2(row_x + num_width, row_y)
+	yards_label.position = Vector2(
+		BASE_TEXT_OFFSET.x - yards_size.x * 0.5,
+		top_y + tier_size.y
+	)
 
 
 func _write_yards(entry: Dictionary, shown_yards: float) -> void:
 	var yards_label: Label = entry.get("yards_label")
 	if yards_label == null or not is_instance_valid(yards_label):
 		return
-	yards_label.text = format_yards(shown_yards)
-	var slot_w := yards_label.custom_minimum_size.x
-	if slot_w > 0.0:
-		yards_label.size = Vector2(slot_w, yards_label.get_minimum_size().y)
+	yards_label.text = format_yards_line(shown_yards)
+	yards_label.reset_size()
+	var yards_size := yards_label.get_minimum_size()
+	yards_label.position.x = BASE_TEXT_OFFSET.x - yards_size.x * 0.5
 
 
 func _sync_root_y(entry: Dictionary, animate: bool) -> void:
