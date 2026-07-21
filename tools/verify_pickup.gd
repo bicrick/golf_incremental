@@ -25,8 +25,10 @@ func _run() -> void:
 	var ok := true
 	ok = _check_harvest_trigger(gs) and ok
 	ok = _check_voluntary_entry_and_early_exit(gs) and ok
+	ok = _check_harvest_display_shows_inventory(gs) and ok
 	ok = _check_harvest_target_accounts_for_stash(gs) and ok
 	ok = _check_collect_increments(gs) and ok
+	ok = _check_free_harvest_credit_no_payout(gs) and ok
 	ok = _check_economy_grants(gs) and ok
 	ok = _check_currency_changed_not_stats(gs) and ok
 	ok = _check_combo_logic() and ok
@@ -136,6 +138,71 @@ func _check_voluntary_entry_and_early_exit(gs: Node) -> bool:
 		print("FAIL: stash/collected should clear after early exit")
 		return false
 	print("OK: voluntary entry stashes unhit balls; early exit merges stash + collected")
+	return true
+
+
+func _check_harvest_display_shows_inventory(gs: Node) -> bool:
+	_reset(gs)
+	gs.bucket_remaining = 6
+	gs.try_enter_harvest()
+	var display: int = gs._bucket_display_count()
+	if display != 6:
+		print(
+			"FAIL: harvest display should show stash inventory 6, got %d"
+			% display
+		)
+		return false
+	_reset(gs)
+	gs.bucket_remaining = 3
+	gs.try_enter_harvest()
+	gs.collect_harvest_ball(Vector3.ZERO, 1)
+	display = gs._bucket_display_count()
+	if display != 4:
+		print(
+			"FAIL: harvest display should be stash+collected (3+1=4), got %d"
+			% display
+		)
+		return false
+	print("OK: harvest bucket display shows stash + collected inventory")
+	return true
+
+
+func _check_free_harvest_credit_no_payout(gs: Node) -> bool:
+	_reset(gs)
+	gs.bucket_remaining = 0
+	gs.try_enter_harvest()
+	var before: float = gs.currency
+	var credited: int = gs.credit_free_harvest_balls(3)
+	if credited != 3:
+		print("FAIL: credit_free_harvest_balls expected 3, got %d" % credited)
+		return false
+	if gs.harvest_collected != 3:
+		print(
+			"FAIL: free credit should raise harvest_collected to 3, got %d"
+			% gs.harvest_collected
+		)
+		return false
+	if not is_equal_approx(gs.currency, before):
+		print("FAIL: free harvest credit must not change currency")
+		return false
+	var capped: int = gs.credit_free_harvest_balls(100)
+	var target: int = gs._harvest_target()
+	if gs.harvest_collected != target:
+		print(
+			"FAIL: free credit should cap at harvest target %d, got %d"
+			% [target, gs.harvest_collected]
+		)
+		return false
+	if capped != target - 3:
+		print(
+			"FAIL: capped free credit expected %d, got %d"
+			% [target - 3, capped]
+		)
+		return false
+	if not is_equal_approx(gs.currency, before):
+		print("FAIL: capped free credit must not change currency")
+		return false
+	print("OK: free harvest credit fills without payout")
 	return true
 
 

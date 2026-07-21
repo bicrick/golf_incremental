@@ -512,6 +512,7 @@ func consume_ratina_bucket_ball() -> bool:
 		if harvest_stash <= 0:
 			return false
 		harvest_stash -= 1
+		EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
 		return true
 	if bucket_remaining <= 0:
 		return false
@@ -531,7 +532,7 @@ func try_enter_harvest() -> bool:
 	pending_vanish_collects = 0
 	current_phase = "harvest"
 	EventBus.phase_changed.emit("harvest")
-	EventBus.bucket_changed.emit(harvest_collected, bucket_capacity)
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
 	return true
 
 
@@ -560,8 +561,22 @@ func collect_harvest_ball(
 		EventBus.ratina_ball_collected.emit(payout)
 	harvest_collected += 1
 	EventBus.ball_collected.emit(world_pos, combo_tier)
-	EventBus.bucket_changed.emit(harvest_collected, bucket_capacity)
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
 	return payout
+
+
+## Credits harvest progress from free litter return — no payout / currency.
+## Returns how many balls were actually credited toward the harvest target.
+func credit_free_harvest_balls(count: int) -> int:
+	if current_phase != "harvest" or count <= 0:
+		return 0
+	var remaining := _harvest_target() - harvest_collected
+	if remaining <= 0:
+		return 0
+	var credited := mini(count, remaining)
+	harvest_collected += credited
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	return credited
 
 
 func credit_vanished_ball(
@@ -642,7 +657,7 @@ func exit_harvest_early() -> void:
 
 func _bucket_display_count() -> int:
 	if current_phase == "harvest":
-		return harvest_collected
+		return mini(harvest_stash + harvest_collected, bucket_capacity)
 	return bucket_remaining
 
 

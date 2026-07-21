@@ -19,6 +19,7 @@ func setup(range_view: Node3D, littered_balls: Node3D, bucket_counter: Control) 
 	_bucket_counter = bucket_counter
 	EventBus.phase_changed.connect(_on_phase_changed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
+	_bind_bucket_counter_click()
 
 
 func is_active() -> bool:
@@ -65,11 +66,28 @@ func try_complete_harvest() -> void:
 		_finish_harvest()
 
 
+## Return all fairway litter to the bucket with no payout, then leave harvest.
+## Credits only enough balls to fill the harvest target; surplus litter is cleared.
+func return_all_litter_free() -> bool:
+	if not GameState.is_collect_mode():
+		return false
+	var litter_count := _count_litter()
+	GameState.credit_free_harvest_balls(litter_count)
+	_clear_litter()
+	if GameState.is_harvest_complete():
+		_finish_harvest()
+	else:
+		GameState.exit_harvest_early()
+		_return_to_strike()
+	return true
+
+
 func _on_phase_changed(phase: String) -> void:
 	_active = phase == "harvest"
 	if _active:
 		reset_combo()
 		_mark_all_litter_collectible()
+	_bind_bucket_counter_click()
 
 
 func _on_swing_resolved(_yards: float, _tier: int, _payout: float, _feedback: int) -> void:
@@ -212,3 +230,23 @@ func _clear_litter() -> void:
 		return
 	for child in _littered_balls.get_children():
 		child.queue_free()
+
+
+func _count_litter() -> int:
+	if _littered_balls == null:
+		return 0
+	var count := 0
+	for child in _littered_balls.get_children():
+		if child is Sprite3D and child.get_meta("collectible", false):
+			count += 1
+	return count
+
+
+func _bind_bucket_counter_click() -> void:
+	if _bucket_counter == null:
+		return
+	if not _bucket_counter.has_signal("return_all_pressed"):
+		return
+	if _bucket_counter.return_all_pressed.is_connected(return_all_litter_free):
+		return
+	_bucket_counter.return_all_pressed.connect(return_all_litter_free)
