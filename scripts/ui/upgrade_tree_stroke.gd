@@ -315,21 +315,18 @@ static func draw_squircle_border(
 	if draw_fill:
 		canvas.draw_colored_polygon(_pixel_squircle_points(inner, cut, false), FILL_COLOR)
 	var points := _pixel_squircle_points(inner, cut, true)
-	var perimeter := _polyline_length(points)
-	if perimeter < 1.0:
+	if points.size() < 2:
 		return
-	if with_glow:
-		var soft := Color(
-			glow_color.r, glow_color.g, glow_color.b, glow_color.a * GLOW_ALPHA_SCALE
-		)
-		if animated:
-			_draw_dashed_polyline(canvas, points, perimeter, soft, BORDER_GLOW_WIDTH, phase, SPEED_BORDER)
-		else:
-			canvas.draw_polyline(points, soft, BORDER_GLOW_WIDTH, true)
+	var stroke := color
+	var soft := Color(
+		glow_color.r, glow_color.g, glow_color.b, glow_color.a * GLOW_ALPHA_SCALE
+	)
 	if animated:
-		_draw_dashed_polyline(canvas, points, perimeter, color, width, phase, SPEED_BORDER)
-	else:
-		canvas.draw_polyline(points, color, width, true)
+		stroke = Color(color.r, color.g, color.b, pulse_alpha(phase, SPEED_BORDER, color.a))
+		soft = Color(soft.r, soft.g, soft.b, pulse_alpha(phase, SPEED_BORDER, soft.a))
+	if with_glow:
+		canvas.draw_polyline(points, soft, BORDER_GLOW_WIDTH, true)
+	canvas.draw_polyline(points, stroke, width, true)
 
 
 static func draw_circle_border(
@@ -351,21 +348,18 @@ static func draw_circle_border(
 	if draw_fill:
 		canvas.draw_circle(center, radius, FILL_COLOR)
 	var points := _circle_points(center, radius)
-	var perimeter := _polyline_length(points)
-	if perimeter < 1.0:
+	if points.size() < 2:
 		return
-	if with_glow:
-		var soft := Color(
-			glow_color.r, glow_color.g, glow_color.b, glow_color.a * GLOW_ALPHA_SCALE
-		)
-		if animated:
-			_draw_dashed_polyline(canvas, points, perimeter, soft, BORDER_GLOW_WIDTH, phase, SPEED_BORDER)
-		else:
-			canvas.draw_polyline(points, soft, BORDER_GLOW_WIDTH, true)
+	var stroke := color
+	var soft := Color(
+		glow_color.r, glow_color.g, glow_color.b, glow_color.a * GLOW_ALPHA_SCALE
+	)
 	if animated:
-		_draw_dashed_polyline(canvas, points, perimeter, color, width, phase, SPEED_BORDER)
-	else:
-		canvas.draw_polyline(points, color, width, true)
+		stroke = Color(color.r, color.g, color.b, pulse_alpha(phase, SPEED_BORDER, color.a))
+		soft = Color(soft.r, soft.g, soft.b, pulse_alpha(phase, SPEED_BORDER, soft.a))
+	if with_glow:
+		canvas.draw_polyline(points, soft, BORDER_GLOW_WIDTH, true)
+	canvas.draw_polyline(points, stroke, width, true)
 
 
 ## Rim point on a centered pixel squircle from `center` toward `toward`.
@@ -459,96 +453,3 @@ static func _ray_polyline_exit_t(origin: Vector2, dir: Vector2, points: PackedVe
 				best_t = t
 	return best_t
 
-
-static func _draw_dashed_line(
-	canvas: CanvasItem,
-	from_point: Vector2,
-	dir: Vector2,
-	length: float,
-	color: Color,
-	width: float,
-	phase: float,
-	speed_mult: float
-) -> void:
-	var offset := fposmod(phase * speed_mult * DASH_PERIOD, DASH_PERIOD)
-	var cursor := -offset
-	while cursor < length:
-		var dash_start := maxf(cursor, 0.0)
-		var dash_end := minf(cursor + DASH_LENGTH, length)
-		if dash_end > dash_start:
-			canvas.draw_line(from_point + dir * dash_start, from_point + dir * dash_end, color, width)
-		cursor += DASH_PERIOD
-
-
-static func _draw_dashed_polyline(
-	canvas: CanvasItem,
-	points: PackedVector2Array,
-	perimeter: float,
-	color: Color,
-	width: float,
-	phase: float,
-	speed_mult: float
-) -> void:
-	var offset := fposmod(phase * speed_mult * DASH_PERIOD, DASH_PERIOD)
-	var cursor := -offset
-	while cursor < perimeter:
-		var dash_start := maxf(cursor, 0.0)
-		var dash_end := minf(cursor + DASH_LENGTH, perimeter)
-		if dash_end > dash_start:
-			_draw_polyline_span(canvas, points, dash_start, dash_end, color, width)
-		cursor += DASH_PERIOD
-
-
-static func _draw_polyline_span(
-	canvas: CanvasItem,
-	points: PackedVector2Array,
-	start_dist: float,
-	end_dist: float,
-	color: Color,
-	width: float
-) -> void:
-	var traveled := 0.0
-	for i in range(points.size() - 1):
-		var a: Vector2 = points[i]
-		var b: Vector2 = points[i + 1]
-		var seg_len := a.distance_to(b)
-		if seg_len < 0.001:
-			continue
-		var seg_start := traveled
-		var seg_end := traveled + seg_len
-		var overlap_start := maxf(start_dist, seg_start)
-		var overlap_end := minf(end_dist, seg_end)
-		if overlap_end > overlap_start:
-			var t0 := (overlap_start - seg_start) / seg_len
-			var t1 := (overlap_end - seg_start) / seg_len
-			canvas.draw_line(a.lerp(b, t0), a.lerp(b, t1), color, width)
-		traveled = seg_end
-		if traveled >= end_dist:
-			break
-
-
-static func _rounded_rect_points(rect: Rect2, radius: float) -> PackedVector2Array:
-	var r := minf(radius, minf(rect.size.x, rect.size.y) * 0.5)
-	var left := rect.position.x
-	var top := rect.position.y
-	var right := rect.end.x
-	var bottom := rect.end.y
-	var points := PackedVector2Array()
-	# Top edge left→right, then clockwise with simple corner chamfers (2 samples).
-	points.append(Vector2(left + r, top))
-	points.append(Vector2(right - r, top))
-	points.append(Vector2(right, top + r))
-	points.append(Vector2(right, bottom - r))
-	points.append(Vector2(right - r, bottom))
-	points.append(Vector2(left + r, bottom))
-	points.append(Vector2(left, bottom - r))
-	points.append(Vector2(left, top + r))
-	points.append(Vector2(left + r, top))
-	return points
-
-
-static func _polyline_length(points: PackedVector2Array) -> float:
-	var total := 0.0
-	for i in range(points.size() - 1):
-		total += points[i].distance_to(points[i + 1])
-	return total

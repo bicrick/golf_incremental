@@ -51,13 +51,14 @@ func _draw() -> void:
 	var glow := glow_color
 	if with_glow and animated:
 		glow = Color(glow_color.r, glow_color.g, glow_color.b, glow_color.a * _pulse_alpha)
+	# Solid outline always — pulse is applied via color alpha above (no dashed orbit).
 	UpgradeTreeStroke.draw_squircle_border(
 		self,
 		Rect2(Vector2.ZERO, size),
 		color,
 		border_width,
 		UpgradeTreeStroke.get_phase(),
-		animated,
+		false,
 		with_glow,
 		glow,
 		true

@@ -15,7 +15,7 @@ Nodes use custom **32×32 pixel-art icons** (`assets/sprites/upgrades/<upgrade_i
 - **Pickup** — green
 - **Ratina** (hire + Ratina subtree) — pink
 
-**Edge states:** dormant (target locked) → live marching dashes (unlocked) → charged faster flow + glow (purchasable) → complete slow shimmer (maxed). **Borders:** solid for locked/unlocked; thicker solid + glow when maxed; dashed orbit + glow only when purchasable. Connectors attach to the squircle rim.
+**Edge states:** dormant (target locked) → live solid branch color (unlocked) → charged brighter solid + soft glow with light pulse (purchasable) → complete solid + soft glow (maxed). **Borders:** solid for locked/unlocked; thicker solid + glow when maxed; solid + glow pulse when purchasable (no dashed orbit). Connectors attach to the squircle rim.
 
 **Dynamics:** Hover scales the node and brightens its border; tooltips fade/slide in. Purchase plays a short squash-stretch burst, surges the inbound edge in branch color, and staggered-pops newly revealed children. Prestige cheese buys use the same unlock bling SFX as cash upgrades. Warm parallax sky + wood header stay; no CRT/grid restyle.
 
