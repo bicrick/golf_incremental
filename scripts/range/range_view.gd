@@ -25,12 +25,13 @@ const RatinaBayCellScene: PackedScene = preload("res://scenes/range/cells/ratina
 const EmptyBayCellScene: PackedScene = preload("res://scenes/range/cells/empty_bay_cell.tscn")
 const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 
-const MOON_LIGHT_ENERGY := 0.12
+const MOON_LIGHT_ENERGY := 0.16
 const CELESTIAL_SPRITE_DISTANCE := 520.0
-const CELESTIAL_SPRITE_PIXEL_SIZE := 2.2
+const CELESTIAL_SPRITE_PIXEL_SIZE := 6.6
 const CELESTIAL_SPRITE_RENDER_PRIORITY := -80
 const SUN_TEXTURE := preload("res://assets/sprites/sky/sun.png")
 const MOON_TEXTURE := preload("res://assets/sprites/sky/moon.png")
+const RangeSkyStarsScript := preload("res://scripts/visual/range_sky_stars.gd")
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var sun_light: DirectionalLight3D = $Sun
@@ -95,6 +96,7 @@ var _editor_backdrop_camera_xform: Transform3D = Transform3D()
 var _empty_bays_container: Node3D
 var _sun_sprite: Sprite3D
 var _moon_sprite: Sprite3D
+var _sky_stars: RangeSkyStars
 
 
 func _should_use_editor_rig() -> bool:
@@ -468,12 +470,13 @@ func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float
 
 func apply_atmosphere(cycle_time: float) -> void:
 	var snap := DayNightPalette.sample_at(cycle_time)
-	_sprite_atmosphere_tint = snap.canvas_modulate
 	var day_factor := DayNightPalette.day_light_factor(cycle_time)
+	_sprite_atmosphere_tint = DayNightPalette.apply_moonlight(snap.canvas_modulate, day_factor)
 	if world_environment and world_environment.environment:
 		var env := world_environment.environment
 		env.background_color = snap.sky
-		env.ambient_light_color = snap.sky.lerp(snap.fairway_light, (1.0 - day_factor) * 0.45)
+		var ambient := snap.sky.lerp(snap.fairway_light, (1.0 - day_factor) * 0.45)
+		env.ambient_light_color = DayNightPalette.apply_moonlight(ambient, day_factor)
 		_apply_procedural_sky(env, snap)
 	var fairway_colors := DayNightPalette.fairway_stripe_colors(snap, day_factor)
 	_apply_ground_palette(fairway_colors[0], fairway_colors[1])
@@ -515,6 +518,11 @@ func _setup_celestial_sprites() -> void:
 		_sun_sprite = _make_celestial_sprite(&"SunSprite", SUN_TEXTURE)
 	if _moon_sprite == null:
 		_moon_sprite = _make_celestial_sprite(&"MoonSprite", MOON_TEXTURE)
+	if _sky_stars == null:
+		_sky_stars = RangeSkyStarsScript.new()
+		_sky_stars.name = &"SkyStars"
+		add_child(_sky_stars)
+		_sky_stars.setup()
 
 
 func _make_celestial_sprite(node_name: StringName, texture: Texture2D) -> Sprite3D:
@@ -535,23 +543,30 @@ func _make_celestial_sprite(node_name: StringName, texture: Texture2D) -> Sprite
 
 func _apply_celestial_lights(cycle_time: float, day_factor: float) -> void:
 	var sun_dir := DayNightPalette.celestial_view_direction(cycle_time, false, Vector3.ZERO)
-	var sun_alpha := DayNightPalette.celestial_alpha(cycle_time, false)
 	if sun_light:
 		_aim_celestial_light(sun_light, sun_dir)
 		sun_light.light_color = DayNightPalette.SUN_COLOR
-		sun_light.light_energy = lerpf(0.30, 1.15, day_factor) * sun_alpha
+		# Scale from 0 at horizon — no energy floor, so dusk does not hard-cut.
+		sun_light.light_energy = 0.70 * day_factor
 		sun_light.shadow_enabled = false
 
 	var moon_dir := DayNightPalette.celestial_view_direction(cycle_time, true, Vector3.ZERO)
-	var moon_alpha := DayNightPalette.celestial_alpha(cycle_time, true)
+	var moon_light_alpha := DayNightPalette.celestial_alpha(cycle_time, true)
 	if moon_light:
 		_aim_celestial_light(moon_light, moon_dir)
 		moon_light.light_color = DayNightPalette.MOON_COLOR
-		moon_light.light_energy = MOON_LIGHT_ENERGY * moon_alpha
+		# Soft fill for lit meshes; unshaded fairway/backdrop use moonlight tint instead.
+		moon_light.light_energy = MOON_LIGHT_ENERGY * moon_light_alpha
 		moon_light.shadow_enabled = false
 
-	_place_celestial_sprite(_sun_sprite, sun_dir, sun_alpha)
-	_place_celestial_sprite(_moon_sprite, moon_dir, moon_alpha)
+	# Sprites stay up until ~mountain ridge, then fade — separate from light energy.
+	_place_celestial_sprite(
+		_sun_sprite, sun_dir, DayNightPalette.celestial_sprite_alpha(cycle_time, false)
+	)
+	_place_celestial_sprite(
+		_moon_sprite, moon_dir, DayNightPalette.celestial_sprite_alpha(cycle_time, true)
+	)
+	_update_sky_stars(cycle_time)
 
 
 func _place_celestial_sprite(sprite: Sprite3D, sky_dir: Vector3, alpha: float) -> void:
@@ -562,15 +577,29 @@ func _place_celestial_sprite(sprite: Sprite3D, sky_dir: Vector3, alpha: float) -
 		return
 	sprite.visible = true
 	sprite.modulate = Color(1.0, 1.0, 1.0, alpha)
+	sprite.global_position = (
+		_celestial_viewer_origin() + sky_dir.normalized() * CELESTIAL_SPRITE_DISTANCE
+	)
+
+
+func _update_sky_stars(cycle_time: float) -> void:
+	if _sky_stars == null:
+		return
+	_sky_stars.update_for_viewer(
+		_celestial_viewer_origin(), DayNightPalette.star_visibility(cycle_time)
+	)
+
+
+func _celestial_viewer_origin() -> Vector3:
 	var origin := global_position
 	var active := get_viewport().get_camera_3d() if is_inside_tree() else null
 	if active:
-		origin = active.global_position
-	elif perspective_camera and perspective_camera.current:
-		origin = perspective_camera.global_position
-	elif camera:
-		origin = camera.global_position
-	sprite.global_position = origin + sky_dir.normalized() * CELESTIAL_SPRITE_DISTANCE
+		return active.global_position
+	if perspective_camera and perspective_camera.current:
+		return perspective_camera.global_position
+	if camera:
+		return camera.global_position
+	return origin
 
 
 func _aim_celestial_light(light: DirectionalLight3D, sky_dir: Vector3) -> void:

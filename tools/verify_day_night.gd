@@ -22,6 +22,7 @@ func _run() -> void:
 	ok = await _check_ground_mesh_stability() and ok
 	ok = await _check_sun_light_scene() and ok
 	ok = await _check_celestial_lights_and_fog() and ok
+	ok = await _check_light_handoff_smooth() and ok
 	ok = await _check_procedural_sky() and ok
 	ok = await _check_gameplay_ui_atmosphere() and ok
 	print("day_night_ok=", ok)
@@ -106,6 +107,32 @@ func _check_celestial_arc() -> bool:
 	var sun_at_day := DayNightPalette.celestial_alpha(DAY_TIME, false)
 	if sun_at_day < 0.7:
 		print("FAIL: sun should be visible at noon, alpha=", sun_at_day)
+		return false
+
+	var sun_at_dusk_edge := DayNightPalette.celestial_alpha(90.0, false)
+	var moon_at_dusk_edge := DayNightPalette.celestial_alpha(90.0, true)
+	if sun_at_dusk_edge > 0.05 or moon_at_dusk_edge > 0.05:
+		print(
+			"FAIL: sun/moon light alpha should be ~0 at dusk handoff, sun=",
+			sun_at_dusk_edge,
+			" moon=",
+			moon_at_dusk_edge
+		)
+		return false
+
+	# ~8° elevation still above mountain ridge — sprite should stay fully up.
+	var sun_above_ridge := DayNightPalette.celestial_sprite_alpha(84.0, false)
+	if sun_above_ridge < 0.95:
+		print("FAIL: sun sprite should stay opaque above mountains, alpha=", sun_above_ridge)
+		return false
+	# ~3° elevation — sinking behind peaks.
+	var sun_in_peaks := DayNightPalette.celestial_sprite_alpha(88.0, false)
+	if sun_in_peaks > 0.55:
+		print("FAIL: sun sprite should be fading behind mountains, alpha=", sun_in_peaks)
+		return false
+	var sun_sprite_gone := DayNightPalette.celestial_sprite_alpha(90.0, false)
+	if sun_sprite_gone > 0.01:
+		print("FAIL: sun sprite should be hidden at horizon, alpha=", sun_sprite_gone)
 		return false
 
 	var sun_at_midnight := DayNightPalette.celestial_alpha(NIGHT_TIME, false)
@@ -209,8 +236,32 @@ func _check_celestial_placement() -> bool:
 		range_view.queue_free()
 		return false
 
+	var sky_stars: Node3D = range_view.get_node_or_null("SkyStars")
+	if sky_stars == null:
+		print("FAIL: SkyStars node missing")
+		range_view.queue_free()
+		return false
+	if DayNightPalette.star_visibility(DAY_TIME) > 0.05:
+		print("FAIL: stars should be hidden by day")
+		range_view.queue_free()
+		return false
+	if DayNightPalette.star_visibility(NIGHT_TIME) < 0.95:
+		print("FAIL: stars should be fully visible at midnight")
+		range_view.queue_free()
+		return false
+	range_view.apply_atmosphere(DAY_TIME)
+	if sky_stars.visible:
+		print("FAIL: SkyStars should be hidden by day")
+		range_view.queue_free()
+		return false
+	range_view.apply_atmosphere(NIGHT_TIME)
+	if not sky_stars.visible or sky_stars.get_child_count() < 20:
+		print("FAIL: SkyStars should be visible with a star field at night")
+		range_view.queue_free()
+		return false
+
 	range_view.queue_free()
-	print("OK: fairway -Z bob arc with pixel sun/moon sprites")
+	print("OK: fairway -Z bob arc with pixel sun/moon sprites + night stars")
 	return true
 
 
@@ -274,8 +325,14 @@ func _check_yardage_marker_atmosphere() -> bool:
 		range_view.queue_free()
 		return false
 
-	var day_tint := DayNightPalette.sample_at(DAY_TIME).canvas_modulate
-	var night_tint := DayNightPalette.sample_at(NIGHT_TIME).canvas_modulate
+	var day_tint := DayNightPalette.apply_moonlight(
+		DayNightPalette.sample_at(DAY_TIME).canvas_modulate,
+		DayNightPalette.day_light_factor(DAY_TIME)
+	)
+	var night_tint := DayNightPalette.apply_moonlight(
+		DayNightPalette.sample_at(NIGHT_TIME).canvas_modulate,
+		DayNightPalette.day_light_factor(NIGHT_TIME)
+	)
 	if day_tint.is_equal_approx(night_tint):
 		print("FAIL: day and night canvas_modulate should differ")
 		range_view.queue_free()
@@ -456,6 +513,45 @@ func _check_celestial_lights_and_fog() -> bool:
 	return true
 
 
+func _check_light_handoff_smooth() -> bool:
+	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
+	if scene == null:
+		print("FAIL: could not load range_view.tscn for light handoff check")
+		return false
+
+	var range_view: Node3D = scene.instantiate()
+	root.add_child(range_view)
+	range_view.visible = true
+	await process_frame
+
+	var sun: DirectionalLight3D = range_view.get_node("Sun")
+	var moon: DirectionalLight3D = range_view.get_node("Moon")
+	var prev_total := -1.0
+	var max_step := 0.0
+	# Dusk and dawn handoff windows — combined sun+moon energy should ease, not jump.
+	for t in range(80, 101):
+		range_view.apply_atmosphere(float(t))
+		var total := sun.light_energy + moon.light_energy
+		if prev_total >= 0.0:
+			max_step = maxf(max_step, absf(total - prev_total))
+		prev_total = total
+	for t in range(20, 41):
+		range_view.apply_atmosphere(float(t))
+		var total := sun.light_energy + moon.light_energy
+		if prev_total >= 0.0:
+			max_step = maxf(max_step, absf(total - prev_total))
+		prev_total = total
+
+	if max_step > 0.08:
+		print("FAIL: sun/moon light handoff too abrupt, max step/sec=", max_step)
+		range_view.queue_free()
+		return false
+
+	range_view.queue_free()
+	print("OK: sun/moon light handoff is smooth across dusk/dawn (max step=", max_step, ")")
+	return true
+
+
 func _check_procedural_sky() -> bool:
 	var scene: PackedScene = load("res://scenes/range/range_view.tscn")
 	if scene == null:
@@ -548,7 +644,10 @@ func _check_gameplay_ui_atmosphere() -> bool:
 
 	range_view.apply_atmosphere(0.0)
 	await process_frame
-	var midnight_tint := DayNightPalette.sample_at(0.0).canvas_modulate
+	var midnight_tint := DayNightPalette.apply_moonlight(
+		DayNightPalette.sample_at(0.0).canvas_modulate,
+		DayNightPalette.day_light_factor(0.0)
+	)
 	var expected_midnight: Color = UiTheme.ui_atmosphere_modulate(midnight_tint)
 	if not gameplay_chrome.modulate.is_equal_approx(expected_midnight):
 		print(

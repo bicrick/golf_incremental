@@ -20,10 +20,16 @@ const SUN_WINDOW_START := PHASE_SEC
 const SUN_WINDOW_END := PHASE_SEC * 3.0
 const NIGHT_WINDOW_START := SUN_WINDOW_END
 const NIGHT_WINDOW_END := SUN_WINDOW_START
-## Scales how far fairway stripe tints move from day keys toward sampled night keys.
-const FAIRWAY_NIGHT_DARKEN_STRENGTH := 0.5
-## Extra backdrop darkening at night — same timing as (1 - day_factor).
-const BACKDROP_NIGHT_DARKEN := 0.42
+## Scales how far day keys blend toward night keys (fairway + backdrop).
+const FAIRWAY_NIGHT_DARKEN_STRENGTH := 0.55
+## Cool moonlight multiply applied to world tints at night (fairway, backdrop, etc.).
+const MOONLIGHT_COLOR := Color(0.72, 0.78, 0.92)
+## How hard moonlight mixes in at full night (0–1).
+const MOONLIGHT_BLEND := 0.48
+## Mild luminance drop under moonlight — keeps greens readable.
+const MOONLIGHT_DARKEN := 0.24
+## Legacy alias used by backdrop helpers / tests.
+const BACKDROP_NIGHT_DARKEN := MOONLIGHT_DARKEN
 
 
 class AtmosphereSnapshot:
@@ -42,6 +48,10 @@ class AtmosphereSnapshot:
 const MOON_ORBIT_OFFSET := PI
 const MAX_CELESTIAL_ELEVATION_DEG := 30.0
 const BELOW_HORIZON_ELEVATION_DEG := -12.0
+## Sprites stay fully visible until they sink to this elevation (mountain ridge),
+## then fade out over MOUNTAIN_SPRITE_FADE_DEG — lights still use the smooth curve.
+const MOUNTAIN_OCCLUSION_ELEVATION_DEG := 5.0
+const MOUNTAIN_SPRITE_FADE_DEG := 3.0
 
 
 static func _snap(
@@ -66,11 +76,11 @@ static func _snap(
 static func _midnight() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.06, 0.08, 0.22),
-		Color(0.34, 0.33, 0.42),
-		Color(0.68, 0.72, 0.13),
-		Color(0.75, 0.70, 0.11),
-		Color(0.49, 0.65, 0.12),
-		Color(0.48, 0.50, 0.66)
+		Color(0.40, 0.42, 0.52),
+		Color(0.18, 0.36, 0.12),
+		Color(0.22, 0.42, 0.14),
+		Color(0.12, 0.28, 0.10),
+		Color(0.55, 0.60, 0.78)
 	)
 
 
@@ -86,12 +96,13 @@ static func _dawn() -> AtmosphereSnapshot:
 
 
 static func _day() -> AtmosphereSnapshot:
+	# Fairway stripes: light #6db505, dark #3f9d02 (matched to backdrop trees).
 	return _snap(
 		Color(0.55, 0.75, 0.92),
 		Color(1.0, 1.0, 1.0),
-		Color(0.90, 0.99, 0.12),
-		Color(1.07, 1.03, 0.12),
-		Color(0.63, 0.84, 0.10),
+		Color(0.34, 0.66, 0.01),
+		Color(0.427, 0.710, 0.020),
+		Color(0.247, 0.616, 0.008),
 		Color(1.0, 1.0, 1.0)
 	)
 
@@ -99,10 +110,10 @@ static func _day() -> AtmosphereSnapshot:
 static func _dusk() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.70, 0.56, 0.48),
-		Color(1.03, 0.84, 0.84),
-		Color(0.86, 0.92, 0.11),
-		Color(0.99, 0.92, 0.10),
-		Color(0.59, 0.78, 0.10),
+		Color(0.95, 0.82, 0.78),
+		Color(0.32, 0.52, 0.10),
+		Color(0.36, 0.58, 0.12),
+		Color(0.22, 0.42, 0.08),
 		Color(0.94, 0.90, 0.84)
 	)
 
@@ -110,11 +121,11 @@ static func _dusk() -> AtmosphereSnapshot:
 static func _night() -> AtmosphereSnapshot:
 	return _snap(
 		Color(0.10, 0.14, 0.32),
-		Color(0.51, 0.51, 0.58),
-		Color(0.77, 0.82, 0.14),
-		Color(0.87, 0.84, 0.13),
-		Color(0.56, 0.74, 0.12),
-		Color(0.58, 0.62, 0.78)
+		Color(0.45, 0.48, 0.58),
+		Color(0.20, 0.38, 0.12),
+		Color(0.24, 0.44, 0.14),
+		Color(0.14, 0.30, 0.10),
+		Color(0.58, 0.64, 0.82)
 	)
 
 
@@ -219,11 +230,27 @@ static func celestial_view_direction(
 
 
 static func celestial_alpha(cycle_time: float, is_moon: bool) -> float:
-	if not _is_above_horizon(cycle_time, is_moon):
+	## Smooth 0→1→0 with elevation for light energy handoff.
+	if not _body_is_active(cycle_time, is_moon):
 		return 0.0
+	return celestial_elevation(cycle_time, is_moon)
+
+
+static func celestial_sprite_alpha(cycle_time: float, is_moon: bool) -> float:
+	## Stay opaque until the body reaches the mountain ridge, then fade behind it.
+	if not _body_is_active(cycle_time, is_moon):
+		return 0.0
+	var elev_deg := celestial_elevation(cycle_time, is_moon) * MAX_CELESTIAL_ELEVATION_DEG
+	var fade_start := MOUNTAIN_OCCLUSION_ELEVATION_DEG - MOUNTAIN_SPRITE_FADE_DEG
+	return _smoothstep((elev_deg - fade_start) / maxf(MOUNTAIN_SPRITE_FADE_DEG, 0.001))
+
+
+static func _body_is_active(cycle_time: float, is_moon: bool) -> bool:
+	if _body_orbit_progress(cycle_time, is_moon) < 0.0:
+		return false
 	if is_moon:
-		return 1.0 if not _is_daytime(cycle_time) else 0.0
-	return 1.0 if _is_daytime(cycle_time) else 0.0
+		return not _is_daytime(cycle_time)
+	return _is_daytime(cycle_time)
 
 
 static func celestial_elevation(cycle_time: float, is_moon: bool) -> float:
@@ -326,19 +353,29 @@ static func _phase_tint(day_color: Color, snap_color: Color, day_factor: float) 
 	return day_color.lerp(snap_color, night_blend)
 
 
-## Fairway mower-stripe tints with night darkening scaled by FAIRWAY_NIGHT_DARKEN_STRENGTH.
+## Subtle cool moonlight over a color — shared by fairway, backdrop, and related tints.
+static func apply_moonlight(color: Color, day_factor: float) -> Color:
+	var night := 1.0 - clampf(day_factor, 0.0, 1.0)
+	if night <= 0.001:
+		return color
+	var moonlit := color * MOONLIGHT_COLOR
+	var cast := color.lerp(moonlit, night * MOONLIGHT_BLEND)
+	return cast.darkened(night * MOONLIGHT_DARKEN)
+
+
+## Fairway mower-stripe tints with shared moonlight cast.
 static func fairway_stripe_colors(snap: AtmosphereSnapshot, day_factor: float) -> Array:
 	var day := _day()
 	return [
-		_phase_tint(day.fairway_light, snap.fairway_light, day_factor),
-		_phase_tint(day.fairway_dark, snap.fairway_dark, day_factor),
+		apply_moonlight(_phase_tint(day.fairway_light, snap.fairway_light, day_factor), day_factor),
+		apply_moonlight(_phase_tint(day.fairway_dark, snap.fairway_dark, day_factor), day_factor),
 	]
 
 
-## Painted backdrop tint — one color for the whole image, darkens with (1 - day_factor).
+## Painted backdrop tint — same moonlight cast as the fairway.
 static func backdrop_tint(snap: AtmosphereSnapshot, day_factor: float) -> Color:
 	var day := _day()
-	return _phase_tint(day.hills, snap.hills, day_factor).darkened(backdrop_night_darken(day_factor))
+	return apply_moonlight(_phase_tint(day.hills, snap.hills, day_factor), day_factor)
 
 
 static func backdrop_night_darken(day_factor: float) -> float:

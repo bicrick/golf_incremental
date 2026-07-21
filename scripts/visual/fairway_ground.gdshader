@@ -1,5 +1,6 @@
 shader_type spatial;
-render_mode cull_disabled;
+// Unshaded like the painted backdrop — sun must not wash out stripe tints.
+render_mode unshaded, cull_disabled;
 
 uniform sampler2D albedo_tex : filter_nearest;
 uniform vec4 fairway_light : source_color = vec4(1.0);
