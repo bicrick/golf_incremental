@@ -25,6 +25,7 @@ sky_top_color = Color(0.506, 0.69, 0.8464, 1)
 sky_horizon_color = Color(0.604, 0.78, 0.9296, 1)
 ground_bottom_color = Color(0.44, 0.6, 0.736, 1)
 ground_horizon_color = Color(0.604, 0.78, 0.9296, 1)
+sun_angle_max = 0.5
 
 [sub_resource type="Sky" id="Sky_range"]
 sky_material = SubResource("ProceduralSkyMaterial_range")

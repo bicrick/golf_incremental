@@ -115,7 +115,15 @@ func _check_celestial_arc() -> bool:
 
 	var moon_elev_midnight := DayNightPalette.celestial_elevation(NIGHT_TIME, true)
 	if moon_elev_midnight < 0.85:
-		print("FAIL: moon should be high at midnight, elev=", moon_elev_midnight)
+		print("FAIL: moon should be near peak at midnight, elev=", moon_elev_midnight)
+		return false
+
+	var sun_elev_noon := DayNightPalette.celestial_elevation(DAY_TIME, false)
+	if sun_elev_noon < 0.85:
+		print("FAIL: sun should be near peak at midday, elev=", sun_elev_noon)
+		return false
+	if sun_elev_noon > 1.001:
+		print("FAIL: sun elevation factor should cap at 1, elev=", sun_elev_noon)
 		return false
 
 	print("OK: sun by day, moon by night, below horizon when down")
@@ -133,35 +141,46 @@ func _check_celestial_placement() -> bool:
 	range_view.visible = true
 	await process_frame
 
+	var max_elev := deg_to_rad(DayNightPalette.MAX_CELESTIAL_ELEVATION_DEG)
 	var sun_noon := DayNightPalette.celestial_view_direction(DAY_TIME, false, Vector3.ZERO)
-	if sun_noon.y < 0.85:
-		print("FAIL: noon sun should be near zenith, y=", sun_noon.y)
-		range_view.queue_free()
-		return false
 	if absf(sun_noon.x) > 0.05:
 		print("FAIL: noon sun should stay on fairway -Z axis (x≈0), x=", sun_noon.x)
 		range_view.queue_free()
 		return false
+	if sun_noon.y < sin(max_elev) - 0.05:
+		print("FAIL: noon sun should be near max elevation, dir=", sun_noon)
+		range_view.queue_free()
+		return false
+	if sun_noon.z > -cos(max_elev) + 0.05:
+		print("FAIL: noon sun should stay on -Z bearing, dir=", sun_noon)
+		range_view.queue_free()
+		return false
 
 	var sun_dawn := DayNightPalette.celestial_view_direction(30.0, false, Vector3.ZERO)
-	if sun_dawn.z > -0.85 or absf(sun_dawn.x) > 0.05:
-		print("FAIL: dawn sun should be on far -Z horizon, dir=", sun_dawn)
+	if sun_dawn.z > -0.85 or absf(sun_dawn.x) > 0.05 or sun_dawn.y > 0.2:
+		print("FAIL: dawn sun should be near far -Z horizon, dir=", sun_dawn)
 		range_view.queue_free()
 		return false
 
 	var sun_midnight := DayNightPalette.celestial_view_direction(NIGHT_TIME, false, Vector3.ZERO)
-	if sun_midnight.y > -0.5:
+	if sun_midnight.y > 0.0:
 		print("FAIL: midnight sun should be below horizon, y=", sun_midnight.y)
 		range_view.queue_free()
 		return false
 
 	var moon_midnight := DayNightPalette.celestial_view_direction(NIGHT_TIME, true, Vector3.ZERO)
-	if moon_midnight.y < 0.85:
-		print("FAIL: midnight moon should be opposite the sun, y=", moon_midnight.y)
-		range_view.queue_free()
-		return false
 	if absf(moon_midnight.x) > 0.05:
 		print("FAIL: midnight moon should stay on fairway -Z axis (x≈0), x=", moon_midnight.x)
+		range_view.queue_free()
+		return false
+	if moon_midnight.y < sin(max_elev) - 0.05:
+		print("FAIL: midnight moon should be near max elevation, dir=", moon_midnight)
+		range_view.queue_free()
+		return false
+
+	# Same bearing for sun peak and moon peak (rise/fall in the same spot).
+	if sun_noon.distance_to(moon_midnight) > 0.05:
+		print("FAIL: sun/moon peaks should share the same -Z spot")
 		range_view.queue_free()
 		return false
 
@@ -172,16 +191,26 @@ func _check_celestial_placement() -> bool:
 			print("FAIL: celestial dirs should stay on -Z axis (x≈0) at t=", check_time)
 			range_view.queue_free()
 			return false
-		if absf(sun_v.dot(moon_v) + 1.0) > 0.15:
-			print(
-				"FAIL: sun/moon should stay 180° apart at t=%.0f, dot=%.3f"
-				% [check_time, sun_v.dot(moon_v)]
-			)
-			range_view.queue_free()
-			return false
+
+	var sun_sprite: Sprite3D = range_view.get_node_or_null("SunSprite")
+	var moon_sprite: Sprite3D = range_view.get_node_or_null("MoonSprite")
+	if sun_sprite == null or moon_sprite == null:
+		print("FAIL: pixel sun/moon Sprite3D nodes missing")
+		range_view.queue_free()
+		return false
+	range_view.apply_atmosphere(DAY_TIME)
+	if not sun_sprite.visible or moon_sprite.visible:
+		print("FAIL: midday should show sun sprite only")
+		range_view.queue_free()
+		return false
+	range_view.apply_atmosphere(NIGHT_TIME)
+	if not moon_sprite.visible or sun_sprite.visible:
+		print("FAIL: midnight should show moon sprite only")
+		range_view.queue_free()
+		return false
 
 	range_view.queue_free()
-	print("OK: fairway -Z orbit with rise/set and 180° opposition")
+	print("OK: fairway -Z bob arc with pixel sun/moon sprites")
 	return true
 
 

@@ -36,10 +36,12 @@ class AtmosphereSnapshot:
 	var moon_sky_cutout: Color
 
 
-## Sun/moon share one vertical orbit in the fairway YZ plane (rise on -Z horizon →
-## zenith → set on +Z). Moon is 180° opposite. X stays 0 so discs stay on the
-## player's forward view axis down the range.
+## Sun and moon bob up/down on the same fairway bearing (-Z): rise at the far
+## horizon, peak at MAX_CELESTIAL_ELEVATION_DEG, then fall back in place.
+## They take turns (day vs night); they do not traverse left/right across the sky.
 const MOON_ORBIT_OFFSET := PI
+const MAX_CELESTIAL_ELEVATION_DEG := 30.0
+const BELOW_HORIZON_ELEVATION_DEG := -12.0
 
 
 static func _snap(
@@ -175,7 +177,7 @@ static func _is_daytime(cycle_time: float) -> bool:
 
 
 static func _is_above_horizon(cycle_time: float, is_moon: bool) -> bool:
-	return sin(_body_orbit_angle(cycle_time, is_moon)) > 0.0
+	return _body_orbit_progress(cycle_time, is_moon) >= 0.0
 
 
 static func _sun_orbit_progress(cycle_time: float) -> float:
@@ -185,16 +187,35 @@ static func _sun_orbit_progress(cycle_time: float) -> float:
 	return (t - SUN_WINDOW_START) / (SUN_WINDOW_END - SUN_WINDOW_START)
 
 
+## Night wraps across midnight: t∈[90,120) then [0,30). Returns -1 when sun is up.
+static func _night_orbit_progress(cycle_time: float) -> float:
+	var t := fposmod(cycle_time, CYCLE_SEC)
+	var night_len := PHASE_SEC * 2.0
+	if t >= NIGHT_WINDOW_START:
+		return (t - NIGHT_WINDOW_START) / night_len
+	if t < SUN_WINDOW_START:
+		return (PHASE_SEC + t) / night_len
+	return -1.0
+
+
+static func _body_orbit_progress(cycle_time: float, is_moon: bool) -> float:
+	if is_moon:
+		return _night_orbit_progress(cycle_time)
+	return _sun_orbit_progress(cycle_time)
+
+
 static func celestial_view_direction(
 	cycle_time: float,
 	is_moon: bool,
 	_viewer_position: Vector3
 ) -> Vector3:
-	var angle := _body_orbit_angle(cycle_time, is_moon)
-	# YZ-plane arc: dawn at far fairway horizon (-Z), noon at zenith, dusk behind.
-	var y := sin(angle)
-	var z := -cos(angle)
-	return Vector3(0.0, y, z).normalized()
+	var progress := _body_orbit_progress(cycle_time, is_moon)
+	var elev_deg := BELOW_HORIZON_ELEVATION_DEG
+	if progress >= 0.0:
+		elev_deg = sin(progress * PI) * MAX_CELESTIAL_ELEVATION_DEG
+	var elev := deg_to_rad(elev_deg)
+	# Always on the fairway -Z bearing; only elevation changes.
+	return Vector3(0.0, sin(elev), -cos(elev)).normalized()
 
 
 static func celestial_alpha(cycle_time: float, is_moon: bool) -> float:
@@ -206,7 +227,10 @@ static func celestial_alpha(cycle_time: float, is_moon: bool) -> float:
 
 
 static func celestial_elevation(cycle_time: float, is_moon: bool) -> float:
-	return maxf(sin(_body_orbit_angle(cycle_time, is_moon)), 0.0)
+	var progress := _body_orbit_progress(cycle_time, is_moon)
+	if progress < 0.0:
+		return 0.0
+	return sin(progress * PI)
 
 
 static func celestial_angle(cycle_time: float, is_moon: bool) -> float:

@@ -26,6 +26,11 @@ const EmptyBayCellScene: PackedScene = preload("res://scenes/range/cells/empty_b
 const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 
 const MOON_LIGHT_ENERGY := 0.12
+const CELESTIAL_SPRITE_DISTANCE := 520.0
+const CELESTIAL_SPRITE_PIXEL_SIZE := 2.2
+const CELESTIAL_SPRITE_RENDER_PRIORITY := -80
+const SUN_TEXTURE := preload("res://assets/sprites/sky/sun.png")
+const MOON_TEXTURE := preload("res://assets/sprites/sky/moon.png")
 
 @onready var world_environment: WorldEnvironment = $WorldEnvironment
 @onready var sun_light: DirectionalLight3D = $Sun
@@ -88,6 +93,8 @@ var _view_mode_started := false
 var _backdrop_mesh: MeshInstance3D
 var _editor_backdrop_camera_xform: Transform3D = Transform3D()
 var _empty_bays_container: Node3D
+var _sun_sprite: Sprite3D
+var _moon_sprite: Sprite3D
 
 
 func _should_use_editor_rig() -> bool:
@@ -111,6 +118,7 @@ func _ready() -> void:
 
 	if charge_meter:
 		charge_meter.position = CHARGE_METER_POSITION
+	_setup_celestial_sprites()
 	if _should_use_editor_rig():
 		if perspective_camera:
 			perspective_camera.make_current()
@@ -498,6 +506,31 @@ func _apply_procedural_sky(env: Environment, snap: DayNightPalette.AtmosphereSna
 	sky_mat.sky_top_color = zenith
 	sky_mat.ground_horizon_color = horizon
 	sky_mat.ground_bottom_color = snap.sky.darkened(0.20)
+	# Hide soft ProceduralSky light discs — pixel sprites own the look.
+	sky_mat.sun_angle_max = 0.5
+
+
+func _setup_celestial_sprites() -> void:
+	if _sun_sprite == null:
+		_sun_sprite = _make_celestial_sprite(&"SunSprite", SUN_TEXTURE)
+	if _moon_sprite == null:
+		_moon_sprite = _make_celestial_sprite(&"MoonSprite", MOON_TEXTURE)
+
+
+func _make_celestial_sprite(node_name: StringName, texture: Texture2D) -> Sprite3D:
+	var sprite := Sprite3D.new()
+	sprite.name = node_name
+	sprite.texture = texture
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.shaded = false
+	sprite.double_sided = true
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
+	sprite.transparent = true
+	sprite.render_priority = CELESTIAL_SPRITE_RENDER_PRIORITY
+	_configure_billboard(sprite, CELESTIAL_SPRITE_PIXEL_SIZE)
+	sprite.visible = false
+	add_child(sprite)
+	return sprite
 
 
 func _apply_celestial_lights(cycle_time: float, day_factor: float) -> void:
@@ -516,6 +549,28 @@ func _apply_celestial_lights(cycle_time: float, day_factor: float) -> void:
 		moon_light.light_color = DayNightPalette.MOON_COLOR
 		moon_light.light_energy = MOON_LIGHT_ENERGY * moon_alpha
 		moon_light.shadow_enabled = false
+
+	_place_celestial_sprite(_sun_sprite, sun_dir, sun_alpha)
+	_place_celestial_sprite(_moon_sprite, moon_dir, moon_alpha)
+
+
+func _place_celestial_sprite(sprite: Sprite3D, sky_dir: Vector3, alpha: float) -> void:
+	if sprite == null:
+		return
+	if alpha <= 0.01:
+		sprite.visible = false
+		return
+	sprite.visible = true
+	sprite.modulate = Color(1.0, 1.0, 1.0, alpha)
+	var origin := global_position
+	var active := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if active:
+		origin = active.global_position
+	elif perspective_camera and perspective_camera.current:
+		origin = perspective_camera.global_position
+	elif camera:
+		origin = camera.global_position
+	sprite.global_position = origin + sky_dir.normalized() * CELESTIAL_SPRITE_DISTANCE
 
 
 func _aim_celestial_light(light: DirectionalLight3D, sky_dir: Vector3) -> void:

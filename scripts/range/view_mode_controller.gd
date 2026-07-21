@@ -108,10 +108,11 @@ func _run_transition_async(
 	await get_tree().process_frame
 	if gen != _transition_gen:
 		return
-	# Unlock pan/pickup as soon as the new camera is live; dissolve is visual only.
-	_finish_transition(final_mode, gen)
 	if _transition.has_method(&"dissolve_out"):
 		await _transition.dissolve_out(dissolve)
+	if gen != _transition_gen:
+		return
+	_finish_transition(final_mode, gen)
 
 
 func _finish_transition(final_mode: Mode, gen: int) -> void:
