@@ -447,7 +447,8 @@ func _on_swing_resolved(
 ) -> void:
 	_play_golf_hit(timing_tier, _feedback_tier)
 	if timing_tier == Balance.TimingTier.PERFECT:
-		_play("perfect_chime", -4.0, 1.0)
+		# Soft confirmation over the hit — quieter than other Cuelume UI cues.
+		_play("perfect_chime", -16.0, 1.0)
 
 	if payout >= 25.0:
 		var cash_pitch := clampf(1.0 + log(maxf(payout, 1.0)) / log(500.0) * 0.35, 1.0, 1.45)
