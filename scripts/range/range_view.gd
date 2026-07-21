@@ -27,7 +27,7 @@ const BayMatGroundScript := preload("res://scripts/range/bay_mat_ground.gd")
 
 const MOON_LIGHT_ENERGY := 0.16
 const CELESTIAL_SPRITE_DISTANCE := 520.0
-const CELESTIAL_SPRITE_PIXEL_SIZE := 6.6
+const CELESTIAL_SPRITE_PIXEL_SIZE := 4.4
 const CELESTIAL_SPRITE_RENDER_PRIORITY := -80
 const SUN_TEXTURE := preload("res://assets/sprites/sky/sun.png")
 const MOON_TEXTURE := preload("res://assets/sprites/sky/moon.png")
@@ -585,8 +585,9 @@ func _place_celestial_sprite(sprite: Sprite3D, sky_dir: Vector3, alpha: float) -
 func _update_sky_stars(cycle_time: float) -> void:
 	if _sky_stars == null:
 		return
+	# Same rise/set fade as the moon sprite (mountain ridge, not decor windows).
 	_sky_stars.update_for_viewer(
-		_celestial_viewer_origin(), DayNightPalette.star_visibility(cycle_time)
+		_celestial_viewer_origin(), DayNightPalette.celestial_sprite_alpha(cycle_time, true)
 	)
 
 

@@ -1,6 +1,6 @@
 class_name UpgradeTreeStroke
 extends RefCounted
-## Shared stroke widths, colors, and dash drawing for upgrade tree edges/borders.
+## Shared stroke widths, colors, and solid-line drawing for upgrade tree edges/borders.
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitions.gd")
@@ -19,10 +19,8 @@ const PIXEL_CORNER_CUT := 3
 const CIRCLE_SEGMENTS := 28
 const FILL_COLOR := Color(0.12, 0.10, 0.08, 0.55)
 const GLOW_ALPHA_SCALE := 0.65
-
-const DASH_LENGTH := 4.0
-const DASH_GAP := 3.5
-const DASH_PERIOD := DASH_LENGTH + DASH_GAP
+## Phase wrap for alpha pulse (no dash marching).
+const PULSE_PERIOD := TAU
 
 const SPEED_LIVE := 0.55
 const SPEED_CHARGED := 1.15
@@ -79,7 +77,13 @@ static func get_phase() -> float:
 static func advance_phase(delta: float) -> void:
 	_phase += delta
 	if _phase > 1000.0:
-		_phase = fmod(_phase, DASH_PERIOD)
+		_phase = fmod(_phase, PULSE_PERIOD)
+
+
+static func pulse_alpha(phase: float, speed_mult: float, base_alpha: float = 1.0) -> float:
+	## Subtle breathe for charged afford cues — solid stroke, no gaps.
+	var wave := 0.82 + 0.18 * sin(phase * speed_mult * 4.0)
+	return clampf(base_alpha * wave, 0.0, 1.0)
 
 
 static func _ratina_palette() -> Dictionary:
@@ -209,7 +213,7 @@ static func edge_style(state: EdgeState, branch: int, upgrade_id: String = "") -
 			return {
 				"color": palette["live"],
 				"width": EDGE_WIDTH,
-				"animated": true,
+				"animated": false,
 				"speed": SPEED_LIVE,
 				"glow": false,
 			}
@@ -225,7 +229,7 @@ static func edge_style(state: EdgeState, branch: int, upgrade_id: String = "") -
 			return {
 				"color": palette["complete"],
 				"width": EDGE_WIDTH,
-				"animated": true,
+				"animated": false,
 				"speed": SPEED_COMPLETE,
 				"glow": true,
 			}
@@ -255,17 +259,16 @@ static func draw_flow_segment(
 	var length := delta.length()
 	if length < 0.5:
 		return
-	var dir := delta / length
-	if with_glow:
-		var soft := Color(glow_color.r, glow_color.g, glow_color.b, glow_color.a)
-		if animated:
-			_draw_dashed_line(canvas, from_point, dir, length, soft, EDGE_GLOW_WIDTH, phase, speed_mult)
-		else:
-			canvas.draw_line(from_point, to_point, soft, EDGE_GLOW_WIDTH)
+	var stroke := color
+	var soft := Color(
+		glow_color.r, glow_color.g, glow_color.b, glow_color.a * GLOW_ALPHA_SCALE
+	)
 	if animated:
-		_draw_dashed_line(canvas, from_point, dir, length, color, width, phase, speed_mult)
-	else:
-		canvas.draw_line(from_point, to_point, color, width)
+		stroke = Color(color.r, color.g, color.b, pulse_alpha(phase, speed_mult, color.a))
+		soft = Color(soft.r, soft.g, soft.b, pulse_alpha(phase, speed_mult, soft.a))
+	if with_glow:
+		canvas.draw_line(from_point, to_point, soft, EDGE_GLOW_WIDTH)
+	canvas.draw_line(from_point, to_point, stroke, width)
 
 
 static func squircle_corner_radius(size: Vector2) -> float:

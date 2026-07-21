@@ -241,12 +241,14 @@ func _check_celestial_placement() -> bool:
 		print("FAIL: SkyStars node missing")
 		range_view.queue_free()
 		return false
-	if DayNightPalette.star_visibility(DAY_TIME) > 0.05:
-		print("FAIL: stars should be hidden by day")
+	var stars_day := DayNightPalette.celestial_sprite_alpha(DAY_TIME, true)
+	var stars_night := DayNightPalette.celestial_sprite_alpha(NIGHT_TIME, true)
+	if stars_day > 0.05:
+		print("FAIL: star fade should match moon sprite (hidden by day), alpha=", stars_day)
 		range_view.queue_free()
 		return false
-	if DayNightPalette.star_visibility(NIGHT_TIME) < 0.95:
-		print("FAIL: stars should be fully visible at midnight")
+	if stars_night < 0.95:
+		print("FAIL: star fade should match moon sprite (full at midnight), alpha=", stars_night)
 		range_view.queue_free()
 		return false
 	range_view.apply_atmosphere(DAY_TIME)
@@ -257,6 +259,13 @@ func _check_celestial_placement() -> bool:
 	range_view.apply_atmosphere(NIGHT_TIME)
 	if not sky_stars.visible or sky_stars.get_child_count() < 20:
 		print("FAIL: SkyStars should be visible with a star field at night")
+		range_view.queue_free()
+		return false
+	# Rising with the moon — still below mountain ridge → stars should be fading in.
+	var stars_rising := DayNightPalette.celestial_sprite_alpha(95.0, true)
+	var moon_rising := DayNightPalette.celestial_sprite_alpha(95.0, true)
+	if absf(stars_rising - moon_rising) > 0.001:
+		print("FAIL: stars and moon sprite alpha should match at moonrise")
 		range_view.queue_free()
 		return false
 
