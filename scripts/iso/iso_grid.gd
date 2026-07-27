@@ -5,6 +5,9 @@ extends RefCounted
 ## 1 TileMap cell = 1 RangeGrid cell (SUBCELLS = 1).
 ## Depth is flipped vs RangeGrid row so downrange aims screen top-right
 ## (tee / PLAYER_CELL toward bottom-left), matching the live range read.
+##
+## Pixel space is origin-shifted so the player address pose sits at (0,0).
+## TileMapLayers must use position = -view_origin_px_raw() to match.
 
 const TILE_PX := Vector2i(64, 32)
 ## TileMap cells per logical RangeGrid cell on each axis (1:1 parity).
@@ -13,6 +16,8 @@ const SUBCELLS := 1
 const TILE_TEXTURE_HEIGHT := 32
 ## Vertical screen pixels per yard of altitude (airborne ball cheat).
 const HEIGHT_PX_PER_YARD := 8.0
+## World nudge from bay tee tip → player address pose (matches IsoActorMirror bias).
+const VIEW_ORIGIN_BIAS_YARDS := Vector3(-0.35, 0.0, -0.85)
 
 
 static func iso_width_cells() -> int:
@@ -91,8 +96,18 @@ static func iso_cellf_from_yards(p: Vector3) -> Vector2:
 	return Vector2(cf.x * float(SUBCELLS), _flip_depth_iso(cf.y * float(SUBCELLS)))
 
 
-## Godot DIAMOND_DOWN map_to_local for continuous iso cell coords.
-static func iso_px_from_cellf(cf: Vector2) -> Vector2:
+## Player address pose in world yards — IsoView local (0,0).
+static func view_origin_yards() -> Vector3:
+	return RangeGrid.player_bay_origin() + VIEW_ORIGIN_BIAS_YARDS
+
+
+## Unshifted Godot map_to_local of the view origin (TileMapLayer.position = -this).
+static func view_origin_px_raw() -> Vector2:
+	return _iso_px_from_cellf_raw(iso_cellf_from_yards(view_origin_yards()))
+
+
+## Godot DIAMOND_DOWN map_to_local for continuous iso cell coords (unshifted).
+static func _iso_px_from_cellf_raw(cf: Vector2) -> Vector2:
 	var tw := float(TILE_PX.x)
 	var th := float(TILE_PX.y)
 	return Vector2(
@@ -101,15 +116,28 @@ static func iso_px_from_cellf(cf: Vector2) -> Vector2:
 	)
 
 
+static func iso_px_from_cellf_raw(cf: Vector2) -> Vector2:
+	return _iso_px_from_cellf_raw(cf)
+
+
+static func iso_px_from_cell_raw(cell: Vector2i) -> Vector2:
+	return _iso_px_from_cellf_raw(Vector2(cell))
+
+
+## Godot DIAMOND_DOWN map_to_local, shifted so view origin is (0,0).
+static func iso_px_from_cellf(cf: Vector2) -> Vector2:
+	return _iso_px_from_cellf_raw(cf) - view_origin_px_raw()
+
+
 static func iso_px_from_cell(cell: Vector2i) -> Vector2:
 	return iso_px_from_cellf(Vector2(cell))
 
 
-## Screen position for a world-yards point on the TileMap.
+## Screen position for a world-yards point on the TileMap (origin-shifted).
 static func iso_px_from_yards(p: Vector3) -> Vector2:
-	var px := iso_px_from_cellf(iso_cellf_from_yards(p))
+	var px := _iso_px_from_cellf_raw(iso_cellf_from_yards(p))
 	px.y -= height_px(p.y)
-	return px
+	return px - view_origin_px_raw()
 
 
 ## Screen-px semi-axes of a world-XZ ground circle (axis-aligned, 2:1 on 64x32).
@@ -124,6 +152,10 @@ static func height_px(altitude_yards: float) -> float:
 
 ## Inverse of iso_px_from_cellf (ground plane only; ignores altitude).
 static func cellf_from_iso_px(px: Vector2) -> Vector2:
+	return _cellf_from_iso_px_raw(px + view_origin_px_raw())
+
+
+static func _cellf_from_iso_px_raw(px: Vector2) -> Vector2:
 	var tw := float(TILE_PX.x)
 	var th := float(TILE_PX.y)
 	var lx := px.x - tw * 0.5

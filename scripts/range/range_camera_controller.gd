@@ -178,9 +178,21 @@ func _end_drag() -> void:
 	CursorManager.set_pan_dragging(false)
 
 
+func _release_drag_if_button_up() -> void:
+	if not _drag_active and not _pending:
+		return
+	if Input.is_mouse_button_pressed(drag_button):
+		return
+	if _drag_active:
+		_end_drag()
+	else:
+		_pending = false
+
+
 func _process(delta: float) -> void:
 	if not _enabled or _camera == null:
 		return
+	_release_drag_if_button_up()
 
 	var move := Vector2.ZERO
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):

@@ -168,6 +168,10 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what != NOTIFICATION_VISIBILITY_CHANGED or Engine.is_editor_hint():
 		return
+	## Hide screen-space FxLayer while RangeView is off-screen so Camera3D
+	## unprojections (trails / poofs) do not smear over IsoView.
+	if fx_layer:
+		fx_layer.visible = visible
 	if not visible or _view_mode_started or _view_mode_controller == null:
 		return
 	_view_mode_started = true
@@ -666,11 +670,13 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
 		return
-	# IsoView may own harvest presentation (RangeView hidden). Still accept
-	# Space / Hit exit while invisible so verify + keyboard exit keep working.
+	# IsoView may own harvest / strike presentation (RangeView hidden). Still
+	# accept Space charge/release and harvest exit so iso parity keeps working.
 	if not visible:
 		if GameState.is_harvest_phase():
 			_handle_harvest_input(event)
+		elif _iso_view_showing():
+			_handle_strike_input(event)
 		return
 	# Pan/zoom only after harvest ortho settle (can_use_ortho_pan). View toggles
 	# (Space / Hit / background click) stay available mid-flight and mid-dissolve;
@@ -690,6 +696,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if _camera_controller and _camera_controller.consume_pan_drag_event(event):
 		get_viewport().set_input_as_handled()
+
+
+func _iso_view_showing() -> bool:
+	var iso := get_tree().get_first_node_in_group(&"iso_view")
+	return iso != null and iso.visible
 
 
 ## Collect mode: pickup click only. Space returns to hitting mode (same as the
@@ -1327,6 +1338,7 @@ func _spawn_flight_sprite() -> AnimatedSprite3D:
 	_configure_billboard(sprite, BALL_PIXEL_SIZE)
 	sprite.scale = _base_ball_scale
 	sprite.modulate = _sprite_atmosphere_tint
+	sprite.add_to_group(&"range_flight_ball")
 	foreground.add_child(sprite)
 	return sprite
 
@@ -1380,6 +1392,9 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		float(DinkySpriteFrames.BALL_ROLL_FRAME_COUNT) / animate_time
 	)
 
+	flight_sprite.set_meta("timing_tier", timing_tier)
+	flight_sprite.set_meta("is_golden", is_golden)
+	flight_sprite.set_meta("with_bounces", will_litter)
 	var flight := {
 		"sprite": flight_sprite,
 		"trail": null,
@@ -1388,7 +1403,7 @@ func _fly_ball(yards: float, feedback_tier: int, timing_tier: int, quality: int)
 		"yardage_id": _begin_yardage_counter(timing_tier, yards),
 	}
 	var flight_cam := get_flight_camera()
-	if fx_layer and flight_cam:
+	if fx_layer and flight_cam and visible:
 		flight["trail"] = BallFlightTrailScript.begin(
 			fx_layer,
 			flight_cam,

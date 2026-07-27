@@ -45,6 +45,17 @@ func set_enabled(enabled: bool) -> void:
 	set_process(enabled)
 
 
+func _release_drag_if_button_up() -> void:
+	if not _drag_active and not _pending:
+		return
+	if Input.is_mouse_button_pressed(drag_button):
+		return
+	if _drag_active:
+		_end_drag()
+	else:
+		_pending = false
+
+
 ## Smoothly pan toward an IsoView-local pixel while a ball is airborne.
 ## No-ops after cancel_follow() until stop_follow_soft() / a new flight.
 func follow_world_px(px: Vector2) -> void:
@@ -164,6 +175,7 @@ func _input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	if not _enabled or _camera == null:
 		return
+	_release_drag_if_button_up()
 	var move := Vector2.ZERO
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
 		move.x -= 1.0

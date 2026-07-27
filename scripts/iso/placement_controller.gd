@@ -101,7 +101,7 @@ func _try_place_at(cell: Vector2i) -> bool:
 func _update_ghost() -> void:
 	if _ghost == null or _terrain == null:
 		return
-	_ghost.position = _terrain.map_to_local(_hover_cell)
+	_ghost.position = IsoGrid.iso_px_from_cell(_hover_cell)
 	var valid := _model != null and _model.can_place(_active_catalog_id, _hover_cell)
 	_ghost.modulate = VALID_TINT if valid else INVALID_TINT
 	_ghost.visible = _enabled and _active_catalog_id != &"" and _ghost.texture != null
@@ -135,5 +135,5 @@ func _rebuild_objects() -> void:
 		sprite.offset = entry.get("anchor_offset", Vector2.ZERO)
 		var s: float = float(entry.get("scale", 1.0))
 		sprite.scale = Vector2(s, s)
-		sprite.position = _terrain.map_to_local(anchor)
+		sprite.position = IsoGrid.iso_px_from_cell(anchor)
 		_objects.add_child(sprite)

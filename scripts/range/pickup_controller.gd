@@ -128,12 +128,14 @@ func _pick_litter_at(screen_pos: Vector2) -> Sprite3D:
 	var camera := _camera()
 	if camera == null:
 		return null
-	var hit: Variant = RangeGroundRay.hit(camera, screen_pos)
+	var world_radius := Balance.range_picker_radius_yards(GameState.stats)
+	var hit: Variant = RangePickerIndicator.picker_ground_at_cursor(
+		camera, screen_pos, world_radius
+	)
 	if hit == null:
 		return null
 	var pick_ground: Vector3 = hit
 	var pick_xz := Vector2(pick_ground.x, pick_ground.z)
-	var world_radius := Balance.range_picker_radius_yards(GameState.stats)
 	var hit_radius := world_radius + Balance.RANGE_PICKER_HIT_SLACK_YARDS
 	var best: Sprite3D = null
 	var best_dist := INF

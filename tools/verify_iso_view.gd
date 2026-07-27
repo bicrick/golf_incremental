@@ -17,6 +17,7 @@ func _run() -> void:
 	ok = _check_autotile_forest_blob() and ok
 	ok = _check_placement_model() and ok
 	ok = _check_picker_ground_projection() and ok
+	ok = _check_duff_in_front_alignment() and ok
 	ok = await _check_iso_view_scene() and ok
 	ok = await _check_fairway_stripes_and_atmosphere() and ok
 	ok = await _check_build_toggle() and ok
@@ -30,6 +31,8 @@ func _run() -> void:
 	ok = _check_litter_sprite_scale() and ok
 	ok = _check_fairway_variant_assets() and ok
 	ok = await _check_iso_harvest_litter() and ok
+	ok = await _check_iso_actor_mirrors() and ok
+	ok = await _check_iso_flight_mirror() and ok
 
 	if ok:
 		print("iso_view_ok=true")
@@ -116,9 +119,9 @@ func _check_picker_ground_projection() -> bool:
 		return false
 	var dash_cycle := IsoPickerIndicator.DASH_ON + IsoPickerIndicator.DASH_OFF
 	var dash_count := IsoPickerIndicator.SEGMENTS / dash_cycle
-	if dash_count != 12:
+	if dash_count != 24:
 		print(
-			"FAIL: picker dash count expected 12 got ", dash_count,
+			"FAIL: picker dash count expected 24 got ", dash_count,
 			" (SEGMENTS=", IsoPickerIndicator.SEGMENTS, " cycle=", dash_cycle, ")"
 		)
 		return false
@@ -189,14 +192,19 @@ func _check_map_to_local_agreement() -> bool:
 	layer.tile_set = load(TILESET_PATH) as TileSet
 	var ok := true
 	for cell in [Vector2i(0, 0), Vector2i(9, 5), Vector2i(3, 7), Vector2i(18, 199)]:
-		var from_grid := IsoGrid.iso_px_from_cell(cell)
+		var from_grid := IsoGrid.iso_px_from_cell_raw(cell)
 		var from_map := layer.map_to_local(cell)
 		if not from_grid.is_equal_approx(from_map):
 			print("FAIL: map_to_local mismatch cell=", cell, " grid=", from_grid, " map=", from_map)
 			ok = false
+		## Shifted helpers: iso_px + view origin == raw map_to_local.
+		var shifted := IsoGrid.iso_px_from_cell(cell)
+		if not (shifted + IsoGrid.view_origin_px_raw()).is_equal_approx(from_map):
+			print("FAIL: view-origin shift mismatch cell=", cell, " shifted=", shifted)
+			ok = false
 	layer.queue_free()
 	if ok:
-		print("OK: IsoGrid matches TileMapLayer.map_to_local")
+		print("OK: IsoGrid matches TileMapLayer.map_to_local (+ view origin)")
 	return ok
 
 
@@ -295,11 +303,13 @@ func _check_iso_view_scene() -> bool:
 		print("FAIL: default zoom expected 1.0 got ", controller.get_zoom_level())
 		main.queue_free()
 		return false
-	var start_px := IsoGrid.iso_px_from_cell(
-		IsoGrid.iso_cell_from_range_cell(RangeGrid.PLAYER_CELL)
-	)
-	if cam.position.distance_to(start_px) > 1.0:
-		print("FAIL: camera start expected PLAYER_CELL px=", start_px, " got ", cam.position)
+	if cam.position.distance_to(Vector2.ZERO) > 1.0:
+		print("FAIL: camera start expected view origin (0,0) got ", cam.position)
+		main.queue_free()
+		return false
+	var origin_px := IsoGrid.iso_px_from_yards(IsoGrid.view_origin_yards())
+	if origin_px.distance_to(Vector2.ZERO) > 0.5:
+		print("FAIL: view origin yards should map to (0,0) got ", origin_px)
 		main.queue_free()
 		return false
 	var wheel := InputEventMouseButton.new()
@@ -310,7 +320,7 @@ func _check_iso_view_scene() -> bool:
 		print("FAIL: zoom not stepped 1.0 -> 2.0 got ", controller.get_zoom_level())
 		main.queue_free()
 		return false
-	print("OK: IsoView scene wired + zoom steps + camera on PLAYER_CELL")
+	print("OK: IsoView scene wired + zoom steps + camera on view origin")
 	main.queue_free()
 	return true
 
@@ -335,11 +345,27 @@ func _check_fairway_stripes_and_atmosphere() -> bool:
 		print("FAIL: expected painted extent exactly ", w * d, " got ", terrain.get_used_cells().size())
 		main.queue_free()
 		return false
+	var mat_cells: Dictionary = {}
+	for c in [RangeGrid.PLAYER_CELL, RangeGrid.RATINA_CELL]:
+		mat_cells[c] = true
+	for c in RangeGrid.empty_bay_cells_on_player_row():
+		mat_cells[c] = true
 	var seen_variants: Dictionary = {}
 	for col in mini(8, w):
 		for row in mini(24, d):
-			var iso_cell := IsoGrid.iso_cell_from_range_cell(Vector2i(col, row))
+			var range_cell := Vector2i(col, row)
+			var iso_cell := IsoGrid.iso_cell_from_range_cell(range_cell)
 			var atlas := terrain.get_cell_atlas_coords(iso_cell)
+			if mat_cells.has(range_cell):
+				var mat_expected := IsoView.fairway_mat_atlas_for_cell(col, row)
+				if atlas != mat_expected:
+					print(
+						"FAIL: mat atlas col=", col, " row=", row,
+						" expected=", mat_expected, " got=", atlas
+					)
+					main.queue_free()
+					return false
+				continue
 			var expected := IsoView.fairway_atlas_for_cell(col, row)
 			if atlas != expected:
 				print(
@@ -348,7 +374,7 @@ func _check_fairway_stripes_and_atmosphere() -> bool:
 				)
 				main.queue_free()
 				return false
-			var is_dark := atlas.x >= n
+			var is_dark := atlas.x >= n and atlas.x < n * 2
 			if is_dark != ((col & 1) == 1):
 				print("FAIL: stripe band wrong col=", col, " atlas=", atlas)
 				main.queue_free()
@@ -532,11 +558,15 @@ func _check_bay_mats() -> bool:
 	if IsoCatalog.has(&"range_mat"):
 		print("FAIL: range_mat should stay out of IsoCatalog (terrain tile, not prop)")
 		return false
-	for i in IsoView.FAIRWAY_VARIANT_COUNT:
-		var path := "res://assets/sprites/iso/terrain/fairway_mat_%d.png" % i
-		if not ResourceLoader.exists(path) and not FileAccess.file_exists(ProjectSettings.globalize_path(path)):
-			print("FAIL: missing mat variant ", path)
-			return false
+	var mat_path := "res://assets/sprites/iso/terrain/fairway_mat_%d.png" % IsoView.FAIRWAY_MAT_VARIANT
+	if not ResourceLoader.exists(mat_path) and not FileAccess.file_exists(ProjectSettings.globalize_path(mat_path)):
+		print("FAIL: missing authored mat ", mat_path)
+		return false
+	if IsoView.FAIRWAY_ATLAS_MAT != Vector2i(
+		IsoView.FAIRWAY_VARIANT_COUNT * 2 + IsoView.FAIRWAY_MAT_VARIANT, 0
+	):
+		print("FAIL: FAIRWAY_ATLAS_MAT should be mat variant ", IsoView.FAIRWAY_MAT_VARIANT)
+		return false
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 	await process_frame
@@ -553,7 +583,9 @@ func _check_bay_mats() -> bool:
 		print("FAIL: Terrain missing for bay mat check")
 		main.queue_free()
 		return false
-	for range_cell in [RangeGrid.PLAYER_CELL, RangeGrid.RATINA_CELL]:
+	var bay_cells: Array[Vector2i] = [RangeGrid.PLAYER_CELL, RangeGrid.RATINA_CELL]
+	bay_cells.append_array(RangeGrid.empty_bay_cells_on_player_row())
+	for range_cell in bay_cells:
 		var iso_cell := IsoGrid.iso_cell_from_range_cell(range_cell)
 		var atlas := terrain.get_cell_atlas_coords(iso_cell)
 		var expected := IsoView.fairway_mat_atlas_for_cell(range_cell.x, range_cell.y)
@@ -565,15 +597,42 @@ func _check_bay_mats() -> bool:
 			print("FAIL: bay mat atlas not in mat band ", atlas)
 			main.queue_free()
 			return false
-	print("OK: bay mats use dark fairway terrain tiles")
+	print("OK: bay mats use fairway_mat_%d on player/Ratina + empty bays" % IsoView.FAIRWAY_MAT_VARIANT)
 	main.queue_free()
 	return true
 
 
+func _check_duff_in_front_alignment() -> bool:
+	## 1 yd downrange of the tee stays in the player column and moves screen top-right.
+	var tee := RangeGrid.player_bay_origin()
+	var duff := tee + Vector3(0.0, 0.0, -1.0)
+	var tee_cell := IsoGrid.cell_from_yards(tee)
+	var duff_cell := IsoGrid.cell_from_yards(duff)
+	if duff_cell.x != tee_cell.x:
+		print("FAIL: duff should stay same column ", tee_cell, " -> ", duff_cell)
+		return false
+	if duff_cell.y < tee_cell.y:
+		print("FAIL: duff should not move nearer than tee ", tee_cell, " -> ", duff_cell)
+		return false
+	var tee_px := IsoGrid.iso_px_from_yards(tee)
+	var duff_px := IsoGrid.iso_px_from_yards(duff)
+	var delta := duff_px - tee_px
+	if delta.x <= 0.0 or delta.y >= 0.0:
+		print("FAIL: duff should aim screen top-right from tee, delta=", delta)
+		return false
+	## Ground actors use a fixed left + into-cell bias; flight/litter leave bias at zero.
+	var bias := IsoActorMirror.GROUND_DISPLAY_BIAS
+	if not bias.is_equal_approx(Vector3(-0.35, 0.0, -0.85)):
+		print("FAIL: unexpected GROUND_DISPLAY_BIAS ", bias)
+		return false
+	print("OK: duff-in-front same column + top-right iso delta=", delta)
+	return true
+
+
 func _check_fairway_palette_colors() -> bool:
-	## Means should track DayNightPalette._day() light #6db505 / dark #3f9d02.
-	var target_light := Vector3(0.427, 0.710, 0.020)
-	var target_dark := Vector3(0.247, 0.616, 0.008)
+	## Iso terrain means (iso-only; 3D DayNightPalette day fairway is separate).
+	var target_light := Vector3(0x26 / 255.0, 0x74 / 255.0, 0x08 / 255.0)
+	var target_dark := Vector3(0x1E / 255.0, 0x5C / 255.0, 0x06 / 255.0)
 	for i in IsoView.FAIRWAY_VARIANT_COUNT:
 		for band in ["light", "dark"]:
 			var path := "res://assets/sprites/iso/terrain/fairway_%s_%d.png" % [band, i]
@@ -599,7 +658,7 @@ func _check_fairway_palette_colors() -> bool:
 			if err > 0.08:
 				print("FAIL: ", path, " mean ", mean, " far from palette ", target, " err=", err)
 				return false
-	print("OK: fairway light/dark means match DayNightPalette")
+	print("OK: iso fairway light/dark means match #267408 / #1e5c06")
 	return true
 
 
@@ -650,7 +709,9 @@ func _check_fairway_native_flat() -> bool:
 				if c.r > c.g and c.r > c.b and c.g < 0.55:
 					browns += 1
 					continue
-				if c.g > c.r + 0.03 and c.g > c.b + 0.03 and c.g > 0.3:
+				## Deep greens (#267408 / #1e5c06 / dark mat #0e4406) — require G-dominant,
+				## not the old bright-lime floor (g > 0.3).
+				if c.g >= c.r and c.g >= c.b and c.g > 0.02:
 					continue
 				speckles += 1
 		if browns > 0:
@@ -843,6 +904,12 @@ func _check_iso_harvest_litter() -> bool:
 		print("FAIL: litter position mismatch ", spr.position, " vs ", expected)
 		main.queue_free()
 		return false
+	var ball_ph := iso.get_actor_layer().get_player_ball_placeholder() if iso.get_actor_layer() else null
+	var expected_scale := ball_ph.scale.x if ball_ph != null else IsoView.litter_sprite_scale()
+	if not is_equal_approx(spr.scale.x, expected_scale):
+		print("FAIL: litter scale ", spr.scale.x, " expected placeholder ", expected_scale)
+		main.queue_free()
+		return false
 	var yards_back := IsoGrid.yards_from_iso_px(expected)
 	if absf(yards_back.x - world.x) > 0.5 or absf(yards_back.z - world.z) > 0.5:
 		print("FAIL: yards_from_iso_px round-trip ", world, " -> ", yards_back)
@@ -862,5 +929,242 @@ func _check_iso_harvest_litter() -> bool:
 	if main.has_method(&"set_harvest_view"):
 		main.set_harvest_view(false)
 	print("OK: iso harvest litter sync + yards bridge")
+	main.queue_free()
+	return true
+
+
+func _check_iso_actor_mirrors() -> bool:
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+	var iso := main.get_node_or_null("IsoView") as IsoView
+	var range_view := main.get_node_or_null("RangeView") as Node3D
+	if iso == null or range_view == null:
+		print("FAIL: IsoView/RangeView missing for actor mirror check")
+		main.queue_free()
+		return false
+	iso.set_mode(IsoView.Mode.BUILD)
+	await process_frame
+	await process_frame
+	var actors := iso.get_actor_layer()
+	if actors == null:
+		print("FAIL: ActorLayer missing")
+		main.queue_free()
+		return false
+	var player_m := actors.get_player_golfer_mirror()
+	if player_m == null or not is_instance_valid(player_m):
+		print("FAIL: player golfer mirror missing")
+		main.queue_free()
+		return false
+	var golfer_ph := actors.get_player_golfer_placeholder()
+	var ball_ph := actors.get_player_ball_placeholder()
+	if golfer_ph == null or ball_ph == null:
+		print("FAIL: player golfer/ball placeholders missing on ActorLayer")
+		main.queue_free()
+		return false
+	if golfer_ph.visible or ball_ph.visible:
+		print("FAIL: placeholders must be hidden at runtime")
+		main.queue_free()
+		return false
+	if not is_equal_approx(player_m.scale.x, golfer_ph.scale.x):
+		print("FAIL: golfer scale should match placeholder ", golfer_ph.scale, " got ", player_m.scale)
+		main.queue_free()
+		return false
+	var golfer: AnimatedSprite3D = range_view.get_golfer()
+	if golfer == null:
+		print("FAIL: range golfer missing")
+		main.queue_free()
+		return false
+	## Night: mirror color must match 3D modulate exactly (no parent wash stacking).
+	iso.apply_atmosphere(0.0)
+	await process_frame
+	if not actors.modulate.is_equal_approx(Color.WHITE):
+		print("FAIL: ActorLayer must stay untinted got ", actors.modulate)
+		main.queue_free()
+		return false
+	if not player_m.modulate.is_equal_approx(golfer.modulate):
+		print(
+			"FAIL: golfer modulate not 1:1 with 3D iso=",
+			player_m.modulate, " src=", golfer.modulate
+		)
+		main.queue_free()
+		return false
+	## Idle: mirror must sit on the authored placeholder (editor WYSIWYG).
+	if player_m.position.distance_to(golfer_ph.position) > 1.0:
+		print(
+			"FAIL: idle golfer should match placeholder pos ",
+			golfer_ph.position, " got ", player_m.position
+		)
+		main.queue_free()
+		return false
+	## Placeholder pose should sit nearer the painted mat cell center than the near-edge tee.
+	var tee_px := IsoGrid.iso_px_from_yards(RangeGrid.player_bay_origin())
+	var mat_center_px := IsoGrid.iso_px_from_yards(IsoGrid.yards_from_cell(RangeGrid.PLAYER_CELL))
+	if player_m.position.distance_to(mat_center_px) > player_m.position.distance_to(tee_px) + 0.5:
+		print("FAIL: biased golfer should sit nearer mat center than tee tip")
+		main.queue_free()
+		return false
+	if not player_m.visible:
+		print("FAIL: player mirror should be visible in build mode")
+		main.queue_free()
+		return false
+	## Hidden RangeView must still drive mirrors (RangeView._process keeps running).
+	golfer.play(&"idle")
+	range_view.visible = false
+	golfer.visible = true
+	for _i in 10:
+		await process_frame
+	if not player_m.visible:
+		print("FAIL: mirror should track source.visible while RangeView is hidden")
+		main.queue_free()
+		return false
+	## Match live strike home — RangeView resets golfer.position each frame when idle.
+	if player_m.position.distance_to(golfer_ph.position) > 1.0:
+		print(
+			"FAIL: mirror drifted while RangeView hidden ",
+			player_m.position, " vs placeholder ", golfer_ph.position
+		)
+		main.queue_free()
+		return false
+	if player_m.sprite_frames == null or player_m.animation != golfer.animation:
+		print("FAIL: mirror animation mismatch ", player_m.animation, " vs ", golfer.animation)
+		main.queue_free()
+		return false
+	## Ratina bay is created in RangeView._ready — mirror should bind.
+	var ratina_m := actors.get_ratina_golfer_mirror()
+	if range_view.ratina_sprite != null and ratina_m == null:
+		print("FAIL: Ratina mirror missing while ratina_sprite exists")
+		main.queue_free()
+		return false
+	if ratina_m != null and range_view.ratina_sprite != null:
+		var r_expected := IsoGrid.iso_px_from_yards(
+			Vector3(
+				range_view.ratina_sprite.global_position.x,
+				0.0,
+				range_view.ratina_sprite.global_position.z
+			)
+			+ IsoActorMirror.GROUND_DISPLAY_BIAS
+		)
+		## Ratina may be hidden until unlocked — still check position sync when visible.
+		ratina_m.source = range_view.ratina_sprite
+		await process_frame
+		if range_view.ratina_sprite.visible and ratina_m.position.distance_to(r_expected) > 1.0:
+			print("FAIL: Ratina mirror pos ", ratina_m.position, " expected ", r_expected)
+			main.queue_free()
+			return false
+	print("OK: iso actor mirrors at bay cells + native scale")
+	main.queue_free()
+	return true
+
+
+func _check_iso_flight_mirror() -> bool:
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+	var iso := main.get_node_or_null("IsoView") as IsoView
+	var range_view := main.get_node_or_null("RangeView") as Node3D
+	if iso == null or range_view == null:
+		print("FAIL: IsoView/RangeView missing for flight mirror check")
+		main.queue_free()
+		return false
+	iso.set_mode(IsoView.Mode.BUILD)
+	await process_frame
+	var flights_root := iso.get_node_or_null("Flights") as Node2D
+	var trails_root := iso.get_node_or_null("Trails") as Node2D
+	if flights_root == null or trails_root == null:
+		print("FAIL: Flights/Trails nodes missing")
+		main.queue_free()
+		return false
+	var flight_layer := iso.get_flight_layer()
+	if flight_layer == null:
+		print("FAIL: FlightLayer missing")
+		main.queue_free()
+		return false
+	## Synthetic in-flight ball tagged like RangeView._spawn_flight_sprite.
+	var src := AnimatedSprite3D.new()
+	src.sprite_frames = DinkySpriteFrames.make_ball_frames()
+	src.set_meta("timing_tier", Balance.TimingTier.GOOD)
+	src.set_meta("is_golden", false)
+	src.set_meta("with_bounces", true)
+	src.add_to_group(&"range_flight_ball")
+	src.visible = true
+	range_view.add_child(src)
+	src.global_position = Vector3(0.0, 0.0, -10.0)
+	src.play(&"roll")
+	await process_frame
+	await process_frame
+	if flight_layer.get_active_count() < 1:
+		print("FAIL: flight layer did not mirror group ball")
+		src.queue_free()
+		main.queue_free()
+		return false
+	var mirror := flight_layer.get_mirror_for_source(src)
+	var trail := flight_layer.get_trail_for_source(src)
+	if mirror == null or trail == null:
+		print("FAIL: missing flight mirror or trail")
+		src.queue_free()
+		main.queue_free()
+		return false
+	src.global_position = Vector3(0.0, 4.0, -20.0)
+	## Advance roll frames — iso mirror must stay on idle/lay (constant size).
+	for i in 8:
+		src.frame = i % DinkySpriteFrames.BALL_ROLL_FRAME_COUNT
+		await process_frame
+		if mirror.animation != &"idle" or mirror.frame != 0:
+			print(
+				"FAIL: flight mirror should stay idle/0 while source rolls; got ",
+				mirror.animation, " frame=", mirror.frame
+			)
+			src.queue_free()
+			main.queue_free()
+			return false
+		var ball_ph := iso.get_actor_layer().get_player_ball_placeholder() if iso.get_actor_layer() else null
+		var expected_scale := (
+			ball_ph.scale.x if ball_ph != null else IsoView.litter_sprite_scale()
+		)
+		if not is_equal_approx(mirror.scale.x, expected_scale):
+			print(
+				"FAIL: flight mirror scale ", mirror.scale.x,
+				" expected ", expected_scale
+			)
+			src.queue_free()
+			main.queue_free()
+			return false
+	var ground_px := IsoGrid.iso_px_from_yards(Vector3(0.0, 0.0, -20.0))
+	var air_px := IsoGrid.iso_px_from_yards(Vector3(0.0, 4.0, -20.0))
+	var lift := ground_px.y - air_px.y
+	if lift < IsoGrid.HEIGHT_PX_PER_YARD * 3.5:
+		print("FAIL: altitude should lift ball; lift=", lift)
+		src.queue_free()
+		main.queue_free()
+		return false
+	if mirror.position.distance_to(air_px) > 1.0:
+		print("FAIL: flight mirror pos ", mirror.position, " expected ", air_px)
+		src.queue_free()
+		main.queue_free()
+		return false
+	if trail.has_method(&"point_count") and trail.point_count() < 1:
+		print("FAIL: trail should have samples")
+		src.queue_free()
+		main.queue_free()
+		return false
+	## Hand-off: remove flight source, spawn litter — trail finishes, litter appears.
+	src.remove_from_group(&"range_flight_ball")
+	src.queue_free()
+	await process_frame
+	await process_frame
+	var bus: Node = root.get_node("EventBus")
+	var rest := Vector3(0.0, 0.0, -20.0)
+	bus.litter_spawned.emit(9101, rest, 2, 20.0, false, "player")
+	await process_frame
+	var litter_root := iso.get_node("LitteredBalls") as Node2D
+	if litter_root.get_child_count() < 1:
+		print("FAIL: litter handoff missing after flight")
+		main.queue_free()
+		return false
+	bus.litter_cleared.emit()
+	print("OK: iso flight mirror + trail + altitude + constant idle size + litter handoff")
 	main.queue_free()
 	return true

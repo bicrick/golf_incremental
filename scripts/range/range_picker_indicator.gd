@@ -37,14 +37,15 @@ func _process(_delta: float) -> void:
 	if camera == null:
 		visible = false
 		return
-	var hit: Variant = RangeGroundRay.hit(camera, get_viewport().get_mouse_position())
+	var mouse := get_viewport().get_mouse_position()
+	var radius := Balance.range_picker_radius_yards(GameState.stats)
+	var hit: Variant = picker_ground_at_cursor(camera, mouse, radius)
 	if hit == null:
 		visible = false
 		return
 	visible = true
 	var ground: Vector3 = hit
 	global_position = Vector3(ground.x, GROUND_LIFT, ground.z)
-	var radius := Balance.range_picker_radius_yards(GameState.stats)
 	if absf(radius - _last_radius) > 0.001:
 		_last_radius = radius
 		_mesh_instance.mesh = _build_dashed_ring(radius)
@@ -81,3 +82,17 @@ static func screen_radius_px(camera: Camera3D, ground: Vector3, world_radius: fl
 	var center := camera.unproject_position(ground)
 	var edge := camera.unproject_position(ground + Vector3(world_radius, 0.0, 0.0))
 	return maxf(4.0, center.distance_to(edge))
+
+
+## Ground point for the pick circle center. Offset so the cursor tip sits on the
+## top rim of the ring (screen-down by projected radius), not the circle center.
+static func picker_ground_at_cursor(
+	camera: Camera3D, mouse_pos: Vector2, world_radius: float
+) -> Variant:
+	var tip_hit: Variant = RangeGroundRay.hit(camera, mouse_pos)
+	if tip_hit == null:
+		return null
+	var tip_ground: Vector3 = tip_hit
+	var screen_r := screen_radius_px(camera, tip_ground, world_radius)
+	var center_hit: Variant = RangeGroundRay.hit(camera, mouse_pos + Vector2(0.0, screen_r))
+	return tip_hit if center_hit == null else center_hit

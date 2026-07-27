@@ -97,6 +97,8 @@ static func _dawn() -> AtmosphereSnapshot:
 
 static func _day() -> AtmosphereSnapshot:
 	# Fairway stripes: light #6db505, dark #3f9d02 (matched to backdrop trees).
+	# Iso TileMap terrain PNGs use a separate authored palette — do not change this
+	# for iso-only color work.
 	return _snap(
 		Color(0.55, 0.75, 0.92),
 		Color(1.0, 1.0, 1.0),

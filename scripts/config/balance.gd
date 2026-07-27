@@ -25,7 +25,7 @@ const COMBO_WINDOW_SEC: float = 0.8
 const COMBO_MULT_PER_TIER: float = 0.10
 
 ## Harvest range picker — world-radius circle on the fairway (yards).
-const RANGE_PICKER_BASE_RADIUS_YARDS: float = 0.19
+const RANGE_PICKER_BASE_RADIUS_YARDS: float = 0.25
 ## Linear stat increment per upgrade level (maps to curve below).
 const RANGE_PICKER_RADIUS_PER_LEVEL: float = 0.04
 const RANGE_PICKER_MAX_LEVEL: int = 10

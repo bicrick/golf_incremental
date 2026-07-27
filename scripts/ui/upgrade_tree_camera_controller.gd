@@ -36,6 +36,20 @@ func set_enabled(enabled: bool) -> void:
 		_pending = false
 	_enabled = enabled
 	set_process_input(enabled)
+	set_process(enabled)
+
+
+func _process(_delta: float) -> void:
+	if not _enabled:
+		return
+	if not _drag_active and not _pending:
+		return
+	if Input.is_mouse_button_pressed(drag_button):
+		return
+	if _drag_active:
+		_end_drag()
+	else:
+		_pending = false
 
 
 func is_enabled() -> bool:

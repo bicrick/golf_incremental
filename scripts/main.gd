@@ -92,6 +92,23 @@ func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
 
 
 func _set_active_world_visible(visible: bool) -> void:
+	if _harvest_view_active and iso_view != null:
+		range_view.visible = false
+		if visible:
+			if iso_view.has_method(&"set_mode"):
+				iso_view.set_mode(IsoView.Mode.HARVEST)
+			else:
+				iso_view.visible = true
+				if iso_view.has_method(&"set_active"):
+					iso_view.set_active(true)
+		else:
+			if iso_view.has_method(&"set_mode"):
+				iso_view.set_mode(IsoView.Mode.OFF)
+			elif iso_view.has_method(&"set_active"):
+				iso_view.set_active(false)
+			iso_view.visible = false
+		CursorManager.refresh()
+		return
 	if _build_view_active and iso_view != null:
 		iso_view.visible = visible
 		if iso_view.has_method(&"set_active"):
@@ -103,6 +120,7 @@ func _set_active_world_visible(visible: bool) -> void:
 			iso_view.visible = false
 			if iso_view.has_method(&"set_active"):
 				iso_view.set_active(false)
+	CursorManager.refresh()
 
 
 func _sync_upgrade_sky_tint() -> void:

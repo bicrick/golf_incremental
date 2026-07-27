@@ -115,6 +115,7 @@ func set_debug_mode(active: bool) -> void:
 		if _flight_trail:
 			_flight_trail.finish()
 			_flight_trail = null
+		_clear_flight_group()
 		if _golfer:
 			_golfer.visible = true
 			_golfer.play(&"idle")
@@ -243,6 +244,7 @@ func _refresh_active_state() -> void:
 		if _flight_trail:
 			_flight_trail.finish()
 			_flight_trail = null
+		_clear_flight_group()
 		return
 	_refresh_cooldown_timer()
 	_start_waiting_phase()
@@ -287,6 +289,7 @@ func _fade_out_and_despawn() -> void:
 	if _flight_tween and _flight_tween.is_valid():
 		_flight_tween.kill()
 		_flight_tween = null
+	_clear_flight_group()
 	if _fade_tween and _fade_tween.is_valid():
 		_fade_tween.kill()
 	_fade_tween = create_tween()
@@ -453,11 +456,17 @@ func _abort_swing_no_ball() -> void:
 	if _flight_trail:
 		_flight_trail.finish()
 		_flight_trail = null
+	_clear_flight_group()
 	if _ball:
 		_ball.visible = false
 	if _golfer:
 		_golfer.play(&"waiting")
 	_phase = Phase.WAITING
+
+
+func _clear_flight_group() -> void:
+	if _ball != null and is_instance_valid(_ball) and _ball.is_in_group(&"range_flight_ball"):
+		_ball.remove_from_group(&"range_flight_ball")
 
 
 func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
@@ -482,7 +491,8 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 	if _flight_trail:
 		_flight_trail.finish()
 		_flight_trail = null
-	if _fx_layer and _camera:
+	var range_visible := _range_view != null and _range_view.visible
+	if _fx_layer and _camera and range_visible:
 		_flight_trail = BallFlightTrailScript.begin(
 			_fx_layer,
 			_camera,
@@ -494,6 +504,11 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 	_ball.position = _ball_home
 	_ball.scale = _base_ball_scale
 	_ball.modulate = _atmosphere_tint
+	_ball.set_meta("timing_tier", timing_tier)
+	_ball.set_meta("is_golden", false)
+	_ball.set_meta("with_bounces", will_litter)
+	if not _ball.is_in_group(&"range_flight_ball"):
+		_ball.add_to_group(&"range_flight_ball")
 	_ball.play(&"roll")
 	_ball.sprite_frames.set_animation_speed(
 		&"roll",
@@ -507,6 +522,7 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 		var landing := path.rest_position if will_litter else BallFlight3DScript.sample(1.0, path)
 		_ball_in_flight = false
 		_ball.visible = false
+		_clear_flight_group()
 		if _flight_trail:
 			_flight_trail.finish()
 			_flight_trail = null

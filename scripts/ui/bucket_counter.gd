@@ -84,6 +84,8 @@ func _refresh_actionable() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mouse_default_cursor_shape = Control.CURSOR_ARROW
 		_stop_attention()
+		## mouse_filter IGNORE while hovered skips mouse_exited; force cursor sync.
+		CursorManager.refresh()
 
 
 func _capture_rest_y() -> void:

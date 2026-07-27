@@ -1,8 +1,12 @@
+@tool
 class_name IsoView
 extends Node2D
 ## Standalone 2D isometric build + harvest view. Sibling of RangeView.
 ## TileMap is 1:1 with RangeGrid (19x200). Depth is flipped so the tee
 ## sits toward screen bottom-left and downrange aims top-right.
+##
+## @tool: paints the fairway in the editor when this scene is open.
+## Runtime wiring (EventBus, actors, pickup) runs only outside the editor.
 
 enum Mode { OFF, BUILD, HARVEST }
 
@@ -14,7 +18,9 @@ const FAIRWAY_SOURCE_ID := 0
 const FAIRWAY_VARIANT_COUNT := 4
 const FAIRWAY_ATLAS_LIGHT := Vector2i(0, 0) ## variant 0 light (legacy alias)
 const FAIRWAY_ATLAS_DARK := Vector2i(FAIRWAY_VARIANT_COUNT, 0) ## variant 0 dark
-const FAIRWAY_ATLAS_MAT := Vector2i(FAIRWAY_VARIANT_COUNT * 2, 0) ## variant 0 mat
+## Single authored mat tile — fairway_mat_3.png (atlas index 2N+3).
+const FAIRWAY_MAT_VARIANT := 3
+const FAIRWAY_ATLAS_MAT := Vector2i(FAIRWAY_VARIANT_COUNT * 2 + FAIRWAY_MAT_VARIANT, 0)
 ## Match RangeView / BayCell billboard world size (yards per texture px).
 const BALL_PIXEL_SIZE := 0.021
 const BALL_TEX_PX := 16.0
@@ -24,11 +30,15 @@ const BALL_TEX_PX := 16.0
 @onready var paths: TileMapLayer = $Paths
 @onready var objects: Node2D = $Objects
 @onready var littered_balls: Node2D = $LitteredBalls
+@onready var flights: Node2D = $Flights
+@onready var trails: Node2D = $Trails
 @onready var overlay: Node2D = $Overlay
 @onready var harvest_fx_root: Node2D = $HarvestFx/FxRoot
 @onready var picker_layer: CanvasLayer = $PickerLayer
 @onready var camera_controller: IsoCameraController = $CameraController
 @onready var placement_controller: PlacementController = $PlacementController
+@onready var actor_layer: IsoActorLayer = $ActorLayer
+@onready var flight_layer: IsoFlightLayer = $FlightLayer
 
 var _model: IsoWorldModel = IsoWorldModel.new()
 var _terrain_ready := false
@@ -38,20 +48,57 @@ var _pickup: Node
 var _picker: Node2D
 var _ball_tex: Texture2D
 var _litter_by_id: Dictionary = {} ## int -> Sprite2D
+var _editor_clearing_for_save := false
+
+## Inspector: tick to repaint fairway + refocus camera while editing this scene.
+@export var editor_repaint_preview: bool = false:
+	set(value):
+		editor_repaint_preview = false
+		if value and Engine.is_editor_hint() and is_inside_tree():
+			_refresh_editor_preview()
+
+
+func _should_use_editor_rig() -> bool:
+	if not Engine.is_editor_hint():
+		return false
+	var edited := get_tree().edited_scene_root
+	return edited != null and edited == self
+
+
+func _enter_tree() -> void:
+	if _should_use_editor_rig():
+		call_deferred("_refresh_editor_preview")
+
+
+func _notification(what: int) -> void:
+	## Avoid baking 19×200 painted cells into the .tscn on save.
+	if what == NOTIFICATION_EDITOR_PRE_SAVE and _should_use_editor_rig():
+		_editor_clearing_for_save = true
+		if terrain:
+			terrain.clear()
+		if paths:
+			paths.clear()
+	elif what == NOTIFICATION_EDITOR_POST_SAVE and _should_use_editor_rig():
+		_editor_clearing_for_save = false
+		_refresh_editor_preview()
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		if _should_use_editor_rig():
+			_refresh_editor_preview()
+		return
+
 	add_to_group(&"iso_view")
 	_ball_tex = DinkySpriteFrames.ball_lay_texture()
 	if camera_controller:
 		camera_controller.setup(camera)
 	if placement_controller:
 		placement_controller.setup(terrain, objects, overlay, _model)
+	_setup_actor_and_flight_layers()
 	_setup_pickup()
 	_try_load_tileset()
-	camera.position = IsoGrid.iso_px_from_cell(
-		IsoGrid.iso_cell_from_range_cell(RangeGrid.PLAYER_CELL)
-	)
+	camera.position = _player_bay_px()
 	var bus := _event_bus()
 	if bus != null:
 		if not bus.litter_spawned.is_connected(_on_litter_spawned):
@@ -63,8 +110,103 @@ func _ready() -> void:
 	set_mode(Mode.OFF)
 
 
+func _player_bay_px() -> Vector2:
+	## View origin is the player address pose — camera sits at (0,0).
+	return Vector2.ZERO
+
+
+func _refresh_editor_preview() -> void:
+	if not Engine.is_editor_hint() or _editor_clearing_for_save:
+		return
+	_resolve_editor_nodes()
+	visible = true
+	_try_load_tileset()
+	_apply_view_origin_offset()
+	if _terrain_ready and terrain != null:
+		_paint_default_terrain()
+		_terrain_painted = true
+	_sync_editor_focus_marker()
+	if actor_layer:
+		IsoEditorPlaceholders.setup_for_editor(actor_layer)
+	if camera:
+		camera.position = Vector2.ZERO
+		camera.enabled = true
+		camera.make_current()
+	apply_atmosphere(60.0)
+
+
+func _resolve_editor_nodes() -> void:
+	if terrain == null:
+		terrain = get_node_or_null("Terrain") as TileMapLayer
+	if paths == null:
+		paths = get_node_or_null("Paths") as TileMapLayer
+	if objects == null:
+		objects = get_node_or_null("Objects") as Node2D
+	if littered_balls == null:
+		littered_balls = get_node_or_null("LitteredBalls") as Node2D
+	if flights == null:
+		flights = get_node_or_null("Flights") as Node2D
+	if trails == null:
+		trails = get_node_or_null("Trails") as Node2D
+	if overlay == null:
+		overlay = get_node_or_null("Overlay") as Node2D
+	if camera == null:
+		camera = get_node_or_null("Camera2D") as Camera2D
+	if actor_layer == null:
+		actor_layer = get_node_or_null("ActorLayer") as IsoActorLayer
+
+
+func _sync_editor_focus_marker() -> void:
+	var marker := get_node_or_null("EditorFocus") as Marker2D
+	if marker == null:
+		marker = Marker2D.new()
+		marker.name = "EditorFocus"
+		add_child(marker)
+		var root := get_tree().edited_scene_root
+		if root:
+			marker.owner = root
+	marker.position = Vector2.ZERO
+	marker.gizmo_extents = 48.0
+
+
 func _event_bus() -> Node:
 	return get_tree().root.get_node_or_null("EventBus")
+
+
+func _setup_actor_and_flight_layers() -> void:
+	## Parent Main may not be in group "main" yet (children _ready before parent).
+	var range_view: Node3D = get_parent().get_node_or_null("RangeView") as Node3D
+	if range_view == null:
+		var main := get_tree().get_first_node_in_group(&"main")
+		if main != null:
+			range_view = main.get_node_or_null("RangeView") as Node3D
+	if range_view == null:
+		range_view = get_tree().get_first_node_in_group(&"range_view") as Node3D
+	if actor_layer:
+		actor_layer.setup(range_view)
+	if flight_layer:
+		flight_layer.setup(flights, trails, camera, camera_controller)
+	## Defer a rebind in case RangeView player refs were not ready yet.
+	call_deferred("_rebind_actor_layers")
+
+
+func _rebind_actor_layers() -> void:
+	if actor_layer == null:
+		return
+	var range_view: Node3D = get_parent().get_node_or_null("RangeView") as Node3D
+	if range_view == null:
+		return
+	actor_layer.setup(range_view)
+	if is_active():
+		actor_layer.set_enabled(true)
+
+
+func get_actor_layer() -> IsoActorLayer:
+	return actor_layer
+
+
+func get_flight_layer() -> IsoFlightLayer:
+	return flight_layer
 
 
 func _setup_pickup() -> void:
@@ -77,11 +219,11 @@ func _setup_pickup() -> void:
 	_pickup.setup(self, littered_balls, harvest_fx_root, camera, bucket_counter)
 	_picker = IsoPickerIndicatorScript.new()
 	_picker.name = "IsoPickerIndicator"
-	## CanvasLayer so LINE_WIDTH 1.0 is one canvas pixel (zoom-independent hairline).
+	## CanvasLayer: stroke width is 1 screen px (stretch-compensated), zoom-independent.
 	picker_layer.add_child(_picker)
 	_picker.setup(
 		func() -> bool: return _pickup != null and _pickup.is_active(),
-		func() -> Vector2: return get_viewport().get_mouse_position(),
+		func() -> Vector2: return _pickup.picker_center_screen() if _pickup else get_viewport().get_mouse_position(),
 		func() -> float: return _pickup.picker_radius_yards() if _pickup else 0.0,
 		camera
 	)
@@ -104,6 +246,10 @@ func set_mode(mode: Mode) -> void:
 		placement_controller.set_enabled(mode == Mode.BUILD)
 		if mode == Mode.BUILD and placement_controller.get_active_catalog_id() == &"":
 			pass
+	if actor_layer:
+		actor_layer.set_enabled(active)
+	if flight_layer:
+		flight_layer.set_enabled(active)
 	if active and _terrain_ready and not _terrain_painted:
 		_paint_default_terrain()
 		_terrain_painted = true
@@ -132,20 +278,36 @@ func get_pickup_controller() -> Node:
 	return _pickup
 
 
+## Iso terrain PNGs are authored independently of DayNightPalette 3D stripes.
+## Wash strength at night so day/night still reads after brighter authored means.
+const ISO_TERRAIN_TOD_WASH := 0.55
+
+
 func apply_atmosphere(cycle_time: float) -> void:
 	var snap := DayNightPalette.sample_at(cycle_time)
 	var day_factor := DayNightPalette.day_light_factor(cycle_time)
 	var tint := DayNightPalette.apply_moonlight(snap.canvas_modulate, day_factor)
+	## Keep authored iso greens readable — do not apply full 3D fairway stripe modulate.
+	var terrain_tint := Color.WHITE.lerp(tint, ISO_TERRAIN_TOD_WASH * (1.0 - day_factor))
 	if terrain:
-		terrain.modulate = tint
+		terrain.modulate = terrain_tint
 	if paths:
-		paths.modulate = tint
+		paths.modulate = terrain_tint
 	if objects:
 		objects.modulate = tint
 	if littered_balls:
+		## Litter sprites are WHITE/golden; parent wash matches 3D litter.modulate.
 		littered_balls.modulate = tint
+	## Flight mirrors copy SpriteBase3D.modulate — leave Flights untinted (no double wash).
+	if flights:
+		flights.modulate = Color.WHITE
+	if trails:
+		trails.modulate = tint
 	if overlay:
 		overlay.modulate = tint
+	## Actor mirrors copy 3D modulate 1:1 — never wash this layer.
+	if actor_layer:
+		actor_layer.modulate = Color.WHITE
 
 
 func _sync_atmosphere_from_range() -> void:
@@ -237,7 +399,7 @@ func _on_litter_spawned(
 	var sprite := Sprite2D.new()
 	sprite.name = "Litter_%d" % litter_id
 	sprite.texture = _ball_tex
-	var ball_scale := litter_sprite_scale()
+	var ball_scale := authored_ball_scale()
 	sprite.scale = Vector2(ball_scale, ball_scale)
 	sprite.position = IsoGrid.iso_px_from_yards(world_pos)
 	sprite.z_index = 2
@@ -281,7 +443,17 @@ func _try_load_tileset() -> void:
 		return
 	terrain.tile_set = ts
 	paths.tile_set = ts
+	_apply_view_origin_offset()
 	_terrain_ready = true
+
+
+func _apply_view_origin_offset() -> void:
+	## TileMap map_to_local is unshifted; slide layers so (0,0) is the player.
+	var origin := IsoGrid.view_origin_px_raw()
+	if terrain:
+		terrain.position = -origin
+	if paths:
+		paths.position = -origin
 
 
 func _paint_default_terrain() -> void:
@@ -304,10 +476,9 @@ static func fairway_atlas_for_cell(col: int, row: int) -> Vector2i:
 	return Vector2i(band_base + variant, 0)
 
 
-## Really-dark fairway reuse for hitting mats (same grass texture, crushed value).
-static func fairway_mat_atlas_for_cell(col: int, row: int) -> Vector2i:
-	var variant := absi(hash(Vector2i(col, row))) % FAIRWAY_VARIANT_COUNT
-	return Vector2i(FAIRWAY_VARIANT_COUNT * 2 + variant, 0)
+## One mat texture for every bay — fairway_mat_3 (no variant scatter).
+static func fairway_mat_atlas_for_cell(_col: int = 0, _row: int = 0) -> Vector2i:
+	return FAIRWAY_ATLAS_MAT
 
 
 ## Iso Sprite2D scale so litter matches RangeView ball world diameter.
@@ -318,14 +489,19 @@ static func litter_sprite_scale() -> float:
 	return maxf(0.12, c.distance_to(e) / BALL_TEX_PX)
 
 
+## Prefer PlayerBallPlaceholder scale (editor-authored); else projected litter scale.
+func authored_ball_scale() -> float:
+	return IsoEditorPlaceholders.ball_scale(actor_layer)
+
+
 func _paint_bay_mats() -> void:
-	for range_cell in [RangeGrid.PLAYER_CELL, RangeGrid.RATINA_CELL]:
+	## Every bay on the player row — single fairway_mat_3 atlas cell.
+	var bay_cells: Array[Vector2i] = [RangeGrid.PLAYER_CELL, RangeGrid.RATINA_CELL]
+	bay_cells.append_array(RangeGrid.empty_bay_cells_on_player_row())
+	var mat_atlas := FAIRWAY_ATLAS_MAT
+	for range_cell in bay_cells:
 		for iso in IsoGrid.iso_cells_for_range_cell(range_cell):
-			terrain.set_cell(
-				iso,
-				FAIRWAY_SOURCE_ID,
-				fairway_mat_atlas_for_cell(range_cell.x, range_cell.y)
-			)
+			terrain.set_cell(iso, FAIRWAY_SOURCE_ID, mat_atlas)
 
 
 func _block_reserved_bays() -> void:

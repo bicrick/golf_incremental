@@ -1,15 +1,15 @@
 class_name IsoPickerIndicator
 extends Node2D
 ## Canvas-space harvest picker for IsoView.
-## Matches the old 3D RangePickerIndicator: angular dashes on a ground-projected
-## ellipse, stroked at a constant 1 canvas pixel so camera zoom does not inflate
-## the line.
+## Ground-projected dashed ellipse; stroke is always 1 *physical screen* pixel
+## (compensates window stretch / content scale). Camera zoom changes radius only.
 
-const SEGMENTS := 48
+const SEGMENTS := 96
 const DASH_ON := 2
 const DASH_OFF := 2
-const LINE_WIDTH := 1.0
-const RING_COLOR := Color(0.95, 0.98, 1.0, 0.78)
+## Target thickness in physical framebuffer pixels after stretch.
+const SCREEN_LINE_PX := 1.0
+const RING_COLOR := Color(0.95, 0.98, 1.0, 0.85)
 
 var _visible_getter: Callable
 var _center_getter: Callable
@@ -33,7 +33,6 @@ func setup(
 	_radius_yards_getter = radius_yards_getter
 	_camera = camera
 	visible = false
-	texture_filter = TEXTURE_FILTER_NEAREST
 
 
 func _process(_delta: float) -> void:
@@ -55,9 +54,19 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 
+func _screen_hairline_width() -> float:
+	## canvas_items integer stretch turns 1.0 canvas units into N screen pixels.
+	var stretch_scale := 1.0
+	var vp := get_viewport()
+	if vp != null:
+		stretch_scale = maxf(vp.get_stretch_transform().get_scale().x, 0.001)
+	return SCREEN_LINE_PX / stretch_scale
+
+
 func _draw() -> void:
 	if _radii_screen.x < 0.5 or _radii_screen.y < 0.5:
 		return
+	var width := _screen_hairline_width()
 	var cycle := DASH_ON + DASH_OFF
 	for i in SEGMENTS:
 		if i % cycle >= DASH_ON:
@@ -66,4 +75,4 @@ func _draw() -> void:
 		var a1 := TAU * float(i + 1) / float(SEGMENTS)
 		var p0 := Vector2(cos(a0) * _radii_screen.x, sin(a0) * _radii_screen.y)
 		var p1 := Vector2(cos(a1) * _radii_screen.x, sin(a1) * _radii_screen.y)
-		draw_line(p0, p1, RING_COLOR, LINE_WIDTH, false)
+		draw_line(p0, p1, RING_COLOR, width, true)

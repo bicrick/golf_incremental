@@ -81,9 +81,9 @@ func _process(_delta: float) -> void:
 		if not _active.has(id):
 			_spawn_entry(src)
 		var entry: Dictionary = _active[id]
-		var trail: Node2D = entry.get("trail")
-		if trail != null and is_instance_valid(trail) and trail.has_method(&"track"):
-			trail.track(src.global_position)
+		var trail_v: Variant = entry.get("trail")
+		if trail_v is Node and is_instance_valid(trail_v) and trail_v.has_method(&"track"):
+			trail_v.track(src.global_position)
 		var px := IsoGrid.iso_px_from_yards(src.global_position)
 		if not have_follow:
 			follow_px = px
@@ -109,7 +109,13 @@ func _spawn_entry(src: SpriteBase3D) -> void:
 	mirror.name = "FlightMirror_%d" % src.get_instance_id()
 	mirror.z_index = 5
 	_flights_root.add_child(mirror)
-	mirror.setup(src, false, true)
+	## Ball scale follows PlayerBallPlaceholder when authored on IsoView.
+	var ball_ph: Node2D = null
+	var iso := get_parent() as IsoView
+	if iso != null and iso.actor_layer != null:
+		ball_ph = IsoEditorPlaceholders.ball_node(iso.actor_layer)
+	## Scale only — flight altitude uses yards→iso; placeholder pose is for tee rest.
+	mirror.setup(src, false, true, ball_ph, Vector3.ZERO, false)
 
 	var timing_tier := Balance.TimingTier.GOOD
 	if src.has_meta("timing_tier"):
@@ -126,7 +132,10 @@ func _spawn_entry(src: SpriteBase3D) -> void:
 	_active[src.get_instance_id()] = {
 		"mirror": mirror,
 		"trail": trail,
-		"source": src,
+		## Cached so finish still works after the 3D sprite is freed on land.
+		"with_bounces": (
+			bool(src.get_meta("with_bounces")) if src.has_meta("with_bounces") else true
+		),
 	}
 
 
@@ -135,15 +144,14 @@ func _finish_entry(id: int) -> void:
 		return
 	var entry: Dictionary = _active[id]
 	_active.erase(id)
-	var trail: Node2D = entry.get("trail")
-	if trail != null and is_instance_valid(trail) and trail.has_method(&"finish"):
-		trail.finish()
-	var mirror: IsoActorMirror = entry.get("mirror")
-	var src: SpriteBase3D = entry.get("source")
-	var will_litter := true
-	if src != null and is_instance_valid(src) and src.has_meta("with_bounces"):
-		will_litter = bool(src.get_meta("with_bounces"))
-	if mirror != null and is_instance_valid(mirror):
+	## Untyped get — typed assign of a freed Object throws before is_instance_valid.
+	var trail_v: Variant = entry.get("trail")
+	if trail_v is Node and is_instance_valid(trail_v) and trail_v.has_method(&"finish"):
+		trail_v.finish()
+	var will_litter := bool(entry.get("with_bounces", true))
+	var mirror_v: Variant = entry.get("mirror")
+	if mirror_v is Node and is_instance_valid(mirror_v):
+		var mirror: Node = mirror_v
 		if will_litter:
 			mirror.queue_free()
 		else:
@@ -157,10 +165,10 @@ func _clear_all() -> void:
 	var ids: Array = _active.keys()
 	for id in ids:
 		var entry: Dictionary = _active[id]
-		var trail: Node2D = entry.get("trail")
-		if trail != null and is_instance_valid(trail):
-			trail.queue_free()
-		var mirror: IsoActorMirror = entry.get("mirror")
-		if mirror != null and is_instance_valid(mirror):
-			mirror.queue_free()
+		var trail_v: Variant = entry.get("trail")
+		if trail_v is Node and is_instance_valid(trail_v):
+			trail_v.queue_free()
+		var mirror_v: Variant = entry.get("mirror")
+		if mirror_v is Node and is_instance_valid(mirror_v):
+			mirror_v.queue_free()
 	_active.clear()
