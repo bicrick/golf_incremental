@@ -83,11 +83,9 @@ shader = ExtResource("2_lsyt8")
 shader_parameter/albedo_tex = ExtResource("2_ulxcv")
 shader_parameter/fairway_light = Color(1.07, 1.03, 0.12, 1)
 shader_parameter/fairway_dark = Color(0.63, 0.84, 0.10, 1)
-shader_parameter/apron_tint = Color(1, 1, 1, 1)
 shader_parameter/tile_uv_bounds = Vector4(0.00125, 0.002232143, 0.03875, 0.069196425)
 shader_parameter/tile_size_yards = 2.0
 shader_parameter/half_width_yards = 25.0
-shader_parameter/ground_mode = 0
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_467tl"]
 atlas = ExtResource("3_lsyt8")
@@ -511,7 +509,7 @@ animations = [{
 
 [node name="PlayerBayCell" type="Node3D" unique_id=1924483980]
 script = ExtResource("1_script")
-camera_position = Vector3(0.6254383, 0.6255252, 2.4931197)
+camera_position = Vector3(2.02386, 1.93108, 2.02386)
 
 [node name="EditorOnly" type="Node3D" parent="." unique_id=1447810952]
 
@@ -524,7 +522,7 @@ light_color = Color(1, 0.92, 0.55, 1)
 light_energy = 1.15
 
 [node name="Camera3D" type="Camera3D" parent="EditorOnly" unique_id=1996337169]
-transform = Transform3D(0.9608136, -0.06625118, 0.26916188, 0, 0.97101825, 0.23900528, -0.27719548, -0.2296395, 0.93296754, 0.6254383, 0.6255252, 2.4931197)
+transform = Transform3D(0.70710678, -0.3162272, 0.63245581, 0, 0.89442759, 0.4472128, -0.70710678, -0.3162272, 0.63245581, 2.02386, 1.93108, 2.02386)
 projection = 1
 current = true
 size = 8.0

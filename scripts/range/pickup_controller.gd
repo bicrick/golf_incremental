@@ -23,10 +23,13 @@ func setup(range_view: Node3D, littered_balls: Node3D, bucket_counter: Control) 
 
 
 func is_active() -> bool:
+	## Ready when 3D ortho settled or IsoView harvest is showing (player path).
 	return _active and GameState.is_collect_mode() and _harvest_view_ready()
 
 
 func _harvest_view_ready() -> bool:
+	if _iso_harvest_ready():
+		return true
 	if _range_view == null:
 		return false
 	if _range_view.has_method("is_harvest_view_ready"):
@@ -34,8 +37,17 @@ func _harvest_view_ready() -> bool:
 	return _active
 
 
+func _iso_harvest_ready() -> bool:
+	var iso := get_tree().get_first_node_in_group(&"iso_view")
+	if iso == null or not iso.has_method(&"is_harvest_view_ready"):
+		return false
+	return iso.is_harvest_view_ready()
+
+
 func handle_input(event: InputEvent) -> bool:
-	## Pickup only after harvest ortho settle — phase alone is not enough.
+	## Pickup only after harvest settle — phase alone is not enough.
+	## Live clicks go through IsoView when it owns harvest; this path still
+	## supports 3D litter collects (verify / rattling-adjacent tooling).
 	if not is_active():
 		return false
 	if not event is InputEventMouseButton:
@@ -70,6 +82,9 @@ func try_complete_harvest() -> void:
 ## fairway, discard unresolved flights, and restore a full bucket.
 func return_all_litter_free() -> bool:
 	if not GameState.is_collect_mode():
+		return false
+	## Iso pickup owns the bucket button while iso harvest is showing.
+	if _iso_harvest_ready():
 		return false
 	_clear_litter()
 	if _range_view != null and _range_view.has_method("discard_active_flights"):
@@ -156,13 +171,16 @@ func _collect_litter(litter: Sprite3D) -> void:
 	var world_pos := litter.global_position
 	var camera := _camera()
 	var start_screen := camera.unproject_position(world_pos) if camera else Vector2.ZERO
-	litter.queue_free()
-
-	var combo_tier := _advance_combo()
+	var litter_id: int = int(litter.get_meta("litter_id", -1))
 	var quality: int = litter.get_meta("ball_quality", 1)
 	var yardage: float = litter.get_meta("ball_yardage", GameState.stats.base_yards)
 	var is_golden: bool = litter.get_meta("ball_golden", false)
 	var source: String = litter.get_meta("ball_source", "player")
+	litter.queue_free()
+	if litter_id >= 0:
+		EventBus.litter_removed.emit(litter_id)
+
+	var combo_tier := _advance_combo()
 	var payout := GameState.collect_harvest_ball(
 		world_pos, combo_tier, quality, yardage, is_golden, source
 	)
@@ -225,10 +243,7 @@ func _mark_all_litter_collectible() -> void:
 
 
 func _clear_litter() -> void:
-	if _littered_balls == null:
-		return
-	for child in _littered_balls.get_children():
-		child.queue_free()
+	EventBus.litter_cleared.emit()
 
 
 func _bind_bucket_counter_click() -> void:

@@ -9,35 +9,49 @@
 | **Rotation** | **Locked** project-wide — `V4CameraConfig.LOCKED_BASIS` |
 | **Position** | **Scene-authored** on each `Camera3D` (or bay `@export`); tunable at runtime via WASD pan |
 | **Ortho `size`** | **Scene-authored** on each `Camera3D`; tunable at runtime via scroll zoom |
-| **Projection** | Orthographic only in v4 |
+| **Projection** | Orthographic only for harvest / build (strike still uses perspective) |
 
 All ground, fence, and prop art is authored against this locked rotation.
 
+### Angle contract (PixelLab-compatible)
+
+Harvest / build ortho is **true 2:1 dimetric**:
+
+| Euler (Godot YXZ) | Value |
+|-------------------|-------|
+| Pitch | **-26.565°** (`arctan(1/2)`) |
+| Yaw | **45°** |
+| Roll | **0°** |
+
+This matches PixelLab `create_tiles_pro(tile_type="isometric")` diamonds and Godot TileSet `tile_size = Vector2i(32, 16)`. Future buildable terrain, fence, and bay kits must be authored for this projection only.
+
+Strike / flight still uses `PerspectiveCamera` — do not apply `LOCKED_BASIS` to it.
+
 ### Source of truth
 
-**Rotation:** [`ratina_bay_cell.tscn`](../../scenes/range/cells/ratina_bay_cell.tscn) → `EditorOnly/Camera3D` basis → [`scripts/config/v4_camera_config.gd`](../../scripts/config/v4_camera_config.gd) `LOCKED_BASIS`. Re-sync **basis only** when the dimetric angle changes.
+**Rotation:** [`scripts/config/v4_camera_config.gd`](../../scripts/config/v4_camera_config.gd) `LOCKED_BASIS`. Scenes and bay editor cameras sync from this constant. Runtime always re-applies it via `apply_locked_rotation_only()`.
 
 **Position / size:** saved in each scene's `Camera3D` node — [`range_view.tscn`](../../scenes/range/range_view.tscn) for the live range, bay cell scenes for per-bay preview rigs. Code never overwrites these at runtime except to enforce locked rotation.
 
-`player_bay_cell.tscn` and `range_view.tscn` call `V4CameraConfig.apply_locked_rotation_only()` (range) or `apply_locked_rotation()` with bay exports (cells). **Ratina bay still uses its scene camera directly** until verified — do not point ratina at the global config yet.
+`range_view.tscn` and bay cells (`bay_cell.gd`) call `V4CameraConfig.apply_locked_rotation_only()` / `apply_locked_rotation()`. Ratina and player bay editor previews use the same lock.
 
-Root exports on [`bay_cell.gd`](../../scripts/range/bay_cell.gd): `camera_position`, `camera_size` — applied via `V4CameraConfig.apply_locked_rotation()` for player bay only.
+Root exports on [`bay_cell.gd`](../../scripts/range/bay_cell.gd): `camera_position`, `camera_size` — applied via `V4CameraConfig.apply_locked_rotation()`.
 
-**Editor note:** Godot has no "align view to camera." Use split viewport + Preview to see camera output while editing sprites in the main pane. To fix bottom sky bleed, move the camera back (+Z) and up (+Y) in the editor and adjust ortho `size`; save the scene.
+**Editor note:** Godot has no "align view to camera." Use split viewport + Preview to see camera output while editing sprites in the main pane. To fix framing, move the camera along the look-back ray (opposite of look ≈ `(-0.63, -0.45, -0.63)`) and adjust ortho `size`; save the scene. Do not change roll or yaw.
 
 ### Locked rotation
 
-From `ratina_bay_cell.tscn` `EditorOnly/Camera3D` → basis columns of the transform matrix:
+Basis columns of `LOCKED_BASIS` (`rotation_degrees = Vector3(-26.565, 45.0, 0.0)`):
 
 ```
-|  0.9608136  -0.06625118   0.26916188 |
-|  0.0         0.97101825   0.23900528 |
-| -0.27719548 -0.2296395    0.93296754 |
+|  0.70710678  -0.31622720   0.63245581 |
+|  0.0          0.89442759   0.44721280 |
+| -0.70710678  -0.31622720   0.63245581 |
 ```
 
-When syncing from the editor, paste the basis columns into `v4_camera_config.gd` — do not hand-build a `Basis` from the first three floats.
+`.tscn` Transform3D layout is `(xx, xy, xz, yx, yy, yz, zx, zy, zz, ox, oy, oz)`. Basis columns are `(xx,yx,zx)`, `(xy,yy,zy)`, `(xz,yz,zz)`.
 
-Approximate euler (informational only): **(13.36°, -18.58°, -4.44°)**.
+When changing the angle, update `LOCKED_BASIS` first, then paste the same basis into every ortho `Camera3D` transform — do not hand-build a `Basis` from the first three floats.
 
 ### Runtime API
 
@@ -59,25 +73,25 @@ Billboarded `AnimatedSprite3D` — tune position/offset/scale in the bay cell `.
 
 ### World / ground
 
-- Full range grid: 25×150 cells (50×300 yd) — see [02-grid-and-placement.md](02-grid-and-placement.md).
+- Full range grid: see [02-grid-and-placement.md](02-grid-and-placement.md).
 - Per-cell 2×2 yd floor via `CellGround.build_grid_mesh()` on range `Ground`.
-- Flat green surround plane under the cell grid (`FairwayGrassTiles3D.apply_surround()`), sized from scene camera ortho `size`.
+- **Obsolete:** green apron surround + 3D forest impostors removed. Build/forest dressing lives in the 2D isometric view — see [06-isometric-build-view.md](06-isometric-build-view.md).
 
 ## Implementation against current code
 
 | Asset | Status |
 |-------|--------|
-| `scenes/range/cells/ratina_bay_cell.tscn` | **Reference** camera rig (not yet on global config) |
-| `scripts/config/v4_camera_config.gd` | `LOCKED_BASIS` only; rotation lock helpers |
+| `scripts/config/v4_camera_config.gd` | `LOCKED_BASIS` = 2:1 dimetric; rotation lock helpers |
+| `scenes/range/range_view.tscn` | Scene Camera3D is position/size source of truth; basis synced |
 | `scenes/range/cells/player_bay_cell.tscn` | Bay exports + locked rotation |
-| `scenes/range/range_view.tscn` | Scene Camera3D is position/size source of truth |
+| `scenes/range/cells/ratina_bay_cell.tscn` | Editor preview uses same locked basis |
 | `scripts/range/range_camera_controller.gd` | WASD pan + scroll zoom |
+| `scenes/iso/iso_view.tscn` | Standalone 2D isometric build view |
 
 ### Remaining
 
-- Wire ratina bay to `V4CameraConfig` after visual verification
 - Instance crew bays on the buildable strip
-- Fence reorientation for dimetric angle (visual polish)
+- Pass 2: migrate harvest pickup into IsoView
 
 ## Related docs
 

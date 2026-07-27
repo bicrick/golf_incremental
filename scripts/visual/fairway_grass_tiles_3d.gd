@@ -2,7 +2,6 @@ class_name FairwayGrassTiles3D
 extends RefCounted
 ## Fairway ground using the light grass tile from the GRASS+ asset pack (col 0 row 0).
 ## Mower stripes and atlas tiling are handled in fairway_ground.gdshader.
-## Apron/surround uses col 0 row 1 from the same atlas.
 
 const ATLAS_TEXTURE := preload("res://assets/sprites/fairway/grass_plus_atlas.png")
 const GROUND_SHADER := preload("res://scripts/visual/fairway_ground.gdshader")
@@ -17,17 +16,7 @@ const FAIRWAY_DEPTH_YARDS := 224.0
 
 const GRASS_TILE_COL := 0
 const GRASS_TILE_ROW := 0
-const APRON_TILE_COL := 0
-const APRON_TILE_ROW := 1
 const DARK_STRIPE_PALETTE_BLEND := 0.45
-
-const SURROUND_HALF_WIDTH_YARDS := 70.0
-const SURROUND_DEPTH_YARDS := 340.0
-const SURROUND_BLEED_MARGIN := 8.0
-const SURROUND_Y := -0.01
-
-const GROUND_MODE_FAIRWAY := 0
-const GROUND_MODE_APRON := 1
 
 
 static func build_plane_mesh(
@@ -68,11 +57,7 @@ static func build_plane_mesh(
 
 
 static func make_fairway_material() -> ShaderMaterial:
-	return _make_shader_material(GROUND_MODE_FAIRWAY, GRASS_TILE_COL, GRASS_TILE_ROW)
-
-
-static func make_apron_material() -> ShaderMaterial:
-	return _make_shader_material(GROUND_MODE_APRON, APRON_TILE_COL, APRON_TILE_ROW)
+	return _make_shader_material(GRASS_TILE_COL, GRASS_TILE_ROW)
 
 
 static func make_material() -> ShaderMaterial:
@@ -89,13 +74,6 @@ static func apply_palette_uniforms(
 	var mat := _get_shader_material(mesh_instance, make_fairway_material)
 	mat.set_shader_parameter(&"fairway_light", light_color)
 	mat.set_shader_parameter(&"fairway_dark", dark_color)
-
-
-static func apply_apron_palette_uniforms(mesh_instance: MeshInstance3D, tint: Color) -> void:
-	if mesh_instance == null:
-		return
-	var mat := _get_shader_material(mesh_instance, make_apron_material)
-	mat.set_shader_parameter(&"apron_tint", tint)
 
 
 static func ensure_fairway_plane(
@@ -136,50 +114,6 @@ static func apply_palette(
 	apply_palette_uniforms(mesh_instance, light_color, dark_color)
 
 
-static func _surround_near_z(home_size: float) -> float:
-	return maxf(home_size * 5.0, 40.0) + SURROUND_BLEED_MARGIN
-
-
-static func build_surround_mesh(tint: Color, home_size: float) -> ArrayMesh:
-	var _unused := tint
-	var _unused_home := home_size
-	return build_plane_mesh(
-		-SURROUND_HALF_WIDTH_YARDS,
-		SURROUND_HALF_WIDTH_YARDS,
-		_surround_near_z(home_size),
-		-SURROUND_DEPTH_YARDS,
-		SURROUND_Y
-	)
-
-
-static func ensure_surround_mesh(mesh_instance: MeshInstance3D, home_size: float) -> void:
-	if mesh_instance == null:
-		return
-	var z_near := _surround_near_z(home_size)
-	if mesh_instance.mesh == null:
-		mesh_instance.mesh = build_plane_mesh(
-			-SURROUND_HALF_WIDTH_YARDS,
-			SURROUND_HALF_WIDTH_YARDS,
-			z_near,
-			-SURROUND_DEPTH_YARDS,
-			SURROUND_Y
-		)
-	if mesh_instance.get_surface_override_material(0) == null:
-		mesh_instance.set_surface_override_material(0, make_apron_material())
-	mesh_instance.sorting_offset = -1.0
-
-
-static func apply_surround(mesh_instance: MeshInstance3D, color: Color, home_size: float) -> void:
-	if mesh_instance == null:
-		return
-	ensure_surround_mesh(mesh_instance, home_size)
-	apply_apron_palette_uniforms(mesh_instance, color)
-
-
-static func apply_surround_palette_uniforms(mesh_instance: MeshInstance3D, tint: Color) -> void:
-	apply_apron_palette_uniforms(mesh_instance, tint)
-
-
 static func _uv_for_tile(col: int, row: int) -> Vector4:
 	var px_x := float(col) * TILE_PX
 	var px_y := float(row) * TILE_PX
@@ -190,10 +124,9 @@ static func _uv_for_tile(col: int, row: int) -> Vector4:
 	return Vector4(u0, v0, u1, v1)
 
 
-static func _make_shader_material(mode: int, tile_col: int, tile_row: int) -> ShaderMaterial:
+static func _make_shader_material(tile_col: int, tile_row: int) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = GROUND_SHADER
-	mat.set_shader_parameter(&"ground_mode", mode)
 	mat.set_shader_parameter(&"albedo_tex", ATLAS_TEXTURE)
 	mat.set_shader_parameter(&"tile_size_yards", TILE_SIZE_YARDS)
 	mat.set_shader_parameter(&"half_width_yards", RangeGrid.HALF_WIDTH_YARDS)
@@ -206,7 +139,9 @@ static func _get_shader_material(
 	mesh_instance: MeshInstance3D,
 	factory: Callable
 ) -> ShaderMaterial:
-	var mat := mesh_instance.get_surface_override_material(0)
+	var mat: Material = null
+	if mesh_instance.get_surface_override_material_count() > 0:
+		mat = mesh_instance.get_surface_override_material(0)
 	if mat is ShaderMaterial:
 		return mat as ShaderMaterial
 	var new_mat: ShaderMaterial = factory.call()

@@ -83,6 +83,8 @@ var _tee_ball_prepared: bool = false
 var _ball_lay_texture: Texture2D
 var _pickup: Node
 var _picker_indicator: Node3D
+var _next_litter_id: int = 1
+var _suppress_litter_bus := false
 var _ratina: Node
 var _rattling_controller: Node
 var _active_flights: Array[Dictionary] = []
@@ -114,6 +116,10 @@ func _enter_tree() -> void:
 func _ready() -> void:
 	if not Engine.is_editor_hint():
 		_ball_lay_texture = DinkySpriteFrames.ball_lay_texture()
+		if not EventBus.litter_removed.is_connected(_on_bus_litter_removed):
+			EventBus.litter_removed.connect(_on_bus_litter_removed)
+		if not EventBus.litter_cleared.is_connected(_on_bus_litter_cleared):
+			EventBus.litter_cleared.connect(_on_bus_litter_cleared)
 	_refresh_preview()
 	if not Engine.is_editor_hint():
 		_setup_ratina_bay()
@@ -230,9 +236,7 @@ func discard_active_flights() -> void:
 func prepare_after_prestige() -> void:
 	if GameState.is_harvest_phase():
 		GameState.exit_harvest_early()
-	if littered_balls != null:
-		for child in littered_balls.get_children():
-			child.queue_free()
+	EventBus.litter_cleared.emit()
 	discard_active_flights()
 	if ball != null:
 		ball.visible = false
@@ -424,9 +428,8 @@ func _camera_home_size() -> float:
 func _setup_camera() -> void:
 	if camera == null:
 		return
-	# Editor preview only — runtime uses the scene Camera3D transform as saved.
-	if _should_use_editor_rig():
-		V4CameraConfig.apply_locked_rotation_only(camera)
+	# Rotation from V4CameraConfig; scene owns position + ortho size.
+	V4CameraConfig.apply_locked_rotation_only(camera)
 	camera.current = true
 
 
@@ -663,7 +666,11 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
 		return
+	# IsoView may own harvest presentation (RangeView hidden). Still accept
+	# Space / Hit exit while invisible so verify + keyboard exit keep working.
 	if not visible:
+		if GameState.is_harvest_phase():
+			_handle_harvest_input(event)
 		return
 	# Pan/zoom only after harvest ortho settle (can_use_ortho_pan). View toggles
 	# (Space / Hit / background click) stay available mid-flight and mid-dissolve;
@@ -1220,18 +1227,44 @@ func leave_litter_ball(
 	is_golden: bool = false,
 	source: String = "player"
 ) -> void:
+	var litter_id := _next_litter_id
+	_next_litter_id += 1
 	var litter := Sprite3D.new()
 	litter.texture = _ball_lay_texture
 	litter.position = land_position
 	litter.scale = land_scale
 	_configure_billboard(litter, BALL_PIXEL_SIZE)
 	litter.modulate = Balance.GOLDEN_BALL_TINT if is_golden else _sprite_atmosphere_tint
+	litter.set_meta("litter_id", litter_id)
 	litter.set_meta("collectible", true)
 	litter.set_meta("ball_quality", quality)
 	litter.set_meta("ball_yardage", yardage)
 	litter.set_meta("ball_golden", is_golden)
 	litter.set_meta("ball_source", source)
 	littered_balls.add_child(litter)
+	EventBus.litter_spawned.emit(
+		litter_id, land_position, quality, yardage, is_golden, source
+	)
+
+
+func _on_bus_litter_removed(litter_id: int) -> void:
+	if littered_balls == null or _suppress_litter_bus:
+		return
+	_suppress_litter_bus = true
+	for child in littered_balls.get_children():
+		if int(child.get_meta("litter_id", -1)) == litter_id:
+			child.queue_free()
+			break
+	_suppress_litter_bus = false
+
+
+func _on_bus_litter_cleared() -> void:
+	if littered_balls == null or _suppress_litter_bus:
+		return
+	_suppress_litter_bus = true
+	for child in littered_balls.get_children():
+		child.queue_free()
+	_suppress_litter_bus = false
 
 
 func _leave_litter_ball(

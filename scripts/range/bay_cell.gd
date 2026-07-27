@@ -22,7 +22,7 @@ const DIVIDER_NIGHT_BRIGHTNESS := 0.58
 			return
 		camera_size = value
 		_apply_camera()
-@export var camera_position: Vector3 = Vector3(1.470001, 1.5166433, 2.1563973):
+@export var camera_position: Vector3 = Vector3(2.02386, 1.93108, 2.02386):
 	set(value):
 		if camera_position.is_equal_approx(value):
 			return

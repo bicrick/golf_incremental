@@ -718,7 +718,11 @@ func _check_mid_flight_view_switch_and_pickup_gate(main: Node, gs: Node) -> bool
 		return false
 
 	# Gate: pickup must ignore clicks while the harvest settle flag is false.
+	# Iso harvest also counts as ready — force it off for this 3D settle check.
 	vm._harvest_view_ready = false
+	if main.has_method(&"set_harvest_view"):
+		main.set_harvest_view(false)
+	await process_frame
 	if range_view._pickup.is_active():
 		print("FAIL: pickup must stay inactive until harvest_view_ready")
 		return false
@@ -730,6 +734,9 @@ func _check_mid_flight_view_switch_and_pickup_gate(main: Node, gs: Node) -> bool
 		print("FAIL: pickup handle_input must no-op before harvest view ready")
 		return false
 	vm._harvest_view_ready = true
+	if main.has_method(&"set_harvest_view"):
+		main.set_harvest_view(true)
+	await process_frame
 	if not range_view._pickup.is_active():
 		print("FAIL: pickup should reactivate when harvest_view_ready returns")
 		return false

@@ -58,11 +58,9 @@ shader = ExtResource("4_p8kfu")
 shader_parameter/albedo_tex = ExtResource("2_cp8g3")
 shader_parameter/fairway_light = Color(0.427, 0.71, 0.02, 1)
 shader_parameter/fairway_dark = Color(0.247, 0.616, 0.008, 1)
-shader_parameter/apron_tint = Color(1, 1, 1, 1)
 shader_parameter/tile_uv_bounds = Vector4(0.00125, 0.002232143, 0.03875, 0.069196425)
 shader_parameter/tile_size_yards = 2.0
 shader_parameter/half_width_yards = 19.0
-shader_parameter/ground_mode = 0
 
 [node name="RangeView" type="Node3D" unique_id=1348612978]
 script = ExtResource("1_script")
@@ -86,10 +84,10 @@ light_energy = 0.12
 shadow_enabled = false
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1433708473]
-transform = Transform3D(0.9608136, -0.06625118, 0.26916188, 0, 0.97101825, 0.23900528, -0.27719548, -0.2296395, 0.93296754, 77.093094, 71.31996, 247.45828)
+transform = Transform3D(0.70710678, -0.3162272, 0.63245581, 0, 0.89442759, 0.4472128, -0.70710678, -0.3162272, 0.63245581, 101.19293, 71.55405, 91.19293)
 projection = 1
 current = true
-size = 13.277695
+size = 16.0
 
 [node name="PerspectiveCamera" type="Camera3D" parent="." unique_id=120344469]
 transform = Transform3D(0.9959977, 0.0017635126, 0.08936121, 0, 0.99980533, -0.019730812, -0.08937861, 0.019651845, 0.99580383, 1.1372404, 1.8787439, -6.744128)

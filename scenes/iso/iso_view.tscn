@@ -1,0 +1,55 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/iso/iso_view.gd" id="1_iso"]
+[ext_resource type="Script" path="res://scripts/iso/iso_camera_controller.gd" id="2_cam"]
+[ext_resource type="Script" path="res://scripts/iso/placement_controller.gd" id="3_place"]
+[ext_resource type="Script" path="res://scripts/iso/iso_actor_layer.gd" id="4_actors"]
+[ext_resource type="Script" path="res://scripts/iso/iso_flight_layer.gd" id="5_flights"]
+
+[node name="IsoView" type="Node2D"]
+script = ExtResource("1_iso")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(2, 2)
+
+[node name="Terrain" type="TileMapLayer" parent="."]
+y_sort_enabled = true
+
+[node name="Paths" type="TileMapLayer" parent="."]
+y_sort_enabled = true
+z_index = 1
+
+[node name="Objects" type="Node2D" parent="."]
+y_sort_enabled = true
+z_index = 3
+
+[node name="LitteredBalls" type="Node2D" parent="."]
+y_sort_enabled = true
+z_index = 4
+
+[node name="Flights" type="Node2D" parent="."]
+y_sort_enabled = true
+z_index = 6
+
+[node name="Trails" type="Node2D" parent="."]
+z_index = 7
+
+[node name="Overlay" type="Node2D" parent="."]
+z_index = 10
+
+[node name="HarvestFx" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="FxRoot" type="Node2D" parent="HarvestFx"]
+
+[node name="CameraController" type="Node" parent="."]
+script = ExtResource("2_cam")
+
+[node name="PlacementController" type="Node" parent="."]
+script = ExtResource("3_place")
+
+[node name="ActorLayer" type="Node" parent="."]
+script = ExtResource("4_actors")
+
+[node name="FlightLayer" type="Node" parent="."]
+script = ExtResource("5_flights")

@@ -10,7 +10,7 @@ Same range rat superintendent, same one-hand contact swing, same bucket/pickup/u
 
 | v2/v3 (current foundation) | v4 (this doc set) |
 |---|---|
-| Perspective `Camera3D`, over-the-shoulder | Orthographic `Camera3D`, 2:1 dimetric angle |
+| Perspective `Camera3D`, over-the-shoulder | Orthographic `Camera3D`, true 2:1 dimetric (`-26.565° / 45° / 0°`) |
 | One fixed diorama; camera never moves | Same fixed-size range; a small **buildable strip** beside the tee is grid-based |
 | Crew (Ratina) = one bespoke hardcoded bay via `ratina_controller.gd` | Crew bays = instances of a generalized `HittingBayController`, placed on the grid |
 | "Range amenities" = abstract upgrade-tree stat purchases | Unchanged in v4 — pickers/amenities stay abstract; only **hitting bays** are physical objects |
@@ -30,6 +30,7 @@ Same range rat superintendent, same one-hand contact swing, same bucket/pickup/u
 | [03-crew-and-bays.md](03-crew-and-bays.md) | Generalized hitting-bay entity, multi-bay swinging, lanes |
 | [04-economy-and-progression.md](04-economy-and-progression.md) | How bay purchase/placement plugs into existing economy |
 | [05-migration-and-phasing.md](05-migration-and-phasing.md) | Phased build order against current code, in-place vs. parallel decision |
+| [06-isometric-build-view.md](06-isometric-build-view.md) | Standalone 2D TileMapLayer build view (PixelLab tiles, placement) |
 
 ## Reading order
 
@@ -39,6 +40,7 @@ Same range rat superintendent, same one-hand contact swing, same bucket/pickup/u
 4. [03-crew-and-bays.md](03-crew-and-bays.md)
 5. [04-economy-and-progression.md](04-economy-and-progression.md)
 6. [05-migration-and-phasing.md](05-migration-and-phasing.md) before writing any code
+7. [06-isometric-build-view.md](06-isometric-build-view.md) for the 2D isometric build mode
 
 ## Agent rules (v4 additions)
 

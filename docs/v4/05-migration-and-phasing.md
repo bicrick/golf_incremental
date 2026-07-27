@@ -47,10 +47,11 @@ Build in order. Each phase should be playable/verifiable before starting the nex
 | Task | Files | Status |
 |------|-------|--------|
 | Extend fairway ground to 50×300 yd | `fairway_grass_tiles_3d.gd`, `range_view.gd`, `range_grid.gd` | done |
-| Add `ForestFence` node, populate at full grid size | `range_view.tscn`, `range_view.gd` | done |
-| Rework fence quads for dimetric angle (visual) | `forest_fence.gd` | open |
+| Add `ForestFence` node, populate at full grid size | `range_view.tscn`, `range_view.gd` | superseded / deleted |
+| Dimetric forest border (iso ground + trees) | `forest_border_3d.gd`, Surround/ForestBorder | obsolete — deleted |
+| 2D isometric build view (TileMapLayer) | `scenes/iso/`, `assets/tilesets/range_iso.tres` | done — see [06-isometric-build-view.md](06-isometric-build-view.md) |
 
-**Exit:** Full grass grid visible; fences run full depth. Dimetric fence art polish remains optional.
+**Exit:** 3D apron/forest impostors removed; forest/placement live in IsoView.
 
 ### Phase D — Buildable strip + grid system
 

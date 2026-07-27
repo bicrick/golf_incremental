@@ -167,9 +167,12 @@ func _on_frame_changed() -> void:
 	if _state != State.PICKING_UP or _sprite.animation != &"pickup":
 		return
 	if _sprite.frame >= RattlingSpriteFramesScript.PICKUP_BALL_FRAME and is_instance_valid(_litter):
+		var litter_id: int = int(_litter.get_meta("litter_id", -1))
 		_litter.queue_free()
 		_litter = null
 		_carrying_ball = true
+		if litter_id >= 0:
+			EventBus.litter_removed.emit(litter_id)
 
 
 func _on_animation_finished() -> void:
