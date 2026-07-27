@@ -114,24 +114,33 @@ func picker_radius_yards() -> float:
 	)
 
 
-## Iso-local center of the ground pick circle. Offset so the cursor tip sits on
-## the bottom rim of the projected ellipse (not the ellipse center).
+## Viewport/canvas semi-axes of the dashed picker ellipse (matches IsoPickerIndicator).
+func picker_radii_screen() -> Vector2:
+	var radii_iso := IsoGrid.iso_px_radii_from_yards(picker_radius_yards())
+	if _camera == null:
+		return radii_iso
+	var zoom_x: float = maxf(_camera.zoom.x, 0.001)
+	return radii_iso * zoom_x
+
+
+## Ellipse center from cursor tip — tip sits on the bottom rim.
+func picker_center_from_tip_screen(tip_screen: Vector2) -> Vector2:
+	var radii := picker_radii_screen()
+	return tip_screen + Vector2(0.0, -radii.y)
+
+
+## CanvasLayer / viewport position for the dashed ellipse (matches tip-on-rim).
+func picker_center_screen() -> Vector2:
+	return picker_center_from_tip_screen(get_viewport().get_mouse_position())
+
+
+## Iso-local center of the ground pick circle (same tip-on-bottom-rim offset).
 func picker_center_iso() -> Vector2:
 	if _camera == null or _iso_view == null:
 		return Vector2.ZERO
 	var mouse_iso := _iso_view.to_local(_camera.get_global_mouse_position())
 	var radii := IsoGrid.iso_px_radii_from_yards(picker_radius_yards())
 	return mouse_iso + Vector2(0.0, -radii.y)
-
-
-## CanvasLayer / viewport position for the dashed ellipse (matches tip-on-rim).
-func picker_center_screen() -> Vector2:
-	if _camera == null:
-		return get_viewport().get_mouse_position()
-	var mouse := get_viewport().get_mouse_position()
-	var radii := IsoGrid.iso_px_radii_from_yards(picker_radius_yards())
-	var zoom_x: float = maxf(_camera.zoom.x, 0.001)
-	return mouse + Vector2(0.0, -radii.y * zoom_x)
 
 
 func _on_phase_changed(phase: String) -> void:
@@ -142,8 +151,8 @@ func _on_phase_changed(phase: String) -> void:
 	_bind_bucket_counter_click()
 
 
-func _try_collect_at(_screen_pos: Vector2) -> bool:
-	var litter := _pick_litter_at()
+func _try_collect_at(screen_pos: Vector2) -> bool:
+	var litter := _pick_litter_at(screen_pos)
 	if litter == null:
 		var sfx := _sfx()
 		if sfx != null:
@@ -153,35 +162,46 @@ func _try_collect_at(_screen_pos: Vector2) -> bool:
 	return true
 
 
-func _pick_litter_at() -> Sprite2D:
+## Screen-space ellipse test matching the drawn ring (WYSIWYG). Ball visual
+## radius is padded in so a ball that looks inside the ellipse counts.
+func _pick_litter_at(tip_screen: Vector2) -> Sprite2D:
 	if _litter_root == null:
 		return null
-	var gs := _game_state()
-	var stats = gs.stats if gs != null else null
-	var world_radius := (
-		Balance.range_picker_radius_yards(stats)
-		if stats != null
-		else Balance.RANGE_PICKER_BASE_RADIUS_YARDS
-	)
-	var pick_ground := IsoGrid.yards_from_iso_px(picker_center_iso())
-	var pick_xz := Vector2(pick_ground.x, pick_ground.z)
-	var hit_radius := world_radius + Balance.RANGE_PICKER_HIT_SLACK_YARDS
+	var radii := picker_radii_screen()
+	if radii.x < 0.5 or radii.y < 0.5:
+		return null
+	var center := picker_center_from_tip_screen(tip_screen)
 	var best: Sprite2D = null
-	var best_dist := INF
+	var best_norm_sq := INF
 	for child in _litter_root.get_children():
 		if not child is Sprite2D:
 			continue
 		var sprite := child as Sprite2D
 		if not sprite.get_meta("collectible", false):
 			continue
-		var world: Vector3 = sprite.get_meta("world_pos", Vector3.ZERO)
-		var world_dist := Vector2(world.x, world.z).distance_to(pick_xz)
-		if world_dist > hit_radius:
+		var ball_screen := sprite.get_global_transform_with_canvas().origin
+		var pad := _ball_screen_radius(sprite)
+		var rx := radii.x + pad
+		var ry := radii.y + pad
+		if rx < 0.001 or ry < 0.001:
 			continue
-		if world_dist < best_dist:
-			best_dist = world_dist
+		var d := ball_screen - center
+		var norm_sq := (d.x * d.x) / (rx * rx) + (d.y * d.y) / (ry * ry)
+		if norm_sq > 1.0:
+			continue
+		if norm_sq < best_norm_sq:
+			best_norm_sq = norm_sq
 			best = sprite
 	return best
+
+
+func _ball_screen_radius(sprite: Sprite2D) -> float:
+	if _ball_tex == null or not is_instance_valid(sprite):
+		return 0.0
+	var canvas_scale := sprite.get_global_transform_with_canvas().get_scale()
+	var half_w := 0.5 * float(_ball_tex.get_width()) * absf(canvas_scale.x)
+	var half_h := 0.5 * float(_ball_tex.get_height()) * absf(canvas_scale.y)
+	return minf(half_w, half_h)
 
 
 func _collect_litter(litter: Sprite2D) -> void:

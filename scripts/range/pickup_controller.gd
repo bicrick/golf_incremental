@@ -137,6 +137,10 @@ func _pick_litter_at(screen_pos: Vector2) -> Sprite3D:
 	var pick_ground: Vector3 = hit
 	var pick_xz := Vector2(pick_ground.x, pick_ground.z)
 	var hit_radius := world_radius + Balance.RANGE_PICKER_HIT_SLACK_YARDS
+	var center_screen := camera.unproject_position(pick_ground)
+	var ring_screen_r := RangePickerIndicator.screen_radius_px(
+		camera, pick_ground, world_radius
+	)
 	var best: Sprite3D = null
 	var best_dist := INF
 	for child in _littered_balls.get_children():
@@ -149,14 +153,12 @@ func _pick_litter_at(screen_pos: Vector2) -> Sprite3D:
 			continue
 		var ball_xz := RangePickerIndicator.litter_ground_xz(sprite)
 		var world_dist := ball_xz.distance_to(pick_xz)
-		var ball_ground := Vector3(sprite.global_position.x, 0.0, sprite.global_position.z)
-		var ball_screen := camera.unproject_position(sprite.global_position)
-		var screen_radius := RangePickerIndicator.screen_radius_px(
-			camera, ball_ground, hit_radius
-		)
-		var screen_dist := screen_pos.distance_to(ball_screen)
+		var ball_ground := Vector3(ball_xz.x, 0.0, ball_xz.y)
+		var ball_screen := camera.unproject_position(ball_ground)
+		var screen_dist := center_screen.distance_to(ball_screen)
+		## Accept world-circle OR screen-ring around the same offset center (not tip).
 		var in_world := world_dist <= hit_radius
-		var in_screen := screen_dist <= screen_radius
+		var in_screen := screen_dist <= ring_screen_r + 4.0
 		if not in_world and not in_screen:
 			continue
 		var dist := world_dist if in_world else screen_dist

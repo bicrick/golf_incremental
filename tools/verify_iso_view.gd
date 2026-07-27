@@ -30,6 +30,7 @@ func _run() -> void:
 	ok = _check_litter_sprite_scale() and ok
 	ok = _check_fairway_variant_assets() and ok
 	ok = await _check_iso_harvest_litter() and ok
+	ok = await _check_iso_picker_hit_alignment() and ok
 	ok = await _check_iso_actor_mirrors() and ok
 	ok = await _check_iso_flight_mirror() and ok
 
@@ -944,6 +945,67 @@ func _check_iso_harvest_litter() -> bool:
 	if main.has_method(&"set_harvest_view"):
 		main.set_harvest_view(false)
 	print("OK: iso harvest litter sync + yards bridge")
+	main.queue_free()
+	return true
+
+
+func _check_iso_picker_hit_alignment() -> bool:
+	## Pickup must use the same tip→ellipse geometry as the drawn ring.
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+	var iso := main.get_node_or_null("IsoView") as IsoView
+	if iso == null:
+		print("FAIL: IsoView missing for picker hit alignment")
+		main.queue_free()
+		return false
+	if main.has_method(&"set_harvest_view"):
+		main.set_harvest_view(true)
+	else:
+		iso.set_mode(IsoView.Mode.HARVEST)
+	await process_frame
+	var pickup: Node = iso.get_pickup_controller()
+	if pickup == null or not pickup.has_method(&"_pick_litter_at"):
+		print("FAIL: IsoPickupController missing pick API")
+		main.queue_free()
+		return false
+	var world := Vector3(2.0, 0.0, -20.0)
+	var event_bus: Node = root.get_node("EventBus")
+	event_bus.litter_spawned.emit(9101, world, 2, 20.0, false, "player")
+	await process_frame
+	var litter_root := iso.get_node("LitteredBalls") as Node2D
+	if litter_root.get_child_count() < 1:
+		print("FAIL: litter missing for picker hit alignment")
+		main.queue_free()
+		return false
+	var spr := litter_root.get_child(0) as Sprite2D
+	var ball_screen: Vector2 = spr.get_global_transform_with_canvas().origin
+	var radii: Vector2 = pickup.picker_radii_screen()
+	## Tip on bottom rim with ball at ellipse center → must hit.
+	var tip_center := ball_screen + Vector2(0.0, radii.y)
+	var hit_center: Sprite2D = pickup._pick_litter_at(tip_center)
+	if hit_center != spr:
+		print("FAIL: ball at ellipse center should collect")
+		main.queue_free()
+		return false
+	## Ball halfway to right rim → still inside.
+	var tip_inner := ball_screen - Vector2(radii.x * 0.5, 0.0) + Vector2(0.0, radii.y)
+	var hit_inner: Sprite2D = pickup._pick_litter_at(tip_inner)
+	if hit_inner != spr:
+		print("FAIL: ball inside ellipse should collect")
+		main.queue_free()
+		return false
+	## Far tip → miss.
+	var tip_miss := ball_screen + Vector2(800.0, 800.0)
+	if pickup._pick_litter_at(tip_miss) != null:
+		print("FAIL: far tip should miss litter")
+		main.queue_free()
+		return false
+	event_bus.litter_cleared.emit()
+	if main.has_method(&"set_harvest_view"):
+		main.set_harvest_view(false)
+	print("OK: iso picker hit matches ellipse geometry")
 	main.queue_free()
 	return true
 
