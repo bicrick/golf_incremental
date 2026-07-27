@@ -14,7 +14,6 @@ func _run() -> void:
 	ok = _check_iso_grid() and ok
 	ok = _check_tileset() and ok
 	ok = _check_map_to_local_agreement() and ok
-	ok = _check_autotile_forest_blob() and ok
 	ok = _check_placement_model() and ok
 	ok = _check_picker_ground_projection() and ok
 	ok = _check_duff_in_front_alignment() and ok
@@ -155,32 +154,75 @@ func _check_tileset() -> bool:
 	if ts.get_terrain_set_mode(0) != TileSet.TERRAIN_MODE_MATCH_CORNERS:
 		print("FAIL: terrain set 0 not MATCH_CORNERS")
 		return false
-	if ts.get_terrains_count(0) < 2:
-		print("FAIL: expected at least fairway+forest terrains")
+	if ts.get_terrains_count(0) < 1:
+		print("FAIL: expected fairway terrain")
 		return false
-	if ts.get_source_count() < 2:
-		print("FAIL: expected base + forest sources, got ", ts.get_source_count())
+	if ts.get_source_count() < 1:
+		print("FAIL: expected fairway source, got ", ts.get_source_count())
 		return false
 	var src0 := ts.get_source(0) as TileSetAtlasSource
 	var n := IsoView.FAIRWAY_VARIANT_COUNT
 	if src0 == null:
 		print("FAIL: base source missing")
 		return false
-	## light + dark + mat bands
-	for i in n * 3:
+	## light + dark + single mat
+	for i in n * 2 + 1:
 		if not src0.has_tile(Vector2i(i, 0)):
 			print("FAIL: base source missing fairway atlas tile ", Vector2i(i, 0))
 			return false
-	if not ResourceLoader.exists("res://assets/sprites/iso/terrain/fairway_light.png"):
-		print("FAIL: missing fairway_light.png")
-		return false
-	if not ResourceLoader.exists("res://assets/sprites/iso/terrain/fairway_dark.png"):
-		print("FAIL: missing fairway_dark.png")
-		return false
 	if not ResourceLoader.exists("res://assets/sprites/iso/terrain/fairway_mat.png"):
 		print("FAIL: missing fairway_mat.png")
 		return false
+	if not _atlas_mat_matches_fairway_mat_png(src0):
+		return false
 	print("OK: tileset shape/layout/terrains sources=", ts.get_source_count(), " fairway_variants=", n)
+	return true
+
+
+## Atlas tile at FAIRWAY_ATLAS_MAT must be the authored fairway_mat.png (white lip included).
+func _atlas_mat_matches_fairway_mat_png(src0: TileSetAtlasSource) -> bool:
+	var tex := src0.texture as Texture2D
+	if tex == null:
+		print("FAIL: fairway atlas has no texture")
+		return false
+	var atlas_img := tex.get_image()
+	if atlas_img == null:
+		print("FAIL: fairway atlas texture has no image")
+		return false
+	var mat_coords := IsoView.FAIRWAY_ATLAS_MAT
+	if not src0.has_tile(mat_coords):
+		print("FAIL: missing mat atlas tile ", mat_coords)
+		return false
+	var region := src0.get_tile_texture_region(mat_coords)
+	var atlas_mat := atlas_img.get_region(region)
+	var src_mat := Image.new()
+	var abs_path := ProjectSettings.globalize_path("res://assets/sprites/iso/terrain/fairway_mat.png")
+	if src_mat.load(abs_path) != OK:
+		print("FAIL: could not load fairway_mat.png for atlas compare")
+		return false
+	if atlas_mat.get_size() != src_mat.get_size():
+		print(
+			"FAIL: atlas mat size ", atlas_mat.get_size(),
+			" != fairway_mat.png ", src_mat.get_size()
+		)
+		return false
+	var mismatch := 0
+	var white := 0
+	for y in atlas_mat.get_height():
+		for x in atlas_mat.get_width():
+			var a := atlas_mat.get_pixel(x, y)
+			var b := src_mat.get_pixel(x, y)
+			if a != b:
+				mismatch += 1
+			if a.a > 0.5 and a.r > 0.78 and a.g > 0.78 and a.b > 0.78:
+				white += 1
+	if mismatch > 0:
+		print("FAIL: atlas mat tile != fairway_mat.png mismatches=", mismatch)
+		return false
+	if white < 1:
+		print("FAIL: atlas mat tile missing white lip from fairway_mat.png")
+		return false
+	print("OK: atlas mat tile matches fairway_mat.png (white_lip_px=", white, ")")
 	return true
 
 
@@ -206,34 +248,6 @@ func _check_map_to_local_agreement() -> bool:
 	if ok:
 		print("OK: IsoGrid matches TileMapLayer.map_to_local (+ view origin)")
 	return ok
-
-
-func _check_autotile_forest_blob() -> bool:
-	if not ResourceLoader.exists(TILESET_PATH):
-		return false
-	var layer := TileMapLayer.new()
-	root.add_child(layer)
-	layer.tile_set = load(TILESET_PATH) as TileSet
-	var fairway_cells: Array[Vector2i] = []
-	for x in range(0, 8):
-		for y in range(0, 8):
-			fairway_cells.append(Vector2i(x, y))
-	layer.set_cells_terrain_connect(fairway_cells, 0, 0, true)
-	var forest_cells: Array[Vector2i] = []
-	for x in range(2, 6):
-		for y in range(2, 6):
-			forest_cells.append(Vector2i(x, y))
-	layer.set_cells_terrain_connect(forest_cells, 0, 1, true)
-	var empty := 0
-	for cell in forest_cells:
-		if layer.get_cell_source_id(cell) < 0:
-			empty += 1
-	layer.queue_free()
-	if empty > 0:
-		print("FAIL: forest blob left ", empty, " empty cells")
-		return false
-	print("OK: forest autotile blob painted")
-	return true
 
 
 func _check_placement_model() -> bool:
@@ -558,14 +572,12 @@ func _check_bay_mats() -> bool:
 	if IsoCatalog.has(&"range_mat"):
 		print("FAIL: range_mat should stay out of IsoCatalog (terrain tile, not prop)")
 		return false
-	var mat_path := "res://assets/sprites/iso/terrain/fairway_mat_%d.png" % IsoView.FAIRWAY_MAT_VARIANT
+	var mat_path := "res://assets/sprites/iso/terrain/fairway_mat.png"
 	if not ResourceLoader.exists(mat_path) and not FileAccess.file_exists(ProjectSettings.globalize_path(mat_path)):
 		print("FAIL: missing authored mat ", mat_path)
 		return false
-	if IsoView.FAIRWAY_ATLAS_MAT != Vector2i(
-		IsoView.FAIRWAY_VARIANT_COUNT * 2 + IsoView.FAIRWAY_MAT_VARIANT, 0
-	):
-		print("FAIL: FAIRWAY_ATLAS_MAT should be mat variant ", IsoView.FAIRWAY_MAT_VARIANT)
+	if IsoView.FAIRWAY_ATLAS_MAT != Vector2i(IsoView.FAIRWAY_VARIANT_COUNT * 2, 0):
+		print("FAIL: FAIRWAY_ATLAS_MAT should be atlas index 2N")
 		return false
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
@@ -585,19 +597,22 @@ func _check_bay_mats() -> bool:
 		return false
 	var bay_cells: Array[Vector2i] = [RangeGrid.PLAYER_CELL, RangeGrid.RATINA_CELL]
 	bay_cells.append_array(RangeGrid.empty_bay_cells_on_player_row())
+	var expected := IsoView.FAIRWAY_ATLAS_MAT
 	for range_cell in bay_cells:
-		var iso_cell := IsoGrid.iso_cell_from_range_cell(range_cell)
-		var atlas := terrain.get_cell_atlas_coords(iso_cell)
-		var expected := IsoView.fairway_mat_atlas_for_cell(range_cell.x, range_cell.y)
-		if atlas != expected:
-			print("FAIL: bay mat atlas at ", range_cell, " got ", atlas, " expected ", expected)
-			main.queue_free()
-			return false
-		if atlas.x < IsoView.FAIRWAY_VARIANT_COUNT * 2:
-			print("FAIL: bay mat atlas not in mat band ", atlas)
-			main.queue_free()
-			return false
-	print("OK: bay mats use fairway_mat_%d on player/Ratina + empty bays" % IsoView.FAIRWAY_MAT_VARIANT)
+		for iso_cell in IsoGrid.iso_cells_for_range_cell(range_cell):
+			var atlas := terrain.get_cell_atlas_coords(iso_cell)
+			if atlas != expected:
+				print(
+					"FAIL: bay mat atlas at range=", range_cell, " iso=", iso_cell,
+					" got ", atlas, " expected ", expected
+				)
+				main.queue_free()
+				return false
+			if terrain.get_cell_source_id(iso_cell) != IsoView.FAIRWAY_SOURCE_ID:
+				print("FAIL: bay mat source_id wrong at ", iso_cell)
+				main.queue_free()
+				return false
+	print("OK: bay mats use fairway_mat atlas ", expected, " on all bay iso cells")
 	main.queue_free()
 	return true
 
@@ -676,14 +691,14 @@ func _fairway_variant_paths(band: String) -> Array[String]:
 	var paths: Array[String] = []
 	for i in IsoView.FAIRWAY_VARIANT_COUNT:
 		paths.append("res://assets/sprites/iso/terrain/fairway_%s_%d.png" % [band, i])
-	paths.append("res://assets/sprites/iso/terrain/fairway_%s.png" % band)
 	return paths
 
 
 func _fairway_all_band_paths() -> Array[String]:
 	var paths: Array[String] = []
-	for band in ["light", "dark", "mat"]:
+	for band in ["light", "dark"]:
 		paths.append_array(_fairway_variant_paths(band))
+	paths.append("res://assets/sprites/iso/terrain/fairway_mat.png")
 	return paths
 
 
@@ -842,16 +857,16 @@ func _check_fairway_seam_flat() -> bool:
 
 
 func _check_fairway_variant_assets() -> bool:
-	## Style template + N light/dark variants present for style-match regen.
-	if not ResourceLoader.exists("res://assets/sprites/iso/_proof/fairway_style_template.png"):
-		print("FAIL: missing fairway_style_template.png")
-		return false
+	## N light/dark variants + single authored mat.
 	for i in IsoView.FAIRWAY_VARIANT_COUNT:
 		for band in ["light", "dark"]:
 			var path := "res://assets/sprites/iso/terrain/fairway_%s_%d.png" % [band, i]
 			if not ResourceLoader.exists(path) and not FileAccess.file_exists(ProjectSettings.globalize_path(path)):
 				print("FAIL: missing fairway variant ", path)
 				return false
+	if not ResourceLoader.exists("res://assets/sprites/iso/terrain/fairway_mat.png"):
+		print("FAIL: missing fairway_mat.png")
+		return false
 	# Hash scatter must not wallpaper a single atlas id across neighbors.
 	var a := IsoView.fairway_atlas_for_cell(0, 0)
 	var b := IsoView.fairway_atlas_for_cell(0, 1)

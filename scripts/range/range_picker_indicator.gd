@@ -85,7 +85,7 @@ static func screen_radius_px(camera: Camera3D, ground: Vector3, world_radius: fl
 
 
 ## Ground point for the pick circle center. Offset so the cursor tip sits on the
-## top rim of the ring (screen-down by projected radius), not the circle center.
+## bottom rim of the ring (screen-up by projected radius), not the circle center.
 static func picker_ground_at_cursor(
 	camera: Camera3D, mouse_pos: Vector2, world_radius: float
 ) -> Variant:
@@ -94,5 +94,5 @@ static func picker_ground_at_cursor(
 		return null
 	var tip_ground: Vector3 = tip_hit
 	var screen_r := screen_radius_px(camera, tip_ground, world_radius)
-	var center_hit: Variant = RangeGroundRay.hit(camera, mouse_pos + Vector2(0.0, screen_r))
+	var center_hit: Variant = RangeGroundRay.hit(camera, mouse_pos + Vector2(0.0, -screen_r))
 	return tip_hit if center_hit == null else center_hit

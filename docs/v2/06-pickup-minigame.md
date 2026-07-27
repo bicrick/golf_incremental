@@ -101,7 +101,7 @@ Add in v2.1 per [07-implementation-phases.md](07-implementation-phases.md).
 
 ## Range picker circle
 
-A **dashed ground ring** follows the mouse on the fairway alongside the range-picker OS cursor. The ring is offset so the cursor tip sits on its top rim (not the center). Pickup uses the same ground point as the ring center.
+A **dashed ground ring** follows the mouse on the fairway alongside the range-picker OS cursor. The ring is offset so the cursor tip sits on its bottom rim (not the center). Pickup uses the same ground point as the ring center.
 
 ## Related docs
 

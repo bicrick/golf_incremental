@@ -14,13 +14,12 @@ const IsoPickupControllerScript := preload("res://scripts/iso/iso_pickup_control
 const IsoPickerIndicatorScript := preload("res://scripts/iso/iso_picker_indicator.gd")
 const TILESET_PATH := "res://assets/tilesets/range_iso.tres"
 const FAIRWAY_SOURCE_ID := 0
-## Atlas layout from build_iso_tileset: light [0..N), dark [N..2N), mat [2N..3N).
-const FAIRWAY_VARIANT_COUNT := 4
+## Atlas layout from build_iso_tileset: light [0..N), dark [N..2N), mat [2N].
+const FAIRWAY_VARIANT_COUNT := 3
 const FAIRWAY_ATLAS_LIGHT := Vector2i(0, 0) ## variant 0 light (legacy alias)
 const FAIRWAY_ATLAS_DARK := Vector2i(FAIRWAY_VARIANT_COUNT, 0) ## variant 0 dark
-## Single authored mat tile — fairway_mat_3.png (atlas index 2N+3).
-const FAIRWAY_MAT_VARIANT := 3
-const FAIRWAY_ATLAS_MAT := Vector2i(FAIRWAY_VARIANT_COUNT * 2 + FAIRWAY_MAT_VARIANT, 0)
+## Single authored mat tile — fairway_mat.png (atlas index 2N).
+const FAIRWAY_ATLAS_MAT := Vector2i(FAIRWAY_VARIANT_COUNT * 2, 0)
 ## Match RangeView / BayCell billboard world size (yards per texture px).
 const BALL_PIXEL_SIZE := 0.021
 const BALL_TEX_PX := 16.0
@@ -476,7 +475,7 @@ static func fairway_atlas_for_cell(col: int, row: int) -> Vector2i:
 	return Vector2i(band_base + variant, 0)
 
 
-## One mat texture for every bay — fairway_mat_3 (no variant scatter).
+## One mat texture for every bay — fairway_mat.png (no variant scatter).
 static func fairway_mat_atlas_for_cell(_col: int = 0, _row: int = 0) -> Vector2i:
 	return FAIRWAY_ATLAS_MAT
 
@@ -495,7 +494,7 @@ func authored_ball_scale() -> float:
 
 
 func _paint_bay_mats() -> void:
-	## Every bay on the player row — single fairway_mat_3 atlas cell.
+	## Every bay on the player row — single fairway_mat atlas cell.
 	var bay_cells: Array[Vector2i] = [RangeGrid.PLAYER_CELL, RangeGrid.RATINA_CELL]
 	bay_cells.append_array(RangeGrid.empty_bay_cells_on_player_row())
 	var mat_atlas := FAIRWAY_ATLAS_MAT

@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://cjyhoxsg4c5cj" path="res://scripts/iso/iso_actor_layer.gd" id="4_actors"]
 [ext_resource type="Script" uid="uid://66gdtl0m1bqu" path="res://scripts/iso/iso_flight_layer.gd" id="5_flights"]
 [ext_resource type="Texture2D" uid="uid://bor0hvfu6gngv" path="res://assets/sprites/range_rat/range-rat-swing-sheet.png" id="6_bdo23"]
-[ext_resource type="TileSet" uid="uid://c1ttmwtweds5l" path="res://assets/tilesets/range_iso.tres" id="6_tileset"]
+[ext_resource type="TileSet" path="res://assets/tilesets/range_iso.tres" id="6_tileset"]
 [ext_resource type="Texture2D" uid="uid://bu5ahdr328tif" path="res://assets/sprites/range_rat/range-rat-idle-sheet.png" id="7_lk6pq"]
 [ext_resource type="Texture2D" uid="uid://yh7taxm61aqy" path="res://assets/sprites/range_rat/range-rat-idle-out-of-balls-sheet.png" id="8_48ql3"]
 [ext_resource type="Texture2D" uid="uid://bo3jab0ycjvge" path="res://assets/sprites/range_rat/return-to-address.png" id="9_sutsb"]

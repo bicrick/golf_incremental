@@ -65,20 +65,17 @@ outline_mode=segmentation
 
 Independent tiles often land as **64×64** with a flat **64×32** diamond + transparent pad. Tileset jobs often emit native **64×32**. `tools/build_iso_tileset.gd` normalizes the pad when packing. Do **not** crop skirts — thickness 0% removes them at source.
 
-Iso fairway PNGs are authored to perspective-sampled hitting-view greens: light `#267408`, dark `#1e5c06` (iso-only — 3D `DayNightPalette` fairway stays `#6db505` / `#3f9d02`). Hitting mats use a single authored tile `fairway_mat_3.png` (edit that file for borders / color).
+Iso fairway PNGs are authored to perspective-sampled hitting-view greens: light `#267408`, dark `#1e5c06` (iso-only — 3D `DayNightPalette` fairway stays `#6db505` / `#3f9d02`). Hitting mats use a single authored tile `fairway_mat.png` (edit that file for borders / color).
 
-Seams: PixelLab often paints a darker diamond rim. Flatten that 1px perimeter to interior green before packing so abutting tiles do not read as a grid. Prompts: no edge bevel / seamless. Prefer `outline_mode=segmentation` + `tile_depth_ratio=0`.
-
-Style match: form a 64×32 diamond template from live GRASS+ atlas cell `(0,0)` at `assets/sprites/iso/_proof/fairway_style_template.png`. Try `create_tiles_pro` with `style_images` first; also run shape-mode isometric 64 / view_angle 30 / depth 0. Keep the QA set with lower rim delta and no side skirts (style mode can ignore flat geometry).
+Seams: PixelLab often paints a darker diamond rim. Flatten that 1px perimeter to interior green before packing so abutting tiles do not read as a grid. Prompts: no edge bevel / seamless. Prefer `outline_mode=segmentation` + `tile_depth_ratio=0`. `tools/recolor_iso_fairway.py` also unifies light/dark diamond silhouettes so mixed variants do not leave 1px sky gaps.
 
 ## Fairway stripes + day/night
 
-- Author **several** plain fairway light variants (`fairway_light_0.png`…) — no mower stripes in the prompt
+- Author plain fairway light variants (`fairway_light_0.png`…) — no mower stripes in the prompt
 - Build matching `fairway_dark_N.png` from light using palette means (`#1e5c06` / `#267408`)
-- Author bay mats as `fairway_mat_3.png` only — recolor tool does not overwrite mats; `fairway_mat.png` aliases mat_3
+- Author bay mats as `fairway_mat.png` only — recolor tool does not overwrite mats
 - Batch recolor helper: `python3 tools/recolor_iso_fairway.py` then `godot --headless --script res://tools/build_iso_tileset.gd`
-- Keep `fairway_light.png` / `fairway_dark.png` as aliases of variant 0
-- Atlas pack: light `[0..N)`, dark `[N..2N)`, mat `[2N..3N)`; paint uses atlas `2N+3` (`fairway_mat_3`)
+- Atlas pack: light `[0..N)`, dark `[N..2N)`, mat `[2N]` (`fairway_mat.png`)
 - Paint: stripe by **RangeGrid column** (even light band, odd dark band) **and** scatter light/dark variant atlas by `hash(col,row)`; overwrite player/Ratina **and all empty player-row bay cells** with `FAIRWAY_ATLAS_MAT`
 - `IsoView.apply_atmosphere(cycle_time)` washes terrain/paths at `ISO_TERRAIN_TOD_WASH` (0.55) so night still reads after brighter authored means; props/litter get moonlight; actor/flight mirrors stay untinted parents and copy 3D `modulate` 1:1
 - `DayNightCycle` advances while RangeView **or** IsoView is visible
@@ -87,9 +84,7 @@ Style match: form a 64×32 diamond template from live GRASS+ atlas cell `(0,0)` 
 
 | Path | Contents |
 |------|----------|
-| `assets/sprites/iso/_proof/` | QA staging + `fairway_style_template.png` |
-| `assets/sprites/iso/terrain/` | Fairway variants `fairway_{light,dark,mat}_{0..N}.png` |
-| `assets/sprites/iso/transitions/...` | Corner tilesets (forest, gravel, path) |
+| `assets/sprites/iso/terrain/` | `fairway_light_N` / `fairway_dark_N` variants + `fairway_mat.png` |
 | `assets/sprites/iso/props/` | Props (`pine_tree`) |
 
 TileSet: `assets/tilesets/range_iso.tres` — rebuilt by:
@@ -101,7 +96,7 @@ godot --headless --script res://tools/build_iso_tileset.gd
 ## Bays
 
 - No forest / pine border — Terrain paints the fairway grid only
-- Bay cells `PLAYER_CELL` `(9,5)` / `RATINA_CELL` `(8,5)` stay reserved; those plus every empty bay on the player row paint **`fairway_mat_3`** — not separate prop sprites
+- Bay cells `PLAYER_CELL` `(9,5)` / `RATINA_CELL` `(8,5)` stay reserved; those plus every empty bay on the player row paint **`fairway_mat`** — not separate prop sprites
 
 ## Camera
 

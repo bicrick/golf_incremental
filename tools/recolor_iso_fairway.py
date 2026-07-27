@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TERRAIN = ROOT / "assets" / "sprites" / "iso" / "terrain"
 
 ## Perspective-sampled iso targets (light/dark only).
-## Bay mats use authored fairway_mat_3.png — not regenerated here.
+## Bay mats use authored fairway_mat.png — not regenerated here.
 LIGHT_HEX = (0x26, 0x74, 0x08)  # #267408
 DARK_HEX = (0x1E, 0x5C, 0x06)  # #1e5c06
 ALPHA_CUTOFF = 0.5
@@ -91,7 +91,7 @@ def unify_fairway_silhouettes() -> None:
 	PixelLab variants differ by a few edge texels. Mixed on the TileMap that
 	opens 1px gaps — sky shows through as nasty gray/blue speckles.
 	"""
-	## Light/dark only — fairway_mat_3 is the authored mat tile; leave mats alone.
+	## Light/dark only — fairway_mat.png is authored separately.
 	paths = sorted(TERRAIN.glob("fairway_light_*.png"))
 	paths += sorted(TERRAIN.glob("fairway_dark_*.png"))
 	if not paths:
@@ -105,17 +105,6 @@ def unify_fairway_silhouettes() -> None:
 		out = _fill_to_mask(im, target)
 		Image.fromarray(out, mode="RGBA").save(path)
 		print(f"  silhouette {path.name}")
-	## Aliases track variant 0 for light/dark; mat alias tracks authored mat_3.
-	for band in ("light", "dark"):
-		src = TERRAIN / f"fairway_{band}_0.png"
-		dst = TERRAIN / f"fairway_{band}.png"
-		if src.is_file():
-			Image.open(src).convert("RGBA").save(dst)
-	mat3 = TERRAIN / "fairway_mat_3.png"
-	if mat3.is_file():
-		Image.open(mat3).convert("RGBA").save(TERRAIN / "fairway_mat.png")
-
-
 def _fill_to_mask(im: np.ndarray, target: np.ndarray) -> np.ndarray:
 	out = im.copy()
 	filled = _opaque_u8(out)
@@ -174,7 +163,7 @@ def main() -> None:
 	print(
 		f"Recolor {len(lights)} variants → light=#{LIGHT_HEX[0]:02x}{LIGHT_HEX[1]:02x}{LIGHT_HEX[2]:02x} "
 		f"dark=#{DARK_HEX[0]:02x}{DARK_HEX[1]:02x}{DARK_HEX[2]:02x} "
-		f"(mats skipped — authored fairway_mat_3.png)"
+		f"(mats skipped — authored fairway_mat.png)"
 	)
 	for light_path in lights:
 		idx = light_path.stem.rsplit("_", 1)[-1]
@@ -184,10 +173,6 @@ def main() -> None:
 
 		save_rgba(TERRAIN / f"fairway_light_{idx}.png", light)
 		save_rgba(TERRAIN / f"fairway_dark_{idx}.png", dark)
-
-		if idx == "0":
-			save_rgba(TERRAIN / "fairway_light.png", light)
-			save_rgba(TERRAIN / "fairway_dark.png", dark)
 
 	unify_fairway_silhouettes()
 	print("done")

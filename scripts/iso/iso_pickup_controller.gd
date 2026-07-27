@@ -115,13 +115,13 @@ func picker_radius_yards() -> float:
 
 
 ## Iso-local center of the ground pick circle. Offset so the cursor tip sits on
-## the top rim of the projected ellipse (not the ellipse center).
+## the bottom rim of the projected ellipse (not the ellipse center).
 func picker_center_iso() -> Vector2:
 	if _camera == null or _iso_view == null:
 		return Vector2.ZERO
 	var mouse_iso := _iso_view.to_local(_camera.get_global_mouse_position())
 	var radii := IsoGrid.iso_px_radii_from_yards(picker_radius_yards())
-	return mouse_iso + Vector2(0.0, radii.y)
+	return mouse_iso + Vector2(0.0, -radii.y)
 
 
 ## CanvasLayer / viewport position for the dashed ellipse (matches tip-on-rim).
@@ -131,7 +131,7 @@ func picker_center_screen() -> Vector2:
 	var mouse := get_viewport().get_mouse_position()
 	var radii := IsoGrid.iso_px_radii_from_yards(picker_radius_yards())
 	var zoom_x: float = maxf(_camera.zoom.x, 0.001)
-	return mouse + Vector2(0.0, radii.y * zoom_x)
+	return mouse + Vector2(0.0, -radii.y * zoom_x)
 
 
 func _on_phase_changed(phase: String) -> void:

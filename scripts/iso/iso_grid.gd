@@ -14,8 +14,10 @@ const TILE_PX := Vector2i(64, 32)
 const SUBCELLS := 1
 ## PixelLab flat diamond canvas height (no depth skirt).
 const TILE_TEXTURE_HEIGHT := 32
-## Vertical screen pixels per yard of altitude (airborne ball cheat).
-const HEIGHT_PX_PER_YARD := 8.0
+## Vertical screen pixels per yard of altitude.
+## Matches 2:1 iso tile height: TILE_TEXTURE_HEIGHT / cell yards (32 / 2) = 16.
+## (Was 8 — half-scale — which flattened flight arcs vs the 3D strike view.)
+const HEIGHT_PX_PER_YARD := 16.0
 ## World nudge from bay tee tip → player address pose (matches IsoActorMirror bias).
 const VIEW_ORIGIN_BIAS_YARDS := Vector3(-0.35, 0.0, -0.85)
 
