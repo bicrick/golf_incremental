@@ -22,10 +22,11 @@ Harvest pickup still uses the 3D ortho camera for now (pass 2 will re-home it in
 
 ```
 IsoView (Node2D)
-  Camera2D + IsoCameraController   # zoom steps 0.5/1/2/3/4, drag + WASD pan, ball follow
-  Terrain (TileMapLayer)           # fairway only (range_iso.tres)
+  Camera2D + IsoCameraController   # zoom steps 0.25/0.5/1/2/3/4, drag + WASD pan, ball follow
+  Terrain (TileMapLayer)           # fairway + forest apron (range_iso.tres)
   Paths   (TileMapLayer)
-  Objects (Node2D, y_sort)         # buildings / props + actor mirrors
+  Objects (Node2D, y_sort)         # buildings / props
+  YardageMarkers (Node2D, y_sort)  # 50–300 yd signs on outer bands (both sides)
   LitteredBalls / Flights / Trails # harvest litter + in-flight balls + tracers
   Overlay                          # placement ghost
   ActorLayer / FlightLayer         # 3D→iso mirrors
@@ -65,26 +66,27 @@ outline_mode=segmentation
 
 Independent tiles often land as **64×64** with a flat **64×32** diamond + transparent pad. Tileset jobs often emit native **64×32**. `tools/build_iso_tileset.gd` normalizes the pad when packing. Do **not** crop skirts — thickness 0% removes them at source.
 
-Iso fairway PNGs are authored to perspective-sampled hitting-view greens: light `#267408`, dark `#1e5c06` (iso-only — 3D `DayNightPalette` fairway stays `#6db505` / `#3f9d02`). Hitting mats use a single authored tile `fairway_mat.png` (edit that file for borders / color).
+Iso fairway PNGs are authored to perspective-sampled hitting-view greens: light `#267408`, dark `#1e5c06`, forest apron `#123804` (iso-only — 3D `DayNightPalette` fairway stays `#6db505` / `#3f9d02`). Hitting mats use a single authored tile `fairway_mat.png` (edit that file for borders / color).
 
 Seams: PixelLab often paints a darker diamond rim. Flatten that 1px perimeter to interior green before packing so abutting tiles do not read as a grid. Prompts: no edge bevel / seamless. Prefer `outline_mode=segmentation` + `tile_depth_ratio=0`. `tools/recolor_iso_fairway.py` also unifies light/dark diamond silhouettes so mixed variants do not leave 1px sky gaps.
 
 ## Fairway stripes + day/night
 
 - Author plain fairway light variants (`fairway_light_0.png`…) — no mower stripes in the prompt
-- Build matching `fairway_dark_N.png` from light using palette means (`#1e5c06` / `#267408`)
+- Build matching `fairway_dark_N.png` / `fairway_forest_N.png` from light using palette means (`#1e5c06` / `#267408` / `#123804`)
 - Author bay mats as `fairway_mat.png` only — recolor tool does not overwrite mats
 - Batch recolor helper: `python3 tools/recolor_iso_fairway.py` then `godot --headless --script res://tools/build_iso_tileset.gd`
-- Atlas pack: light `[0..N)`, dark `[N..2N)`, mat `[2N]` (`fairway_mat.png`)
-- Paint: stripe by **RangeGrid column** (even light band, odd dark band) **and** scatter light/dark variant atlas by `hash(col,row)`; overwrite player/Ratina **and all empty player-row bay cells** with `FAIRWAY_ATLAS_MAT`
-- `IsoView.apply_atmosphere(cycle_time)` washes terrain/paths at `ISO_TERRAIN_TOD_WASH` (0.55) so night still reads after brighter authored means; props/litter get moonlight; actor/flight mirrors stay untinted parents and copy 3D `modulate` 1:1
+- Atlas pack: light `[0..N)`, dark `[N..2N)`, forest `[2N..3N)`, mat `[3N]` (`fairway_mat.png`)
+- Paint: stripe by **RangeGrid column** (even light band, odd dark band) **and** scatter light/dark variant atlas by `hash(col,row)`; paint `APRON_PAD_CELLS` (36) of forest around the fairway iso rect; overwrite player/Ratina **and all empty player-row bay cells** with `FAIRWAY_ATLAS_MAT`
+- `IsoView.apply_atmosphere(cycle_time)` washes terrain/paths at `ISO_TERRAIN_TOD_WASH` (0.55) so night still reads after brighter authored means; props/litter/yardage markers get full moonlight (same tint as RangeView Sprite3D markers); actor/flight mirrors stay untinted parents and copy 3D `modulate` 1:1
+- Yardage markers: shared layout in `YardageMarkerLayout` (`x = ±18` on the outer fairway bands, 50–300 yd); iso spawns Sprite2Ds sized to the 3D `pixel_size` world height
 - `DayNightCycle` advances while RangeView **or** IsoView is visible
 
 ## Assets
 
 | Path | Contents |
 |------|----------|
-| `assets/sprites/iso/terrain/` | `fairway_light_N` / `fairway_dark_N` variants + `fairway_mat.png` |
+| `assets/sprites/iso/terrain/` | `fairway_light_N` / `fairway_dark_N` / `fairway_forest_N` variants + `fairway_mat.png` |
 | `assets/sprites/iso/props/` | Props (`pine_tree`) |
 
 TileSet: `assets/tilesets/range_iso.tres` — rebuilt by:
@@ -95,13 +97,13 @@ godot --headless --script res://tools/build_iso_tileset.gd
 
 ## Bays
 
-- No forest / pine border — Terrain paints the fairway grid only
+- Forest apron: `APRON_PAD_CELLS` of `fairway_forest_*` around the 19×200 fairway (no pine props)
 - Bay cells `PLAYER_CELL` `(9,5)` / `RATINA_CELL` `(8,5)` stay reserved; those plus every empty bay on the player row paint **`fairway_mat`** — not separate prop sprites
 
 ## Camera
 
 - Start: depth-flipped iso cell for `RangeGrid.PLAYER_CELL` (player bay)
-- Zoom steps: `0.5, 1, 2, 3, 4` (default `1`)
+- Zoom steps: `0.25, 0.5, 1, 2, 3, 4` (default `1`)
 - Pan: left-drag after threshold, plus **WASD** / arrow keys (screen-space, zoom-compensated)
 - Session memory: last pan/zoom is kept when toggling build ↔ harvest ↔ off (resets only on restart)
 

@@ -2,7 +2,7 @@ extends SceneTree
 ## Builds res://assets/tilesets/range_iso.tres from iso fairway terrain PNGs.
 ## Run: godot --headless --script res://tools/build_iso_tileset.gd
 ##
-## Fairway-only atlas: light [0..N), dark [N..2N), mat [2N].
+## Fairway atlas: light [0..N), dark [N..2N), forest [2N..3N), mat [3N].
 
 const OUT_PATH := "res://assets/tilesets/range_iso.tres"
 const TERRAIN_DIR := "res://assets/sprites/iso/terrain/"
@@ -46,11 +46,18 @@ func _run() -> void:
 
 
 func _add_fairway_source(ts: TileSet, source_id: int) -> int:
-	## Atlas: light [0..N), dark [N..2N), mat [2N].
+	## Atlas: light [0..N), dark [N..2N), forest [2N..3N), mat [3N].
 	var lights := _fairway_variant_paths("light")
 	var darks := _fairway_variant_paths("dark")
-	if lights.is_empty() or darks.is_empty() or lights.size() != darks.size():
-		print("FAIL: fairway light/dark variants missing or mismatched at ", TERRAIN_DIR)
+	var forests := _fairway_variant_paths("forest")
+	if (
+		lights.is_empty()
+		or darks.is_empty()
+		or forests.is_empty()
+		or lights.size() != darks.size()
+		or lights.size() != forests.size()
+	):
+		print("FAIL: fairway light/dark/forest variants missing or mismatched at ", TERRAIN_DIR)
 		return -1
 	var mat_path := "%sfairway_mat.png" % TERRAIN_DIR
 	var abs_mat := ProjectSettings.globalize_path(mat_path)
@@ -60,6 +67,7 @@ func _add_fairway_source(ts: TileSet, source_id: int) -> int:
 	var paths: Array[String] = []
 	paths.append_array(lights)
 	paths.append_array(darks)
+	paths.append_array(forests)
 	paths.append(mat_path)
 	var packed := _pack_image_paths(paths)
 	if packed.is_empty():
@@ -87,7 +95,7 @@ func _add_fairway_source(ts: TileSet, source_id: int) -> int:
 		" region=", region,
 		" tiles=", count,
 		" variants=", variant_n,
-		" bands=light+dark+mat"
+		" bands=light+dark+forest+mat"
 	)
 	return source_id + 1
 

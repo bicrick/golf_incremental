@@ -14,12 +14,16 @@ const IsoPickupControllerScript := preload("res://scripts/iso/iso_pickup_control
 const IsoPickerIndicatorScript := preload("res://scripts/iso/iso_picker_indicator.gd")
 const TILESET_PATH := "res://assets/tilesets/range_iso.tres"
 const FAIRWAY_SOURCE_ID := 0
-## Atlas layout from build_iso_tileset: light [0..N), dark [N..2N), mat [2N].
+## Atlas layout from build_iso_tileset: light [0..N), dark [N..2N), forest [2N..3N), mat [3N].
 const FAIRWAY_VARIANT_COUNT := 3
 const FAIRWAY_ATLAS_LIGHT := Vector2i(0, 0) ## variant 0 light (legacy alias)
 const FAIRWAY_ATLAS_DARK := Vector2i(FAIRWAY_VARIANT_COUNT, 0) ## variant 0 dark
-## Single authored mat tile — fairway_mat.png (atlas index 2N).
-const FAIRWAY_ATLAS_MAT := Vector2i(FAIRWAY_VARIANT_COUNT * 2, 0)
+const FAIRWAY_ATLAS_FOREST := Vector2i(FAIRWAY_VARIANT_COUNT * 2, 0) ## variant 0 forest apron
+## Single authored mat tile — fairway_mat.png (atlas index 3N).
+const FAIRWAY_ATLAS_MAT := Vector2i(FAIRWAY_VARIANT_COUNT * 3, 0)
+## Iso cells of darker forest apron beyond the fairway on each side.
+## Sized so max zoom-out (0.25) still has ground when panned to a fairway edge.
+const APRON_PAD_CELLS := 36
 ## Match RangeView / BayCell billboard world size (yards per texture px).
 const BALL_PIXEL_SIZE := 0.021
 const BALL_TEX_PX := 16.0
@@ -28,6 +32,7 @@ const BALL_TEX_PX := 16.0
 @onready var terrain: TileMapLayer = $Terrain
 @onready var paths: TileMapLayer = $Paths
 @onready var objects: Node2D = $Objects
+@onready var yardage_markers: Node2D = $YardageMarkers
 @onready var littered_balls: Node2D = $LitteredBalls
 @onready var flights: Node2D = $Flights
 @onready var trails: Node2D = $Trails
@@ -42,6 +47,7 @@ const BALL_TEX_PX := 16.0
 var _model: IsoWorldModel = IsoWorldModel.new()
 var _terrain_ready := false
 var _terrain_painted := false
+var _yardage_markers_built := false
 var _mode: Mode = Mode.OFF
 var _pickup: Node
 var _picker: Node2D
@@ -70,7 +76,7 @@ func _enter_tree() -> void:
 
 
 func _notification(what: int) -> void:
-	## Avoid baking 19×200 painted cells into the .tscn on save.
+	## Avoid baking painted fairway + apron cells into the .tscn on save.
 	if what == NOTIFICATION_EDITOR_PRE_SAVE and _should_use_editor_rig():
 		_editor_clearing_for_save = true
 		if terrain:
@@ -97,6 +103,7 @@ func _ready() -> void:
 	_setup_actor_and_flight_layers()
 	_setup_pickup()
 	_try_load_tileset()
+	_ensure_yardage_markers()
 	camera.position = _player_bay_px()
 	var bus := _event_bus()
 	if bus != null:
@@ -124,6 +131,7 @@ func _refresh_editor_preview() -> void:
 	if _terrain_ready and terrain != null:
 		_paint_default_terrain()
 		_terrain_painted = true
+	_ensure_yardage_markers()
 	_sync_editor_focus_marker()
 	if actor_layer:
 		IsoEditorPlaceholders.setup_for_editor(actor_layer)
@@ -141,6 +149,8 @@ func _resolve_editor_nodes() -> void:
 		paths = get_node_or_null("Paths") as TileMapLayer
 	if objects == null:
 		objects = get_node_or_null("Objects") as Node2D
+	if yardage_markers == null:
+		yardage_markers = get_node_or_null("YardageMarkers") as Node2D
 	if littered_balls == null:
 		littered_balls = get_node_or_null("LitteredBalls") as Node2D
 	if flights == null:
@@ -253,6 +263,7 @@ func set_mode(mode: Mode) -> void:
 		_paint_default_terrain()
 		_terrain_painted = true
 	if active:
+		_ensure_yardage_markers()
 		_sync_atmosphere_from_range()
 	CursorManager.refresh()
 
@@ -294,6 +305,9 @@ func apply_atmosphere(cycle_time: float) -> void:
 		paths.modulate = terrain_tint
 	if objects:
 		objects.modulate = tint
+	if yardage_markers:
+		## Full moonlight — same tint as RangeView yardage Sprite3Ds / iso props.
+		yardage_markers.modulate = tint
 	if littered_balls:
 		## Litter sprites are WHITE/golden; parent wash matches 3D litter.modulate.
 		littered_balls.modulate = tint
@@ -460,10 +474,23 @@ func _paint_default_terrain() -> void:
 		return
 	var w := RangeGrid.GRID_WIDTH_CELLS
 	var d := RangeGrid.GRID_DEPTH_CELLS
-	for col in w:
-		for row in d:
-			var iso := IsoGrid.iso_cell_from_range_cell(Vector2i(col, row))
-			terrain.set_cell(iso, FAIRWAY_SOURCE_ID, fairway_atlas_for_cell(col, row))
+	var pad := APRON_PAD_CELLS
+	## Fairway iso cells occupy [0,w) × [0,d). Paint forest apron around that rect.
+	for iso_x in range(-pad, w + pad):
+		for iso_y in range(-pad, d + pad):
+			var iso := Vector2i(iso_x, iso_y)
+			var range_cell := IsoGrid.range_cell_from_iso_cell(iso)
+			if (
+				range_cell.x >= 0
+				and range_cell.x < w
+				and range_cell.y >= 0
+				and range_cell.y < d
+			):
+				terrain.set_cell(
+					iso, FAIRWAY_SOURCE_ID, fairway_atlas_for_cell(range_cell.x, range_cell.y)
+				)
+			else:
+				terrain.set_cell(iso, FAIRWAY_SOURCE_ID, forest_atlas_for_cell(iso_x, iso_y))
 	_paint_bay_mats()
 	_block_reserved_bays()
 
@@ -473,6 +500,12 @@ static func fairway_atlas_for_cell(col: int, row: int) -> Vector2i:
 	var variant := absi(hash(Vector2i(col, row))) % FAIRWAY_VARIANT_COUNT
 	var band_base := FAIRWAY_VARIANT_COUNT if (col & 1) else 0
 	return Vector2i(band_base + variant, 0)
+
+
+static func forest_atlas_for_cell(iso_x: int, iso_y: int) -> Vector2i:
+	## Darker apron band — variant scatter only (no mower stripes).
+	var variant := absi(hash(Vector2i(iso_x, iso_y))) % FAIRWAY_VARIANT_COUNT
+	return Vector2i(FAIRWAY_VARIANT_COUNT * 2 + variant, 0)
 
 
 ## One mat texture for every bay — fairway_mat.png (no variant scatter).
@@ -486,6 +519,56 @@ static func litter_sprite_scale() -> float:
 	var c := IsoGrid.iso_px_from_yards(Vector3.ZERO)
 	var e := IsoGrid.iso_px_from_yards(Vector3(diameter_yards, 0.0, 0.0))
 	return maxf(0.12, c.distance_to(e) / BALL_TEX_PX)
+
+
+## Readable iso size — 2× world-height parity with RangeView Sprite3Ds.
+const YARDAGE_MARKER_DISPLAY_SCALE := 2.0
+## Right/topside band markers sit into the diamond; lift screen-up a few px.
+const YARDAGE_MARKER_TOPSIDE_LIFT_PX := 8.0
+
+
+## Iso Sprite2D scale so yardage signs read at 2× RangeView world height.
+static func yardage_marker_sprite_scale() -> float:
+	var height_px := YardageMarkerLayout.world_height_yards() * IsoGrid.HEIGHT_PX_PER_YARD
+	return maxf(0.12, height_px / YardageMarkerLayout.TEXTURE_PX) * YARDAGE_MARKER_DISPLAY_SCALE
+
+
+static func yardage_marker_iso_px(world_pos: Vector3) -> Vector2:
+	var px := IsoGrid.iso_px_from_yards(world_pos)
+	## Positive X = topside / right outer band in DIAMOND_DOWN read.
+	if world_pos.x > 0.0:
+		px.y -= YARDAGE_MARKER_TOPSIDE_LIFT_PX
+	return px
+
+
+func _ensure_yardage_markers() -> void:
+	if yardage_markers == null:
+		yardage_markers = get_node_or_null("YardageMarkers") as Node2D
+	if yardage_markers == null:
+		return
+	if _yardage_markers_built and yardage_markers.get_child_count() > 0:
+		return
+	for child in yardage_markers.get_children():
+		yardage_markers.remove_child(child)
+		child.queue_free()
+	var scale := yardage_marker_sprite_scale()
+	var half_tex := YardageMarkerLayout.TEXTURE_PX * 0.5
+	for entry in YardageMarkerLayout.entries():
+		var path: String = entry["texture_path"]
+		if not ResourceLoader.exists(path):
+			push_warning("IsoView: yardage marker texture missing %s" % path)
+			continue
+		var sprite := Sprite2D.new()
+		sprite.name = String(entry["name"])
+		sprite.texture = load(path) as Texture2D
+		sprite.centered = true
+		sprite.offset = Vector2(0.0, -half_tex)
+		sprite.scale = Vector2(scale, scale)
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sprite.modulate = Color.WHITE
+		sprite.position = yardage_marker_iso_px(entry["world_pos"] as Vector3)
+		yardage_markers.add_child(sprite)
+	_yardage_markers_built = true
 
 
 ## Prefer PlayerBallPlaceholder scale (editor-authored); else projected litter scale.

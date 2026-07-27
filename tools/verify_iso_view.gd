@@ -33,6 +33,7 @@ func _run() -> void:
 	ok = await _check_iso_picker_hit_alignment() and ok
 	ok = await _check_iso_actor_mirrors() and ok
 	ok = await _check_iso_flight_mirror() and ok
+	ok = await _check_iso_yardage_markers() and ok
 
 	if ok:
 		print("iso_view_ok=true")
@@ -166,8 +167,8 @@ func _check_tileset() -> bool:
 	if src0 == null:
 		print("FAIL: base source missing")
 		return false
-	## light + dark + single mat
-	for i in n * 2 + 1:
+	## light + dark + forest + single mat
+	for i in n * 3 + 1:
 		if not src0.has_tile(Vector2i(i, 0)):
 			print("FAIL: base source missing fairway atlas tile ", Vector2i(i, 0))
 			return false
@@ -309,13 +310,17 @@ func _check_iso_view_scene() -> bool:
 		return false
 	controller.setup(cam)
 	controller.set_enabled(true)
-	var expected_steps: Array[float] = [0.5, 1.0, 2.0, 3.0, 4.0]
+	var expected_steps: Array[float] = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0]
 	if IsoCameraController.ZOOM_STEPS != expected_steps:
 		print("FAIL: zoom steps expected ", expected_steps, " got ", IsoCameraController.ZOOM_STEPS)
 		main.queue_free()
 		return false
 	if not is_equal_approx(controller.get_zoom_level(), 1.0):
 		print("FAIL: default zoom expected 1.0 got ", controller.get_zoom_level())
+		main.queue_free()
+		return false
+	if IsoCameraController.DEFAULT_ZOOM_INDEX != 2:
+		print("FAIL: DEFAULT_ZOOM_INDEX expected 2 got ", IsoCameraController.DEFAULT_ZOOM_INDEX)
 		main.queue_free()
 		return false
 	if cam.position.distance_to(Vector2.ZERO) > 1.0:
@@ -355,9 +360,14 @@ func _check_fairway_stripes_and_atmosphere() -> bool:
 	var terrain := iso.get_node("Terrain") as TileMapLayer
 	var w := RangeGrid.GRID_WIDTH_CELLS
 	var d := RangeGrid.GRID_DEPTH_CELLS
+	var pad := IsoView.APRON_PAD_CELLS
 	var n := IsoView.FAIRWAY_VARIANT_COUNT
-	if terrain.get_used_cells().size() != w * d:
-		print("FAIL: expected painted extent exactly ", w * d, " got ", terrain.get_used_cells().size())
+	var expected_cells := (w + pad * 2) * (d + pad * 2)
+	if terrain.get_used_cells().size() != expected_cells:
+		print(
+			"FAIL: expected painted extent exactly ", expected_cells,
+			" got ", terrain.get_used_cells().size()
+		)
 		main.queue_free()
 		return false
 	var mat_cells: Dictionary = {}
@@ -395,6 +405,18 @@ func _check_fairway_stripes_and_atmosphere() -> bool:
 				main.queue_free()
 				return false
 			seen_variants[atlas.x % n] = true
+	## Apron sample: just outside fairway should be forest band.
+	var apron_cell := Vector2i(-1, 0)
+	var apron_atlas := terrain.get_cell_atlas_coords(apron_cell)
+	var apron_expected := IsoView.forest_atlas_for_cell(apron_cell.x, apron_cell.y)
+	if apron_atlas != apron_expected:
+		print("FAIL: apron atlas expected ", apron_expected, " got ", apron_atlas)
+		main.queue_free()
+		return false
+	if apron_atlas.x < n * 2 or apron_atlas.x >= n * 3:
+		print("FAIL: apron not in forest atlas band ", apron_atlas)
+		main.queue_free()
+		return false
 	if seen_variants.size() < 2:
 		print("FAIL: expected scattered fairway variants, saw ", seen_variants.keys())
 		main.queue_free()
@@ -408,8 +430,8 @@ func _check_fairway_stripes_and_atmosphere() -> bool:
 		main.queue_free()
 		return false
 	print(
-		"OK: fairway stripes + variants=", seen_variants.size(),
-		" + atmosphere + extent ", w, "x", d
+		"OK: fairway stripes + apron + variants=", seen_variants.size(),
+		" + atmosphere + extent ", w, "x", d, " pad=", pad
 	)
 	main.queue_free()
 	return true
@@ -460,7 +482,7 @@ func _check_fairway_only_and_pan() -> bool:
 	await process_frame
 	var iso := main.get_node_or_null("IsoView") as IsoView
 	if iso == null:
-		print("FAIL: IsoView missing for fairway-only check")
+		print("FAIL: IsoView missing for fairway+apron check")
 		main.queue_free()
 		return false
 	if iso.get_node_or_null("TreeBorder") != null:
@@ -472,22 +494,49 @@ func _check_fairway_only_and_pan() -> bool:
 	var terrain := iso.get_node("Terrain") as TileMapLayer
 	var w := RangeGrid.GRID_WIDTH_CELLS
 	var d := RangeGrid.GRID_DEPTH_CELLS
+	var pad := IsoView.APRON_PAD_CELLS
 	var used := terrain.get_used_cells()
-	if used.size() != w * d:
-		print("FAIL: expected fairway-only cell count ", w * d, " got ", used.size())
+	var expected_cells := (w + pad * 2) * (d + pad * 2)
+	if used.size() != expected_cells:
+		print("FAIL: expected fairway+apron cell count ", expected_cells, " got ", used.size())
 		main.queue_free()
 		return false
+	var n := IsoView.FAIRWAY_VARIANT_COUNT
+	var fairway_count := 0
+	var apron_count := 0
 	for cell in used:
-		var range_cell := IsoGrid.range_cell_from_iso_cell(cell)
-		if (
-			range_cell.x < 0
-			or range_cell.x >= w
-			or range_cell.y < 0
-			or range_cell.y >= d
-		):
-			print("FAIL: terrain cell outside fairway grid ", cell, " -> ", range_cell)
+		if cell.x < -pad or cell.x >= w + pad or cell.y < -pad or cell.y >= d + pad:
+			print("FAIL: terrain cell outside apron rect ", cell)
 			main.queue_free()
 			return false
+		var range_cell := IsoGrid.range_cell_from_iso_cell(cell)
+		var atlas := terrain.get_cell_atlas_coords(cell)
+		var in_fairway := (
+			range_cell.x >= 0
+			and range_cell.x < w
+			and range_cell.y >= 0
+			and range_cell.y < d
+		)
+		if in_fairway:
+			fairway_count += 1
+			if atlas.x >= n * 2 and atlas.x < n * 3:
+				print("FAIL: forest atlas inside fairway ", cell, " atlas=", atlas)
+				main.queue_free()
+				return false
+		else:
+			apron_count += 1
+			if atlas.x < n * 2 or atlas.x >= n * 3:
+				print("FAIL: apron cell not forest atlas ", cell, " atlas=", atlas)
+				main.queue_free()
+				return false
+	if fairway_count != w * d:
+		print("FAIL: fairway cell count ", fairway_count, " expected ", w * d)
+		main.queue_free()
+		return false
+	if apron_count != expected_cells - w * d:
+		print("FAIL: apron cell count ", apron_count, " expected ", expected_cells - w * d)
+		main.queue_free()
+		return false
 	var placement := iso.get_node("PlacementController") as PlacementController
 	if placement.get_active_catalog_id() != &"":
 		print("FAIL: default catalog tool should be empty for pan")
@@ -519,7 +568,17 @@ func _check_fairway_only_and_pan() -> bool:
 		print("FAIL: zoom not stepped during fairway/pan check")
 		main.queue_free()
 		return false
-	print("OK: fairway-only terrain ", w, "x", d, " + pan/zoom")
+	## Zoom fully out reaches 0.25 (2× further than previous 0.5 floor).
+	while cam_ctrl.get_zoom_index() > 0:
+		var out := InputEventMouseButton.new()
+		out.button_index = MOUSE_BUTTON_WHEEL_DOWN
+		out.pressed = true
+		cam_ctrl.consume_zoom_event(out)
+	if not is_equal_approx(cam_ctrl.get_zoom_level(), 0.25):
+		print("FAIL: max zoom-out expected 0.25 got ", cam_ctrl.get_zoom_level())
+		main.queue_free()
+		return false
+	print("OK: fairway+apron terrain ", w, "x", d, " pad=", pad, " + pan/zoom to 0.25")
 	main.queue_free()
 	return true
 
@@ -577,8 +636,11 @@ func _check_bay_mats() -> bool:
 	if not ResourceLoader.exists(mat_path) and not FileAccess.file_exists(ProjectSettings.globalize_path(mat_path)):
 		print("FAIL: missing authored mat ", mat_path)
 		return false
-	if IsoView.FAIRWAY_ATLAS_MAT != Vector2i(IsoView.FAIRWAY_VARIANT_COUNT * 2, 0):
-		print("FAIL: FAIRWAY_ATLAS_MAT should be atlas index 2N")
+	if IsoView.FAIRWAY_ATLAS_MAT != Vector2i(IsoView.FAIRWAY_VARIANT_COUNT * 3, 0):
+		print("FAIL: FAIRWAY_ATLAS_MAT should be atlas index 3N")
+		return false
+	if IsoView.FAIRWAY_ATLAS_FOREST != Vector2i(IsoView.FAIRWAY_VARIANT_COUNT * 2, 0):
+		print("FAIL: FAIRWAY_ATLAS_FOREST should be atlas index 2N")
 		return false
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
@@ -647,10 +709,13 @@ func _check_duff_in_front_alignment() -> bool:
 
 func _check_fairway_palette_colors() -> bool:
 	## Iso terrain means (iso-only; 3D DayNightPalette day fairway is separate).
-	var target_light := Vector3(0x26 / 255.0, 0x74 / 255.0, 0x08 / 255.0)
-	var target_dark := Vector3(0x1E / 255.0, 0x5C / 255.0, 0x06 / 255.0)
+	var targets := {
+		"light": Vector3(0x26 / 255.0, 0x74 / 255.0, 0x08 / 255.0),
+		"dark": Vector3(0x1E / 255.0, 0x5C / 255.0, 0x06 / 255.0),
+		"forest": Vector3(0x12 / 255.0, 0x38 / 255.0, 0x04 / 255.0),
+	}
 	for i in IsoView.FAIRWAY_VARIANT_COUNT:
-		for band in ["light", "dark"]:
+		for band in targets.keys():
 			var path := "res://assets/sprites/iso/terrain/fairway_%s_%d.png" % [band, i]
 			var img := Image.new()
 			if img.load(ProjectSettings.globalize_path(path)) != OK:
@@ -669,12 +734,12 @@ func _check_fairway_palette_colors() -> bool:
 				print("FAIL: no opaque pixels ", path)
 				return false
 			var mean := acc / float(n)
-			var target := target_light if band == "light" else target_dark
+			var target: Vector3 = targets[band]
 			var err := (mean - target).length()
 			if err > 0.08:
 				print("FAIL: ", path, " mean ", mean, " far from palette ", target, " err=", err)
 				return false
-	print("OK: iso fairway light/dark means match #267408 / #1e5c06")
+	print("OK: iso fairway light/dark/forest means match #267408 / #1e5c06 / #123804")
 	return true
 
 
@@ -697,7 +762,7 @@ func _fairway_variant_paths(band: String) -> Array[String]:
 
 func _fairway_all_band_paths() -> Array[String]:
 	var paths: Array[String] = []
-	for band in ["light", "dark"]:
+	for band in ["light", "dark", "forest"]:
 		paths.append_array(_fairway_variant_paths(band))
 	paths.append("res://assets/sprites/iso/terrain/fairway_mat.png")
 	return paths
@@ -741,50 +806,69 @@ func _check_fairway_native_flat() -> bool:
 
 
 func _check_fairway_dark_is_tint() -> bool:
-	## Dark band is a darkened copy of light — same opaque footprint, darker mean green.
+	## Dark/forest bands are darkened copies — same opaque footprint, darker mean green.
 	for i in IsoView.FAIRWAY_VARIANT_COUNT:
 		var light_path := "res://assets/sprites/iso/terrain/fairway_light_%d.png" % i
 		var dark_path := "res://assets/sprites/iso/terrain/fairway_dark_%d.png" % i
+		var forest_path := "res://assets/sprites/iso/terrain/fairway_forest_%d.png" % i
 		var light := Image.new()
 		var dark := Image.new()
+		var forest := Image.new()
 		if light.load(ProjectSettings.globalize_path(light_path)) != OK:
 			print("FAIL: could not load ", light_path, " for tint check")
 			return false
 		if dark.load(ProjectSettings.globalize_path(dark_path)) != OK:
 			print("FAIL: could not load ", dark_path, " for tint check")
 			return false
-		if light.get_size() != dark.get_size():
-			print("FAIL: light/dark size mismatch variant ", i)
+		if forest.load(ProjectSettings.globalize_path(forest_path)) != OK:
+			print("FAIL: could not load ", forest_path, " for tint check")
+			return false
+		if light.get_size() != dark.get_size() or light.get_size() != forest.get_size():
+			print("FAIL: light/dark/forest size mismatch variant ", i)
 			return false
 		var light_g := 0.0
 		var dark_g := 0.0
+		var forest_g := 0.0
 		var n := 0
 		var alpha_mismatch := 0
 		for y in light.get_height():
 			for x in light.get_width():
 				var cl := light.get_pixel(x, y)
 				var cd := dark.get_pixel(x, y)
+				var cf := forest.get_pixel(x, y)
 				var la := cl.a >= 0.5
 				var da := cd.a >= 0.5
-				if la != da:
+				var fa := cf.a >= 0.5
+				if la != da or la != fa:
 					alpha_mismatch += 1
 				if not la:
 					continue
 				light_g += cl.g
 				dark_g += cd.g
+				forest_g += cf.g
 				n += 1
 		if alpha_mismatch > 0:
-			print("FAIL: light/dark alpha footprint mismatch variant=", i, " count=", alpha_mismatch)
+			print(
+				"FAIL: light/dark/forest alpha footprint mismatch variant=", i,
+				" count=", alpha_mismatch
+			)
 			return false
 		if n == 0:
 			print("FAIL: no opaque fairway pixels variant ", i)
 			return false
 		light_g /= float(n)
 		dark_g /= float(n)
+		forest_g /= float(n)
 		if dark_g >= light_g - 0.02:
 			print("FAIL: dark mean green not darker than light variant ", i, " (", dark_g, " vs ", light_g, ")")
 			return false
-	print("OK: fairway_dark tint-derived for ", IsoView.FAIRWAY_VARIANT_COUNT, " variants")
+		if forest_g >= dark_g - 0.02:
+			print(
+				"FAIL: forest mean green not darker than dark variant ", i,
+				" (", forest_g, " vs ", dark_g, ")"
+			)
+			return false
+	print("OK: fairway_dark/forest tint-derived for ", IsoView.FAIRWAY_VARIANT_COUNT, " variants")
 	return true
 
 
@@ -858,9 +942,9 @@ func _check_fairway_seam_flat() -> bool:
 
 
 func _check_fairway_variant_assets() -> bool:
-	## N light/dark variants + single authored mat.
+	## N light/dark/forest variants + single authored mat.
 	for i in IsoView.FAIRWAY_VARIANT_COUNT:
-		for band in ["light", "dark"]:
+		for band in ["light", "dark", "forest"]:
 			var path := "res://assets/sprites/iso/terrain/fairway_%s_%d.png" % [band, i]
 			if not ResourceLoader.exists(path) and not FileAccess.file_exists(ProjectSettings.globalize_path(path)):
 				print("FAIL: missing fairway variant ", path)
@@ -878,7 +962,18 @@ func _check_fairway_variant_assets() -> bool:
 	if a.x >= IsoView.FAIRWAY_VARIANT_COUNT or c.x < IsoView.FAIRWAY_VARIANT_COUNT:
 		print("FAIL: fairway_atlas_for_cell band mapping wrong a=", a, " c=", c)
 		return false
-	print("OK: fairway variant assets + hash scatter")
+	var fa := IsoView.forest_atlas_for_cell(-1, 0)
+	var fb := IsoView.forest_atlas_for_cell(-1, 1)
+	if fa.x < IsoView.FAIRWAY_VARIANT_COUNT * 2 or fa.x >= IsoView.FAIRWAY_VARIANT_COUNT * 3:
+		print("FAIL: forest_atlas_for_cell out of forest band ", fa)
+		return false
+	if fa == fb and fa == IsoView.forest_atlas_for_cell(0, -1):
+		print("FAIL: forest hash scatter collapsed to one atlas")
+		return false
+	if IsoView.APRON_PAD_CELLS < 30:
+		print("FAIL: APRON_PAD_CELLS too small for max zoom-out ", IsoView.APRON_PAD_CELLS)
+		return false
+	print("OK: fairway/forest variant assets + hash scatter + apron pad")
 	return true
 
 
@@ -1243,5 +1338,89 @@ func _check_iso_flight_mirror() -> bool:
 		return false
 	bus.litter_cleared.emit()
 	print("OK: iso flight mirror + trail + altitude + constant idle size + litter handoff")
+	main.queue_free()
+	return true
+
+
+func _check_iso_yardage_markers() -> bool:
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	await process_frame
+	await process_frame
+	var iso := main.get_node_or_null("IsoView") as IsoView
+	if iso == null:
+		print("FAIL: IsoView missing for yardage marker check")
+		main.queue_free()
+		return false
+	iso.set_mode(IsoView.Mode.BUILD)
+	await process_frame
+	await process_frame
+
+	var markers := iso.get_node_or_null("YardageMarkers") as Node2D
+	if markers == null:
+		print("FAIL: IsoView missing YardageMarkers")
+		main.queue_free()
+		return false
+	var expected := YardageMarkerLayout.entries()
+	if markers.get_child_count() != expected.size():
+		print(
+			"FAIL: yardage marker count ", markers.get_child_count(),
+			" expected ", expected.size()
+		)
+		main.queue_free()
+		return false
+
+	var scale := IsoView.yardage_marker_sprite_scale()
+	for entry in expected:
+		var child := markers.get_node_or_null(String(entry["name"])) as Sprite2D
+		if child == null:
+			print("FAIL: missing yardage marker ", entry["name"])
+			main.queue_free()
+			return false
+		var want_px := IsoView.yardage_marker_iso_px(entry["world_pos"] as Vector3)
+		if child.position.distance_to(want_px) > 0.5:
+			print(
+				"FAIL: ", child.name, " pos ", child.position,
+				" expected ", want_px
+			)
+			main.queue_free()
+			return false
+		if not is_equal_approx(child.scale.x, scale):
+			print("FAIL: ", child.name, " scale ", child.scale.x, " expected ", scale)
+			main.queue_free()
+			return false
+		var side_x: float = float(entry["side_x"])
+		if absf(absf(side_x) - YardageMarkerLayout.SIDE_X) > 0.01:
+			print("FAIL: ", child.name, " side_x not on outer band ", side_x)
+			main.queue_free()
+			return false
+
+	const DAY_TIME := 60.0
+	const NIGHT_TIME := 0.0
+	var day_tint := DayNightPalette.apply_moonlight(
+		DayNightPalette.sample_at(DAY_TIME).canvas_modulate,
+		DayNightPalette.day_light_factor(DAY_TIME)
+	)
+	var night_tint := DayNightPalette.apply_moonlight(
+		DayNightPalette.sample_at(NIGHT_TIME).canvas_modulate,
+		DayNightPalette.day_light_factor(NIGHT_TIME)
+	)
+	iso.apply_atmosphere(DAY_TIME)
+	if not markers.modulate.is_equal_approx(day_tint):
+		print("FAIL: yardage day modulate expected ", day_tint, " got ", markers.modulate)
+		main.queue_free()
+		return false
+	iso.apply_atmosphere(NIGHT_TIME)
+	if not markers.modulate.is_equal_approx(night_tint):
+		print("FAIL: yardage night modulate expected ", night_tint, " got ", markers.modulate)
+		main.queue_free()
+		return false
+	for child in markers.get_children():
+		if child is Sprite2D and not (child as Sprite2D).modulate.is_equal_approx(Color.WHITE):
+			print("FAIL: marker child should stay WHITE; ", child.name, " got ", child.modulate)
+			main.queue_free()
+			return false
+
+	print("OK: iso yardage markers on outer bands + moonlight tint")
 	main.queue_free()
 	return true

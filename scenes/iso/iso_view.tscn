@@ -532,6 +532,10 @@ tile_set = ExtResource("6_tileset")
 z_index = 3
 y_sort_enabled = true
 
+[node name="YardageMarkers" type="Node2D" parent="."]
+z_index = 3
+y_sort_enabled = true
+
 [node name="LitteredBalls" type="Node2D" parent="." unique_id=954389527]
 z_index = 4
 y_sort_enabled = true

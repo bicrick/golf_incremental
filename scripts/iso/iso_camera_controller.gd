@@ -9,9 +9,9 @@ extends Node
 ## Screen-space pan speed in pixels per second (divided by zoom for world delta).
 @export var key_pan_speed_px: float = 480.0
 
-## Discrete zoom steps (further out = 0.5).
-const ZOOM_STEPS: Array[float] = [0.5, 1.0, 2.0, 3.0, 4.0]
-const DEFAULT_ZOOM_INDEX := 1 ## 1.0x
+## Discrete zoom steps (further out = 0.25).
+const ZOOM_STEPS: Array[float] = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0]
+const DEFAULT_ZOOM_INDEX := 2 ## 1.0x
 ## Smoothing for ball-follow pan (higher = snappier).
 const FOLLOW_LERP := 8.0
 

@@ -17,10 +17,12 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 TERRAIN = ROOT / "assets" / "sprites" / "iso" / "terrain"
 
-## Perspective-sampled iso targets (light/dark only).
+## Perspective-sampled iso targets (light/dark/forest).
 ## Bay mats use authored fairway_mat.png — not regenerated here.
 LIGHT_HEX = (0x26, 0x74, 0x08)  # #267408
 DARK_HEX = (0x1E, 0x5C, 0x06)  # #1e5c06
+## Darker apron beyond the fairway (roughly ~0.6× dark mean).
+FOREST_HEX = (0x12, 0x38, 0x04)  # #123804
 ALPHA_CUTOFF = 0.5
 
 
@@ -91,9 +93,10 @@ def unify_fairway_silhouettes() -> None:
 	PixelLab variants differ by a few edge texels. Mixed on the TileMap that
 	opens 1px gaps — sky shows through as nasty gray/blue speckles.
 	"""
-	## Light/dark only — fairway_mat.png is authored separately.
+	## Light/dark/forest — fairway_mat.png is authored separately.
 	paths = sorted(TERRAIN.glob("fairway_light_*.png"))
 	paths += sorted(TERRAIN.glob("fairway_dark_*.png"))
+	paths += sorted(TERRAIN.glob("fairway_forest_*.png"))
 	if not paths:
 		return
 	imgs = [np.asarray(Image.open(p).convert("RGBA"), dtype=np.uint8) for p in paths]
@@ -155,6 +158,7 @@ def _fill_to_mask(im: np.ndarray, target: np.ndarray) -> np.ndarray:
 def main() -> None:
 	light_t = hex_to_unit(LIGHT_HEX)
 	dark_t = hex_to_unit(DARK_HEX)
+	forest_t = hex_to_unit(FOREST_HEX)
 
 	lights = sorted(TERRAIN.glob("fairway_light_*.png"))
 	if not lights:
@@ -163,6 +167,7 @@ def main() -> None:
 	print(
 		f"Recolor {len(lights)} variants → light=#{LIGHT_HEX[0]:02x}{LIGHT_HEX[1]:02x}{LIGHT_HEX[2]:02x} "
 		f"dark=#{DARK_HEX[0]:02x}{DARK_HEX[1]:02x}{DARK_HEX[2]:02x} "
+		f"forest=#{FOREST_HEX[0]:02x}{FOREST_HEX[1]:02x}{FOREST_HEX[2]:02x} "
 		f"(mats skipped — authored fairway_mat.png)"
 	)
 	for light_path in lights:
@@ -170,9 +175,11 @@ def main() -> None:
 		rgba = np.asarray(Image.open(light_path).convert("RGBA"), dtype=np.float64) / 255.0
 		light = shift_mean_to(rgba, light_t)
 		dark = shift_mean_to(light.copy(), dark_t)
+		forest = shift_mean_to(dark.copy(), forest_t)
 
 		save_rgba(TERRAIN / f"fairway_light_{idx}.png", light)
 		save_rgba(TERRAIN / f"fairway_dark_{idx}.png", dark)
+		save_rgba(TERRAIN / f"fairway_forest_{idx}.png", forest)
 
 	unify_fairway_silhouettes()
 	print("done")
