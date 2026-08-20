@@ -28,6 +28,7 @@ func _ready() -> void:
 	UiTheme.apply_primary_button(settings_button)
 	UiTheme.apply_danger_button(exit_button)
 	UiTheme.apply_primary_button(add_money_button)
+	_apply_exit_visibility()
 	apply_viewport_layout()
 
 
@@ -45,6 +46,7 @@ func apply_viewport_layout() -> void:
 	if want_vertical == is_vertical:
 		if divider:
 			divider.visible = not portrait
+		_apply_exit_visibility()
 		return
 	var parent := main_row.get_parent()
 	var children := main_row.get_children()
@@ -67,6 +69,21 @@ func apply_viewport_layout() -> void:
 			btn.custom_minimum_size = Vector2(btn_w, 0)
 	if right != null:
 		right.custom_minimum_size = Vector2(168.0 if not portrait else 0.0, 0)
+	_apply_exit_visibility()
+
+
+func should_show_exit_button() -> bool:
+	## Web / mobile / touch have no process to quit; hide Exit there.
+	if OS.has_feature("web") or OS.has_feature("mobile"):
+		return false
+	if UiLayout.is_mobile_touch():
+		return false
+	return true
+
+
+func _apply_exit_visibility() -> void:
+	if exit_button != null:
+		exit_button.visible = should_show_exit_button()
 
 
 func is_open() -> bool:

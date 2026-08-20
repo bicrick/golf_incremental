@@ -48,6 +48,52 @@ func _run() -> void:
 	if not margin.get_node("VBox/TopRow/CurrencyPanel") is PanelContainer:
 		print("FAIL: CurrencyPanel should be a PanelContainer")
 		ok = false
+	var currency_panel: Control = margin.get_node("VBox/TopRow/CurrencyPanel")
+	if currency_panel.mouse_filter != Control.MOUSE_FILTER_STOP:
+		print("FAIL: CurrencyPanel should STOP mouse so money-tap opens pause")
+		ok = false
+	if not hud.has_method("open_pause_menu"):
+		print("FAIL: HUD missing open_pause_menu")
+		ok = false
+	else:
+		var pause_menu: Control = main.get_node_or_null("SettingsLayer/PauseMenu")
+		if pause_menu == null or not pause_menu.has_method("open"):
+			print("FAIL: PauseMenu missing")
+			ok = false
+		else:
+			## Title is still showing; hide it so money-tap can open pause.
+			var title_screen: CanvasLayer = main.get_node_or_null("TitleScreen")
+			if title_screen != null:
+				title_screen.visible = false
+			main.ui.visible = true
+			hud.open_pause_menu()
+			await process_frame
+			if not pause_menu.is_open():
+				print("FAIL: money-tap path should open pause menu")
+				ok = false
+			else:
+				print("OK: HUD currency opens pause")
+			if not pause_menu.has_method("should_show_exit_button"):
+				print("FAIL: PauseMenu missing should_show_exit_button")
+				ok = false
+			else:
+				var exit_btn: Button = pause_menu.get_node_or_null(
+					"Content/Center/MainRow/LeftPane/ExitButton"
+				)
+				if exit_btn == null:
+					print("FAIL: ExitButton missing")
+					ok = false
+				elif exit_btn.visible != pause_menu.should_show_exit_button():
+					print("FAIL: ExitButton visibility should match should_show_exit_button()")
+					ok = false
+				elif OS.has_feature("web") and exit_btn.visible:
+					print("FAIL: Exit Game must be hidden on web")
+					ok = false
+				else:
+					print("OK: Exit Game visibility=", exit_btn.visible)
+			pause_menu.close()
+			if title_screen != null:
+				title_screen.visible = true
 	if not margin.has_node("VBox/TopRow/RatinaChip"):
 		print("FAIL: RatinaChip missing from HUD top row")
 		ok = false
@@ -72,6 +118,15 @@ func _run() -> void:
 		ok = false
 	if icon_bar.has_node("BottomRight/RangeModeToggle"):
 		print("FAIL: RangeModeToggle should be removed")
+		ok = false
+	if icon_bar.has_node("BottomRight/HitWrap") or icon_bar.has_node("BottomRight/HitButton"):
+		print("FAIL: harvest Hit toggle should be removed")
+		ok = false
+	if icon_bar.get_node_or_null("TopRight/UpgradesWrap/UpgradesButton") == null:
+		print("FAIL: upgrades button missing from IconBar")
+		ok = false
+	if icon_bar.has_node("TopRight/BuildWrap") or icon_bar.has_node("TopRight/BuildButton"):
+		print("FAIL: Build button should be removed from IconBar")
 		ok = false
 	if icon_bar.has_node("BottomLeft/StatsButton"):
 		print("FAIL: stats placeholder should be removed")
@@ -102,6 +157,37 @@ func _run() -> void:
 	if "/" not in count_label.text:
 		print("FAIL: bucket count should show current/max fraction")
 		ok = false
+	if gs != null:
+		gs.bucket_remaining = 3
+		if not gs.try_enter_harvest():
+			print("FAIL: try_enter_harvest should succeed for bucket ball-return check")
+			ok = false
+		else:
+			await process_frame
+			if bucket_counter.mouse_filter != Control.MOUSE_FILTER_STOP:
+				print("FAIL: harvest bucket should STOP mouse so it is tappable ball-return")
+				ok = false
+			else:
+				print("OK: harvest bucket mouse_filter STOP")
+			var click := InputEventMouseButton.new()
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			bucket_counter._on_gui_input(click)
+			await process_frame
+			if gs.current_phase != "strike":
+				print(
+					"FAIL: harvest bucket tap should return_all_balls_free, got %s"
+					% gs.current_phase
+				)
+				ok = false
+			elif gs.bucket_remaining != gs.bucket_capacity:
+				print(
+					"FAIL: bucket ball-return should refill leftover balls, expected %d got %d"
+					% [gs.bucket_capacity, gs.bucket_remaining]
+				)
+				ok = false
+			else:
+				print("OK: harvest bucket tap returns leftover balls and exits to strike")
 
 	if not margin.has_node("VBox/IncomeStack"):
 		print("FAIL: IncomeStack missing from HUD")

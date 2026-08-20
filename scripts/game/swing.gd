@@ -47,6 +47,15 @@ func start_charge() -> void:
 	EventBus.swing_charging_changed.emit(true)
 
 
+## Drop an in-progress charge without resolving a hit. Used when harvest
+## resumes strike while the same finger/mouse is still down.
+func cancel_charge() -> void:
+	if phase != Phase.CHARGING:
+		return
+	phase = Phase.IDLE
+	windup_progress = 0.0
+
+
 func release_strike() -> void:
 	if phase != Phase.CHARGING:
 		return

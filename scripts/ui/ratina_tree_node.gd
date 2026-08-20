@@ -10,12 +10,15 @@ enum NodeState { LOCKED, UNAFFORDABLE, PURCHASABLE, MAXED }
 
 const TooltipText := preload("res://scripts/ui/upgrade_tooltip_text.gd")
 const TooltipViewportClampScript = preload("res://scripts/ui/tooltip_viewport_clamp.gd")
+const UpgradeNodeTap = preload("res://scripts/ui/upgrade_node_tap.gd")
 
 const NODE_SIZE := UpgradeIcon.DEFAULT_NODE_SIZE
 const TOOLTIP_DELAY_SEC := 0.08
 const TOOLTIP_MAX_WIDTH := 150
+const TOOLTIP_PORTRAIT_MAX_WIDTH := 128
 const TOOLTIP_GAP := 5
 const TOOLTIP_EDGE_MARGIN := 8.0
+const PRESS_SLIDE_PX := 6.0
 
 const TOOLTIP_BG := Color(0.08, 0.11, 0.06, 0.96)
 const TOOLTIP_BORDER := Color(0.78, 0.66, 0.28, 1)
@@ -41,6 +44,8 @@ var _tooltip_maxed := false
 var _tooltip_unlocked := false
 var _tooltip_affordable := false
 var _preview_provider := Callable(RatinaUpgradeEffects, "preview_stats")
+var _press_pos := Vector2.ZERO
+var _press_slid := false
 
 @onready var _button: Button = $HitButton
 @onready var _glow: ColorRect = $GlowOverlay
@@ -58,6 +63,7 @@ func _ready() -> void:
 	custom_minimum_size = NODE_SIZE
 	size = NODE_SIZE
 	_button.pressed.connect(_on_pressed)
+	_button.gui_input.connect(_on_hit_gui_input)
 	_button.mouse_entered.connect(_on_mouse_entered)
 	_button.mouse_exited.connect(_on_mouse_exited)
 	_button.tooltip_text = ""
@@ -111,7 +117,7 @@ func refresh() -> void:
 	_tooltip_affordable = affordable
 
 	_apply_visual_state()
-	_button.disabled = _state == NodeState.LOCKED or _state == NodeState.MAXED
+	_button.disabled = false
 	if _tooltip_panel.visible:
 		_update_tooltip_content()
 		_position_tooltip()
@@ -122,11 +128,15 @@ func get_center() -> Vector2:
 
 
 func _on_mouse_entered() -> void:
+	if UpgradeNodeTap.is_inspect_mode():
+		return
 	_hovering = true
 	_tooltip_timer.start()
 
 
 func _on_mouse_exited() -> void:
+	if UpgradeNodeTap.is_selected(self):
+		return
 	_hovering = false
 	_tooltip_timer.stop()
 	_hide_tooltip()
@@ -137,8 +147,51 @@ func _on_tooltip_timer_timeout() -> void:
 		_show_tooltip()
 
 
+func begin_inspect() -> void:
+	_hovering = true
+	_tooltip_timer.stop()
+	_show_tooltip()
+
+
+func clear_inspect() -> void:
+	_hovering = false
+	_tooltip_timer.stop()
+	_hide_tooltip()
+
+
+func _on_hit_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if mb.pressed:
+			_press_pos = mb.position
+			_press_slid = false
+		return
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			_press_pos = touch.position
+			_press_slid = false
+		return
+	if event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		if motion.button_mask & MOUSE_BUTTON_MASK_LEFT:
+			if motion.position.distance_to(_press_pos) > PRESS_SLIDE_PX:
+				_press_slid = true
+	elif event is InputEventScreenDrag:
+		if (event as InputEventScreenDrag).position.distance_to(_press_pos) > PRESS_SLIDE_PX:
+			_press_slid = true
+
+
 func _on_pressed() -> void:
-	if upgrade_id.is_empty():
+	if upgrade_id.is_empty() or _press_slid:
+		return
+	if UpgradeNodeTap.is_inspect_mode():
+		if not UpgradeNodeTap.is_selected(self):
+			UpgradeNodeTap.select(self)
+			return
+	if _state == NodeState.LOCKED or _state == NodeState.MAXED:
 		return
 	purchase_requested.emit(upgrade_id)
 
@@ -177,7 +230,12 @@ func _update_tooltip_content() -> void:
 
 func _position_tooltip() -> void:
 	var tip_size: Vector2 = _tooltip_panel.get_combined_minimum_size()
-	tip_size.x = clampf(tip_size.x, 72.0, TOOLTIP_MAX_WIDTH)
+	var max_w := (
+		TOOLTIP_PORTRAIT_MAX_WIDTH
+		if UiLayout.is_portrait(get_viewport())
+		else TOOLTIP_MAX_WIDTH
+	)
+	tip_size.x = clampf(tip_size.x, 72.0, float(max_w))
 	_tooltip_panel.custom_minimum_size = tip_size
 	_tooltip_panel.size = tip_size
 

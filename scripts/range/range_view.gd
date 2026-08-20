@@ -29,6 +29,9 @@ const MOON_LIGHT_ENERGY := 0.16
 const CELESTIAL_SPRITE_DISTANCE := 520.0
 const CELESTIAL_SPRITE_PIXEL_SIZE := 4.4
 const CELESTIAL_SPRITE_RENDER_PRIORITY := -80
+## Portrait strike dolly-back along the authored look line (camera +Z).
+## World yards ≈ meters here; ~2/3 m. Not an FOV / KEEP_HEIGHT zoom.
+const PORTRAIT_STRIKE_DOLLY_BACK := 0.67
 const SUN_TEXTURE := preload("res://assets/sprites/sky/sun.png")
 const MOON_TEXTURE := preload("res://assets/sprites/sky/moon.png")
 const RangeSkyStarsScript := preload("res://scripts/visual/range_sky_stars.gd")
@@ -93,12 +96,19 @@ var _sprite_atmosphere_tint: Color = Color.WHITE
 var _ratina_layout_applied: bool = false
 var _ratina_strike_text_offset: Vector2 = Balance.RATINA_STRIKE_TEXT_OFFSET
 var _view_mode_started := false
+## Swallow leftover harvest-exit presses so they cannot charge a swing.
+var _ignore_pointer_until_release: bool = false
+var _held_touch_indices: Dictionary = {}
 var _backdrop_mesh: MeshInstance3D
 var _editor_backdrop_camera_xform: Transform3D = Transform3D()
 var _empty_bays_container: Node3D
 var _sun_sprite: Sprite3D
 var _moon_sprite: Sprite3D
 var _sky_stars: RangeSkyStars
+var _harvest_press_active := false
+var _harvest_gesture_locked := false
+var _perspective_home_xform: Transform3D = Transform3D()
+var _perspective_home_captured: bool = false
 
 
 func _should_use_editor_rig() -> bool:
@@ -162,6 +172,7 @@ func _ready() -> void:
 	call_deferred("_setup_rattling_controller")
 	call_deferred("_apply_ratina_layout_if_needed")
 	_set_idle_ring()
+	set_process_input(true)
 	if sun_light:
 		sun_light.shadow_enabled = false
 
@@ -417,8 +428,35 @@ func apply_viewport_aspect() -> void:
 		camera.keep_aspect = Camera3D.KEEP_HEIGHT
 	if perspective_camera:
 		perspective_camera.keep_aspect = Camera3D.KEEP_HEIGHT
+	_apply_perspective_portrait_dolly()
 	_build_backdrop()
 	_layout_charge_meter()
+
+
+func perspective_home_transform() -> Transform3D:
+	_ensure_perspective_home()
+	return _perspective_home_xform
+
+
+func _ensure_perspective_home() -> void:
+	if _perspective_home_captured or perspective_camera == null:
+		return
+	_perspective_home_xform = perspective_camera.transform
+	_perspective_home_captured = true
+
+
+func _apply_perspective_portrait_dolly() -> void:
+	if perspective_camera == null:
+		return
+	_ensure_perspective_home()
+	perspective_camera.transform = _perspective_home_xform
+	## Portrait only — landscape desktop keeps the authored strike pose.
+	if not UiLayout.is_portrait(get_viewport()):
+		return
+	## Godot look is -Z; +basis.z is backward. Dolly-back, not FOV zoom.
+	perspective_camera.position += (
+		perspective_camera.transform.basis.z * PORTRAIT_STRIKE_DOLLY_BACK
+	)
 
 
 func _layout_charge_meter() -> void:
@@ -732,9 +770,55 @@ func _process(delta: float) -> void:
 		if cam != null and not cam.transform.is_equal_approx(_editor_backdrop_camera_xform):
 			_build_backdrop()
 		return
+	_clear_ignore_if_pointers_up()
 	_swing.update(delta)
 	_update_ball_reload()
 	_update_charge_visuals()
+
+
+func _input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
+	_track_pointer_event(event)
+	_clear_ignore_if_pointers_up()
+
+
+## Call when harvest ends (empty tap, collect-all, Space) so a leftover
+## finger/mouse press cannot become a charge or strike.
+func ignore_pointer_until_release() -> void:
+	_ignore_pointer_until_release = true
+	if _swing.is_charging():
+		_swing.cancel_charge()
+		_set_idle_ring()
+		if not _golfer_joy_active:
+			_play_golfer_idle()
+
+
+func _track_pointer_event(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			_held_touch_indices[touch.index] = true
+		else:
+			_held_touch_indices.erase(touch.index)
+
+
+func _any_pointer_down() -> bool:
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		return true
+	return not _held_touch_indices.is_empty()
+
+
+func _clear_ignore_if_pointers_up() -> void:
+	if _ignore_pointer_until_release and not _any_pointer_down():
+		_ignore_pointer_until_release = false
+
+
+func _should_ignore_strike_pointer() -> bool:
+	if not _ignore_pointer_until_release:
+		return false
+	_clear_ignore_if_pointers_up()
+	return _ignore_pointer_until_release
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -749,7 +833,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_handle_strike_input(event)
 		return
 	# Pan/zoom only after harvest ortho settle (can_use_ortho_pan). View toggles
-	# (Space / Hit / background click) stay available mid-flight and mid-dissolve;
+	# (Space / background click) stay available mid-flight and mid-dissolve;
 	# pickup itself is gated by PickupController.is_active() / harvest_view_ready.
 	if _camera_controller and _camera_controller.consume_zoom_event(event):
 		get_viewport().set_input_as_handled()
@@ -773,8 +857,9 @@ func _iso_view_showing() -> bool:
 	return iso != null and iso.visible
 
 
-## Collect mode: pickup click only. Desktop Space / Hit button returns to striking.
-## Mobile: exit only via Hit toggle or collecting every ball (no empty-tap / Space).
+## Collect mode: pickup click, or (desktop) empty click to return to striking.
+## Mobile empty tap / Space must not exit — use the bucket (2/6) ball-return.
+## Last ball still complete_harvest() via pickup.
 func _handle_harvest_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		if UiLayout.is_mobile_touch():
@@ -785,16 +870,25 @@ func _handle_harvest_input(event: InputEvent) -> void:
 			GameState.exit_harvest_early()
 		return
 	if _pickup and _pickup.handle_input(event):
+		_harvest_press_active = true
+		_harvest_gesture_locked = true
 		if _camera_controller and _camera_controller.has_method(&"cancel_pending_pan"):
 			_camera_controller.cancel_pending_pan()
 		get_viewport().set_input_as_handled()
 		return
+	var dragging := _camera_controller != null and _camera_controller.is_dragging()
+	if not UiLayout.is_mobile_touch() and _try_harvest_empty_tap_exit(event, dragging):
+		get_viewport().set_input_as_handled()
 
 
 ## Hitting mode: Space swings when the bucket has balls. A left-click on the
 ## gameplay background (not on a button) voluntarily enters collect mode.
 ## Mobile: below horizon = Space swing; above horizon = enter harvest.
 func _handle_strike_input(event: InputEvent) -> void:
+	if _should_ignore_strike_pointer():
+		if _is_left_pointer_event(event) or _is_space_event(event):
+			get_viewport().set_input_as_handled()
+		return
 	if UiLayout.is_mobile_touch():
 		if _handle_mobile_strike_input(event):
 			get_viewport().set_input_as_handled()
@@ -814,6 +908,13 @@ func _handle_strike_input(event: InputEvent) -> void:
 		_swing.start_charge()
 	else:
 		_swing.release_strike()
+
+
+func _is_space_event(event: InputEvent) -> bool:
+	if not event is InputEventKey:
+		return false
+	var key := event as InputEventKey
+	return not key.echo and key.keycode == KEY_SPACE
 
 
 func _handle_mobile_strike_input(event: InputEvent) -> bool:
@@ -836,6 +937,8 @@ func _handle_mobile_strike_input(event: InputEvent) -> bool:
 		pos = click.position
 	else:
 		return false
+	if _should_ignore_strike_pointer():
+		return true
 	var below_horizon := pos.y >= horizon_screen_y()
 	if pressed:
 		if below_horizon:
@@ -861,6 +964,52 @@ func _try_background_click_to_collect(click: InputEventMouseButton) -> bool:
 	if UiInput.is_interactive_control_under_mouse(get_viewport()):
 		return false
 	return GameState.try_enter_harvest()
+
+
+func _is_left_pointer_press(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		return (event as InputEventScreenTouch).pressed
+	if event is InputEventMouseButton:
+		var click := event as InputEventMouseButton
+		return click.button_index == MOUSE_BUTTON_LEFT and click.pressed
+	return false
+
+
+func _is_left_pointer_release(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		return not (event as InputEventScreenTouch).pressed
+	if event is InputEventMouseButton:
+		var click := event as InputEventMouseButton
+		return click.button_index == MOUSE_BUTTON_LEFT and not click.pressed
+	return false
+
+
+func _is_left_pointer_event(event: InputEvent) -> bool:
+	return _is_left_pointer_press(event) or _is_left_pointer_release(event)
+
+
+func _try_harvest_empty_tap_exit(event: InputEvent, is_dragging: bool) -> bool:
+	if is_dragging:
+		_harvest_gesture_locked = true
+	if UiInput.is_interactive_control_under_mouse(get_viewport()):
+		if _is_left_pointer_press(event):
+			_harvest_gesture_locked = true
+		return false
+	if _is_left_pointer_press(event):
+		if not _harvest_press_active:
+			_harvest_press_active = true
+			_harvest_gesture_locked = false
+		return false
+	if not _is_left_pointer_release(event):
+		return false
+	var should_exit := _harvest_press_active and not _harvest_gesture_locked
+	if not _any_pointer_down():
+		_harvest_press_active = false
+		_harvest_gesture_locked = false
+	if not should_exit:
+		return false
+	GameState.exit_harvest_early()
+	return true
 
 
 func _on_swing_charging_changed(charging: bool) -> void:
@@ -1234,9 +1383,15 @@ func _on_bucket_changed(_count: int, _capacity: int) -> void:
 func _on_phase_changed(phase: String) -> void:
 	if phase == "harvest":
 		_sync_tee_ball_from_bucket()
+		if _any_pointer_down():
+			_harvest_press_active = true
+			_harvest_gesture_locked = true
 	elif phase == "strike":
 		if golfer:
 			golfer.position = _golfer_home
+		ignore_pointer_until_release()
+		_harvest_press_active = false
+		_harvest_gesture_locked = false
 	_sync_golfer_idle_from_bucket()
 
 

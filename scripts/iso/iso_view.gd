@@ -54,6 +54,8 @@ var _picker: Node2D
 var _ball_tex: Texture2D
 var _litter_by_id: Dictionary = {} ## int -> Sprite2D
 var _editor_clearing_for_save := false
+var _harvest_press_active := false
+var _harvest_gesture_locked := false
 
 ## Inspector: tick to repaint fairway + refocus camera while editing this scene.
 @export var editor_repaint_preview: bool = false:
@@ -245,6 +247,12 @@ func set_active(active: bool) -> void:
 
 func set_mode(mode: Mode) -> void:
 	_mode = mode
+	if mode == Mode.HARVEST and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_harvest_press_active = true
+		_harvest_gesture_locked = true
+	elif mode != Mode.HARVEST:
+		_harvest_press_active = false
+		_harvest_gesture_locked = false
 	var active := mode != Mode.OFF
 	visible = active
 	if camera:
@@ -342,7 +350,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if _mode == Mode.HARVEST:
-		## Desktop: Space returns to strike. Mobile: only Hit toggle or collect-all.
+		## Desktop Space or empty click returns to strike. Mobile empty tap
+		## must not exit — use the bucket (2/6) ball-return instead.
 		if event is InputEventKey and not UiLayout.is_mobile_touch():
 			var key := event as InputEventKey
 			if not key.echo and key.pressed and key.keycode == KEY_SPACE:
@@ -352,14 +361,20 @@ func _unhandled_input(event: InputEvent) -> void:
 					gs.exit_harvest_early()
 				return
 		if _pickup != null and _pickup.handle_input(event):
+			_harvest_press_active = true
+			_harvest_gesture_locked = true
 			get_viewport().set_input_as_handled()
 			return
 		if camera_controller and camera_controller.consume_zoom_event(event):
 			get_viewport().set_input_as_handled()
 			return
+		var was_dragging := camera_controller != null and camera_controller.is_dragging()
 		if camera_controller and camera_controller.consume_pan_drag_event(event):
+			_harvest_gesture_locked = true
 			get_viewport().set_input_as_handled()
 			return
+		if not UiLayout.is_mobile_touch() and _try_harvest_empty_tap_exit(event, was_dragging):
+			get_viewport().set_input_as_handled()
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -396,6 +411,49 @@ func _unhandled_input(event: InputEvent) -> void:
 				if camera_controller:
 					camera_controller.cancel_pending_pan()
 				get_viewport().set_input_as_handled()
+
+
+func _try_harvest_empty_tap_exit(event: InputEvent, is_dragging: bool) -> bool:
+	if is_dragging:
+		_harvest_gesture_locked = true
+	if UiInput.is_interactive_control_under_mouse(get_viewport()):
+		if _is_left_pointer_press(event):
+			_harvest_gesture_locked = true
+		return false
+	if _is_left_pointer_press(event):
+		if not _harvest_press_active:
+			_harvest_press_active = true
+			_harvest_gesture_locked = false
+		return false
+	if not _is_left_pointer_release(event):
+		return false
+	var should_exit := _harvest_press_active and not _harvest_gesture_locked
+	_harvest_press_active = false
+	_harvest_gesture_locked = false
+	if not should_exit:
+		return false
+	var gs := get_tree().root.get_node_or_null("GameState")
+	if gs != null:
+		gs.exit_harvest_early()
+	return true
+
+
+func _is_left_pointer_press(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		return (event as InputEventScreenTouch).pressed
+	if event is InputEventMouseButton:
+		var click := event as InputEventMouseButton
+		return click.button_index == MOUSE_BUTTON_LEFT and click.pressed
+	return false
+
+
+func _is_left_pointer_release(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		return not (event as InputEventScreenTouch).pressed
+	if event is InputEventMouseButton:
+		var click := event as InputEventMouseButton
+		return click.button_index == MOUSE_BUTTON_LEFT and not click.pressed
+	return false
 
 
 func _on_litter_spawned(

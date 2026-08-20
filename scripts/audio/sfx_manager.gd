@@ -2,6 +2,7 @@ extends Node
 ## Game SFX (Cuelume UI cues + Mixkit golf hits) and BGM from assets/audio/music/.
 
 const UiHoverTickScript = preload("res://scripts/audio/ui_hover_tick.gd")
+const WebAudioUnlockScript = preload("res://scripts/audio/web_audio_unlock.gd")
 
 signal music_track_changed(path: String)
 
@@ -77,6 +78,7 @@ func _ready() -> void:
 	_load_golf_hit_streams()
 	_build_pool()
 	if OS.has_feature("web"):
+		WebAudioUnlockScript.install()
 		_web_bgm_fetcher = WebBgmFetcher.new()
 		_web_bgm_fetcher.name = "WebBgmFetcher"
 		add_child(_web_bgm_fetcher)
@@ -101,6 +103,16 @@ func _process(_delta: float) -> void:
 	var hovered := get_viewport().gui_get_hovered_control()
 	if _ui_hover_tick.poll(hovered):
 		play_ui_tick()
+
+
+func _input(event: InputEvent) -> void:
+	if not OS.has_feature("web"):
+		return
+	if not WebAudioUnlockScript.is_unlock_gesture(event):
+		return
+	_unlock_web_audio()
+	if _is_title_mode:
+		play_title_bgm()
 
 
 func get_music_tracks() -> Array[String]:
@@ -239,7 +251,19 @@ func set_music_enabled(enabled: bool) -> void:
 func play_title_bgm() -> void:
 	if not _music_enabled:
 		return
-	if _music_player != null or _ambient_player != null:
+	if _ambient_player != null:
+		return
+	_unlock_web_audio()
+	if is_music_playing():
+		return
+	if _music_player != null and _music_player.stream != null:
+		if _music_player.stream_paused:
+			return
+		_music_player.play()
+		return
+	if _web_bgm_fetcher != null and _web_bgm_fetcher.is_busy():
+		return
+	if _music_player != null:
 		return
 	_refresh_music_tracks()
 	if _music_tracks.is_empty():
@@ -254,26 +278,30 @@ func start_bgm() -> void:
 		return
 	if _ambient_player != null:
 		return
+	_unlock_web_audio()
 	if _music_player != null and not _is_title_mode:
 		# Re-assert play after a user gesture (web autoplay unlock).
-		if OS.has_feature("web") and _music_player.stream != null and not _music_player.playing:
-			_music_player.stream_paused = false
-			_music_player.play()
+		if OS.has_feature("web") and _music_player.stream != null and not is_music_playing():
+			if not _music_player.stream_paused:
+				_music_player.play()
 		return
 	_refresh_music_tracks()
 	if _music_tracks.is_empty():
 		if _music_player == null:
 			_start_ambient()
 		return
-	# Title track already playing — finish this track, then rotate through the playlist.
-	if _music_player != null and _is_title_mode and _music_player.stream != null:
+	# Title track already requested — finish this track, then rotate. Do not restart.
+	if _is_title_mode:
 		_is_title_mode = false
-		_set_stream_loop(_music_player.stream, false)
-		if not _music_player.finished.is_connected(_on_music_finished):
-			_music_player.finished.connect(_on_music_finished)
-		_music_player.stream_paused = false
-		_music_player.play()
-		return
+		if _music_player != null and _music_player.stream != null:
+			_set_stream_loop(_music_player.stream, false)
+			if not _music_player.finished.is_connected(_on_music_finished):
+				_music_player.finished.connect(_on_music_finished)
+			if not is_music_playing() and not _music_player.stream_paused:
+				_music_player.play()
+			return
+		if _web_bgm_fetcher != null and _web_bgm_fetcher.is_busy():
+			return
 	_is_title_mode = false
 	if _music_player != null and _music_player.finished.is_connected(_on_music_finished):
 		_music_player.finished.disconnect(_on_music_finished)
@@ -430,6 +458,7 @@ func _apply_music_stream(path: String, stream: AudioStream, loop: bool) -> void:
 		_music_player.finished.connect(_on_music_finished)
 	_apply_music_volume()
 	_music_player.stream_paused = false
+	_unlock_web_audio()
 	_music_player.play()
 	music_track_changed.emit(path)
 
@@ -460,6 +489,10 @@ func _set_stream_loop(stream: AudioStream, loop: bool) -> void:
 		stream.loop_mode = (
 			AudioStreamWAV.LOOP_FORWARD if loop else AudioStreamWAV.LOOP_DISABLED
 		)
+
+
+func _unlock_web_audio() -> void:
+	WebAudioUnlockScript.resume()
 
 
 func _apply_music_enabled() -> void:

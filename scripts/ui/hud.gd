@@ -19,6 +19,7 @@ func _ready() -> void:
 	UiTheme.apply_hud_plate(_currency_panel)
 	PixelFont.apply_label(currency_label, 12)
 	UiTheme.apply_panel_label(currency_label)
+	_setup_currency_pause_hit()
 	call_deferred("_layout_top_left")
 	_reel = CurrencyReelScript.new()
 	_reel.setup(self, currency_label, Callable(self, "_format"), GameState.currency)
@@ -31,6 +32,47 @@ func _ready() -> void:
 
 func apply_viewport_layout() -> void:
 	_layout_top_left()
+
+
+func open_pause_menu() -> void:
+	var main := get_tree().root.get_node_or_null("Main")
+	if main == null:
+		return
+	var title := main.get_node_or_null("TitleScreen")
+	if title != null and title.visible:
+		return
+	var pause_menu: Control = main.get_node_or_null("SettingsLayer/PauseMenu")
+	if pause_menu == null:
+		return
+	if pause_menu.has_method("is_open") and pause_menu.is_open():
+		return
+	if pause_menu.has_method("open"):
+		pause_menu.open()
+
+
+func _setup_currency_pause_hit() -> void:
+	## Only the money plate is tappable — HUD itself stays IGNORE so swings pass through.
+	_currency_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	_currency_panel.mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
+	currency_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not _currency_panel.gui_input.is_connected(_on_currency_gui_input):
+		_currency_panel.gui_input.connect(_on_currency_gui_input)
+
+
+func _on_currency_gui_input(event: InputEvent) -> void:
+	if not _is_primary_press(event):
+		return
+	_currency_panel.accept_event()
+	open_pause_menu()
+
+
+func _is_primary_press(event: InputEvent) -> bool:
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		return mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT
+	if event is InputEventScreenTouch:
+		return (event as InputEventScreenTouch).pressed
+	return false
 
 
 func _layout_top_left() -> void:

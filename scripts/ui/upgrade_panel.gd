@@ -9,11 +9,16 @@ const NODE_SCENE := preload("res://scenes/ui/upgrade_tree_node.tscn")
 const CHEESE_ICON := preload("res://assets/ui/cheese-currency-icon.png")
 const StyledHoverTooltipScript = preload("res://scripts/ui/styled_hover_tooltip.gd")
 const StyledConfirmModalScript = preload("res://scripts/ui/styled_confirm_modal.gd")
+const UpgradeNodeTap = preload("res://scripts/ui/upgrade_node_tap.gd")
 
 const NODE_HALF := UpgradeIcon.NODE_HALF
 const BOUNDS_PADDING := 24.0
 const FIT_PADDING := 68.0
+const FIT_PADDING_PORTRAIT := 88.0
 const FIT_FILL := 0.98
+const FIT_FILL_PORTRAIT := 0.84
+const CHROME_TOP := 28.0
+const CHROME_BOTTOM_PORTRAIT := 36.0
 const REVEAL_STAGGER_SEC := 0.05
 const TAB_ACTIVE_COLOR := UiTheme.COLOR_TAB_ACTIVE
 ## Muted green — inactive look only; tabs stay fully clickable.
@@ -71,20 +76,23 @@ func _ready() -> void:
 	_style_prestige_button()
 	_setup_prestige_tooltip()
 	_camera_controller.setup(tree_viewport, tree_world)
+	if not tree_viewport.gui_input.is_connected(_on_tree_gui_input):
+		tree_viewport.gui_input.connect(_on_tree_gui_input)
+	RadialTreeLayout.use_portrait_aspect = UiLayout.is_portrait(get_viewport())
+	_apply_portrait_chrome()
 	_build_tree()
 	_refresh_all()
 
 
 func apply_viewport_layout() -> void:
 	var want_portrait := UiLayout.is_portrait(get_viewport())
-	if RadialTreeLayout.use_portrait_aspect == want_portrait:
-		if _is_open:
-			fit_to_view()
-		return
+	var aspect_changed := RadialTreeLayout.use_portrait_aspect != want_portrait
 	RadialTreeLayout.use_portrait_aspect = want_portrait
-	if _is_open:
+	_apply_portrait_chrome()
+	if aspect_changed:
 		_build_tree()
 		_refresh_all()
+	if _is_open:
 		fit_to_view()
 
 
@@ -239,6 +247,7 @@ func open() -> void:
 	_camera_controller.set_enabled(true)
 	if connectors.has_method("set_animating"):
 		connectors.set_animating(true)
+	apply_viewport_layout()
 	call_deferred("fit_to_view")
 	_refresh_all()
 	_notify_icon_bar(true)
@@ -258,6 +267,7 @@ func close() -> void:
 		_prestige_tooltip.hide_now()
 	if _confirm_modal and _confirm_modal.has_method("close_modal"):
 		_confirm_modal.close_modal()
+	UpgradeNodeTap.clear()
 	_notify_icon_bar(false)
 	EventBus.ui_panel_toggled.emit("upgrades", false)
 
@@ -288,6 +298,7 @@ func close_ritual_shop() -> void:
 		connectors.set_animating(false)
 	if _prestige_tooltip and _prestige_tooltip.has_method("hide_now"):
 		_prestige_tooltip.hide_now()
+	UpgradeNodeTap.clear()
 	_notify_icon_bar(false)
 	EventBus.ui_panel_toggled.emit("upgrades", false)
 	_active_tab = Tab.PLAY
@@ -307,6 +318,63 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 	if not _is_open:
 		return false
 	return _camera_controller.consume_pan_drag_event(event)
+
+
+func _gui_input(event: InputEvent) -> void:
+	_handle_tree_pointer_event(event, self)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _is_open:
+		return
+	if consume_zoom_event(event):
+		get_viewport().set_input_as_handled()
+
+
+func _on_tree_gui_input(event: InputEvent) -> void:
+	_handle_tree_pointer_event(event, tree_viewport)
+
+
+func _handle_tree_pointer_event(event: InputEvent, host: Control) -> void:
+	if not _is_open:
+		return
+	if consume_zoom_event(event):
+		host.accept_event()
+		return
+	if host != tree_viewport:
+		return
+	if _is_primary_release(event) and not _camera_controller.did_drag():
+		if not _camera_controller.is_pinching():
+			UpgradeNodeTap.clear()
+
+
+func _is_primary_release(event: InputEvent) -> bool:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		return not mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT
+	if event is InputEventScreenTouch:
+		return not (event as InputEventScreenTouch).pressed
+	return false
+
+
+func _apply_portrait_chrome() -> void:
+	var portrait := RadialTreeLayout.use_portrait_aspect
+	if _base_tab_button != null:
+		_base_tab_button.custom_minimum_size = Vector2(48 if portrait else 64, 18)
+	if _prestige_tab_button != null:
+		_prestige_tab_button.custom_minimum_size = Vector2(56 if portrait else 64, 18)
+	if _prestige_button == null:
+		return
+	if portrait:
+		_prestige_button.offset_left = -80.0
+		_prestige_button.offset_top = -32.0
+		_prestige_button.offset_right = -6.0
+		_prestige_button.offset_bottom = -6.0
+	else:
+		_prestige_button.offset_left = -88.0
+		_prestige_button.offset_top = -28.0
+		_prestige_button.offset_right = -8.0
+		_prestige_button.offset_bottom = -8.0
 
 
 func _notify_icon_bar(is_open: bool) -> void:
@@ -345,6 +413,7 @@ func _select_tab(tab: Tab) -> void:
 	call_deferred("fit_to_view")
 
 func _build_tree() -> void:
+	UpgradeNodeTap.clear()
 	for child in nodes_root.get_children():
 		child.queue_free()
 	_nodes.clear()
@@ -649,15 +718,22 @@ func fit_to_view() -> void:
 	# Fit the full graph layout (not just revealed nodes) so open starts zoomed out.
 	var world_bounds := _layout_bounds(false)
 	var fit_bounds := world_bounds
-	var tree_size := fit_bounds.size + Vector2(FIT_PADDING * 2.0, FIT_PADDING * 2.0)
+	var portrait := RadialTreeLayout.use_portrait_aspect
+	var pad := FIT_PADDING_PORTRAIT if portrait else FIT_PADDING
+	var fill := FIT_FILL_PORTRAIT if portrait else FIT_FILL
+	var tree_size := fit_bounds.size + Vector2(pad * 2.0, pad * 2.0)
 	var tree_center := fit_bounds.get_center()
 	var vp_size := tree_viewport.size
 	if vp_size.x < 1.0 or vp_size.y < 1.0:
 		call_deferred("fit_to_view")
 		return
-	var start_zoom := minf(vp_size.x / tree_size.x, vp_size.y / tree_size.y) * FIT_FILL
+	var top_reserve := header_bar.size.y if header_bar.size.y > 1.0 else CHROME_TOP
+	var bottom_reserve := CHROME_BOTTOM_PORTRAIT if portrait else 8.0
+	var usable_origin := Vector2(0.0, top_reserve)
+	var usable_size := Vector2(vp_size.x, maxf(vp_size.y - top_reserve - bottom_reserve, 8.0))
+	var start_zoom := minf(usable_size.x / tree_size.x, usable_size.y / tree_size.y) * fill
 	start_zoom = maxf(start_zoom, 0.01)
-	var pan := vp_size * 0.5 - tree_center * start_zoom
+	var pan := usable_origin + usable_size * 0.5 - tree_center * start_zoom
 	_camera_controller.set_baseline(start_zoom, pan)
 	_apply_tree_bounds(world_bounds, BOUNDS_PADDING)
 

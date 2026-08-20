@@ -467,11 +467,15 @@ func _check_build_toggle() -> bool:
 		main.queue_free()
 		return false
 	var icon_bar := main.get_node_or_null("UI/UIRoot/GameplayChrome/IconBar")
-	if icon_bar == null or icon_bar.get_node_or_null("TopRight/BuildWrap/BuildButton") == null:
-		print("FAIL: Build button missing from IconBar")
+	if icon_bar == null:
+		print("FAIL: IconBar missing")
 		main.queue_free()
 		return false
-	print("OK: build toggle + HUD button")
+	if icon_bar.has_node("TopRight/BuildWrap") or icon_bar.has_node("TopRight/BuildButton"):
+		print("FAIL: Build button should be removed from IconBar")
+		main.queue_free()
+		return false
+	print("OK: build toggle (I keybind, no HUD button)")
 	main.queue_free()
 	return true
 

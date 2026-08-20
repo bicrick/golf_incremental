@@ -38,10 +38,9 @@ func _ready() -> void:
 	EventBus.phase_changed.connect(_on_phase_changed_view)
 	if title_screen.has_method(&"sync_atmosphere_from_range"):
 		title_screen.sync_atmosphere_from_range(range_view)
-	# Web browsers block AudioContext until a user gesture — start BGM from the
-	# title "Press Space" / click handler instead (see TitleScreen._on_play_pressed).
-	if not OS.has_feature("web"):
-		SfxManager.play_title_bgm()
+	# Start title BGM immediately. Web autoplay may stay silent until the first
+	# pointer/key; SfxManager retries on that gesture without restarting.
+	SfxManager.play_title_bgm()
 	call_deferred("_notify_portrait_layout")
 
 

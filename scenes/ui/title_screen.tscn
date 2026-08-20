@@ -42,6 +42,8 @@ theme_override_constants/separation = 12
 [node name="TitleLogo" type="TextureRect" parent="Overlay/Center/VBox"]
 custom_minimum_size = Vector2(420, 132)
 layout_mode = 2
+mouse_filter = 0
+mouse_default_cursor_shape = 2
 texture = ExtResource("3_logo")
 expand_mode = 1
 stretch_mode = 5

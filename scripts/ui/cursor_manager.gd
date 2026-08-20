@@ -109,7 +109,7 @@ static func mark_selectable(control: Control) -> void:
 
 
 static func _on_phase_changed(_phase: String) -> void:
-	## Phase swaps often hide/IGNORE hover targets mid-hover (bucket, Hit).
+	## Phase swaps often hide/IGNORE hover targets mid-hover (bucket).
 	## Clear pan and refresh now + next frame after Control cursor shapes settle.
 	_pan_dragging = false
 	_schedule_refresh()

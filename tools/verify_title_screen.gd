@@ -86,6 +86,28 @@ func _run() -> void:
 
 	var swings_before := int(game_state.lifetime.get("total_swings", 0))
 
+	# Logo tap opens settings (mobile/web path); must not start Play.
+	var settings_panel: Control = main.get_node("SettingsLayer/SettingsPanel")
+	if title_logo.mouse_filter != Control.MOUSE_FILTER_STOP:
+		print("FAIL: title logo should STOP mouse so tap opens settings")
+		ok = false
+	if not title_screen.has_method("open_settings"):
+		print("FAIL: TitleScreen missing open_settings")
+		ok = false
+	else:
+		title_screen.open_settings()
+		await process_frame
+		if title_screen.is_transitioning():
+			print("FAIL: logo/settings must not start Play")
+			ok = false
+		elif not settings_panel.is_open():
+			print("FAIL: title logo path should open settings")
+			ok = false
+		else:
+			print("OK: title logo opens settings")
+		settings_panel.close()
+		await process_frame
+
 	# Regression: mouse press/release on title must not register as a swing.
 	var click_pos := press_space.get_global_rect().get_center()
 	_parse_mouse_button(click_pos, true)

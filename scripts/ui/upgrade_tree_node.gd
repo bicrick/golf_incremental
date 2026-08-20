@@ -7,6 +7,7 @@ const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitio
 const PrestigeEffectsScript = preload("res://scripts/game/prestige/effects.gd")
 const TooltipText := preload("res://scripts/ui/upgrade_tooltip_text.gd")
 const TooltipViewportClampScript = preload("res://scripts/ui/tooltip_viewport_clamp.gd")
+const UpgradeNodeTap = preload("res://scripts/ui/upgrade_node_tap.gd")
 
 signal purchase_requested(upgrade_id: String)
 
@@ -15,8 +16,10 @@ enum NodeState { LOCKED, UNAFFORDABLE, PURCHASABLE, MAXED }
 const NODE_SIZE := UpgradeIcon.DEFAULT_NODE_SIZE
 const TOOLTIP_DELAY_SEC := 0.08
 const TOOLTIP_MAX_WIDTH := 150
+const TOOLTIP_PORTRAIT_MAX_WIDTH := 128
 const TOOLTIP_GAP := 5
 const TOOLTIP_EDGE_MARGIN := 8.0
+const PRESS_SLIDE_PX := 6.0
 const TOOLTIP_FADE_SEC := 0.12
 const TOOLTIP_SLIDE_PX := 4.0
 const HOVER_SCALE := 1.12
@@ -57,6 +60,8 @@ var _tooltip_tween: Tween
 var _burst_tween: Tween
 var _reveal_tween: Tween
 var _tooltip_rest_global := Vector2.ZERO
+var _press_pos := Vector2.ZERO
+var _press_slid := false
 
 @onready var _button: Button = $HitButton
 @onready var _glow: ColorRect = $GlowOverlay
@@ -75,6 +80,7 @@ func _ready() -> void:
 	size = NODE_SIZE
 	pivot_offset = NODE_SIZE * 0.5
 	_button.pressed.connect(_on_pressed)
+	_button.gui_input.connect(_on_hit_gui_input)
 	_button.mouse_entered.connect(_on_mouse_entered)
 	_button.mouse_exited.connect(_on_mouse_exited)
 	_button.tooltip_text = ""
@@ -132,7 +138,9 @@ func refresh() -> void:
 	_tooltip_affordable = affordable
 
 	_apply_visual_state()
-	_button.disabled = _state == NodeState.LOCKED or _state == NodeState.MAXED
+	## Stay enabled so mobile tap-to-inspect works on locked/maxed (Godot
+	## suppresses mouse/gui on disabled buttons).
+	_button.disabled = false
 	if _tooltip_panel.visible:
 		_update_tooltip_content()
 		_position_tooltip()
@@ -221,6 +229,8 @@ func _on_reveal_finished() -> void:
 
 
 func _on_mouse_entered() -> void:
+	if UpgradeNodeTap.is_inspect_mode():
+		return
 	_hovering = true
 	_tooltip_timer.start()
 	if _state != NodeState.LOCKED:
@@ -228,6 +238,8 @@ func _on_mouse_entered() -> void:
 
 
 func _on_mouse_exited() -> void:
+	if UpgradeNodeTap.is_selected(self):
+		return
 	_hovering = false
 	_tooltip_timer.stop()
 	_hide_tooltip()
@@ -240,10 +252,87 @@ func _on_tooltip_timer_timeout() -> void:
 		_show_tooltip()
 
 
+func begin_inspect() -> void:
+	_hovering = true
+	_tooltip_timer.stop()
+	if _state != NodeState.LOCKED:
+		play_hover_in()
+	_show_tooltip()
+
+
+func clear_inspect() -> void:
+	_hovering = false
+	_tooltip_timer.stop()
+	_hide_tooltip()
+	if not _motion_busy:
+		play_hover_out()
+
+
+func _on_hit_gui_input(event: InputEvent) -> void:
+	var panel := _upgrade_panel()
+	if panel != null and panel.has_method("consume_zoom_event"):
+		if panel.consume_zoom_event(event):
+			accept_event()
+			return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if mb.pressed:
+			_press_pos = mb.position
+			_press_slid = false
+		return
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			_press_pos = touch.position
+			_press_slid = false
+		return
+	if event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		if motion.button_mask & MOUSE_BUTTON_MASK_LEFT:
+			if motion.position.distance_to(_press_pos) > PRESS_SLIDE_PX:
+				_press_slid = true
+	elif event is InputEventScreenDrag:
+		if (event as InputEventScreenDrag).position.distance_to(_press_pos) > PRESS_SLIDE_PX:
+			_press_slid = true
+
+
 func _on_pressed() -> void:
-	if upgrade_id.is_empty():
+	if upgrade_id.is_empty() or _press_slid:
+		return
+	if _tree_camera_blocked():
+		return
+	if UpgradeNodeTap.is_inspect_mode():
+		if not UpgradeNodeTap.is_selected(self):
+			UpgradeNodeTap.select(self)
+			return
+	if _state == NodeState.LOCKED or _state == NodeState.MAXED:
 		return
 	purchase_requested.emit(upgrade_id)
+
+
+func _tree_camera_blocked() -> bool:
+	var panel := _upgrade_panel()
+	if panel == null:
+		return false
+	var cam: Node = panel.get_node_or_null("TreeCameraController")
+	if cam == null:
+		return false
+	if cam.has_method("did_drag") and cam.did_drag():
+		return true
+	if cam.has_method("is_pinching") and cam.is_pinching():
+		return true
+	return false
+
+
+func _upgrade_panel() -> Node:
+	var n: Node = self
+	while n != null:
+		if n.has_method("consume_zoom_event") and n.has_method("is_open"):
+			return n
+		n = n.get_parent()
+	return null
 
 
 func _update_tooltip_content() -> void:
@@ -268,7 +357,10 @@ func _update_tooltip_content() -> void:
 		_tooltip_price_label.visible = true
 		var currency_mark := "Cheese " if _namespace == "prestige" else "$"
 		if _tooltip_affordable:
-			_tooltip_price_label.text = "Cost: %s%s" % [currency_mark, _format_cost(_tooltip_cost)]
+			var cost_text := "Cost: %s%s" % [currency_mark, _format_cost(_tooltip_cost)]
+			if UpgradeNodeTap.is_inspect_mode() and UpgradeNodeTap.is_selected(self):
+				cost_text = "%s — tap again" % cost_text
+			_tooltip_price_label.text = cost_text
 			_tooltip_price_label.add_theme_color_override(&"font_color", TOOLTIP_PRICE)
 		else:
 			_tooltip_price_label.text = "Need: %s%s" % [currency_mark, _format_cost(_tooltip_cost)]
@@ -277,7 +369,12 @@ func _update_tooltip_content() -> void:
 
 func _position_tooltip() -> void:
 	var tip_size: Vector2 = _tooltip_panel.get_combined_minimum_size()
-	tip_size.x = clampf(tip_size.x, 72.0, TOOLTIP_MAX_WIDTH)
+	var max_w := (
+		TOOLTIP_PORTRAIT_MAX_WIDTH
+		if UiLayout.is_portrait(get_viewport())
+		else TOOLTIP_MAX_WIDTH
+	)
+	tip_size.x = clampf(tip_size.x, 72.0, float(max_w))
 	_tooltip_panel.custom_minimum_size = tip_size
 	_tooltip_panel.size = tip_size
 

@@ -84,6 +84,9 @@ func return_all_litter_free() -> bool:
 	var gs := _game_state()
 	if gs == null or not gs.is_collect_mode():
 		return false
+	## 3D harvest (verify / tooling) is owned by PickupController.
+	if not is_active():
+		return false
 	_clear_all_litter()
 	var range_view := _range_view()
 	if range_view != null and range_view.has_method("discard_active_flights"):
@@ -154,10 +157,7 @@ func _on_phase_changed(phase: String) -> void:
 func _try_collect_at(screen_pos: Vector2) -> bool:
 	var litter := _pick_litter_at(screen_pos)
 	if litter == null:
-		var sfx := _sfx()
-		if sfx != null:
-			sfx.play_pickup_miss()
-		return true
+		return false
 	_collect_litter(litter)
 	return true
 
@@ -330,8 +330,12 @@ func _range_view() -> Node:
 func _bind_bucket_counter_click() -> void:
 	if _bucket_counter == null:
 		return
-	if not _bucket_counter.has_signal("return_all_pressed"):
+	if not _bucket_counter.has_signal("ball_return_pressed"):
 		return
-	if _bucket_counter.return_all_pressed.is_connected(return_all_litter_free):
+	if _bucket_counter.ball_return_pressed.is_connected(_on_bucket_ball_return):
 		return
-	_bucket_counter.return_all_pressed.connect(return_all_litter_free)
+	_bucket_counter.ball_return_pressed.connect(_on_bucket_ball_return)
+
+
+func _on_bucket_ball_return() -> void:
+	return_all_litter_free()

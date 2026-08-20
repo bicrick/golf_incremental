@@ -44,8 +44,9 @@ cd export/web && python3 -m http.server 8765
 ```
 
 Manual checks:
+- [ ] WASM load screen is Range Rat (golf icon + title), not the Godot robot
 - [ ] Title screen (Range Rat) appears after WASM load
-- [ ] First click unlocks audio / advances into play
+- [ ] Title BGM tries to start on load; first click unlocks AudioContext if autoplay is blocked / advances into play
 - [ ] BGM requests `audio/<track>.ogg` (Network tab) — not bundled in the PCK
 - [ ] Saves / settings persist in browser storage
 - [ ] Range 3D view and iso view both load

@@ -48,6 +48,18 @@ func _run() -> void:
 	print("OK: title_track=", title_path)
 	print("OK: title_playing=", music.playing)
 
+	sfx.play_title_bgm()
+	await process_frame
+	if sfx.get_current_music_track_path() != title_path:
+		print("FAIL: play_title_bgm should not restart a new track, got ", sfx.get_current_music_track_path())
+		quit(1)
+		return
+	if not music.playing:
+		print("FAIL: title BGM should stay playing after a second play_title_bgm")
+		quit(1)
+		return
+	print("OK: title_bgm_idempotent=true")
+
 	if music.stream is AudioStreamMP3:
 		if music.stream.loop:
 			print("FAIL: title BGM should not loop")
@@ -69,6 +81,8 @@ func _run() -> void:
 		quit(1)
 		return
 
+	await create_timer(0.2).timeout
+	var pos_before := music.get_playback_position()
 	sfx.start_bgm()
 	await process_frame
 
@@ -80,6 +94,13 @@ func _run() -> void:
 	var gameplay_path: String = sfx.get_current_music_track_path()
 	if gameplay_path != title_path:
 		print("FAIL: start_bgm should keep current track, got ", gameplay_path)
+		quit(1)
+		return
+	if pos_before > 0.05 and music.get_playback_position() < pos_before * 0.5:
+		print(
+			"FAIL: start_bgm restarted the title track (pos %s -> %s)"
+			% [pos_before, music.get_playback_position()]
+		)
 		quit(1)
 		return
 

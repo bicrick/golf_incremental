@@ -40,6 +40,8 @@ func _run() -> void:
 	ok = await _check_phase_integration(main, gs) and ok
 	ok = await _check_harvest_idle_at_home(main, gs) and ok
 	ok = await _check_no_swing_during_harvest(main, gs) and ok
+	ok = await _check_harvest_exit_ignores_leftover_press(main, gs) and ok
+	ok = await _check_bucket_counter_exits_harvest(main, gs) and ok
 	ok = await _check_background_click_enters_harvest(main, gs) and ok
 	ok = await _check_mid_flight_view_switch_and_pickup_gate(main, gs) and ok
 	ok = await _check_combo_interrupted_by_swing(main, gs) and ok
@@ -671,6 +673,113 @@ func _check_no_swing_during_harvest(main: Node, gs: Node) -> bool:
 		return false
 
 	print("OK: harvest phase never allows swinging; Space exits to strike instead")
+	return true
+
+
+func _check_harvest_exit_ignores_leftover_press(main: Node, gs: Node) -> bool:
+	_reset(gs)
+	_start_playing(main)
+	await process_frame
+	await process_frame
+	var range_view: Node3D = main.get_node("RangeView")
+	gs.bucket_remaining = 3
+	if not gs.try_enter_harvest():
+		print("FAIL: try_enter_harvest should succeed with balls remaining")
+		return false
+	await _wait_harvest_view(range_view)
+
+	var touch_down := InputEventScreenTouch.new()
+	touch_down.index = 0
+	touch_down.pressed = true
+	touch_down.position = Vector2(240, 220)
+	range_view._input(touch_down)
+
+	gs.exit_harvest_early()
+	if not range_view._ignore_pointer_until_release:
+		print("FAIL: harvest→strike should ignore leftover pointer while a finger is down")
+		return false
+
+	range_view._swing._last_swing_msec = Time.get_ticks_msec() - int(gs.stats.swing_cooldown_ms) - 1
+	var leftover := InputEventScreenTouch.new()
+	leftover.index = 0
+	leftover.pressed = true
+	leftover.position = Vector2(240, range_view.horizon_screen_y() + 40)
+	range_view._handle_mobile_strike_input(leftover)
+	if range_view._swing.is_charging():
+		print("FAIL: leftover harvest press should not start a charge")
+		return false
+
+	_send_space(range_view, true)
+	if range_view._swing.is_charging():
+		print("FAIL: Space should not start a charge while leftover pointer ignore is active")
+		return false
+
+	var touch_up := InputEventScreenTouch.new()
+	touch_up.index = 0
+	touch_up.pressed = false
+	range_view._input(touch_up)
+	await process_frame
+	if range_view._ignore_pointer_until_release:
+		print("FAIL: ignore flag should clear after all pointers release")
+		return false
+
+	var fresh := InputEventScreenTouch.new()
+	fresh.index = 0
+	fresh.pressed = true
+	fresh.position = leftover.position
+	range_view._handle_mobile_strike_input(fresh)
+	if not range_view._swing.is_charging():
+		print("FAIL: after pointer release, a new below-horizon press should start a charge")
+		return false
+
+	range_view._swing.cancel_charge()
+	if range_view._swing.is_charging():
+		print("FAIL: cancel_charge should drop an in-progress charge without hitting")
+		return false
+
+	print("OK: harvest exit ignores leftover press until release")
+	return true
+
+
+func _check_bucket_counter_exits_harvest(main: Node, gs: Node) -> bool:
+	_reset(gs)
+	_start_playing(main)
+	await process_frame
+	await process_frame
+	var range_view: Node3D = main.get_node("RangeView")
+	var bucket: Control = main.get_node_or_null(
+		"UI/UIRoot/GameplayChrome/IconBar/BottomRight/BucketCounter"
+	)
+	if bucket == null or not bucket.has_method("_on_gui_input"):
+		print("FAIL: BucketCounter missing for ball-return check")
+		return false
+
+	gs.bucket_remaining = 3
+	if not gs.try_enter_harvest():
+		print("FAIL: try_enter_harvest should succeed for bucket ball-return")
+		return false
+	await _wait_harvest_view(range_view)
+	gs.collect_harvest_ball(Vector3.ZERO, 1)
+	if bucket.mouse_filter != Control.MOUSE_FILTER_STOP:
+		print("FAIL: harvest bucket should be tappable (STOP)")
+		return false
+
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	bucket._on_gui_input(click)
+	await process_frame
+	if gs.current_phase != "strike":
+		print("FAIL: bucket tap should return_all_balls_free, got %s" % gs.current_phase)
+		return false
+	if gs.bucket_remaining != gs.bucket_capacity:
+		print(
+			"FAIL: bucket ball-return should refill leftover balls to %d, got %d"
+			% [gs.bucket_capacity, gs.bucket_remaining]
+		)
+		return false
+
+	print("OK: bucket tap returns leftover balls via return_all_balls_free")
 	return true
 
 

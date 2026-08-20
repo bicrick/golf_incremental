@@ -1,8 +1,9 @@
 extends PanelContainer
 ## Bottom-right ball bucket count — themed plate, Dinky ball icon + current/max fraction.
-## In collect mode (incomplete bucket), pulses/bobs and accepts click to return all litter free.
+## In harvest, pulses/bobs and acts as ball-return: leftover fairway balls
+## return to the bucket for free, then back to hitting (return_all_litter_free).
 
-signal return_all_pressed
+signal ball_return_pressed
 
 const COLOR_NORMAL := UiTheme.COLOR_PANEL_TEXT
 const COLOR_ICON_NORMAL := Color.WHITE
@@ -77,7 +78,7 @@ func _refresh_actionable() -> void:
 		mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 		_start_attention()
 		if not was_actionable:
-			# Capture after HBox reflow (Hit button may appear the same frame).
+			# Capture after HBox reflow (bucket may appear the same frame).
 			call_deferred("_capture_rest_y")
 			get_tree().create_timer(0.05).timeout.connect(_capture_rest_y)
 	else:
@@ -124,10 +125,19 @@ func _stop_attention() -> void:
 func _on_gui_input(event: InputEvent) -> void:
 	if not _actionable:
 		return
-	if not event is InputEventMouseButton:
-		return
-	var mouse := event as InputEventMouseButton
-	if mouse.button_index != MOUSE_BUTTON_LEFT or not mouse.pressed:
+	if not _is_primary_press(event):
 		return
 	accept_event()
-	return_all_pressed.emit()
+	ball_return_pressed.emit()
+	## Fallback if no pickup controller is bound (verify / isolated HUD).
+	if GameState.is_collect_mode():
+		GameState.return_all_balls_free()
+
+
+func _is_primary_press(event: InputEvent) -> bool:
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		return mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT
+	if event is InputEventScreenTouch:
+		return (event as InputEventScreenTouch).pressed
+	return false

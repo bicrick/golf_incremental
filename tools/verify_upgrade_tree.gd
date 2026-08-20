@@ -7,6 +7,7 @@ const RadialTreeLayout = preload("res://scripts/ui/upgrade_tree_layout.gd")
 const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
 const UpgradeTreeConnectors = preload("res://scripts/ui/upgrade_tree_connectors.gd")
 const UpgradeIcon = preload("res://scripts/ui/upgrade_icon.gd")
+const UpgradeNodeTap = preload("res://scripts/ui/upgrade_node_tap.gd")
 
 
 func _initialize() -> void:
@@ -220,6 +221,9 @@ func _run() -> void:
 
 		ok = _check_tree_pan(panel) and ok
 		ok = await _check_purchase_after_pan(gs, panel) and ok
+		ok = await _check_tap_inspect_then_buy(gs, panel) and ok
+		ok = _check_continuous_zoom(panel) and ok
+		ok = await _check_portrait_tree_fit(main, panel) and ok
 		ok = await _check_purchase_spam(gs, panel) and ok
 		ok = await _check_currency_format(panel) and ok
 		ok = _check_animated_connectors(panel, gs) and ok
@@ -573,6 +577,189 @@ func _check_purchase_after_pan(gs: Node, panel: Control) -> bool:
 		return false
 	print("OK: purchase after pan clears sticky did_drag")
 	return true
+
+
+func _check_tap_inspect_then_buy(gs: Node, panel: Control) -> bool:
+	UpgradeNodeTap.force_inspect_mode = true
+	UpgradeNodeTap.clear()
+	_reset_tree_progress(gs)
+	gs.currency = 500.0
+	## Clear sticky did_drag from prior pan checks so inspect isn't blocked.
+	panel.consume_pan_drag_event(_left_down(Vector2(-100.0, -100.0)))
+	panel.open()
+	await process_frame
+	await process_frame
+	panel._refresh_all()
+	await process_frame
+	var node := _find_tree_node(panel, "base_pay")
+	if node == null:
+		print("FAIL: base_pay tree node missing for tap-inspect")
+		UpgradeNodeTap.force_inspect_mode = false
+		UpgradeNodeTap.clear()
+		return false
+	var level_before: int = gs.get_upgrade_level("base_pay")
+	node._on_pressed()
+	await process_frame
+	if gs.get_upgrade_level("base_pay") != level_before:
+		print("FAIL: first tap should inspect, not buy")
+		UpgradeNodeTap.force_inspect_mode = false
+		UpgradeNodeTap.clear()
+		return false
+	if not UpgradeNodeTap.is_selected(node):
+		print("FAIL: first tap should select the node")
+		UpgradeNodeTap.force_inspect_mode = false
+		UpgradeNodeTap.clear()
+		return false
+	var tip: Control = node.get_node_or_null("TooltipPanel") as Control
+	if tip == null or not tip.visible:
+		print("FAIL: first tap should show hover tooltip")
+		UpgradeNodeTap.force_inspect_mode = false
+		UpgradeNodeTap.clear()
+		return false
+	node._on_pressed()
+	await process_frame
+	if gs.get_upgrade_level("base_pay") != level_before + 1:
+		print(
+			"FAIL: second tap should buy (before=%d after=%d)"
+			% [level_before, gs.get_upgrade_level("base_pay")]
+		)
+		UpgradeNodeTap.force_inspect_mode = false
+		UpgradeNodeTap.clear()
+		return false
+	UpgradeNodeTap.force_inspect_mode = false
+	UpgradeNodeTap.clear()
+	print("OK: first tap inspects, second tap buys")
+	return true
+
+
+func _check_continuous_zoom(panel: Control) -> bool:
+	var camera: Node = panel.get_node("TreeCameraController")
+	if camera == null or not camera.has_method("get_zoom_target"):
+		print("FAIL: tree camera missing get_zoom_target")
+		return false
+	if not panel.is_open():
+		panel.open()
+	var z0: float = camera.get_zoom_target()
+	var mag := InputEventMagnifyGesture.new()
+	mag.factor = 1.12
+	mag.position = panel.get_node("Content/TreeViewport").get_global_rect().get_center()
+	if not panel.consume_zoom_event(mag):
+		print("FAIL: MagnifyGesture should be consumed")
+		return false
+	var z1: float = camera.get_zoom_target()
+	if z1 <= z0:
+		print("FAIL: pinch should zoom in continuously (%.4f -> %.4f)" % [z0, z1])
+		return false
+	if z1 > z0 * 1.4:
+		print("FAIL: pinch zoom too steppy (%.4f -> %.4f)" % [z0, z1])
+		return false
+	var t0 := InputEventScreenTouch.new()
+	t0.index = 0
+	t0.pressed = true
+	t0.position = Vector2(120, 140)
+	var t1 := InputEventScreenTouch.new()
+	t1.index = 1
+	t1.pressed = true
+	t1.position = Vector2(180, 140)
+	panel.consume_zoom_event(t0)
+	panel.consume_zoom_event(t1)
+	var drag := InputEventScreenDrag.new()
+	drag.index = 1
+	drag.position = Vector2(220, 140)
+	var z2: float = camera.get_zoom_target()
+	if not panel.consume_zoom_event(drag):
+		print("FAIL: two-finger pinch drag should zoom")
+		return false
+	var z3: float = camera.get_zoom_target()
+	if z3 <= z2:
+		print("FAIL: two-finger pinch should zoom in (%.4f -> %.4f)" % [z2, z3])
+		return false
+	print("OK: continuous pinch zoom (magnify %.3f->%.3f, fingers %.3f->%.3f)" % [z0, z1, z2, z3])
+	return true
+
+
+func _check_portrait_tree_fit(main: Node, panel: Control) -> bool:
+	_set_logical_size(Vector2i(270, 480))
+	await process_frame
+	if main.has_method("_notify_portrait_layout"):
+		main._notify_portrait_layout()
+	panel.open()
+	await process_frame
+	await process_frame
+	if not RadialTreeLayout.use_portrait_aspect:
+		print("FAIL: portrait layout should set use_portrait_aspect")
+		_restore_landscape_tree(main, panel)
+		return false
+	var aspect := RadialTreeLayout.content_aspect(panel._layout_positions)
+	if absf(aspect / RadialTreeLayout.PORTRAIT_ASPECT - 1.0) > RadialTreeLayout.ASPECT_TOLERANCE:
+		print(
+			"FAIL: portrait tree aspect %.3f not within tolerance of 9:16"
+			% aspect
+		)
+		_restore_landscape_tree(main, panel)
+		return false
+	var header: Control = panel.get_node("Content/Header")
+	var header_rect := header.get_global_rect()
+	var nodes_root: Control = panel.get_node("Content/TreeViewport/TreeWorld/Nodes")
+	for child in nodes_root.get_children():
+		if not child.visible or not (child is Control):
+			continue
+		var center: Vector2 = (child as Control).get_global_rect().get_center()
+		if header_rect.has_point(center):
+			print("FAIL: tree node center under header after portrait fit: ", child.name)
+			_restore_landscape_tree(main, panel)
+			return false
+	panel._select_tab(panel.Tab.PRESTIGE)
+	await process_frame
+	await process_frame
+	var prestige_btn: Control = panel.get_node_or_null("Content/PrestigeButton") as Control
+	if prestige_btn != null and prestige_btn.visible:
+		var btn_rect := prestige_btn.get_global_rect()
+		var prestige_nodes: Control = panel.get_node("Content/TreeViewport/TreeWorld/Nodes")
+		for child in prestige_nodes.get_children():
+			if not child.visible or not (child is Control):
+				continue
+			var center: Vector2 = (child as Control).get_global_rect().get_center()
+			if btn_rect.has_point(center):
+				print("FAIL: prestige node center under Prestige button")
+				_restore_landscape_tree(main, panel)
+				return false
+	print("OK: portrait tree aspect=%.3f and chrome clears node centers" % aspect)
+	_restore_landscape_tree(main, panel)
+	return true
+
+
+func _restore_landscape_tree(main: Node, panel: Control) -> void:
+	UpgradeNodeTap.force_inspect_mode = false
+	UpgradeNodeTap.clear()
+	_set_logical_size(Vector2i(480, 270))
+	if main.has_method("_notify_portrait_layout"):
+		main._notify_portrait_layout()
+	RadialTreeLayout.use_portrait_aspect = false
+	if panel.has_method("apply_viewport_layout"):
+		panel.apply_viewport_layout()
+	if panel.has_method("_select_tab"):
+		panel._select_tab(panel.Tab.PLAY)
+
+
+func _set_logical_size(size: Vector2i) -> void:
+	var win := root as Window
+	if win == null:
+		return
+	win.content_scale_size = size
+	win.size = size
+	if win.content_scale_mode == Window.CONTENT_SCALE_MODE_DISABLED:
+		win.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+
+
+func _find_tree_node(panel: Control, upgrade_id: String) -> Node:
+	var nodes_root: Control = panel.get_node_or_null("Content/TreeViewport/TreeWorld/Nodes")
+	if nodes_root == null:
+		return null
+	for child in nodes_root.get_children():
+		if child.get("upgrade_id") == upgrade_id:
+			return child
+	return null
 
 
 func _left_down(position: Vector2) -> InputEventMouseButton:
