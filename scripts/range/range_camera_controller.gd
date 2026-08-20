@@ -80,6 +80,11 @@ func cancel_pending_pan() -> void:
 func consume_pan_drag_event(event: InputEvent) -> bool:
 	if not _enabled or _camera == null:
 		return false
+	if _pinch_touches.size() >= 2:
+		if _drag_active:
+			_end_drag()
+		_pending = false
+		return false
 	if not _drag_active and UiInput.is_interactive_control_under_mouse(get_viewport()):
 		return false
 	if event is InputEventMouseButton:
@@ -136,7 +141,48 @@ func _zoom_amount_from_event(event: InputEvent) -> float:
 	if event is InputEventMagnifyGesture:
 		var mag := event as InputEventMagnifyGesture
 		return -zoom_step * (mag.factor - 1.0) * 4.0
+	return _pinch_zoom_from_touch(event)
+
+
+var _pinch_touches: Dictionary = {}
+var _pinch_start_dist := 0.0
+
+
+func _pinch_zoom_from_touch(event: InputEvent) -> float:
+	## Fallback when MagnifyGesture is missing (common on mobile web).
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			_pinch_touches[touch.index] = touch.position
+			if _pinch_touches.size() == 2:
+				_pinch_start_dist = _pinch_finger_distance()
+		else:
+			_pinch_touches.erase(touch.index)
+			if _pinch_touches.size() < 2:
+				_pinch_start_dist = 0.0
+		return 0.0
+	if event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		if not _pinch_touches.has(drag.index):
+			return 0.0
+		_pinch_touches[drag.index] = drag.position
+		if _pinch_touches.size() != 2 or _pinch_start_dist < 1.0:
+			return 0.0
+		var dist := _pinch_finger_distance()
+		if dist < 1.0:
+			return 0.0
+		var factor := dist / _pinch_start_dist
+		_pinch_start_dist = dist
+		## Ortho size: larger = zoomed out. Fingers apart → zoom in → smaller size.
+		return -zoom_step * (factor - 1.0) * 4.0
 	return 0.0
+
+
+func _pinch_finger_distance() -> float:
+	if _pinch_touches.size() < 2:
+		return 0.0
+	var pts: Array = _pinch_touches.values()
+	return (pts[0] as Vector2).distance_to(pts[1] as Vector2)
 
 
 func _apply_zoom(delta: float) -> void:

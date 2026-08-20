@@ -18,8 +18,16 @@ const DAMPING := 0.85
 const JITTER_ANGLE_DEG := 4.0
 const JITTER_RADIUS := 6.0
 const TARGET_ASPECT := 16.0 / 9.0
+const PORTRAIT_ASPECT := 9.0 / 16.0
 const ASPECT_SOFT_STRENGTH := 0.04
 const ASPECT_TOLERANCE := 0.08
+
+## When true, settle into a tall 9:16 band (mobile portrait panels).
+static var use_portrait_aspect := false
+
+
+static func _target_aspect() -> float:
+	return PORTRAIT_ASPECT if use_portrait_aspect else TARGET_ASPECT
 
 
 static func compute_positions(root_id: String = UpgradeGraph.ROOT_ID) -> Dictionary:
@@ -108,7 +116,7 @@ static func _place_children(
 	children: Dictionary,
 	positions: Dictionary
 ) -> void:
-	var aspect_x := sqrt(TARGET_ASPECT)
+	var aspect_x := sqrt(_target_aspect())
 	var aspect_y := 1.0 / aspect_x
 	for child_id in children.get(node_id, []):
 		var angle: float = float(angles.get(child_id, 0.0))
@@ -195,7 +203,7 @@ static func _apply_aspect_soft_box(positions: Dictionary, forces: Dictionary, ro
 	if bounds.size.x < 1.0 or bounds.size.y < 1.0:
 		return
 	var current_aspect := bounds.size.x / bounds.size.y
-	var ratio := current_aspect / TARGET_ASPECT
+	var ratio := current_aspect / _target_aspect()
 	if absf(ratio - 1.0) < ASPECT_TOLERANCE:
 		return
 	# Compress the long axis / expand the short so the AABB drifts toward 16:9.
@@ -221,10 +229,10 @@ static func _fit_aspect(positions: Dictionary, root_id: String) -> void:
 	if bounds.size.x < 1.0 or bounds.size.y < 1.0:
 		return
 	var current_aspect := bounds.size.x / bounds.size.y
-	if absf(current_aspect / TARGET_ASPECT - 1.0) <= ASPECT_TOLERANCE:
+	if absf(current_aspect / _target_aspect() - 1.0) <= ASPECT_TOLERANCE:
 		return
-	# Non-uniform scale about origin so width/height match TARGET_ASPECT.
-	var scale_x := sqrt(TARGET_ASPECT / current_aspect)
+	# Non-uniform scale about origin so width/height match target aspect.
+	var scale_x := sqrt(_target_aspect() / current_aspect)
 	var scale_y := 1.0 / scale_x
 	for id in positions:
 		if id == root_id:
@@ -278,7 +286,7 @@ static func content_bounds(positions: Dictionary) -> Rect2:
 static func content_aspect(positions: Dictionary) -> float:
 	var bounds := content_bounds(positions)
 	if bounds.size.y < 0.01:
-		return TARGET_ASPECT
+		return _target_aspect()
 	return bounds.size.x / bounds.size.y
 
 

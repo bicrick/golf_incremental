@@ -1,0 +1,7 @@
+{
+  "name": "golf-incremental-web",
+  "private": true,
+  "scripts": {
+    "deploy": "vercel deploy --prod"
+  }
+}

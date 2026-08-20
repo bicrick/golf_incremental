@@ -14,16 +14,18 @@ const ALIGNMENT_TUNED_DISTANCE_YARDS := 290.0
 ## Nudge the quad along camera-up so the painted treeline meets the fairway horizon.
 ## Scaled with distance so the on-screen shift stays identical.
 const HORIZON_OFFSET_YARDS := -1.0 * (DEFAULT_DISTANCE_YARDS / ALIGNMENT_TUNED_DISTANCE_YARDS)
-## Fixed reference aspect for the backdrop quad. The quad is built at 16:9 so the
-## editor preview matches the 16:9 game window exactly — never reshaped by the
-## live editor viewport, so what you align in the editor is what you get in the game.
+## Default landscape aspect for editor / when no override is passed.
+## Artwork is 320x180 (16:9); never stretch taller than this or mountains warp.
 const REFERENCE_ASPECT := 16.0 / 9.0
+## Extra coverage so the editor Backdrop translate cannot uncover frustum edges.
+const BASE_OVERSCAN := 0.06
 
 
 static func populate(
 	container: Node3D,
 	camera: Camera3D,
-	distance_yards: float = DEFAULT_DISTANCE_YARDS
+	distance_yards: float = DEFAULT_DISTANCE_YARDS,
+	aspect_override: float = -1.0
 ) -> MeshInstance3D:
 	for child in container.get_children():
 		child.free()
@@ -36,7 +38,7 @@ static func populate(
 		push_error("RangeBackdrop: missing texture at %s" % TEXTURE_PATH)
 		return null
 
-	var mesh := _build_camera_quad(camera, distance_yards, container)
+	var mesh := _build_camera_quad(camera, distance_yards, container, aspect_override)
 	var material := _make_material(tex)
 
 	var wall := MeshInstance3D.new()
@@ -78,21 +80,31 @@ static func _make_material(tex: Texture2D) -> ShaderMaterial:
 	return mat
 
 
-static func _build_camera_quad(camera: Camera3D, distance_yards: float, container: Node3D) -> ArrayMesh:
-	# Use the fixed reference aspect so the quad is identical in the editor and at
-	# runtime — never adjusted from the live viewport.
-	var aspect := REFERENCE_ASPECT
-	var half_fov := deg_to_rad(camera.fov * 0.5)
-	var height := 2.0 * distance_yards * tan(half_fov)
-	var width := height * aspect
-
+static func _build_camera_quad(
+	camera: Camera3D,
+	distance_yards: float,
+	container: Node3D,
+	aspect_override: float = -1.0
+) -> ArrayMesh:
+	var live_aspect := aspect_override if aspect_override > 0.01 else REFERENCE_ASPECT
 	var cam_xform := _camera_transform_relative_to(container, camera)
 	var cam_basis := cam_xform.basis
 	var forward := -cam_basis.z
 	var right := cam_basis.x
 	var up := cam_basis.y
-	var center := cam_xform.origin + forward * distance_yards + up * HORIZON_OFFSET_YARDS
 
+	var size := _frustum_size_at_distance(camera, distance_yards, live_aspect)
+	## Keep 16:9 art proportions — portrait crops sides instead of stretching mountains.
+	var height := size.y
+	var width := maxf(size.x, height * REFERENCE_ASPECT)
+	width *= 1.0 + BASE_OVERSCAN
+	height *= 1.0 + BASE_OVERSCAN
+	## Verts are authored pre-Backdrop-transform; expand so the editor nudge cannot gap.
+	var nudge := container.transform.origin
+	width += 2.0 * absf(nudge.dot(right))
+	height += 2.0 * absf(nudge.dot(up))
+
+	var center := cam_xform.origin + forward * distance_yards + up * HORIZON_OFFSET_YARDS
 	var half_w := width * 0.5
 	var half_h := height * 0.5
 	# Local-space verts: Backdrop node Transform shifts the quad in the editor.
@@ -122,6 +134,31 @@ static func _build_camera_quad(camera: Camera3D, distance_yards: float, containe
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+
+## Godot: KEEP_HEIGHT → fov is vertical; KEEP_WIDTH → fov is horizontal.
+static func _frustum_size_at_distance(
+	camera: Camera3D,
+	distance_yards: float,
+	aspect: float
+) -> Vector2:
+	if camera != null and camera.is_inside_tree():
+		var vp := camera.get_viewport().get_visible_rect().size
+		if vp.x > 1.0 and vp.y > 1.0:
+			var mid := vp * 0.5
+			var center := camera.project_position(mid, distance_yards)
+			var right_pt := camera.project_position(Vector2(vp.x, mid.y), distance_yards)
+			var top_pt := camera.project_position(Vector2(mid.x, 0.0), distance_yards)
+			var w := center.distance_to(right_pt) * 2.0
+			var h := center.distance_to(top_pt) * 2.0
+			if w > 1.0 and h > 1.0:
+				return Vector2(w, h)
+	var half_fov := deg_to_rad(camera.fov * 0.5)
+	if camera.keep_aspect == Camera3D.KEEP_WIDTH:
+		var width := 2.0 * distance_yards * tan(half_fov)
+		return Vector2(width, width / maxf(aspect, 0.01))
+	var height := 2.0 * distance_yards * tan(half_fov)
+	return Vector2(height * maxf(aspect, 0.01), height)
 
 
 static func _camera_transform_relative_to(container: Node3D, camera: Camera3D) -> Transform3D:

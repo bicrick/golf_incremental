@@ -310,17 +310,16 @@ func _check_iso_view_scene() -> bool:
 		return false
 	controller.setup(cam)
 	controller.set_enabled(true)
-	var expected_steps: Array[float] = [0.25, 0.5, 1.0, 2.0, 3.0, 4.0]
-	if IsoCameraController.ZOOM_STEPS != expected_steps:
-		print("FAIL: zoom steps expected ", expected_steps, " got ", IsoCameraController.ZOOM_STEPS)
+	if not is_equal_approx(IsoCameraController.ZOOM_MIN, 0.25):
+		print("FAIL: ZOOM_MIN expected 0.25 got ", IsoCameraController.ZOOM_MIN)
 		main.queue_free()
 		return false
-	if not is_equal_approx(controller.get_zoom_level(), 1.0):
-		print("FAIL: default zoom expected 1.0 got ", controller.get_zoom_level())
+	if not is_equal_approx(IsoCameraController.ZOOM_MAX, 4.0):
+		print("FAIL: ZOOM_MAX expected 4.0 got ", IsoCameraController.ZOOM_MAX)
 		main.queue_free()
 		return false
-	if IsoCameraController.DEFAULT_ZOOM_INDEX != 2:
-		print("FAIL: DEFAULT_ZOOM_INDEX expected 2 got ", IsoCameraController.DEFAULT_ZOOM_INDEX)
+	if not is_equal_approx(controller.get_zoom_level(), IsoCameraController.DEFAULT_ZOOM):
+		print("FAIL: default zoom expected ", IsoCameraController.DEFAULT_ZOOM, " got ", controller.get_zoom_level())
 		main.queue_free()
 		return false
 	if cam.position.distance_to(Vector2.ZERO) > 1.0:
@@ -332,15 +331,17 @@ func _check_iso_view_scene() -> bool:
 		print("FAIL: view origin yards should map to (0,0) got ", origin_px)
 		main.queue_free()
 		return false
+	var z0 := controller.get_zoom_level()
 	var wheel := InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
 	wheel.pressed = true
 	controller.consume_zoom_event(wheel)
-	if not is_equal_approx(controller.get_zoom_level(), 2.0):
-		print("FAIL: zoom not stepped 1.0 -> 2.0 got ", controller.get_zoom_level())
+	var z1 := controller.get_zoom_level()
+	if z1 <= z0 or z1 >= z0 * 1.5:
+		print("FAIL: wheel zoom should nudge continuously, got ", z0, " -> ", z1)
 		main.queue_free()
 		return false
-	print("OK: IsoView scene wired + zoom steps + camera on view origin")
+	print("OK: IsoView scene wired + continuous zoom + camera on view origin")
 	main.queue_free()
 	return true
 
@@ -556,29 +557,26 @@ func _check_fairway_only_and_pan() -> bool:
 		print("FAIL: drag past threshold should pan")
 		main.queue_free()
 		return false
-	var idx0 := cam_ctrl.get_zoom_index()
+	var z0 := cam_ctrl.get_zoom_level()
 	var wheel := InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
 	wheel.pressed = true
 	cam_ctrl.consume_zoom_event(wheel)
-	var expected_z: float = IsoCameraController.ZOOM_STEPS[
-		clampi(idx0 + 1, 0, IsoCameraController.ZOOM_STEPS.size() - 1)
-	]
-	if not is_equal_approx(cam_ctrl.get_zoom_level(), expected_z):
-		print("FAIL: zoom not stepped during fairway/pan check")
+	if cam_ctrl.get_zoom_level() <= z0:
+		print("FAIL: zoom should increase during fairway/pan check")
 		main.queue_free()
 		return false
-	## Zoom fully out reaches 0.25 (2× further than previous 0.5 floor).
-	while cam_ctrl.get_zoom_index() > 0:
+	## Zoom fully out reaches ZOOM_MIN (0.25).
+	for _i in 80:
 		var out := InputEventMouseButton.new()
 		out.button_index = MOUSE_BUTTON_WHEEL_DOWN
 		out.pressed = true
 		cam_ctrl.consume_zoom_event(out)
-	if not is_equal_approx(cam_ctrl.get_zoom_level(), 0.25):
-		print("FAIL: max zoom-out expected 0.25 got ", cam_ctrl.get_zoom_level())
+	if not is_equal_approx(cam_ctrl.get_zoom_level(), IsoCameraController.ZOOM_MIN):
+		print("FAIL: max zoom-out expected ", IsoCameraController.ZOOM_MIN, " got ", cam_ctrl.get_zoom_level())
 		main.queue_free()
 		return false
-	print("OK: fairway+apron terrain ", w, "x", d, " pad=", pad, " + pan/zoom to 0.25")
+	print("OK: fairway+apron terrain ", w, "x", d, " pad=", pad, " + pan/zoom to ", IsoCameraController.ZOOM_MIN)
 	main.queue_free()
 	return true
 
@@ -609,7 +607,7 @@ func _check_camera_memory_and_key_pan() -> bool:
 		main.queue_free()
 		return false
 	var remembered := cam.position
-	var remembered_zoom := cam_ctrl.get_zoom_index()
+	var remembered_zoom := cam_ctrl.get_zoom_level()
 	iso.set_mode(IsoView.Mode.OFF)
 	await process_frame
 	iso.set_mode(IsoView.Mode.HARVEST)
@@ -618,8 +616,8 @@ func _check_camera_memory_and_key_pan() -> bool:
 		print("FAIL: harvest should restore last camera pos ", remembered, " got ", cam.position)
 		main.queue_free()
 		return false
-	if cam_ctrl.get_zoom_index() != remembered_zoom:
-		print("FAIL: zoom index should persist across mode toggles")
+	if not is_equal_approx(cam_ctrl.get_zoom_level(), remembered_zoom):
+		print("FAIL: zoom level should persist across mode toggles")
 		main.queue_free()
 		return false
 	print("OK: key pan + session camera memory across harvest")

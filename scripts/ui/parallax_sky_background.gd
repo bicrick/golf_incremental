@@ -40,6 +40,12 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_layers()
 	apply_cycle_time(DEFAULT_CYCLE_TIME)
+	if not resized.is_connected(_on_resized):
+		resized.connect(_on_resized)
+
+
+func _on_resized() -> void:
+	_rebuild_layer_geometry()
 
 
 func layer_count() -> int:
@@ -66,6 +72,13 @@ func _apply_cloud_tints(atmosphere: Color, day_factor: float) -> void:
 		## Pull brightness down at night so bright cloud PNGs don't stay daylight-white.
 		var shade := 1.0 - CLOUD_NIGHT_DARKEN * night_factor * weight
 		_layers[index].modulate = Color(tinted.r * shade, tinted.g * shade, tinted.b * shade, 1.0)
+
+
+func _viewport_size() -> Vector2:
+	var s := size
+	if s.x < 1.0 or s.y < 1.0:
+		return VIEWPORT_SIZE
+	return s
 
 
 func _build_layers() -> void:
@@ -98,24 +111,31 @@ func _build_layers() -> void:
 		layer.texture = texture
 		layer.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		slot.add_child(layer)
+		_layers.append(layer)
+		_base_positions.append(Vector2.ZERO)
 
+	_rebuild_layer_geometry()
+
+
+func _rebuild_layer_geometry() -> void:
+	var vp := _viewport_size()
+	for index in _layers.size():
+		var layer := _layers[index]
+		var texture := layer.texture
+		if texture == null:
+			continue
 		var tex_size := texture.get_size()
 		var cover_scale := maxf(
-			(VIEWPORT_SIZE.x + BOB_MARGIN_X * 2.0) / tex_size.x,
-			(VIEWPORT_SIZE.y + BOB_MARGIN_Y * 2.0) / tex_size.y
+			(vp.x + BOB_MARGIN_X * 2.0) / tex_size.x,
+			(vp.y + BOB_MARGIN_Y * 2.0) / tex_size.y
 		)
 		var layer_size := tex_size * cover_scale
 		layer.custom_minimum_size = layer_size
 		layer.size = layer_size
-
-		var base_pos := Vector2(
-			(VIEWPORT_SIZE.x - layer_size.x) * 0.5,
-			(VIEWPORT_SIZE.y - layer_size.y) * 0.5
-		)
+		var base_pos := Vector2((vp.x - layer_size.x) * 0.5, (vp.y - layer_size.y) * 0.5)
 		layer.position = base_pos
-		slot.add_child(layer)
-		_layers.append(layer)
-		_base_positions.append(base_pos)
+		_base_positions[index] = base_pos
 
 
 func _process(delta: float) -> void:

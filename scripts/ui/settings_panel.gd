@@ -38,6 +38,33 @@ func _ready() -> void:
 	_style_toggle(frame_graph_toggle)
 	_style_reset_button()
 	_sync_controls_from_manager()
+	apply_viewport_layout()
+
+
+func apply_viewport_layout() -> void:
+	var body := get_node_or_null("Content/Body") as Control
+	if body == null:
+		return
+	var portrait := UiLayout.is_portrait(get_viewport())
+	var margin_x := 16.0 if portrait else 48.0
+	var label_w := 100.0 if portrait else 180.0
+	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	body.offset_left = margin_x
+	body.offset_top = 40.0
+	body.offset_right = -margin_x
+	body.offset_bottom = -16.0
+	for row_path in [
+		"MusicRow/MusicLabel",
+		"MusicVolumeRow/MusicVolumeLabel",
+		"SfxRow/SfxLabel",
+		"SfxVolumeRow/SfxVolumeLabel",
+		"FrameGraphRow/FrameGraphLabel",
+	]:
+		var label := body.get_node_or_null(row_path) as Control
+		if label != null:
+			label.custom_minimum_size = Vector2(label_w, 0.0)
+	var vp := UiLayout.viewport_size(get_viewport())
+	reset_dialog.size = Vector2i(mini(360, int(vp.x) - 32), 140)
 
 
 func is_open() -> bool:

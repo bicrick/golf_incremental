@@ -75,6 +75,19 @@ func _ready() -> void:
 	_refresh_all()
 
 
+func apply_viewport_layout() -> void:
+	var want_portrait := UiLayout.is_portrait(get_viewport())
+	if RadialTreeLayout.use_portrait_aspect == want_portrait:
+		if _is_open:
+			fit_to_view()
+		return
+	RadialTreeLayout.use_portrait_aspect = want_portrait
+	if _is_open:
+		_build_tree()
+		_refresh_all()
+		fit_to_view()
+
+
 func _setup_prestige_tooltip() -> void:
 	_prestige_tooltip = get_node_or_null("PrestigeButtonTooltip")
 	if _prestige_tooltip == null:

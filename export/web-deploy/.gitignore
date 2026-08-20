@@ -1,0 +1,6 @@
+# Staged by tools/export_web.sh — keep local only
+*
+!.gitignore
+!README.md
+!vercel.json
+!package.json

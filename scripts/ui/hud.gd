@@ -29,7 +29,14 @@ func _ready() -> void:
 	EventBus.pickup_payout.connect(_on_pickup_payout)
 
 
+func apply_viewport_layout() -> void:
+	_layout_top_left()
+
+
 func _layout_top_left() -> void:
+	if _margin == null:
+		return
+	## Absolute top-left pad — anchors fight MarginContainer min-size on HUD.
 	_margin.layout_mode = 0
 	_margin.position = Vector2(EDGE_PADDING, EDGE_PADDING)
 	_margin.size = _margin.get_combined_minimum_size()

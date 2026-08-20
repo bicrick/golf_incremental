@@ -26,9 +26,12 @@ func _ready() -> void:
 	_setup_title_logo()
 	_setup_press_space_label()
 	press_space_label.gui_input.connect(_on_press_space_gui_input)
+	if overlay != null and not overlay.gui_input.is_connected(_on_overlay_gui_input):
+		overlay.gui_input.connect(_on_overlay_gui_input)
 	_start_prompt_fade()
 	if sky_bg.has_method(&"apply_cycle_time"):
 		sky_bg.apply_cycle_time(60.0)
+	apply_viewport_layout()
 
 
 func is_transitioning() -> bool:
@@ -49,6 +52,20 @@ func sync_atmosphere_from_range(range_view: Node3D) -> void:
 	sky_bg.apply_cycle_time(cycle_time)
 
 
+func apply_viewport_layout() -> void:
+	if title_logo == null or press_space_label == null:
+		return
+	var size := UiLayout.viewport_size(get_viewport())
+	var max_w := mini(LOGO_DISPLAY_SIZE.x, size.x * 0.9)
+	var scale := max_w / LOGO_DISPLAY_SIZE.x
+	title_logo.custom_minimum_size = LOGO_DISPLAY_SIZE * scale
+	title_logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	if UiLayout.is_mobile_touch():
+		press_space_label.text = "Tap to play"
+	else:
+		press_space_label.text = "Press Space"
+
+
 func _input(event: InputEvent) -> void:
 	if not _transitioning:
 		return
@@ -61,13 +78,25 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not visible:
 		return
-	if not event is InputEventKey:
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if key.echo or not key.pressed or key.keycode != KEY_SPACE:
+			return
+		get_viewport().set_input_as_handled()
+		_on_play_pressed()
 		return
-	var key := event as InputEventKey
-	if key.echo or not key.pressed or key.keycode != KEY_SPACE:
+	## Mobile / any tap on title starts the game.
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			get_viewport().set_input_as_handled()
+			_on_play_pressed()
 		return
-	get_viewport().set_input_as_handled()
-	_on_play_pressed()
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
+			get_viewport().set_input_as_handled()
+			_on_play_pressed()
 
 
 func _setup_title_logo() -> void:
@@ -101,12 +130,20 @@ func _stop_prompt_fade() -> void:
 	_prompt_fade_tween = null
 
 
+func _on_overlay_gui_input(event: InputEvent) -> void:
+	_on_press_space_gui_input(event)
+
+
 func _on_press_space_gui_input(event: InputEvent) -> void:
 	if _transitioning:
 		return
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
+			_on_play_pressed()
+	elif event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
 			_on_play_pressed()
 
 
@@ -137,4 +174,5 @@ func reset_for_show() -> void:
 	sky_bg.modulate.a = 1.0
 	overlay.modulate.a = 1.0
 	press_space_label.modulate.a = PROMPT_FADE_MAX_ALPHA
+	apply_viewport_layout()
 	_start_prompt_fade()

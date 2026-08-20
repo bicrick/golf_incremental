@@ -342,7 +342,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if _mode == Mode.HARVEST:
-		if event is InputEventKey:
+		## Desktop: Space returns to strike. Mobile: only Hit toggle or collect-all.
+		if event is InputEventKey and not UiLayout.is_mobile_touch():
 			var key := event as InputEventKey
 			if not key.echo and key.pressed and key.keycode == KEY_SPACE:
 				get_viewport().set_input_as_handled()

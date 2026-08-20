@@ -125,7 +125,7 @@ func _ready() -> void:
 		_setup_ratina_bay()
 
 	if charge_meter:
-		charge_meter.position = CHARGE_METER_POSITION
+		_layout_charge_meter()
 	_setup_celestial_sprites()
 	if _should_use_editor_rig():
 		if perspective_camera:
@@ -146,6 +146,7 @@ func _ready() -> void:
 	_camera_controller.setup(camera)
 	_setup_view_mode_controller()
 	_setup_strike_feedback_billboard()
+	apply_viewport_aspect()
 
 	if contact_ring:
 		contact_ring.frozen_fade_completed.connect(_on_contact_ring_fade_completed)
@@ -389,12 +390,80 @@ func _build_backdrop() -> void:
 	var cam := get_node_or_null("PerspectiveCamera") as Camera3D
 	if backdrop_node == null or cam == null:
 		return
-	_backdrop_mesh = RangeBackdrop.populate(backdrop_node, cam)
+	var aspect := _live_aspect()
+	_backdrop_mesh = RangeBackdrop.populate(backdrop_node, cam, RangeBackdrop.DEFAULT_DISTANCE_YARDS, aspect)
 	if not Engine.is_editor_hint() and backdrop_node.visible and _view_mode_controller != null:
 		_update_backdrop_visibility(_view_mode_controller.get_mode())
 	elif Engine.is_editor_hint():
 		backdrop_node.visible = true
 		_editor_backdrop_camera_xform = cam.transform
+
+
+func _live_aspect() -> float:
+	var size := get_viewport().get_visible_rect().size if is_inside_tree() else Vector2.ZERO
+	if size.x > 1.0 and size.y > 1.0:
+		return size.x / size.y
+	return RangeBackdrop.REFERENCE_ASPECT
+
+
+func apply_viewport_aspect() -> void:
+	if Engine.is_editor_hint():
+		return
+	## Always KEEP_HEIGHT so vertical framing (rat + tee) matches the authored
+	## strike pose. KEEP_WIDTH at 16:9 treats fov as vertical and crops the
+	## golfer off the bottom; portrait already looked correct with KEEP_HEIGHT.
+	## Wide web EXPAND viewports also keep that vertical frame and grow sides.
+	if camera:
+		camera.keep_aspect = Camera3D.KEEP_HEIGHT
+	if perspective_camera:
+		perspective_camera.keep_aspect = Camera3D.KEEP_HEIGHT
+	_build_backdrop()
+	_layout_charge_meter()
+
+
+func _layout_charge_meter() -> void:
+	if charge_meter == null:
+		return
+	var size := get_viewport().get_visible_rect().size if is_inside_tree() else Vector2(480, 270)
+	var unlocked := false
+	if not Engine.is_editor_hint():
+		var gs := get_node_or_null("/root/GameState")
+		if gs != null:
+			unlocked = bool(gs.get("ratina_unlocked"))
+	var base := RATINA_UNLOCKED_CHARGE_METER_POSITION if unlocked else CHARGE_METER_POSITION
+	## Landscape uses authored coords; portrait recenters near bottom-middle.
+	if UiLayout.is_portrait(get_viewport()):
+		charge_meter.position = Vector2(size.x * 0.5 - 4.0, size.y * 0.72)
+	else:
+		## Scale authored 480x270 coords into the live viewport.
+		charge_meter.position = Vector2(
+			base.x * (size.x / 480.0),
+			base.y * (size.y / 270.0)
+		)
+
+
+func horizon_screen_y() -> float:
+	## Screen Y of the fairway horizon (ground plane at look-center). Above =
+	## sky/backdrop; below = fairway for mobile strike taps.
+	var size := get_viewport().get_visible_rect().size if is_inside_tree() else Vector2(480, 270)
+	var cam := get_flight_camera()
+	if cam == null:
+		cam = perspective_camera if perspective_camera else camera
+	if cam == null or not cam.is_inside_tree():
+		return size.y * 0.45
+	var look_dir := -cam.global_transform.basis.z
+	var origin := cam.global_position
+	## Intersect camera forward ray with y=0 ground plane.
+	if absf(look_dir.y) < 0.0001:
+		return size.y * 0.45
+	var t := -origin.y / look_dir.y
+	if t <= 0.0:
+		return size.y * 0.45
+	var ground_point := origin + look_dir * t
+	var screen := cam.unproject_position(ground_point)
+	if not is_finite(screen.y):
+		return size.y * 0.45
+	return clampf(screen.y, size.y * 0.2, size.y * 0.8)
 
 
 func _update_backdrop_visibility(mode: ViewModeController.Mode) -> void:
@@ -435,6 +504,7 @@ func _setup_camera() -> void:
 	# Rotation from V4CameraConfig; scene owns position + ortho size.
 	V4CameraConfig.apply_locked_rotation_only(camera)
 	camera.current = true
+	apply_viewport_aspect()
 
 
 func capture_plate(output_path: String = PLATE_CAPTURE_OUTPUT, cycle_time: float = PLATE_CAPTURE_CYCLE_TIME) -> Error:
@@ -703,10 +773,12 @@ func _iso_view_showing() -> bool:
 	return iso != null and iso.visible
 
 
-## Collect mode: pickup click only. Space returns to hitting mode (same as the
-## Hit button) — no swinging while collecting, regardless of ball count.
+## Collect mode: pickup click only. Desktop Space / Hit button returns to striking.
+## Mobile: exit only via Hit toggle or collecting every ball (no empty-tap / Space).
 func _handle_harvest_input(event: InputEvent) -> void:
 	if event is InputEventKey:
+		if UiLayout.is_mobile_touch():
+			return
 		var key := event as InputEventKey
 		if not key.echo and key.pressed and key.keycode == KEY_SPACE:
 			get_viewport().set_input_as_handled()
@@ -716,11 +788,17 @@ func _handle_harvest_input(event: InputEvent) -> void:
 		if _camera_controller and _camera_controller.has_method(&"cancel_pending_pan"):
 			_camera_controller.cancel_pending_pan()
 		get_viewport().set_input_as_handled()
+		return
 
 
 ## Hitting mode: Space swings when the bucket has balls. A left-click on the
 ## gameplay background (not on a button) voluntarily enters collect mode.
+## Mobile: below horizon = Space swing; above horizon = enter harvest.
 func _handle_strike_input(event: InputEvent) -> void:
+	if UiLayout.is_mobile_touch():
+		if _handle_mobile_strike_input(event):
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton:
 		if _try_background_click_to_collect(event as InputEventMouseButton):
 			get_viewport().set_input_as_handled()
@@ -736,6 +814,43 @@ func _handle_strike_input(event: InputEvent) -> void:
 		_swing.start_charge()
 	else:
 		_swing.release_strike()
+
+
+func _handle_mobile_strike_input(event: InputEvent) -> bool:
+	if UiInput.is_interactive_control_under_mouse(get_viewport()):
+		return false
+	var pressed := false
+	var released := false
+	var pos := Vector2.ZERO
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		pressed = touch.pressed
+		released = not touch.pressed
+		pos = touch.position
+	elif event is InputEventMouseButton:
+		var click := event as InputEventMouseButton
+		if click.button_index != MOUSE_BUTTON_LEFT:
+			return false
+		pressed = click.pressed
+		released = not click.pressed
+		pos = click.position
+	else:
+		return false
+	var below_horizon := pos.y >= horizon_screen_y()
+	if pressed:
+		if below_horizon:
+			if GameState.has_bucket_balls():
+				_swing.start_charge()
+				return true
+			return false
+		## Above horizon — enter harvest (replaces desktop "click anywhere").
+		if _swing.is_charging():
+			return false
+		return GameState.try_enter_harvest()
+	if released and below_horizon and _swing.is_charging():
+		_swing.release_strike()
+		return true
+	return false
 
 
 func _try_background_click_to_collect(click: InputEventMouseButton) -> bool:
@@ -823,8 +938,7 @@ func _apply_ratina_layout_if_needed() -> void:
 
 
 func _apply_ratina_unlocked_layout() -> void:
-	if charge_meter:
-		charge_meter.position = RATINA_UNLOCKED_CHARGE_METER_POSITION
+	_layout_charge_meter()
 	_ratina_strike_text_offset = Balance.RATINA_STRIKE_TEXT_OFFSET
 	if _ratina and _ratina.has_method("refresh_strike_homes"):
 		_ratina.refresh_strike_homes()

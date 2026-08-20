@@ -39,7 +39,7 @@ func _run() -> void:
 		quit(1)
 		return
 
-	var title_path := music.stream.resource_path
+	var title_path: String = sfx.get_current_music_track_path()
 	if not title_path in tracks:
 		print("FAIL: title BGM should be one of discovered tracks, got ", title_path)
 		quit(1)
@@ -77,7 +77,7 @@ func _run() -> void:
 		quit(1)
 		return
 
-	var gameplay_path := music.stream.resource_path
+	var gameplay_path: String = sfx.get_current_music_track_path()
 	if gameplay_path != title_path:
 		print("FAIL: start_bgm should keep current track, got ", gameplay_path)
 		quit(1)

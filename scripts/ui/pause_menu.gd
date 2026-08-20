@@ -28,6 +28,45 @@ func _ready() -> void:
 	UiTheme.apply_primary_button(settings_button)
 	UiTheme.apply_danger_button(exit_button)
 	UiTheme.apply_primary_button(add_money_button)
+	apply_viewport_layout()
+
+
+func apply_viewport_layout() -> void:
+	var main_row := get_node_or_null("Content/Center/MainRow") as BoxContainer
+	var divider := get_node_or_null("Content/Center/MainRow/Divider") as Control
+	var left := get_node_or_null("Content/Center/MainRow/LeftPane") as Control
+	var right := get_node_or_null("Content/Center/MainRow/RightPane") as Control
+	if main_row == null or left == null or right == null:
+		return
+	var portrait := UiLayout.is_portrait(get_viewport())
+	## Swap HBox ↔ VBox for portrait so the music pane stacks under buttons.
+	var want_vertical := portrait
+	var is_vertical := main_row is VBoxContainer
+	if want_vertical == is_vertical:
+		if divider:
+			divider.visible = not portrait
+		return
+	var parent := main_row.get_parent()
+	var children := main_row.get_children()
+	var new_row: BoxContainer = VBoxContainer.new() if want_vertical else HBoxContainer.new()
+	new_row.name = "MainRow"
+	new_row.theme_override_constants["separation"] = 20 if not want_vertical else 12
+	new_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	parent.add_child(new_row)
+	parent.move_child(new_row, main_row.get_index())
+	for child in children:
+		main_row.remove_child(child)
+		new_row.add_child(child)
+	main_row.queue_free()
+	if divider:
+		divider.visible = not portrait
+	## Shrink button min widths on narrow screens.
+	var btn_w := 140.0 if portrait else 160.0
+	for btn in [resume_button, settings_button, exit_button, add_money_button]:
+		if btn != null:
+			btn.custom_minimum_size = Vector2(btn_w, 0)
+	if right != null:
+		right.custom_minimum_size = Vector2(168.0 if not portrait else 0.0, 0)
 
 
 func is_open() -> bool:
@@ -45,6 +84,7 @@ func open() -> void:
 	_close_other_panels()
 	_is_open = true
 	visible = true
+	apply_viewport_layout()
 	if music_player.has_method("refresh"):
 		music_player.refresh()
 	EventBus.ui_panel_toggled.emit("pause", true)

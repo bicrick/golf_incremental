@@ -6,14 +6,30 @@ const UiHoverTickScript = preload("res://scripts/audio/ui_hover_tick.gd")
 signal music_track_changed(path: String)
 
 const POOL_SIZE := 8
-const MIX_RATE := 22050
+## Procedural SFX sample rate — match AudioServer at runtime (web often 48000).
+## A fixed 22050 rate can sound muddy/wrong when HTML5 resampling mis-handles mix_rate.
 const MUSIC_DIR := "res://assets/audio/music/"
+## Web export serves BGM as same-origin static files (not packed in the PCK).
+## Root-relative so HTTPRequest resolves correctly from any page URL.
+const WEB_MUSIC_URL_PREFIX := "/audio/"
+const WEB_MUSIC_BASENAMES := [
+	"dusk",
+	"early-riser",
+	"final",
+	"main-theme",
+	"midday",
+	"midnight",
+	"night",
+	"sunrise",
+]
 const PICKUP_PLINK_PATH := "res://assets/audio/sfx/pickup/throwing-a-coin-into-a-piggy-bank.mp3"
 const CUELUME_DIR := "res://assets/audio/sfx/ui/cuelume/"
 ## Cuelume recipes peak very soft; +24 dB ≈ 16× amplitude so UI cues read clearly over BGM.
 const CUELUME_GAIN_DB := 24.0
 const BGM_VOLUME_DB := -9.0
 const MUSIC_EXTENSIONS := ["mp3", "ogg", "wav", "flac"]
+## Prefer OGG when the same basename exists as WAV (desktop discovery).
+const _MUSIC_EXT_PRIORITY := {"ogg": 4, "mp3": 3, "flac": 2, "wav": 1}
 
 const CUELUME_STREAMS := {
 	"perfect_chime": "cuelume-chime.wav",
@@ -46,6 +62,10 @@ var _music_enabled := true
 var _sfx_volume := 1.0
 var _music_volume := 1.0
 var _ui_hover_tick = UiHoverTickScript.new()
+## HTTP-loaded streams have empty resource_path; keep the logical track path here.
+var _current_music_path: String = ""
+var _pending_loop := false
+var _web_bgm_fetcher: WebBgmFetcher
 
 
 func _ready() -> void:
@@ -56,6 +76,12 @@ func _ready() -> void:
 	_build_streams()
 	_load_golf_hit_streams()
 	_build_pool()
+	if OS.has_feature("web"):
+		_web_bgm_fetcher = WebBgmFetcher.new()
+		_web_bgm_fetcher.name = "WebBgmFetcher"
+		add_child(_web_bgm_fetcher)
+		_web_bgm_fetcher.fetch_succeeded.connect(_on_web_bgm_fetch_succeeded)
+		_web_bgm_fetcher.fetch_failed.connect(_on_web_bgm_fetch_failed)
 	_refresh_music_tracks()
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
@@ -83,6 +109,8 @@ func get_music_tracks() -> Array[String]:
 
 
 func get_current_music_track_path() -> String:
+	if not _current_music_path.is_empty():
+		return _current_music_path
 	if _music_player != null and _music_player.stream != null:
 		return _music_player.stream.resource_path
 	return ""
@@ -96,7 +124,7 @@ func get_current_music_display_name() -> String:
 	var path := get_current_music_track_path()
 	if path.is_empty():
 		return "No Track"
-	return path.get_file().get_basename()
+	return MusicTrackRhythm.track_basename(path)
 
 
 func is_music_playing() -> bool:
@@ -116,6 +144,9 @@ func should_show_play_icon() -> bool:
 
 
 func stop_music() -> void:
+	if _web_bgm_fetcher != null:
+		_web_bgm_fetcher.cancel()
+	_current_music_path = ""
 	if _music_player != null:
 		_music_player.stop()
 
@@ -224,6 +255,10 @@ func start_bgm() -> void:
 	if _ambient_player != null:
 		return
 	if _music_player != null and not _is_title_mode:
+		# Re-assert play after a user gesture (web autoplay unlock).
+		if OS.has_feature("web") and _music_player.stream != null and not _music_player.playing:
+			_music_player.stream_paused = false
+			_music_player.play()
 		return
 	_refresh_music_tracks()
 	if _music_tracks.is_empty():
@@ -231,12 +266,13 @@ func start_bgm() -> void:
 			_start_ambient()
 		return
 	# Title track already playing — finish this track, then rotate through the playlist.
-	if _music_player != null and _is_title_mode and _music_player.playing:
+	if _music_player != null and _is_title_mode and _music_player.stream != null:
 		_is_title_mode = false
-		if _music_player.stream != null:
-			_set_stream_loop(_music_player.stream, false)
+		_set_stream_loop(_music_player.stream, false)
 		if not _music_player.finished.is_connected(_on_music_finished):
 			_music_player.finished.connect(_on_music_finished)
+		_music_player.stream_paused = false
+		_music_player.play()
 		return
 	_is_title_mode = false
 	if _music_player != null and _music_player.finished.is_connected(_on_music_finished):
@@ -297,13 +333,42 @@ func _refresh_music_tracks() -> void:
 
 
 func _discover_music_tracks() -> Array[String]:
-	var candidates: Array[String] = []
+	if OS.has_feature("web"):
+		return _discover_web_music_tracks()
+	return _discover_packed_music_tracks()
+
+
+func _discover_web_music_tracks() -> Array[String]:
+	var tracks: Array[String] = []
+	for basename in WEB_MUSIC_BASENAMES:
+		tracks.append("%s%s.ogg" % [WEB_MUSIC_URL_PREFIX, basename])
+	return tracks
+
+
+func _discover_packed_music_tracks() -> Array[String]:
+	var by_basename: Dictionary = {}
 	var dir := DirAccess.open(MUSIC_DIR)
 	if dir == null:
-		return candidates
+		return []
 	for file_name in dir.get_files():
-		if file_name.get_extension().to_lower() in MUSIC_EXTENSIONS:
-			candidates.append(MUSIC_DIR.path_join(file_name))
+		var ext := file_name.get_extension().to_lower()
+		if ext not in MUSIC_EXTENSIONS:
+			continue
+		# Skip Godot remaps / imports that appear as files in some exports.
+		if file_name.ends_with(".import"):
+			continue
+		var basename := file_name.get_basename()
+		var path := MUSIC_DIR.path_join(file_name)
+		if not by_basename.has(basename):
+			by_basename[basename] = path
+			continue
+		var existing: String = by_basename[basename]
+		var existing_ext := existing.get_extension().to_lower()
+		if int(_MUSIC_EXT_PRIORITY.get(ext, 0)) > int(_MUSIC_EXT_PRIORITY.get(existing_ext, 0)):
+			by_basename[basename] = path
+	var candidates: Array[String] = []
+	for basename in by_basename.keys():
+		candidates.append(by_basename[basename])
 	candidates.sort()
 	return candidates
 
@@ -318,12 +383,38 @@ func _start_rotation_at(index: int) -> void:
 
 
 func _play_track_at_path(path: String, loop: bool) -> void:
+	_pending_loop = loop
+	if OS.has_feature("web"):
+		_play_web_track_at_path(path, loop)
+		return
 	var stream: AudioStream = load(path)
 	if stream == null:
 		push_warning("SfxManager: failed to load BGM at %s" % path)
 		if _music_player == null and not _is_title_mode:
 			_start_ambient()
 		return
+	_apply_music_stream(path, stream, loop)
+
+
+func _play_web_track_at_path(path: String, loop: bool) -> void:
+	if _web_bgm_fetcher == null:
+		push_warning("SfxManager: web BGM fetcher missing")
+		return
+	_pending_loop = loop
+	_web_bgm_fetcher.request_track(path)
+
+
+func _on_web_bgm_fetch_succeeded(path: String, stream: AudioStreamOggVorbis) -> void:
+	_apply_music_stream(path, stream, _pending_loop)
+
+
+func _on_web_bgm_fetch_failed(path: String, message: String) -> void:
+	push_warning("SfxManager: web BGM fetch failed for %s (%s)" % [path, message])
+	if _music_player == null and not _is_title_mode:
+		_start_ambient()
+
+
+func _apply_music_stream(path: String, stream: AudioStream, loop: bool) -> void:
 	_set_stream_loop(stream, loop)
 	if _music_player == null:
 		_music_player = AudioStreamPlayer.new()
@@ -334,6 +425,7 @@ func _play_track_at_path(path: String, loop: bool) -> void:
 	if _music_player.finished.is_connected(_on_music_finished):
 		_music_player.finished.disconnect(_on_music_finished)
 	_music_player.stream = stream
+	_current_music_path = path
 	if not loop:
 		_music_player.finished.connect(_on_music_finished)
 	_apply_music_volume()
@@ -565,30 +657,45 @@ func _load_golf_hit_streams() -> void:
 			push_warning("SfxManager: failed to load golf power hit at %s" % path)
 			continue
 		_golf_hit_power.append(stream)
+	if _golf_hit_normal.is_empty() or _golf_hit_power.is_empty():
+		push_warning(
+			"SfxManager: golf hit pools empty (normal=%d power=%d) — SFX WAVs missing from export?"
+			% [_golf_hit_normal.size(), _golf_hit_power.size()]
+		)
+
+
+func _sfx_mix_rate() -> int:
+	## Prefer the live AudioServer rate so procedural WAVs need no resampling on web.
+	var rate := int(AudioServer.get_mix_rate())
+	if rate < 11025:
+		return 44100
+	return rate
 
 
 func _make_click(freq_hz: float, duration_sec: float, volume: float) -> AudioStreamWAV:
-	var sample_count := int(duration_sec * MIX_RATE)
+	var mix_rate := _sfx_mix_rate()
+	var sample_count := int(duration_sec * mix_rate)
 	var data := PackedByteArray()
 	data.resize(sample_count * 2)
 	for i in sample_count:
-		var t := float(i) / MIX_RATE
+		var t := float(i) / float(mix_rate)
 		var env := exp(-18.0 * t / duration_sec)
 		var sample := sin(TAU * freq_hz * t) * volume * env
 		_write_sample(data, i, sample)
-	return _pack_wav(data)
+	return _pack_wav(data, mix_rate)
 
 
 func _make_coin_bling(duration_sec: float, volume: float) -> AudioStreamWAV:
 	## Fallback if Mixkit asset missing — punchy click + rising sparkle.
-	var sample_count := int(duration_sec * MIX_RATE)
+	var mix_rate := _sfx_mix_rate()
+	var sample_count := int(duration_sec * mix_rate)
 	var data := PackedByteArray()
 	data.resize(sample_count * 2)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1337
 	var harmonics: Array = [988.0, 1319.0, 1760.0, 2093.0]
 	for i in sample_count:
-		var t := float(i) / MIX_RATE
+		var t := float(i) / float(mix_rate)
 		var click_env := exp(-70.0 * t)
 		var click := rng.randf_range(-1.0, 1.0) * 0.55 * click_env
 		var tone_env := exp(-9.0 * t / duration_sec)
@@ -602,7 +709,7 @@ func _make_coin_bling(duration_sec: float, volume: float) -> AudioStreamWAV:
 		var chirp := sin(TAU * (1200.0 + 1800.0 * t / duration_sec) * t) * exp(-12.0 * t / duration_sec) * 0.35
 		var sample := (click * 0.35 + tone * 0.45 + chirp * 0.35) * volume
 		_write_sample(data, i, sample)
-	return _pack_wav(data)
+	return _pack_wav(data, mix_rate)
 
 
 func _make_thwack(
@@ -611,54 +718,58 @@ func _make_thwack(
 	volume: float,
 	noise_mix: float
 ) -> AudioStreamWAV:
-	var sample_count := int(duration_sec * MIX_RATE)
+	var mix_rate := _sfx_mix_rate()
+	var sample_count := int(duration_sec * mix_rate)
 	var data := PackedByteArray()
 	data.resize(sample_count * 2)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = int(tone_hz * 1000.0)
 	for i in sample_count:
-		var t := float(i) / MIX_RATE
+		var t := float(i) / float(mix_rate)
 		var env := exp(-5.5 * t / duration_sec)
 		var tone := sin(TAU * tone_hz * t) * (1.0 - noise_mix)
 		var noise := rng.randf_range(-1.0, 1.0) * noise_mix
 		var sample := (tone + noise) * volume * env
 		_write_sample(data, i, sample)
-	return _pack_wav(data)
+	return _pack_wav(data, mix_rate)
 
 
 func _make_arpeggio(freqs: Array, note_duration_sec: float, volume: float) -> AudioStreamWAV:
+	var mix_rate := _sfx_mix_rate()
 	var total_duration := note_duration_sec * freqs.size()
-	var sample_count := int(total_duration * MIX_RATE)
+	var sample_count := int(total_duration * mix_rate)
 	var data := PackedByteArray()
 	data.resize(sample_count * 2)
 	for i in sample_count:
-		var t := float(i) / MIX_RATE
+		var t := float(i) / float(mix_rate)
 		var note_index := mini(int(t / note_duration_sec), freqs.size() - 1)
 		var note_t := fmod(t, note_duration_sec)
 		var freq := float(freqs[note_index])
 		var env := exp(-8.0 * note_t / note_duration_sec)
 		var sample := sin(TAU * freq * note_t) * volume * env
 		_write_sample(data, i, sample)
-	return _pack_wav(data)
+	return _pack_wav(data, mix_rate)
 
 
 func _make_chime(freqs: Array, duration_sec: float, volume: float) -> AudioStreamWAV:
-	var sample_count := int(duration_sec * MIX_RATE)
+	var mix_rate := _sfx_mix_rate()
+	var sample_count := int(duration_sec * mix_rate)
 	var data := PackedByteArray()
 	data.resize(sample_count * 2)
 	for i in sample_count:
-		var t := float(i) / MIX_RATE
+		var t := float(i) / float(mix_rate)
 		var env := exp(-3.5 * t / duration_sec)
 		var sample := 0.0
 		for freq in freqs:
 			sample += sin(TAU * float(freq) * t)
 		sample = sample / float(freqs.size()) * volume * env
 		_write_sample(data, i, sample)
-	return _pack_wav(data)
+	return _pack_wav(data, mix_rate)
 
 
 func _make_wind_loop(duration_sec: float, volume: float) -> AudioStreamWAV:
-	var sample_count := int(duration_sec * MIX_RATE)
+	var mix_rate := _sfx_mix_rate()
+	var sample_count := int(duration_sec * mix_rate)
 	var data := PackedByteArray()
 	data.resize(sample_count * 2)
 	var rng := RandomNumberGenerator.new()
@@ -669,7 +780,7 @@ func _make_wind_loop(duration_sec: float, volume: float) -> AudioStreamWAV:
 		smoothed = lerpf(smoothed, raw, 0.02)
 		var sample := smoothed * volume
 		_write_sample(data, i, sample)
-	var stream := _pack_wav(data)
+	var stream := _pack_wav(data, mix_rate)
 	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	return stream
 
@@ -680,10 +791,10 @@ func _write_sample(data: PackedByteArray, index: int, sample: float) -> void:
 	data[index * 2 + 1] = (int_sample >> 8) & 0xFF
 
 
-func _pack_wav(data: PackedByteArray) -> AudioStreamWAV:
+func _pack_wav(data: PackedByteArray, mix_rate: int = 44100) -> AudioStreamWAV:
 	var stream := AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = MIX_RATE
+	stream.mix_rate = mix_rate
 	stream.stereo = false
 	stream.data = data
 	return stream

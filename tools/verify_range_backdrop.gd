@@ -5,8 +5,12 @@ const RANGE_VIEW_SCENE := preload("res://scenes/range/range_view.tscn")
 
 
 func _initialize() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	var ok := true
-	ok = _verify_populate() and ok
+	ok = await _verify_populate() and ok
 	ok = _verify_palette_tints() and ok
 	print("range_backdrop_ok=", ok)
 	quit(0 if ok else 1)
@@ -15,6 +19,8 @@ func _initialize() -> void:
 func _verify_populate() -> bool:
 	var range_view := RANGE_VIEW_SCENE.instantiate()
 	root.add_child(range_view)
+	await process_frame
+	await process_frame
 
 	var backdrop := range_view.get_node_or_null("Backdrop") as Node3D
 	var camera := range_view.get_node_or_null("PerspectiveCamera") as Camera3D
@@ -42,6 +48,29 @@ func _verify_populate() -> bool:
 		print("FAIL: backdrop mesh has no surfaces")
 		return false
 
+	## KEEP_HEIGHT: fov is vertical — quad must cover the measured frustum width.
+	camera.keep_aspect = Camera3D.KEEP_HEIGHT
+	camera.make_current()
+	await process_frame
+	var covered := RangeBackdrop.populate(
+		backdrop, camera, RangeBackdrop.DEFAULT_DISTANCE_YARDS, 16.0 / 9.0
+	)
+	if covered == null:
+		print("FAIL: repopulate under KEEP_HEIGHT failed")
+		return false
+	var arrays := covered.mesh.surface_get_arrays(0)
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var min_x := INF
+	var max_x := -INF
+	for v in verts:
+		min_x = minf(min_x, v.x)
+		max_x = maxf(max_x, v.x)
+	var quad_w := max_x - min_x
+	## At 16:9 KEEP_HEIGHT, frustum width is ~1227 yd at 450; undersized math was ~690.
+	if quad_w < 1000.0:
+		print("FAIL: backdrop quad too narrow under KEEP_HEIGHT (w=", snappedf(quad_w, 0.1), ")")
+		return false
+	print("OK: backdrop KEEP_HEIGHT width=", snappedf(quad_w, 0.1))
 	return true
 
 

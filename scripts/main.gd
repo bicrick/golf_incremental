@@ -16,6 +16,9 @@ var _harvest_view_active := false
 
 func _ready() -> void:
 	add_to_group(&"main")
+	_apply_web_display_stretch()
+	if not get_viewport().size_changed.is_connected(_on_viewport_size_changed):
+		get_viewport().size_changed.connect(_on_viewport_size_changed)
 	CursorManager.bind_gameplay(range_view)
 	CursorManager.debug_set_harvest_view_ready(_is_harvest_view_ready)
 	## Per-event mouse delivery — avoids macOS click batching quirks.
@@ -35,7 +38,50 @@ func _ready() -> void:
 	EventBus.phase_changed.connect(_on_phase_changed_view)
 	if title_screen.has_method(&"sync_atmosphere_from_range"):
 		title_screen.sync_atmosphere_from_range(range_view)
-	SfxManager.play_title_bgm()
+	# Web browsers block AudioContext until a user gesture — start BGM from the
+	# title "Press Space" / click handler instead (see TitleScreen._on_play_pressed).
+	if not OS.has_feature("web"):
+		SfxManager.play_title_bgm()
+	call_deferred("_notify_portrait_layout")
+
+
+func _on_viewport_size_changed() -> void:
+	_apply_web_display_stretch()
+	_notify_portrait_layout()
+
+
+func _notify_portrait_layout() -> void:
+	if range_view != null and range_view.has_method(&"apply_viewport_aspect"):
+		range_view.apply_viewport_aspect()
+	if title_screen != null and title_screen.has_method(&"apply_viewport_layout"):
+		title_screen.apply_viewport_layout()
+	if settings_panel != null and settings_panel.has_method(&"apply_viewport_layout"):
+		settings_panel.apply_viewport_layout()
+	if pause_menu != null and pause_menu.has_method(&"apply_viewport_layout"):
+		pause_menu.apply_viewport_layout()
+	if upgrade_panel != null and upgrade_panel.has_method(&"apply_viewport_layout"):
+		upgrade_panel.apply_viewport_layout()
+	var hud := get_node_or_null("UI/UIRoot/GameplayChrome/HUD")
+	if hud != null and hud.has_method(&"apply_viewport_layout"):
+		hud.apply_viewport_layout()
+
+
+func _apply_web_display_stretch() -> void:
+	## Desktop keeps integer scale (crisp pixels + letterbox). Web covers the
+	## browser so side bars disappear; pixels are slightly softer.
+	if not OS.has_feature("web"):
+		return
+	var win := get_window()
+	if win == null:
+		return
+	win.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	win.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	win.content_scale_stretch = Window.CONTENT_SCALE_STRETCH_FRACTIONAL
+	## Portrait phones need a tall logical canvas; landscape stays 480x270.
+	var win_size := win.size
+	if win_size.x <= 0 or win_size.y <= 0:
+		win_size = get_viewport().get_visible_rect().size
+	win.content_scale_size = UiLayout.content_scale_size_for_viewport(win_size)
 
 
 func _is_harvest_view_ready() -> bool:
