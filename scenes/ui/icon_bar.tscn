@@ -1,7 +1,8 @@
-[gd_scene load_steps=4 format=3 uid="uid://icon_bar_scene"]
+[gd_scene load_steps=5 format=3 uid="uid://icon_bar_scene"]
 
 [ext_resource type="Script" path="res://scripts/ui/icon_bar.gd" id="1_script"]
 [ext_resource type="Script" path="res://scripts/ui/pixel_up_arrow.gd" id="2_arrow"]
+[ext_resource type="Script" path="res://scripts/ui/shag_bag_glyph.gd" id="3_shag"]
 [ext_resource type="Script" path="res://scripts/ui/bucket_counter.gd" id="4_bucket"]
 
 [node name="IconBar" type="Control"]
@@ -21,7 +22,7 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -112.0
+offset_left = -160.0
 offset_top = -40.0
 offset_right = -8.0
 offset_bottom = -8.0
@@ -29,6 +30,34 @@ grow_horizontal = 0
 grow_vertical = 0
 theme_override_constants/separation = 6
 alignment = 2
+
+[node name="ShagBagWrap" type="PanelContainer" parent="BottomRight"]
+visible = false
+layout_mode = 2
+
+[node name="ShagBagButton" type="Button" parent="BottomRight/ShagBagWrap"]
+layout_mode = 2
+custom_minimum_size = Vector2(24, 24)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="Glyph" type="Control" parent="BottomRight/ShagBagWrap/ShagBagButton"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -12.0
+offset_top = -12.0
+offset_right = 12.0
+offset_bottom = 12.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_shag")
 
 [node name="BucketCounter" type="PanelContainer" parent="BottomRight"]
 layout_mode = 2

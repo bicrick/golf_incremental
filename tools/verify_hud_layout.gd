@@ -122,6 +122,25 @@ func _run() -> void:
 	if icon_bar.has_node("BottomRight/HitWrap") or icon_bar.has_node("BottomRight/HitButton"):
 		print("FAIL: harvest Hit toggle should be removed")
 		ok = false
+	var shag_wrap: Control = icon_bar.get_node_or_null("BottomRight/ShagBagWrap")
+	if shag_wrap == null:
+		print("FAIL: ShagBagWrap missing (mobile harvest toggle)")
+		ok = false
+	elif shag_wrap.get_node_or_null("ShagBagButton") == null:
+		print("FAIL: ShagBagButton missing")
+		ok = false
+	else:
+		print("OK: ShagBagWrap present")
+		if not ResourceLoader.exists("res://assets/ui/shag_bag.png"):
+			print("FAIL: assets/ui/shag_bag.png missing")
+			ok = false
+		else:
+			var shag_glyph: Control = shag_wrap.get_node_or_null("ShagBagButton/Glyph")
+			if shag_glyph == null or shag_glyph.get("_texture") == null:
+				print("FAIL: ShagBag glyph should load assets/ui/shag_bag.png")
+				ok = false
+			else:
+				print("OK: ShagBag glyph uses shag_bag.png")
 	if icon_bar.get_node_or_null("TopRight/UpgradesWrap/UpgradesButton") == null:
 		print("FAIL: upgrades button missing from IconBar")
 		ok = false
@@ -158,6 +177,14 @@ func _run() -> void:
 		print("FAIL: bucket count should show current/max fraction")
 		ok = false
 	if gs != null:
+		if gs.bucket_remaining != gs.bucket_capacity:
+			print(
+				"FAIL: fresh load should refill bucket, got %d/%d"
+				% [gs.bucket_remaining, gs.bucket_capacity]
+			)
+			ok = false
+		else:
+			print("OK: fresh load bucket is full")
 		gs.bucket_remaining = 3
 		if not gs.try_enter_harvest():
 			print("FAIL: try_enter_harvest should succeed for bucket ball-return check")

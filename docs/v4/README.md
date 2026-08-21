@@ -10,7 +10,7 @@ Same range rat superintendent, same one-hand contact swing, same bucket/pickup/u
 
 | v2/v3 (current foundation) | v4 (this doc set) |
 |---|---|
-| Perspective `Camera3D`, over-the-shoulder | Orthographic `Camera3D`, true 2:1 dimetric (`-26.565° / 45° / 0°`) |
+| Perspective `Camera3D`, over-the-shoulder | Orthographic harvest `Camera3D` (`≈ -13.8° / 16.1°`); bay editors stay 2:1 dimetric |
 | One fixed diorama; camera never moves | Same fixed-size range; a small **buildable strip** beside the tee is grid-based |
 | Crew (Ratina) = one bespoke hardcoded bay via `ratina_controller.gd` | Crew bays = instances of a generalized `HittingBayController`, placed on the grid |
 | "Range amenities" = abstract upgrade-tree stat purchases | Unchanged in v4 — pickers/amenities stay abstract; only **hitting bays** are physical objects |

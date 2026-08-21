@@ -13,6 +13,7 @@ func _run() -> void:
 	ok = await _test_click_does_not_pan() and ok
 	ok = await _test_drag_pans_camera() and ok
 	ok = await _test_range_view_routes_drag() and ok
+	ok = await _test_maps_like_zoom() and ok
 	print("camera_pan_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -229,4 +230,104 @@ func _test_range_view_routes_drag() -> bool:
 
 	main.queue_free()
 	print("OK: range_view_routes_drag")
+	return true
+
+
+func _test_maps_like_zoom() -> bool:
+	var main: Node = _spawn_playing_range()
+	await process_frame
+	await process_frame
+
+	var gs: Node = root.get_node("GameState")
+	var range_view: Node3D = main.get_node("RangeView")
+	_enter_harvest(gs)
+	await _wait_harvest_view(range_view)
+
+	var controller: Node = range_view.get_node("CameraController")
+	var camera: Camera3D = range_view.get_node("Camera3D")
+	if controller == null or camera == null:
+		print("FAIL: range view missing camera controller or camera")
+		main.queue_free()
+		return false
+	if not controller.is_enabled():
+		print("FAIL: camera controller should be enabled for zoom")
+		main.queue_free()
+		return false
+
+	var start_size: float = camera.size
+	var min_size: float = start_size * controller.zoom_in_factor
+	var max_size: float = start_size * controller.zoom_out_factor
+
+	var wheel_in := InputEventMouseButton.new()
+	wheel_in.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel_in.pressed = true
+	if not controller.consume_zoom_event(wheel_in):
+		print("FAIL: wheel up should zoom")
+		main.queue_free()
+		return false
+	var after_wheel: float = camera.size
+	var expected_wheel: float = start_size / controller.wheel_zoom_factor
+	if absf(after_wheel - expected_wheel) > 0.001:
+		print("FAIL: wheel should scale size by 1/", controller.wheel_zoom_factor, " got ", start_size, " -> ", after_wheel)
+		main.queue_free()
+		return false
+
+	camera.size = start_size
+	var mag := InputEventMagnifyGesture.new()
+	mag.factor = 1.2
+	mag.position = Vector2(160.0, 120.0)
+	if not controller.consume_zoom_event(mag):
+		print("FAIL: magnify should zoom")
+		main.queue_free()
+		return false
+	if absf(camera.size - start_size / 1.2) > 0.001:
+		print("FAIL: magnify 1.2 should scale size by 1/1.2, got ", start_size, " -> ", camera.size)
+		main.queue_free()
+		return false
+
+	camera.size = start_size
+	var t0 := InputEventScreenTouch.new()
+	t0.index = 0
+	t0.pressed = true
+	t0.position = Vector2(100.0, 100.0)
+	var t1 := InputEventScreenTouch.new()
+	t1.index = 1
+	t1.pressed = true
+	t1.position = Vector2(100.0, 200.0)
+	controller.consume_zoom_event(t0)
+	controller.consume_zoom_event(t1)
+	var drag := InputEventScreenDrag.new()
+	drag.index = 1
+	drag.position = Vector2(100.0, 220.0)
+	if not controller.consume_zoom_event(drag):
+		print("FAIL: two-finger pinch drag should zoom")
+		main.queue_free()
+		return false
+	## Dist 100 → 120 is +20%; size should become start / 1.2 immediately.
+	if absf(camera.size - start_size / 1.2) > 0.001:
+		print("FAIL: pinch should be 1:1 with finger distance, got ", start_size, " -> ", camera.size)
+		main.queue_free()
+		return false
+
+	for _i in 40:
+		var out := InputEventMouseButton.new()
+		out.button_index = MOUSE_BUTTON_WHEEL_DOWN
+		out.pressed = true
+		controller.consume_zoom_event(out)
+	if absf(camera.size - max_size) > 0.001:
+		print("FAIL: zoom-out clamp expected ", max_size, " got ", camera.size)
+		main.queue_free()
+		return false
+	for _i in 80:
+		var zin := InputEventMouseButton.new()
+		zin.button_index = MOUSE_BUTTON_WHEEL_UP
+		zin.pressed = true
+		controller.consume_zoom_event(zin)
+	if absf(camera.size - min_size) > 0.001:
+		print("FAIL: zoom-in clamp expected ", min_size, " got ", camera.size)
+		main.queue_free()
+		return false
+
+	main.queue_free()
+	print("OK: maps_like_zoom")
 	return true

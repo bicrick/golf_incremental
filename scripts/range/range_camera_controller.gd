@@ -8,9 +8,11 @@ extends Node
 ## _unhandled_input and ui_root _gui_input when the embedded runner routes wheel to UI).
 ## Left-click drag pan uses the same _input path plus consume_pan_drag_event() fallbacks.
 ## A small movement threshold distinguishes drag pan from click pickup.
+## Pinch is 1:1 with finger distance (maps-style); wheel is a small proportional notch.
 
 @export var pan_speed: float = 24.0
-@export var zoom_step: float = 1.0
+## Multiplicative zoom per mouse-wheel notch (>1 zooms in / shrinks ortho size).
+@export var wheel_zoom_factor: float = 1.1
 @export var zoom_in_factor: float = 0.5
 @export var zoom_out_factor: float = 4.0
 @export var drag_button: MouseButton = MOUSE_BUTTON_LEFT
@@ -25,6 +27,8 @@ var _drag_origin := Vector2.ZERO
 var _last_drag_screen := Vector2.ZERO
 var _right_dir := Vector3.RIGHT
 var _forward_dir := Vector3.FORWARD
+var _last_zoom_event: InputEvent
+var _last_zoom_claimed := false
 
 const PAN_PLANE_Y := 0.0
 
@@ -42,6 +46,8 @@ func set_enabled(enabled: bool) -> void:
 		if _drag_active:
 			_end_drag()
 		_pending = false
+		_pinch_touches.clear()
+		_pinch_start_dist = 0.0
 	_enabled = enabled
 	set_process_input(enabled)
 	set_process(enabled)
@@ -62,10 +68,16 @@ func reference_ortho_size() -> float:
 func consume_zoom_event(event: InputEvent) -> bool:
 	if not _enabled or _camera == null:
 		return false
-	var amount := _zoom_amount_from_event(event)
-	if is_zero_approx(amount):
+	if event == _last_zoom_event:
+		return _last_zoom_claimed
+	var factor := _zoom_factor_from_event(event)
+	if factor <= 0.0 or is_equal_approx(factor, 1.0):
+		_last_zoom_event = event
+		_last_zoom_claimed = false
 		return false
-	_apply_zoom(amount)
+	_apply_zoom_factor(factor, _focal_screen_from_event(event))
+	_last_zoom_event = event
+	_last_zoom_claimed = true
 	return true
 
 
@@ -129,26 +141,28 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _zoom_amount_from_event(event: InputEvent) -> float:
+## Zoom scale > 1 zooms in (smaller ortho size). 1 = no change.
+func _zoom_factor_from_event(event: InputEvent) -> float:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if not mb.pressed:
-			return 0.0
+			return 1.0
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			return -zoom_step
+			return wheel_zoom_factor
 		if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			return zoom_step
+			return 1.0 / wheel_zoom_factor
 	if event is InputEventMagnifyGesture:
 		var mag := event as InputEventMagnifyGesture
-		return -zoom_step * (mag.factor - 1.0) * 4.0
-	return _pinch_zoom_from_touch(event)
+		## Godot factor is incremental (1.2 = fingers 20% farther = zoom 1.2x).
+		return mag.factor
+	return _pinch_factor_from_touch(event)
 
 
 var _pinch_touches: Dictionary = {}
 var _pinch_start_dist := 0.0
 
 
-func _pinch_zoom_from_touch(event: InputEvent) -> float:
+func _pinch_factor_from_touch(event: InputEvent) -> float:
 	## Fallback when MagnifyGesture is missing (common on mobile web).
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
@@ -160,22 +174,22 @@ func _pinch_zoom_from_touch(event: InputEvent) -> float:
 			_pinch_touches.erase(touch.index)
 			if _pinch_touches.size() < 2:
 				_pinch_start_dist = 0.0
-		return 0.0
+		return 1.0
 	if event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
 		if not _pinch_touches.has(drag.index):
-			return 0.0
+			return 1.0
 		_pinch_touches[drag.index] = drag.position
 		if _pinch_touches.size() != 2 or _pinch_start_dist < 1.0:
-			return 0.0
+			return 1.0
 		var dist := _pinch_finger_distance()
 		if dist < 1.0:
-			return 0.0
+			return 1.0
 		var factor := dist / _pinch_start_dist
 		_pinch_start_dist = dist
-		## Ortho size: larger = zoomed out. Fingers apart → zoom in → smaller size.
-		return -zoom_step * (factor - 1.0) * 4.0
-	return 0.0
+		## Instant 1:1: fingers 20% farther → factor 1.2 → size /= 1.2.
+		return factor
+	return 1.0
 
 
 func _pinch_finger_distance() -> float:
@@ -185,14 +199,42 @@ func _pinch_finger_distance() -> float:
 	return (pts[0] as Vector2).distance_to(pts[1] as Vector2)
 
 
-func _apply_zoom(delta: float) -> void:
+func _focal_screen_from_event(event: InputEvent) -> Vector2:
+	if event is InputEventMouseButton:
+		return (event as InputEventMouseButton).position
+	if event is InputEventMagnifyGesture:
+		return (event as InputEventMagnifyGesture).position
+	if _pinch_touches.size() >= 2:
+		var pts: Array = _pinch_touches.values()
+		return ((pts[0] as Vector2) + (pts[1] as Vector2)) * 0.5
+	return get_viewport().get_mouse_position()
+
+
+func _apply_zoom_factor(factor: float, focal_screen: Vector2) -> void:
 	var min_size := _start_size * zoom_in_factor
 	var max_size := _start_size * zoom_out_factor
 	if min_size > max_size:
 		var swap := min_size
 		min_size = max_size
 		max_size = swap
-	_camera.size = clampf(_camera.size + delta, min_size, max_size)
+	var old_size := _camera.size
+	if old_size <= 0.0001 or factor <= 0.0001:
+		return
+	var new_size := clampf(old_size / factor, min_size, max_size)
+	if is_equal_approx(old_size, new_size):
+		return
+	var world_before: Variant = null
+	if focal_screen.length_squared() > 0.25:
+		world_before = _ground_at_screen(focal_screen)
+	_camera.size = new_size
+	if world_before == null:
+		return
+	var world_after: Variant = _ground_at_screen(focal_screen)
+	if world_after == null:
+		return
+	var delta: Vector3 = world_before - world_after
+	_camera.position.x += delta.x
+	_camera.position.z += delta.z
 
 
 func _apply_drag_motion(current_screen: Vector2) -> void:

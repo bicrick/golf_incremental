@@ -1,5 +1,7 @@
 class_name IsoPickupController
 extends Node
+## DEPRECATED for player harvest — live pickup is PickupController on RangeView.
+## Kept for verify_iso_view when IsoView.Mode.HARVEST is forced on.
 ## IsoView harvest picker — click fairway to collect litter (closest in radius).
 
 var _iso_view: Node2D

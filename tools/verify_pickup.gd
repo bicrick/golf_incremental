@@ -43,6 +43,7 @@ func _run() -> void:
 	ok = await _check_harvest_exit_ignores_leftover_press(main, gs) and ok
 	ok = await _check_bucket_counter_exits_harvest(main, gs) and ok
 	ok = await _check_background_click_enters_harvest(main, gs) and ok
+	ok = await _check_empty_click_does_not_exit_harvest(main, gs) and ok
 	ok = await _check_mid_flight_view_switch_and_pickup_gate(main, gs) and ok
 	ok = await _check_combo_interrupted_by_swing(main, gs) and ok
 	_cleanup_save()
@@ -801,6 +802,39 @@ func _check_background_click_enters_harvest(main: Node, gs: Node) -> bool:
 		return false
 
 	print("OK: background click in hitting mode enters collect mode")
+	return true
+
+
+func _check_empty_click_does_not_exit_harvest(main: Node, gs: Node) -> bool:
+	_reset(gs)
+	_start_playing(main)
+	await process_frame
+	await process_frame
+	var range_view: Node3D = main.get_node("RangeView")
+	gs.bucket_remaining = 3
+	if not gs.try_enter_harvest():
+		print("FAIL: try_enter_harvest should succeed before empty-click stay check")
+		return false
+	await _wait_harvest_view(range_view)
+	gs.collect_harvest_ball(Vector3.ZERO, 1)
+
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = root.get_visible_rect().size * 0.5
+	range_view._unhandled_input(press)
+	await process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = press.position
+	range_view._unhandled_input(release)
+	await process_frame
+	if gs.current_phase != "harvest":
+		print("FAIL: empty harvest click must stay in harvest, got %s" % gs.current_phase)
+		return false
+
+	print("OK: empty harvest click stays in collect mode")
 	return true
 
 

@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
-		<meta name="theme-color" content="#3a8430">
+		<meta name="theme-color" content="#000000">
 		<title>$GODOT_PROJECT_NAME</title>
 		<style>
 html, body, #canvas {
@@ -14,7 +14,7 @@ html, body, #canvas {
 
 body {
 	color: #f5f0dc;
-	background-color: $GODOT_SPLASH_COLOR;
+	background-color: #000;
 	overflow: hidden;
 	touch-action: none;
 }
@@ -30,46 +30,32 @@ body {
 #status {
 	position: absolute;
 	inset: 0;
-	background-color: $GODOT_SPLASH_COLOR;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	gap: 18px;
-	visibility: hidden;
+	background-color: #000;
+	visibility: visible;
+	z-index: 2;
 }
 
-#status-brand {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 12px;
+#status.fade-chrome {
+	background-color: transparent;
+	transition: background-color 0.5s ease;
+}
+
+#status.fade-chrome #status-progress {
+	opacity: 0;
+	transition: opacity 0.5s ease;
 }
 
 #status-splash {
-	position: static;
-	width: 128px;
-	height: 128px;
-	max-width: 128px;
-	max-height: 128px;
+	position: absolute;
+	display: block;
 	margin: 0;
 	image-rendering: pixelated;
 	image-rendering: crisp-edges;
+	pointer-events: none;
 }
 
-#status-splash.show-image--false {
-	display: none;
-}
-
-#status-title {
-	margin: 0;
-	color: #ffe561;
-	font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, monospace;
-	font-size: 22px;
-	font-weight: 700;
-	letter-spacing: 0.14em;
-	text-transform: uppercase;
-	text-shadow: 0 2px 0 #1e5c06;
+#status-splash.is-hidden {
+	visibility: hidden;
 }
 
 #status-progress, #status-notice {
@@ -77,19 +63,18 @@ body {
 }
 
 #status-progress {
-	position: static;
-	width: 200px;
-	height: 12px;
+	position: absolute;
+	height: 8px;
 	margin: 0;
-	border: 2px solid #286022;
-	background: #1e5c06;
+	border: 1px solid #c4a02a;
+	background: #1a1404;
 	accent-color: #e6c63d;
 	-webkit-appearance: none;
 	appearance: none;
 }
 
 #status-progress::-webkit-progress-bar {
-	background: #1e5c06;
+	background: #1a1404;
 }
 
 #status-progress::-webkit-progress-value {
@@ -101,9 +86,13 @@ body {
 }
 
 #status-notice {
-	background-color: #123804;
+	position: absolute;
+	left: 50%;
+	top: 62%;
+	transform: translate(-50%, 0);
+	background-color: #111;
 	border-radius: 0;
-	border: 2px solid #286022;
+	border: 2px solid #444;
 	color: #f5f0dc;
 	font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, monospace;
 	line-height: 1.3;
@@ -127,10 +116,7 @@ body {
 		</noscript>
 
 		<div id="status">
-			<div id="status-brand">
-				<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="Range Rat">
-				<p id="status-title">Range Rat</p>
-			</div>
+			<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="Range Rat">
 			<progress id="status-progress"></progress>
 			<div id="status-notice"></div>
 		</div>
@@ -175,25 +161,82 @@ const engine = new Engine(GODOT_CONFIG);
 
 (function () {
 	const statusOverlay = document.getElementById('status');
+	const statusSplash = document.getElementById('status-splash');
 	const statusProgress = document.getElementById('status-progress');
 	const statusNotice = document.getElementById('status-notice');
+	const LOGO_W = 420;
+	const LOGO_H = 132;
+	const VBOX_SEP = 12;
+	const PROMPT_H = 8;
+	const CHROME_FADE_MS = 500;
 
 	let initializing = true;
 	let statusMode = '';
+	let loaderFading = false;
+
+	function layoutLoader() {
+		const w = window.innerWidth;
+		const h = window.innerHeight;
+		const portrait = h > w;
+		const baseW = portrait ? 270 : 480;
+		const baseH = portrait ? 480 : 270;
+		const scale = Math.min(w / baseW, h / baseH);
+		const safeScale = scale > 0 ? scale : 1;
+		const viewW = w / safeScale;
+		const viewH = h / safeScale;
+		const maxW = Math.min(LOGO_W, Math.floor(viewW * 0.9));
+		const logoScale = maxW / LOGO_W;
+		const logoW = LOGO_W * logoScale;
+		const logoH = LOGO_H * logoScale;
+		const vboxH = logoH + VBOX_SEP + PROMPT_H;
+		const left = (viewW - logoW) / 2 * safeScale;
+		const top = (viewH - vboxH) / 2 * safeScale;
+		statusSplash.style.width = (logoW * safeScale) + 'px';
+		statusSplash.style.height = (logoH * safeScale) + 'px';
+		statusSplash.style.left = left + 'px';
+		statusSplash.style.top = top + 'px';
+		const barW = Math.min(160, logoW) * safeScale;
+		statusProgress.style.width = barW + 'px';
+		statusProgress.style.left = ((viewW * safeScale) - barW) / 2 + 'px';
+		statusProgress.style.top = (top + logoH * safeScale + VBOX_SEP * safeScale) + 'px';
+		statusProgress.style.height = Math.max(6, 8 * Math.min(safeScale, 2)) + 'px';
+	}
+
+	function fadeLoaderChrome() {
+		if (loaderFading) {
+			return;
+		}
+		loaderFading = true;
+		initializing = false;
+		statusSplash.classList.add('is-hidden');
+		statusOverlay.classList.add('fade-chrome');
+		window.setTimeout(function () {
+			if (statusOverlay.parentNode) {
+				statusOverlay.remove();
+			}
+		}, CHROME_FADE_MS + 80);
+	}
+
+	window.__rangeRatTitleReady = function () {
+		window.__rangeRatTitleIsReady = true;
+		fadeLoaderChrome();
+	};
 
 	function setStatusMode(mode) {
 		if (statusMode === mode || !initializing) {
 			return;
 		}
 		if (mode === 'hidden') {
-			statusOverlay.remove();
-			initializing = false;
+			if (window.__rangeRatTitleIsReady) {
+				fadeLoaderChrome();
+			}
 			return;
 		}
 		statusOverlay.style.visibility = 'visible';
 		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
 		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
 		statusMode = mode;
+		layoutLoader();
 	}
 
 	function setStatusNotice(text) {
@@ -219,6 +262,9 @@ const engine = new Engine(GODOT_CONFIG);
 		setStatusMode('notice');
 		initializing = false;
 	}
+
+	window.addEventListener('resize', layoutLoader);
+	layoutLoader();
 
 	const missing = Engine.getMissingFeatures({
 		threads: GODOT_THREADS_ENABLED,
@@ -264,7 +310,11 @@ const engine = new Engine(GODOT_CONFIG);
 				}
 			},
 		}).then(() => {
-			setStatusMode('hidden');
+			window.setTimeout(function () {
+				if (!loaderFading) {
+					fadeLoaderChrome();
+				}
+			}, 2000);
 		}, displayFailureNotice);
 	}
 }());

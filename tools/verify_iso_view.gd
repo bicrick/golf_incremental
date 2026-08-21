@@ -989,9 +989,10 @@ func _check_iso_harvest_litter() -> bool:
 		print("FAIL: IsoView missing for harvest litter check")
 		main.queue_free()
 		return false
+	## Player harvest no longer shows IsoView; force the unused 2D scene on.
 	if main.has_method(&"set_harvest_view"):
 		main.set_harvest_view(true)
-	else:
+	if not iso.is_harvest_view_ready():
 		iso.set_mode(IsoView.Mode.HARVEST)
 	await process_frame
 	if not iso.is_harvest_view_ready():
@@ -1057,9 +1058,10 @@ func _check_iso_picker_hit_alignment() -> bool:
 		print("FAIL: IsoView missing for picker hit alignment")
 		main.queue_free()
 		return false
+	## Player harvest no longer shows IsoView; force the unused 2D scene on.
 	if main.has_method(&"set_harvest_view"):
 		main.set_harvest_view(true)
-	else:
+	if not iso.is_harvest_view_ready():
 		iso.set_mode(IsoView.Mode.HARVEST)
 	await process_frame
 	var pickup: Node = iso.get_pickup_controller()

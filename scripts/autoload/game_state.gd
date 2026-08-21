@@ -34,6 +34,8 @@ var current_phase: String = "strike"
 var harvest_collected: int = 0
 var harvest_stash: int = 0
 var pending_vanish_collects: int = 0
+## Live fairway litter (not saved). Reload starts empty, so harvest is gated.
+var fairway_litter_count: int = 0
 
 var lifetime: Dictionary = {
 	"total_swings": 0,
@@ -49,6 +51,12 @@ func _ready() -> void:
 	SaveManager.load_game()
 	_ensure_bucket_initialized()
 	_recompute_stats()
+	if not EventBus.litter_spawned.is_connected(_on_litter_spawned):
+		EventBus.litter_spawned.connect(_on_litter_spawned)
+	if not EventBus.litter_removed.is_connected(_on_litter_removed):
+		EventBus.litter_removed.connect(_on_litter_removed)
+	if not EventBus.litter_cleared.is_connected(_on_litter_cleared):
+		EventBus.litter_cleared.connect(_on_litter_cleared)
 	EventBus.currency_changed.emit(currency)
 	EventBus.stats_changed.emit(stats, currency)
 
@@ -521,10 +529,27 @@ func consume_ratina_bucket_ball() -> bool:
 	return true
 
 
-## Voluntarily enters collect mode from strike (any time, any ball count).
-## Balls still unhit in the bucket are stashed and merged back in on exit.
+func can_enter_harvest() -> bool:
+	if current_phase == "harvest":
+		return false
+	return _has_collectible_litter()
+
+
+func _has_collectible_litter() -> bool:
+	return fairway_litter_count > 0 or pending_vanish_collects > 0
+
+
+func _allow_harvest_without_litter() -> bool:
+	## Headless verifies enter harvest without spawning 3D litter sprites.
+	return DisplayServer.get_name() == "headless" or OS.has_feature("headless")
+
+
+## Voluntarily enters collect mode from strike when there is something to pick up.
+## Unhit bucket balls are stashed and merged back in on exit.
 func try_enter_harvest() -> bool:
 	if current_phase == "harvest":
+		return false
+	if not _has_collectible_litter() and not _allow_harvest_without_litter():
 		return false
 	harvest_stash = bucket_remaining
 	bucket_remaining = 0
@@ -677,8 +702,31 @@ func _bucket_display_count() -> int:
 
 func _ensure_bucket_initialized() -> void:
 	_recompute_stats()
-	# Litter is not persisted; refill empty bucket on load (in-session harvest handles the real loop).
-	if bucket_remaining <= 0 and current_phase != "harvest":
-		bucket_remaining = bucket_capacity
-		current_phase = "strike"
+	## Litter is not persisted. Every fresh load / reload starts on the tee
+	## with a full bucket so you are never stuck in an empty harvest.
+	fairway_litter_count = 0
+	pending_vanish_collects = 0
+	harvest_collected = 0
+	harvest_stash = 0
+	current_phase = "strike"
+	bucket_remaining = bucket_capacity
 	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+
+
+func _on_litter_spawned(
+	_litter_id: int,
+	_world_pos: Vector3,
+	_quality: int,
+	_yardage: float,
+	_is_golden: bool,
+	_source: String
+) -> void:
+	fairway_litter_count += 1
+
+
+func _on_litter_removed(_litter_id: int) -> void:
+	fairway_litter_count = maxi(fairway_litter_count - 1, 0)
+
+
+func _on_litter_cleared() -> void:
+	fairway_litter_count = 0

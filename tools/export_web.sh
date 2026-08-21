@@ -47,8 +47,8 @@ for f in vercel.json package.json README.md .gitignore; do
 done
 
 # Godot resamples the project icon with a blurry filter. Overwrite favicons
-# from the 32x32 pixel source using nearest-neighbor so they stay crisp.
-ICON_SRC="$ROOT/assets/ui/range_rat_icon.png"
+# from the 32x32 HUD ball using nearest-neighbor so they stay pixel-crisp.
+ICON_SRC="$ROOT/assets/ui/favicon_ball.png"
 if [[ ! -f "$ICON_SRC" ]]; then
   echo "Missing $ICON_SRC" >&2
   exit 1
@@ -62,9 +62,14 @@ src = Image.open(sys.argv[1]).convert("RGBA")
 out_dir = Path(sys.argv[2])
 if src.size != (32, 32):
     raise SystemExit(f"export_web: expected 32x32 icon, got {src.size}")
+if src.mode != "RGBA":
+    raise SystemExit(f"export_web: expected RGBA icon, got {src.mode}")
+alpha = src.getchannel("A")
+if min(alpha.getdata()) >= 255:
+    raise SystemExit("export_web: favicon must keep a transparent background")
 src.resize((128, 128), Image.NEAREST).save(out_dir / "index.icon.png", "PNG")
-src.resize((180, 180), Image.NEAREST).save(out_dir / "index.apple-touch-icon.png", "PNG")
-print(f"==> Wrote nearest-neighbor favicons from {src.size} source")
+src.resize((128, 128), Image.NEAREST).save(out_dir / "index.apple-touch-icon.png", "PNG")
+print(f"==> Wrote nearest-neighbor 128x128 favicons from {src.size} HUD ball")
 PY
 
 # Capture Godot's AudioContext at construction and resume on first page gesture.
@@ -114,14 +119,23 @@ if "__golfAudioUnlockInstalled" not in text:
     html_path.write_text(text.replace(marker, snippet, 1))
 PY
 
+# Godot copies boot_splash to index.png. Force the title wordmark so the
+# HTML loader never falls back to the 32x32 favicon or the Godot robot.
+TITLE_LOGO="$ROOT/assets/sprites/range_rat/range-rat-title-logo.png"
+if [[ ! -f "$TITLE_LOGO" ]]; then
+  echo "Missing $TITLE_LOGO" >&2
+  exit 1
+fi
+cp "$TITLE_LOGO" "$OUT_DIR/index.png"
+
 # Confirm the loader stayed Range Rat branded (no Godot wordmark/robot splash).
-python3 - "$OUT_DIR" "$ICON_SRC" <<'PY'
+python3 - "$OUT_DIR" "$TITLE_LOGO" <<'PY'
 from pathlib import Path
 import sys
 from PIL import Image
 
 out_dir = Path(sys.argv[1])
-icon = Image.open(sys.argv[2]).convert("RGBA")
+logo = Image.open(sys.argv[2]).convert("RGBA")
 html = (out_dir / "index.html").read_text()
 splash_path = out_dir / "index.png"
 if not splash_path.is_file():
@@ -132,13 +146,19 @@ if "godot" in html and "range rat" not in html.lower():
     raise SystemExit("export_web: index.html lost Range Rat title")
 if "game engine" in lower or "godot.svg" in lower or "godot logo" in lower:
     raise SystemExit("export_web: Godot branding still visible in index.html")
-if "status-title" not in html or "Range Rat" not in html:
-    raise SystemExit("export_web: custom Range Rat HTML shell was not applied")
-if splash.size != icon.size:
-    raise SystemExit(f"export_web: splash {splash.size} != icon {icon.size}")
-if list(splash.getdata()) != list(icon.getdata()):
-    raise SystemExit("export_web: index.png is not the Range Rat icon")
-print("==> Branded loader OK (Range Rat icon splash, no Godot wordmark)")
+if "status-title" in html:
+    raise SystemExit("export_web: yellow RANGE RAT text loader should be gone")
+if "__rangeRatTitleReady" not in html or "fade-chrome" not in html:
+    raise SystemExit("export_web: custom title-ready fade shell was not applied")
+if "background-color: #000" not in html:
+    raise SystemExit("export_web: loader background must be black")
+if "image-rendering: pixelated" not in html:
+    raise SystemExit("export_web: title logo must be pixelated")
+if splash.size != logo.size:
+    raise SystemExit(f"export_web: splash {splash.size} != title logo {logo.size}")
+if list(splash.getdata()) != list(logo.getdata()):
+    raise SystemExit("export_web: index.png is not the Range Rat title logo")
+print("==> Branded loader OK (title wordmark on black, no Godot wordmark)")
 PY
 
 echo "==> Export complete"

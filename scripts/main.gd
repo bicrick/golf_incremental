@@ -24,12 +24,7 @@ func _ready() -> void:
 	## Per-event mouse delivery — avoids macOS click batching quirks.
 	Input.set_use_accumulated_input(false)
 	range_view.visible = false
-	if iso_view:
-		iso_view.visible = false
-		if iso_view.has_method(&"set_mode"):
-			iso_view.set_mode(IsoView.Mode.OFF)
-		elif iso_view.has_method(&"set_active"):
-			iso_view.set_active(false)
+	_hide_iso_view()
 	ui.visible = false
 	title_screen.play_transition_started.connect(_on_play_transition_started)
 	title_screen.play_pressed.connect(_on_play_pressed)
@@ -63,6 +58,9 @@ func _notify_portrait_layout() -> void:
 	var hud := get_node_or_null("UI/UIRoot/GameplayChrome/HUD")
 	if hud != null and hud.has_method(&"apply_viewport_layout"):
 		hud.apply_viewport_layout()
+	var icon_bar := get_node_or_null("UI/UIRoot/GameplayChrome/IconBar")
+	if icon_bar != null and icon_bar.has_method(&"apply_viewport_layout"):
+		icon_bar.apply_viewport_layout()
 
 
 func _apply_web_display_stretch() -> void:
@@ -84,14 +82,17 @@ func _apply_web_display_stretch() -> void:
 
 
 func _is_harvest_view_ready() -> bool:
+	## Player harvest uses RangeView's 3D ortho camera (ViewModeController).
+	if range_view != null and range_view.has_method(&"is_harvest_view_ready"):
+		if range_view.is_harvest_view_ready():
+			return true
+	## Unused 2D IsoView harvest (verify / I-key tooling only).
 	if (
 		iso_view != null
 		and iso_view.has_method(&"is_harvest_view_ready")
 		and iso_view.is_harvest_view_ready()
 	):
 		return true
-	if range_view != null and range_view.has_method(&"is_harvest_view_ready"):
-		return range_view.is_harvest_view_ready()
 	return false
 
 
@@ -107,12 +108,7 @@ func _on_play_transition_started() -> void:
 	_build_view_active = false
 	_harvest_view_active = false
 	range_view.visible = true
-	if iso_view:
-		if iso_view.has_method(&"set_mode"):
-			iso_view.set_mode(IsoView.Mode.OFF)
-		elif iso_view.has_method(&"set_active"):
-			iso_view.set_active(false)
-		iso_view.visible = false
+	_hide_iso_view()
 	ui.visible = true
 	_set_gameplay_ui_visible(true)
 	_sync_build_button()
@@ -137,21 +133,9 @@ func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
 
 
 func _set_active_world_visible(visible: bool) -> void:
-	if _harvest_view_active and iso_view != null:
-		range_view.visible = false
-		if visible:
-			if iso_view.has_method(&"set_mode"):
-				iso_view.set_mode(IsoView.Mode.HARVEST)
-			else:
-				iso_view.visible = true
-				if iso_view.has_method(&"set_active"):
-					iso_view.set_active(true)
-		else:
-			if iso_view.has_method(&"set_mode"):
-				iso_view.set_mode(IsoView.Mode.OFF)
-			elif iso_view.has_method(&"set_active"):
-				iso_view.set_active(false)
-			iso_view.visible = false
+	if _harvest_view_active:
+		range_view.visible = visible
+		_hide_iso_view()
 		CursorManager.refresh()
 		return
 	if _build_view_active and iso_view != null:
@@ -242,24 +226,28 @@ func set_build_view(active: bool) -> void:
 
 
 func set_harvest_view(active: bool) -> void:
-	if iso_view == null:
-		return
 	_harvest_view_active = active
 	if active:
 		_build_view_active = false
+	## Player harvest stays on the real 3D range. ViewModeController swaps
+	## PerspectiveCamera ↔ ortho Camera3D; IsoView stays hidden (deprecated).
+	_hide_iso_view()
+	if _is_overlay_panel_open():
 		range_view.visible = false
-		if iso_view.has_method(&"set_mode"):
-			iso_view.set_mode(IsoView.Mode.HARVEST)
-		else:
-			iso_view.visible = true
-	else:
-		if iso_view.has_method(&"set_mode"):
-			iso_view.set_mode(IsoView.Mode.OFF)
-		iso_view.visible = false
-		if not _build_view_active:
-			range_view.visible = true
+	elif not _build_view_active:
+		range_view.visible = true
 	_sync_build_button()
 	CursorManager.refresh()
+
+
+func _hide_iso_view() -> void:
+	if iso_view == null:
+		return
+	if iso_view.has_method(&"set_mode"):
+		iso_view.set_mode(IsoView.Mode.OFF)
+	elif iso_view.has_method(&"set_active"):
+		iso_view.set_active(false)
+	iso_view.visible = false
 
 
 func _sync_build_button() -> void:

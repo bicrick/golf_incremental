@@ -23,7 +23,8 @@ func setup(range_view: Node3D, littered_balls: Node3D, bucket_counter: Control) 
 
 
 func is_active() -> bool:
-	## Ready when 3D ortho settled or IsoView harvest is showing (player path).
+	## Ready when 3D ortho has settled. Iso harvest ready is unused player-path
+	## leftover (verify_iso_view can still enable IsoView.Mode.HARVEST).
 	return _active and GameState.is_collect_mode() and _harvest_view_ready()
 
 
@@ -46,8 +47,7 @@ func _iso_harvest_ready() -> bool:
 
 func handle_input(event: InputEvent) -> bool:
 	## Pickup only after harvest settle — phase alone is not enough.
-	## Live clicks go through IsoView when it owns harvest; this path still
-	## supports 3D litter collects (verify / rattling-adjacent tooling).
+	## Player harvest clicks stay on this 3D path (RangeView ortho).
 	if not is_active():
 		return false
 	if not event is InputEventMouseButton:
@@ -83,7 +83,7 @@ func try_complete_harvest() -> void:
 func return_all_litter_free() -> bool:
 	if not GameState.is_collect_mode():
 		return false
-	## Iso pickup owns the bucket button while iso harvest is showing.
+	## Iso pickup owns the bucket only if IsoView harvest is forced on (verify).
 	if _iso_harvest_ready():
 		return false
 	_clear_litter()

@@ -10,17 +10,22 @@ signal play_transition_started
 const LOGO_DISPLAY_SIZE := Vector2(420.0, 132.0)
 const PROMPT_FONT_SIZE := 8
 const FADE_DURATION_SEC := 0.55
+const LOAD_FADE_DURATION_SEC := 0.55
+const PROMPT_INTRO_FADE_SEC := 0.35
 
 const PROMPT_FADE_MIN_ALPHA := 0.25
 const PROMPT_FADE_MAX_ALPHA := 1.0
 const PROMPT_FADE_HALF_CYCLE_SEC := 0.9
+const TITLE_READY_JS := "window.__rangeRatTitleReady && window.__rangeRatTitleReady();"
 
 @onready var sky_bg: Control = $SkyBg
+@onready var load_fade: ColorRect = $LoadFade
 @onready var overlay: Control = $Overlay
 @onready var title_logo: TextureRect = $Overlay/Center/VBox/TitleLogo
 @onready var press_space_label: Label = $Overlay/Center/VBox/PressSpace
 
 var _transitioning := false
+var _intro_active := true
 var _prompt_fade_tween: Tween
 
 
@@ -32,11 +37,12 @@ func _ready() -> void:
 		overlay.gui_input.connect(_on_overlay_gui_input)
 	if title_logo != null and not title_logo.gui_input.is_connected(_on_title_logo_gui_input):
 		title_logo.gui_input.connect(_on_title_logo_gui_input)
-	_start_prompt_fade()
 	if sky_bg.has_method(&"apply_cycle_time"):
 		sky_bg.apply_cycle_time(60.0)
 	apply_viewport_layout()
+	_prepare_load_intro()
 	SfxManager.play_title_bgm()
+	call_deferred(&"_begin_load_intro")
 
 
 func is_transitioning() -> bool:
@@ -71,6 +77,69 @@ func apply_viewport_layout() -> void:
 		press_space_label.text = "Press Space"
 
 
+func _prepare_load_intro() -> void:
+	_intro_active = true
+	_stop_prompt_fade()
+	if press_space_label != null:
+		press_space_label.modulate.a = 0.0
+	if load_fade != null:
+		load_fade.visible = true
+		load_fade.modulate.a = 1.0
+	if sky_bg != null:
+		sky_bg.modulate.a = 0.0
+
+
+func _begin_load_intro() -> void:
+	apply_viewport_layout()
+	_notify_html_title_ready()
+	if _is_headless():
+		_finish_load_intro()
+		return
+	var tween := create_tween().set_parallel(true)
+	if sky_bg != null:
+		tween.tween_property(sky_bg, "modulate:a", 1.0, LOAD_FADE_DURATION_SEC).set_trans(
+			Tween.TRANS_SINE
+		).set_ease(Tween.EASE_IN_OUT)
+	if load_fade != null:
+		tween.tween_property(load_fade, "modulate:a", 0.0, LOAD_FADE_DURATION_SEC).set_trans(
+			Tween.TRANS_SINE
+		).set_ease(Tween.EASE_IN_OUT)
+	tween.chain().tween_callback(_finish_load_intro)
+
+
+func _finish_load_intro() -> void:
+	if sky_bg != null:
+		sky_bg.modulate.a = 1.0
+	if load_fade != null:
+		load_fade.modulate.a = 0.0
+		load_fade.visible = false
+	_intro_active = false
+	if _transitioning:
+		return
+	_fade_in_prompt()
+
+
+func _fade_in_prompt() -> void:
+	if press_space_label == null:
+		return
+	press_space_label.modulate.a = 0.0
+	var tween := create_tween()
+	tween.tween_property(press_space_label, "modulate:a", PROMPT_FADE_MAX_ALPHA, PROMPT_INTRO_FADE_SEC).set_trans(
+		Tween.TRANS_SINE
+	).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(_start_prompt_fade)
+
+
+func _notify_html_title_ready() -> void:
+	if not OS.has_feature("web"):
+		return
+	JavaScriptBridge.eval(TITLE_READY_JS, true)
+
+
+func _is_headless() -> bool:
+	return DisplayServer.get_name() == "headless"
+
+
 func _input(event: InputEvent) -> void:
 	if WebAudioUnlockScript.is_unlock_gesture(event):
 		SfxManager.play_title_bgm()
@@ -80,6 +149,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _intro_active:
+		return
 	if _transitioning:
 		get_viewport().set_input_as_handled()
 		return
@@ -146,7 +217,7 @@ func _on_overlay_gui_input(event: InputEvent) -> void:
 
 
 func _on_title_logo_gui_input(event: InputEvent) -> void:
-	if _transitioning:
+	if _intro_active or _transitioning:
 		return
 	if not _is_primary_press(event):
 		return
@@ -155,7 +226,7 @@ func _on_title_logo_gui_input(event: InputEvent) -> void:
 
 
 func open_settings() -> void:
-	if _transitioning:
+	if _intro_active or _transitioning:
 		return
 	var main := get_tree().root.get_node_or_null("Main")
 	if main == null:
@@ -187,7 +258,7 @@ func _is_primary_press(event: InputEvent) -> bool:
 
 
 func _on_press_space_gui_input(event: InputEvent) -> void:
-	if _transitioning or _is_settings_open():
+	if _intro_active or _transitioning or _is_settings_open():
 		return
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
@@ -200,7 +271,7 @@ func _on_press_space_gui_input(event: InputEvent) -> void:
 
 
 func _on_play_pressed() -> void:
-	if _transitioning:
+	if _intro_active or _transitioning:
 		return
 	_transitioning = true
 	_stop_prompt_fade()
@@ -224,8 +295,12 @@ func _finish_fade_out() -> void:
 
 func reset_for_show() -> void:
 	_transitioning = false
+	_intro_active = false
 	sky_bg.modulate.a = 1.0
 	overlay.modulate.a = 1.0
+	if load_fade != null:
+		load_fade.modulate.a = 0.0
+		load_fade.visible = false
 	press_space_label.modulate.a = PROMPT_FADE_MAX_ALPHA
 	apply_viewport_layout()
 	_start_prompt_fade()

@@ -15,6 +15,9 @@ const HOVER_BOB_FREQ := 2.4
 @onready var upgrades_button: Button = $TopRight/UpgradesWrap/UpgradesButton
 @onready var _upgrades_glyph: Control = $TopRight/UpgradesWrap/UpgradesButton/Glyph
 @onready var _upgrades_wrap: PanelContainer = $TopRight/UpgradesWrap
+@onready var _shag_wrap: PanelContainer = $BottomRight/ShagBagWrap
+@onready var _shag_button: Button = $BottomRight/ShagBagWrap/ShagBagButton
+@onready var _shag_glyph: Control = $BottomRight/ShagBagWrap/ShagBagButton/Glyph
 
 var _upgrade_panel: Node = null
 var _upgrades_open := false
@@ -37,8 +40,13 @@ func _ready() -> void:
 	_upgrades_wrap.modulate = Color.WHITE
 	if _upgrades_glyph:
 		_upgrades_glyph.locked = false
+	_setup_shag_bag()
 	call_deferred("_capture_button_rest_positions")
 	set_process(false)
+
+
+func apply_viewport_layout() -> void:
+	_refresh_shag_bag()
 
 
 func _capture_button_rest_positions() -> void:
@@ -90,6 +98,69 @@ func set_upgrades_open(is_open: bool) -> void:
 ## Build HUD control is gone; Main still syncs this after I-key build toggle.
 func set_build_open(_is_open: bool) -> void:
 	pass
+
+
+func _setup_shag_bag() -> void:
+	if _shag_wrap == null or _shag_button == null:
+		return
+	_style_icon_button(_shag_button)
+	_shag_wrap.custom_minimum_size = Vector2(_wrap_outer_size())
+	_apply_wrap_panel_style(_shag_wrap)
+	_shag_button.focus_mode = Control.FOCUS_NONE
+	_shag_button.pressed.connect(_on_shag_bag_pressed)
+	EventBus.phase_changed.connect(_on_shag_phase_changed)
+	EventBus.litter_spawned.connect(_on_shag_litter_changed)
+	EventBus.litter_removed.connect(_on_shag_litter_removed)
+	EventBus.litter_cleared.connect(_on_shag_litter_cleared)
+	_refresh_shag_bag()
+
+
+func _on_shag_phase_changed(_phase: String) -> void:
+	_refresh_shag_bag()
+
+
+func _on_shag_litter_changed(
+	_litter_id: int = 0,
+	_world_pos: Vector3 = Vector3.ZERO,
+	_quality: int = 0,
+	_yardage: float = 0.0,
+	_is_golden: bool = false,
+	_source: String = ""
+) -> void:
+	_refresh_shag_bag()
+
+
+func _on_shag_litter_removed(_litter_id: int = 0) -> void:
+	_refresh_shag_bag()
+
+
+func _on_shag_litter_cleared() -> void:
+	_refresh_shag_bag()
+
+
+func _refresh_shag_bag() -> void:
+	if _shag_wrap == null or _shag_button == null:
+		return
+	var show_bag := UiLayout.is_mobile_touch()
+	_shag_wrap.visible = show_bag
+	if not show_bag:
+		return
+	var harvesting := GameState.is_harvest_phase()
+	var can_enter := GameState.can_enter_harvest()
+	_shag_button.disabled = not harvesting and not can_enter
+	if _shag_glyph:
+		_shag_glyph.highlighted = harvesting
+		_shag_glyph.locked = _shag_button.disabled
+	_apply_wrap_panel_style(_shag_wrap, false, harvesting)
+	_shag_wrap.modulate = Color(1, 1, 1, 0.45) if _shag_button.disabled else Color.WHITE
+
+
+func _on_shag_bag_pressed() -> void:
+	if GameState.is_harvest_phase():
+		GameState.exit_harvest_early()
+		return
+	GameState.try_enter_harvest()
+	_refresh_shag_bag()
 
 
 func _layout_top_right_corner() -> void:

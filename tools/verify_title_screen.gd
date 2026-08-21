@@ -24,6 +24,7 @@ func _run() -> void:
 	var ui: CanvasLayer = main.get_node("UI")
 	var title_screen: CanvasLayer = main.get_node("TitleScreen")
 	var sky_bg: Node = title_screen.get_node("SkyBg")
+	var load_fade: ColorRect = title_screen.get_node_or_null("LoadFade") as ColorRect
 	var press_space: Label = title_screen.get_node("Overlay/Center/VBox/PressSpace")
 	var title_logo: TextureRect = title_screen.get_node("Overlay/Center/VBox/TitleLogo")
 
@@ -46,6 +47,36 @@ func _run() -> void:
 		ok = false
 	elif title_logo.custom_minimum_size.x < 400.0:
 		print("FAIL: title logo should dominate the screen (min width >= 400), got %s" % title_logo.custom_minimum_size)
+		ok = false
+	if load_fade == null:
+		print("FAIL: LoadFade black overlay missing")
+		ok = false
+	elif load_fade.visible or load_fade.modulate.a > 0.01:
+		print("FAIL: headless load intro should finish with LoadFade hidden")
+		ok = false
+	if sky_bg != null and sky_bg.modulate.a < 0.99:
+		print("FAIL: headless load intro should fade clouds in")
+		ok = false
+	var splash_path := str(ProjectSettings.get_setting("application/boot_splash/image", ""))
+	if splash_path != "res://assets/sprites/range_rat/range-rat-title-logo.png":
+		print("FAIL: boot splash should use title logo, got '%s'" % splash_path)
+		ok = false
+	var splash_bg: Color = ProjectSettings.get_setting("application/boot_splash/bg_color", Color.WHITE)
+	if splash_bg != Color(0, 0, 0, 1):
+		print("FAIL: boot splash background should be black, got %s" % splash_bg)
+		ok = false
+	var shell := FileAccess.get_file_as_string("res://tools/web/range_rat_shell.html")
+	if shell.is_empty():
+		print("FAIL: HTML shell missing")
+		ok = false
+	elif "status-title" in shell:
+		print("FAIL: HTML shell should not show yellow RANGE RAT text")
+		ok = false
+	elif "__rangeRatTitleReady" not in shell or "fade-chrome" not in shell:
+		print("FAIL: HTML shell missing title-ready fade handshake")
+		ok = false
+	elif "godot.svg" in shell.to_lower() or "game engine" in shell.to_lower():
+		print("FAIL: HTML shell still has Godot branding")
 		ok = false
 	if title_screen.get_node_or_null("FairwayBg") != null:
 		print("FAIL: FairwayBg should be replaced by SkyBg")

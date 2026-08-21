@@ -44,7 +44,8 @@ cd export/web && python3 -m http.server 8765
 ```
 
 Manual checks:
-- [ ] WASM load screen is Range Rat (golf icon + title), not the Godot robot
+- [ ] WASM load screen is black + Range Rat title wordmark (not the Godot robot or favicon golf ball)
+- [ ] When load completes, black fades out and clouds fade in; logo stays in place
 - [ ] Title screen (Range Rat) appears after WASM load
 - [ ] Title BGM tries to start on load; first click unlocks AudioContext if autoplay is blocked / advances into play
 - [ ] BGM requests `audio/<track>.ogg` (Network tab) — not bundled in the PCK

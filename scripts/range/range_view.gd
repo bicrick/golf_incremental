@@ -105,8 +105,6 @@ var _empty_bays_container: Node3D
 var _sun_sprite: Sprite3D
 var _moon_sprite: Sprite3D
 var _sky_stars: RangeSkyStars
-var _harvest_press_active := false
-var _harvest_gesture_locked := false
 var _perspective_home_xform: Transform3D = Transform3D()
 var _perspective_home_captured: bool = false
 
@@ -539,8 +537,9 @@ func _camera_home_size() -> float:
 func _setup_camera() -> void:
 	if camera == null:
 		return
-	# Rotation from V4CameraConfig; scene owns position + ortho size.
-	V4CameraConfig.apply_locked_rotation_only(camera)
+	# Harvest uses the pre-IsoView 3D lock; scene owns position + ortho size.
+	# Bay cells keep V4CameraConfig.LOCKED_BASIS (2:1 dimetric).
+	V4CameraConfig.apply_harvest_locked_rotation_only(camera)
 	camera.current = true
 	apply_viewport_aspect()
 
@@ -824,8 +823,8 @@ func _should_ignore_strike_pointer() -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
 		return
-	# IsoView may own harvest / strike presentation (RangeView hidden). Still
-	# accept Space charge/release and harvest exit so iso parity keeps working.
+	# RangeView may be hidden under overlays. Still accept Space charge/release
+	# and harvest exit so leftover-press / desktop exit keep working.
 	if not visible:
 		if GameState.is_harvest_phase():
 			_handle_harvest_input(event)
@@ -857,9 +856,9 @@ func _iso_view_showing() -> bool:
 	return iso != null and iso.visible
 
 
-## Collect mode: pickup click, or (desktop) empty click to return to striking.
-## Mobile empty tap / Space must not exit — use the bucket (2/6) ball-return.
-## Last ball still complete_harvest() via pickup.
+## Collect mode: pickup click, or desktop Space to return to striking.
+## Empty click / tap stays in harvest. Exit via last-ball complete_harvest(),
+## bucket 2/6 return_all_balls_free(), mobile shag-bag toggle, or desktop Space.
 func _handle_harvest_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		if UiLayout.is_mobile_touch():
@@ -870,20 +869,15 @@ func _handle_harvest_input(event: InputEvent) -> void:
 			GameState.exit_harvest_early()
 		return
 	if _pickup and _pickup.handle_input(event):
-		_harvest_press_active = true
-		_harvest_gesture_locked = true
 		if _camera_controller and _camera_controller.has_method(&"cancel_pending_pan"):
 			_camera_controller.cancel_pending_pan()
 		get_viewport().set_input_as_handled()
 		return
-	var dragging := _camera_controller != null and _camera_controller.is_dragging()
-	if not UiLayout.is_mobile_touch() and _try_harvest_empty_tap_exit(event, dragging):
-		get_viewport().set_input_as_handled()
 
 
-## Hitting mode: Space swings when the bucket has balls. A left-click on the
-## gameplay background (not on a button) voluntarily enters collect mode.
-## Mobile: below horizon = Space swing; above horizon = enter harvest.
+## Hitting mode: Space swings when the bucket has balls. Desktop left-click
+## on the background enters collect if there is litter. Mobile swings on any
+## fairway tap; harvest is the shag-bag HUD toggle.
 func _handle_strike_input(event: InputEvent) -> void:
 	if _should_ignore_strike_pointer():
 		if _is_left_pointer_event(event) or _is_space_event(event):
@@ -939,18 +933,12 @@ func _handle_mobile_strike_input(event: InputEvent) -> bool:
 		return false
 	if _should_ignore_strike_pointer():
 		return true
-	var below_horizon := pos.y >= horizon_screen_y()
 	if pressed:
-		if below_horizon:
-			if GameState.has_bucket_balls():
-				_swing.start_charge()
-				return true
-			return false
-		## Above horizon — enter harvest (replaces desktop "click anywhere").
-		if _swing.is_charging():
-			return false
-		return GameState.try_enter_harvest()
-	if released and below_horizon and _swing.is_charging():
+		if GameState.has_bucket_balls():
+			_swing.start_charge()
+			return true
+		return false
+	if released and _swing.is_charging():
 		_swing.release_strike()
 		return true
 	return false
@@ -986,30 +974,6 @@ func _is_left_pointer_release(event: InputEvent) -> bool:
 
 func _is_left_pointer_event(event: InputEvent) -> bool:
 	return _is_left_pointer_press(event) or _is_left_pointer_release(event)
-
-
-func _try_harvest_empty_tap_exit(event: InputEvent, is_dragging: bool) -> bool:
-	if is_dragging:
-		_harvest_gesture_locked = true
-	if UiInput.is_interactive_control_under_mouse(get_viewport()):
-		if _is_left_pointer_press(event):
-			_harvest_gesture_locked = true
-		return false
-	if _is_left_pointer_press(event):
-		if not _harvest_press_active:
-			_harvest_press_active = true
-			_harvest_gesture_locked = false
-		return false
-	if not _is_left_pointer_release(event):
-		return false
-	var should_exit := _harvest_press_active and not _harvest_gesture_locked
-	if not _any_pointer_down():
-		_harvest_press_active = false
-		_harvest_gesture_locked = false
-	if not should_exit:
-		return false
-	GameState.exit_harvest_early()
-	return true
 
 
 func _on_swing_charging_changed(charging: bool) -> void:
@@ -1383,15 +1347,10 @@ func _on_bucket_changed(_count: int, _capacity: int) -> void:
 func _on_phase_changed(phase: String) -> void:
 	if phase == "harvest":
 		_sync_tee_ball_from_bucket()
-		if _any_pointer_down():
-			_harvest_press_active = true
-			_harvest_gesture_locked = true
 	elif phase == "strike":
 		if golfer:
 			golfer.position = _golfer_home
 		ignore_pointer_until_release()
-		_harvest_press_active = false
-		_harvest_gesture_locked = false
 	_sync_golfer_idle_from_bucket()
 
 
