@@ -116,12 +116,23 @@ func _run() -> void:
 		return
 
 	var swings_before := int(game_state.lifetime.get("total_swings", 0))
-
-	# Logo tap opens settings (mobile/web path); must not start Play.
 	var settings_panel: Control = main.get_node("SettingsLayer/SettingsPanel")
-	if title_logo.mouse_filter != Control.MOUSE_FILTER_STOP:
-		print("FAIL: title logo should STOP mouse so tap opens settings")
+
+	# Desktop / headless: logo must not steal the start click for settings.
+	if not title_screen.has_method("logo_tap_opens_settings"):
+		print("FAIL: TitleScreen missing logo_tap_opens_settings")
 		ok = false
+	elif title_screen.logo_tap_opens_settings():
+		print("FAIL: desktop/headless logo tap should not open settings")
+		ok = false
+	if title_logo.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		print("FAIL: desktop title logo should IGNORE mouse so clicks start the game")
+		ok = false
+	if press_space.text != "Click / Space":
+		print("FAIL: desktop prompt expected 'Click / Space', got '%s'" % press_space.text)
+		ok = false
+
+	# Settings API still works (mobile branding path); must not start Play.
 	if not title_screen.has_method("open_settings"):
 		print("FAIL: TitleScreen missing open_settings")
 		ok = false
@@ -129,15 +140,34 @@ func _run() -> void:
 		title_screen.open_settings()
 		await process_frame
 		if title_screen.is_transitioning():
-			print("FAIL: logo/settings must not start Play")
+			print("FAIL: open_settings must not start Play")
 			ok = false
 		elif not settings_panel.is_open():
-			print("FAIL: title logo path should open settings")
+			print("FAIL: open_settings should open the settings panel")
 			ok = false
 		else:
-			print("OK: title logo opens settings")
+			print("OK: settings API opens panel without starting Play")
 		settings_panel.close()
 		await process_frame
+
+	# Isolated start paths — do these before consuming the main title with a click.
+	if not await _assert_space_starts_isolated_title():
+		ok = false
+	if not await _assert_overlay_click_starts_isolated_title():
+		ok = false
+
+	# Desktop logo click must start Play, never settings.
+	var logo_click := _mouse_press_at(title_logo.get_global_rect().get_center())
+	title_screen._on_title_logo_gui_input(logo_click)
+	await process_frame
+	if settings_panel.is_open():
+		print("FAIL: desktop logo click must not open settings")
+		ok = false
+	if not title_screen.is_transitioning():
+		print("FAIL: desktop logo click should start Play")
+		ok = false
+	else:
+		print("OK: desktop logo click starts Play")
 
 	# Regression: mouse press/release on title must not register as a swing.
 	var click_pos := press_space.get_global_rect().get_center()
@@ -147,12 +177,6 @@ func _run() -> void:
 	await process_frame
 	if int(game_state.lifetime.get("total_swings", 0)) != swings_before:
 		print("FAIL: mouse click on title should not auto-swing")
-		ok = false
-
-	_parse_space_key(true)
-	await process_frame
-	if not title_screen.is_transitioning():
-		print("FAIL: Space should begin fade transition")
 		ok = false
 	if not range_view.visible:
 		print("FAIL: RangeView should show under title during crossfade")
@@ -204,13 +228,57 @@ func _run() -> void:
 	quit(0 if ok else 1)
 
 
-func _parse_mouse_button(position: Vector2, pressed: bool) -> void:
+func _assert_space_starts_isolated_title() -> bool:
+	var key := InputEventKey.new()
+	key.keycode = KEY_SPACE
+	key.pressed = true
+	return await _assert_isolated_title_starts(key, "Space")
+
+
+func _assert_overlay_click_starts_isolated_title() -> bool:
+	var click := _mouse_press_at(Vector2(240, 135))
+	return await _assert_isolated_title_starts(click, "overlay click", true)
+
+
+func _assert_isolated_title_starts(event: InputEvent, label: String, via_overlay := false) -> bool:
+	var isolated: CanvasLayer = load("res://scenes/ui/title_screen.tscn").instantiate()
+	root.add_child(isolated)
+	await process_frame
+	await process_frame
+	if isolated.has_method("reset_for_show"):
+		isolated.reset_for_show()
+	if via_overlay:
+		isolated._on_overlay_gui_input(event)
+	else:
+		isolated._unhandled_input(event)
+	await process_frame
+	var started: bool = isolated.is_transitioning()
+	isolated.queue_free()
+	await process_frame
+	if not started:
+		print("FAIL: %s should begin fade transition" % label)
+		return false
+	print("OK: %s starts Play" % label)
+	return true
+
+
+func _mouse_press_at(position: Vector2) -> InputEventMouseButton:
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
-	event.pressed = pressed
+	event.pressed = true
 	event.position = position
 	event.global_position = position
-	Input.parse_input_event(event)
+	return event
+
+
+func _parse_mouse_button(position: Vector2, pressed: bool) -> void:
+	Input.parse_input_event(_mouse_press_at(position) if pressed else _mouse_release_at(position))
+
+
+func _mouse_release_at(position: Vector2) -> InputEventMouseButton:
+	var event := _mouse_press_at(position)
+	event.pressed = false
+	return event
 
 
 func _parse_space_key(pressed: bool) -> void:

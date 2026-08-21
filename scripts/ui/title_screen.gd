@@ -71,10 +71,11 @@ func apply_viewport_layout() -> void:
 	var scale := max_w / LOGO_DISPLAY_SIZE.x
 	title_logo.custom_minimum_size = LOGO_DISPLAY_SIZE * scale
 	title_logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_apply_logo_input_mode()
 	if UiLayout.is_mobile_touch():
 		press_space_label.text = "Tap to play"
 	else:
-		press_space_label.text = "Press Space"
+		press_space_label.text = "Click / Space"
 
 
 func _prepare_load_intro() -> void:
@@ -165,7 +166,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		_on_play_pressed()
 		return
-	## Mobile / any tap on title starts the game (logo tap opens settings instead).
+	## Empty tap / click starts the game. Mobile logo tap opens settings instead.
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
@@ -179,15 +180,30 @@ func _unhandled_input(event: InputEvent) -> void:
 			_on_play_pressed()
 
 
+func logo_tap_opens_settings() -> bool:
+	## Branding tap is the mobile settings path. Desktop clicks must start play.
+	return UiLayout.is_mobile_touch()
+
+
+func _apply_logo_input_mode() -> void:
+	if title_logo == null:
+		return
+	if logo_tap_opens_settings():
+		title_logo.mouse_filter = Control.MOUSE_FILTER_STOP
+		title_logo.mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
+	else:
+		title_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		title_logo.mouse_default_cursor_shape = Control.CURSOR_ARROW
+
+
 func _setup_title_logo() -> void:
 	title_logo.custom_minimum_size = LOGO_DISPLAY_SIZE
 	title_logo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	title_logo.mouse_filter = Control.MOUSE_FILTER_STOP
-	title_logo.mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
+	_apply_logo_input_mode()
 
 
 func _setup_press_space_label() -> void:
-	press_space_label.text = "Press Space"
+	press_space_label.text = "Click / Space"
 	press_space_label.mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	PixelFont.apply_label(press_space_label, PROMPT_FONT_SIZE)
 	press_space_label.add_theme_color_override(&"font_color", Color.BLACK)
@@ -220,6 +236,10 @@ func _on_title_logo_gui_input(event: InputEvent) -> void:
 	if _intro_active or _transitioning:
 		return
 	if not _is_primary_press(event):
+		return
+	if not logo_tap_opens_settings():
+		title_logo.accept_event()
+		_on_play_pressed()
 		return
 	title_logo.accept_event()
 	open_settings()
