@@ -12,10 +12,18 @@ static func is_portrait(viewport: Viewport = null) -> bool:
 
 
 static func is_mobile_touch() -> bool:
-	## Portrait web (phones) or any touchscreen device.
-	if DisplayServer.is_touchscreen_available():
+	## Tap-to-inspect UI for real phones/tablets. Do NOT use bare
+	## DisplayServer.is_touchscreen_available() — macOS/Windows trackpads and
+	## some laptop digitizers report touchscreen and would force inspect-then-buy
+	## (breaking desktop single-click purchase).
+	if OS.has_feature("android") or OS.has_feature("ios") or OS.has_feature("mobile"):
 		return true
-	return OS.has_feature("web") and is_portrait()
+	if OS.has_feature("web_android") or OS.has_feature("web_ios"):
+		return true
+	## Portrait web covers phones whose UA does not set web_android/web_ios.
+	if OS.has_feature("web") and is_portrait():
+		return true
+	return false
 
 
 static func viewport_size(viewport: Viewport = null) -> Vector2:

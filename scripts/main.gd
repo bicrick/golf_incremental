@@ -9,6 +9,7 @@ extends Node
 @onready var upgrade_panel: Control = $UI/UIRoot/UpgradePanel
 @onready var settings_panel: Control = $SettingsLayer/SettingsPanel
 @onready var pause_menu: Control = $SettingsLayer/PauseMenu
+@onready var tutorial_overlay: Control = $UI/UIRoot/GameplayChrome/TutorialOverlay
 
 var _build_view_active := false
 var _harvest_view_active := false
@@ -61,6 +62,8 @@ func _notify_portrait_layout() -> void:
 	var icon_bar := get_node_or_null("UI/UIRoot/GameplayChrome/IconBar")
 	if icon_bar != null and icon_bar.has_method(&"apply_viewport_layout"):
 		icon_bar.apply_viewport_layout()
+	if tutorial_overlay != null and tutorial_overlay.has_method(&"apply_viewport_layout"):
+		tutorial_overlay.apply_viewport_layout()
 
 
 func _apply_web_display_stretch() -> void:
@@ -118,6 +121,8 @@ func _on_play_pressed() -> void:
 	title_screen.visible = false
 	if title_screen.has_method("reset_for_show"):
 		title_screen.reset_for_show()
+	if tutorial_overlay != null and tutorial_overlay.has_method("begin_if_needed"):
+		tutorial_overlay.begin_if_needed()
 
 
 func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:

@@ -257,17 +257,82 @@ func _test_main_has_settings_panel() -> bool:
 		main.queue_free()
 		return false
 
-	var reset_dialog: ConfirmationDialog = settings_panel.get_node_or_null("ResetDialog")
+	var reset_dialog: Control = settings_panel.get_node_or_null("ResetDialog")
 	if reset_dialog == null:
 		print("FAIL: ResetDialog missing")
 		main.queue_free()
 		return false
-	if reset_dialog.title != "Reset Character?":
+	if not (reset_dialog is StyledConfirmModal):
+		print("FAIL: ResetDialog should use StyledConfirmModal, got %s" % reset_dialog.get_class())
+		main.queue_free()
+		return false
+	if not reset_dialog.has_method("configure") or not reset_dialog.has_method("open_modal"):
+		print("FAIL: ResetDialog missing StyledConfirmModal API")
+		main.queue_free()
+		return false
+
+	var title_label: Label = reset_dialog.get_node_or_null("Center/Panel/Margin/Content/Title")
+	# Title may live under generated containers — find by name.
+	if title_label == null:
+		title_label = _find_descendant_label(reset_dialog, "Title")
+	if title_label == null or title_label.text != "Reset Character?":
 		print("FAIL: reset dialog title expected 'Reset Character?'")
 		main.queue_free()
 		return false
-	if reset_dialog.ok_button_text != "Reset":
-		print("FAIL: reset dialog ok button expected 'Reset', got '%s'" % reset_dialog.ok_button_text)
+
+	var confirm_button: Button = reset_dialog.get_node_or_null("Center/Panel/Margin/Content/Buttons/ConfirmButton")
+	if confirm_button == null:
+		confirm_button = _find_descendant_button(reset_dialog, "ConfirmButton")
+	if confirm_button == null or confirm_button.text != "Reset":
+		print("FAIL: reset dialog confirm button expected 'Reset'")
+		main.queue_free()
+		return false
+
+	var cancel_button: Button = reset_dialog.get_node_or_null("Center/Panel/Margin/Content/Buttons/CancelButton")
+	if cancel_button == null:
+		cancel_button = _find_descendant_button(reset_dialog, "CancelButton")
+	if cancel_button == null or cancel_button.text != "Cancel":
+		print("FAIL: reset dialog cancel button expected 'Cancel'")
+		main.queue_free()
+		return false
+
+	var panel: PanelContainer = reset_dialog.get_node_or_null("Center/Panel")
+	if panel == null:
+		panel = _find_descendant_panel(reset_dialog, "Panel")
+	if panel == null:
+		print("FAIL: reset dialog panel missing")
+		main.queue_free()
+		return false
+	var panel_style := panel.get_theme_stylebox(&"panel") as StyleBoxFlat
+	if panel_style == null:
+		print("FAIL: reset dialog panel missing StyleBoxFlat")
+		main.queue_free()
+		return false
+	if panel_style.corner_radius_top_left != UiTheme.CORNER_RADIUS:
+		print("FAIL: reset dialog should use sharp UiTheme corners")
+		main.queue_free()
+		return false
+	if panel_style.border_color != UiTheme.COLOR_BORDER:
+		print("FAIL: reset dialog border should use UiTheme green")
+		main.queue_free()
+		return false
+	if panel_style.bg_color != UiTheme.COLOR_PLATE:
+		print("FAIL: reset dialog fill should use UiTheme cream plate")
+		main.queue_free()
+		return false
+
+	settings_panel.open()
+	await process_frame
+	reset_dialog.open_modal()
+	await process_frame
+	if not reset_dialog.visible:
+		print("FAIL: reset dialog should open")
+		main.queue_free()
+		return false
+	reset_dialog.close_modal()
+	await process_frame
+	if reset_dialog.visible:
+		print("FAIL: reset dialog should close")
 		main.queue_free()
 		return false
 
@@ -340,3 +405,33 @@ func _cleanup_user_files() -> void:
 		dir.remove("settings.json")
 	if dir.file_exists("save.json"):
 		dir.remove("save.json")
+
+
+func _find_descendant_label(root_node: Node, node_name: String) -> Label:
+	for child in root_node.get_children():
+		if child is Label and child.name == node_name:
+			return child
+		var found := _find_descendant_label(child, node_name)
+		if found != null:
+			return found
+	return null
+
+
+func _find_descendant_button(root_node: Node, node_name: String) -> Button:
+	for child in root_node.get_children():
+		if child is Button and child.name == node_name:
+			return child
+		var found := _find_descendant_button(child, node_name)
+		if found != null:
+			return found
+	return null
+
+
+func _find_descendant_panel(root_node: Node, node_name: String) -> PanelContainer:
+	for child in root_node.get_children():
+		if child is PanelContainer and child.name == node_name:
+			return child
+		var found := _find_descendant_panel(child, node_name)
+		if found != null:
+			return found
+	return null

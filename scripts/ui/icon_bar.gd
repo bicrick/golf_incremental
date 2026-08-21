@@ -95,6 +95,21 @@ func set_upgrades_open(is_open: bool) -> void:
 	_apply_wrap_panel_style(_upgrades_wrap, _upgrades_hover, is_open)
 
 
+## Brief bob to draw the eye toward upgrades (tutorial beat 4).
+func pulse_upgrades_hint(cycles: int = 4) -> void:
+	if _upgrades_wrap == null:
+		return
+	if _upgrades_rest_y == 0.0:
+		_upgrades_rest_y = _upgrades_wrap.position.y
+	var tween := create_tween()
+	for i in cycles:
+		tween.tween_property(
+			_upgrades_wrap, "position:y", _upgrades_rest_y - HOVER_BOB_AMPLITUDE * 2.0, 0.12
+		)
+		tween.tween_property(_upgrades_wrap, "position:y", _upgrades_rest_y, 0.12)
+	_apply_wrap_panel_style(_upgrades_wrap, true, false)
+
+
 ## Build HUD control is gone; Main still syncs this after I-key build toggle.
 func set_build_open(_is_open: bool) -> void:
 	pass

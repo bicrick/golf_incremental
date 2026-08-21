@@ -107,6 +107,21 @@ Upgrades widen the **pure** contact band (Perfect/Good windows) and unlock highe
 
 Early income is **intentionally slow per hit**; pickup bonus and bucket complete matter.
 
+## First-session thoughts
+
+New characters get a short **rat dialogue** overlay (Pokémon-style typewriter box):
+
+1. **Welcome** — `Hey — welcome to Range Rat.` then continue (Space / tap)
+2. **Hold** — `Alright — press Space to take a cut` (desktop) / press-and-hold (mobile); waits for the first swing
+3. **First-shot reaction** (once only) — Perfect/Great: praise; Bad/Miss: tempo tip (top of backswing, then release); Good/Okay: soft mid line. No further praise while finishing the bucket.
+4. **First bucket** — `Okay — let's knock out our first bucket.` Finish the bucket without extra interjects.
+5. **Empty bucket** — `Shoot — empty already...` then **harvest enter** (desktop: click down-range; mobile: tap the bag / ball-picker icon — dialogue shows a shag-bag miniature on mobile)
+6. **Harvest** — pick-up tip → done tip → return leftover balls via bottom-right bucket (dialogue shows a miniature of the bucket counter; no pay for returned lost balls)
+7. **Upgrades** — after harvest returns to strike: open upgrades top-right (pulse + in-box miniature). Tip does **not** complete the tutorial yet.
+8. **Keep going** — after the first Play-tree `upgrade_purchased` and the upgrades panel closes (back on the range): `Keep going! Back to the bucket — let's make more cash.` Then `tutorial_completed = true`.
+
+Space/tap while typing finishes the line silently; Space/tap again slides the box out, then advances. Portrait idle ping-pongs while the box is open. Progress is persisted (`tutorial_completed` / `tutorial_progress` / `tutorial_version`). Prestige does not replay it; character wipe does.
+
 ## Camera
 
 Fixed **down-the-line** — golfer lower-left, ball toward horizon. Litter clusters **up-screen** along stripe centerline. Pickup clicks target overlapping sprites (generous hit areas). See [02-ball-flight-and-camera.md](02-ball-flight-and-camera.md).

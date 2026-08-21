@@ -860,6 +860,10 @@ func _iso_view_showing() -> bool:
 ## Empty click / tap stays in harvest. Exit via last-ball complete_harvest(),
 ## bucket 2/6 return_all_balls_free(), mobile shag-bag toggle, or desktop Space.
 func _handle_harvest_input(event: InputEvent) -> void:
+	if _tutorial_blocks_input():
+		if event is InputEventKey or _is_left_pointer_event(event):
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey:
 		if UiLayout.is_mobile_touch():
 			return
@@ -879,6 +883,10 @@ func _handle_harvest_input(event: InputEvent) -> void:
 ## on the background enters collect if there is litter. Mobile swings on any
 ## fairway tap; harvest is the shag-bag HUD toggle.
 func _handle_strike_input(event: InputEvent) -> void:
+	if _tutorial_blocks_input():
+		if _is_left_pointer_event(event) or _is_space_event(event):
+			get_viewport().set_input_as_handled()
+		return
 	if _should_ignore_strike_pointer():
 		if _is_left_pointer_event(event) or _is_space_event(event):
 			get_viewport().set_input_as_handled()
@@ -902,6 +910,15 @@ func _handle_strike_input(event: InputEvent) -> void:
 		_swing.start_charge()
 	else:
 		_swing.release_strike()
+
+
+func _tutorial_blocks_input() -> bool:
+	var overlay := get_tree().get_first_node_in_group(&"tutorial_overlay")
+	return (
+		overlay != null
+		and overlay.has_method("is_blocking_input")
+		and overlay.is_blocking_input()
+	)
 
 
 func _is_space_event(event: InputEvent) -> bool:

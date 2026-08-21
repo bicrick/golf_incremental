@@ -204,7 +204,8 @@ func _ensure_tab_chrome() -> void:
 		"Prestige",
 		"Prestige now? You will lose all cash and Base upgrades. You will gain cheese and keep Prestige upgrades.",
 		"Prestige",
-		"Cancel"
+		"Cancel",
+		false
 	)
 	if not _confirm_modal.confirmed.is_connected(_on_prestige_confirmed):
 		_confirm_modal.confirmed.connect(_on_prestige_confirmed)
@@ -344,8 +345,22 @@ func _handle_tree_pointer_event(event: InputEvent, host: Control) -> void:
 	if host != tree_viewport:
 		return
 	if _is_primary_release(event) and not _camera_controller.did_drag():
-		if not _camera_controller.is_pinching():
+		if not _camera_controller.is_pinching() and _release_clears_inspect():
 			UpgradeNodeTap.clear()
+
+
+func _release_clears_inspect() -> bool:
+	## Empty-area release dismisses inspect. Releases on tree HitButtons must not
+	## clear — that click is inspect/buy.
+	var hovered := get_viewport().gui_get_hovered_control()
+	if hovered == null:
+		return true
+	var n: Node = hovered
+	while n != null:
+		if n == nodes_root:
+			return false
+		n = n.get_parent()
+	return true
 
 
 func _is_primary_release(event: InputEvent) -> bool:

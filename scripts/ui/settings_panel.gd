@@ -3,6 +3,15 @@ extends Control
 
 signal wipe_confirmed
 
+const StyledConfirmModalScript = preload("res://scripts/ui/styled_confirm_modal.gd")
+
+const RESET_DIALOG_TITLE := "Reset Character?"
+const RESET_DIALOG_BODY := (
+	"Delete all progress?\n\n"
+	+ "Currency, upgrades, and stats will be reset.\n"
+	+ "Audio settings are kept."
+)
+
 @onready var header_bar: PanelContainer = $Content/Header
 @onready var back_button: Button = $Content/Header/Row/BackButton
 @onready var title_label: Label = $Content/Header/Row/Title
@@ -12,14 +21,15 @@ signal wipe_confirmed
 @onready var music_volume_slider: Control = $Content/Body/MusicVolumeRow/MusicVolumeSlider
 @onready var frame_graph_toggle: CheckButton = $Content/Body/FrameGraphRow/FrameGraphToggle
 @onready var reset_button: Button = $Content/Body/ResetButton
-@onready var reset_dialog: ConfirmationDialog = $ResetDialog
 
+var reset_dialog: Control
 var _is_open := false
 var _opened_from_pause := false
 
 
 func _ready() -> void:
 	visible = false
+	_ensure_reset_dialog()
 	back_button.pressed.connect(_on_back_pressed)
 	sfx_toggle.toggled.connect(_on_sfx_toggled)
 	music_toggle.toggled.connect(_on_music_toggled)
@@ -27,9 +37,6 @@ func _ready() -> void:
 	sfx_volume_slider.value_changed.connect(_on_sfx_volume_changed)
 	music_volume_slider.value_changed.connect(_on_music_volume_changed)
 	reset_button.pressed.connect(_on_reset_pressed)
-	reset_dialog.confirmed.connect(_on_reset_dialog_confirmed)
-	reset_dialog.get_ok_button().mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
-	reset_dialog.get_cancel_button().mouse_default_cursor_shape = CursorManager.SELECTABLE_CURSOR_SHAPE
 	_apply_fonts()
 	UiTheme.apply_header_bar(header_bar)
 	UiTheme.apply_compact_primary_button(back_button)
@@ -63,8 +70,8 @@ func apply_viewport_layout() -> void:
 		var label := body.get_node_or_null(row_path) as Control
 		if label != null:
 			label.custom_minimum_size = Vector2(label_w, 0.0)
-	var vp := UiLayout.viewport_size(get_viewport())
-	reset_dialog.size = Vector2i(mini(360, int(vp.x) - 32), 140)
+	if reset_dialog != null and reset_dialog.has_method("apply_viewport_layout"):
+		reset_dialog.apply_viewport_layout(get_viewport())
 
 
 func is_open() -> bool:
@@ -100,6 +107,8 @@ func close() -> void:
 	_opened_from_pause = false
 	_is_open = false
 	visible = false
+	if reset_dialog != null and reset_dialog.has_method("close_modal"):
+		reset_dialog.close_modal()
 	EventBus.ui_panel_toggled.emit("settings", false)
 
 
@@ -107,6 +116,8 @@ func close_to_pause() -> void:
 	_opened_from_pause = false
 	_is_open = false
 	visible = false
+	if reset_dialog != null and reset_dialog.has_method("close_modal"):
+		reset_dialog.close_modal()
 	EventBus.ui_panel_toggled.emit("settings", false)
 	var main := get_tree().root.get_node_or_null("Main")
 	if main == null:
@@ -184,12 +195,39 @@ func _on_music_toggled(enabled: bool) -> void:
 
 
 func _on_reset_pressed() -> void:
-	reset_dialog.popup_centered()
+	_ensure_reset_dialog()
+	if reset_dialog.has_method("open_modal"):
+		reset_dialog.open_modal()
 
 
 func _on_reset_dialog_confirmed() -> void:
 	close()
 	wipe_confirmed.emit()
+
+
+func _ensure_reset_dialog() -> void:
+	# Drop default Godot ConfirmationDialog from earlier builds.
+	var stale := get_node_or_null("ResetDialog")
+	if stale != null and not (stale is StyledConfirmModal):
+		remove_child(stale)
+		stale.free()
+		stale = null
+
+	reset_dialog = get_node_or_null("ResetDialog") as Control
+	if reset_dialog == null:
+		reset_dialog = StyledConfirmModalScript.new()
+		reset_dialog.name = "ResetDialog"
+		add_child(reset_dialog)
+
+	reset_dialog.configure(
+		RESET_DIALOG_TITLE,
+		RESET_DIALOG_BODY,
+		"Reset",
+		"Cancel",
+		true
+	)
+	if not reset_dialog.confirmed.is_connected(_on_reset_dialog_confirmed):
+		reset_dialog.confirmed.connect(_on_reset_dialog_confirmed)
 
 
 func _close_other_panels() -> void:
@@ -233,12 +271,3 @@ func _style_toggle(toggle: CheckButton) -> void:
 func _style_reset_button() -> void:
 	reset_button.text = "Reset Character"
 	UiTheme.apply_danger_button(reset_button)
-	reset_dialog.add_theme_font_override(&"font", PixelFont.font_for_size(8))
-	reset_dialog.add_theme_font_size_override(&"font_size", 8)
-	reset_dialog.dialog_text = (
-		"Delete all progress?\n\n"
-		+ "Currency, upgrades, and stats will be reset.\n"
-		+ "Audio settings are kept."
-	)
-	reset_dialog.ok_button_text = "Reset"
-	reset_dialog.cancel_button_text = "Cancel"

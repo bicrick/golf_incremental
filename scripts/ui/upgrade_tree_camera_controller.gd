@@ -4,7 +4,9 @@ extends Node
 ##
 ## Zoom listens on Node._input and via consume_zoom_event() from the panel
 ## _gui_input / _unhandled_input (web often routes pinch to GUI).
-## Drag pan uses press→threshold like harvest. Tree node buttons do not block pan.
+## Drag pan uses press→threshold like harvest. Press arms pan but does not claim
+## the event (HitButton click-to-buy / inspect need the press); only motion past
+## the drag threshold claims the gesture.
 
 @export var wheel_zoom_factor: float = 1.1
 @export var pinch_zoom_gain: float = 1.0
@@ -143,11 +145,13 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 		if mb.button_index != drag_button:
 			return false
 		if mb.pressed:
+			## Arm pan, but do not claim the press — HitButton needs it for click-to-buy
+			## (and mobile inspect). Drag only claims after motion past threshold.
 			_pending = true
 			_did_drag = false
 			_drag_origin = mb.position
 			_drag_start_pan = _pan_offset
-			return true
+			return false
 		if _drag_active:
 			_end_drag()
 			return true
@@ -159,7 +163,7 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 		var motion := event as InputEventMouseMotion
 		if _pending and not _drag_active:
 			if motion.position.distance_to(_drag_origin) <= drag_threshold_px:
-				return true
+				return false
 			_pending = false
 			_drag_active = true
 			_did_drag = true
@@ -169,7 +173,7 @@ func consume_pan_drag_event(event: InputEvent) -> bool:
 			_pan_offset = _drag_start_pan + delta
 			_apply_world_transform()
 			return true
-		return _pending
+		return false
 	return false
 
 

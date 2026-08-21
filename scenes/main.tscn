@@ -14,6 +14,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/prestige_flow.tscn" id="12_prestige_flow"]
 [ext_resource type="PackedScene" path="res://scenes/debug/frame_time_overlay.tscn" id="13_frame_graph"]
 [ext_resource type="PackedScene" path="res://scenes/iso/iso_view.tscn" id="14_iso"]
+[ext_resource type="PackedScene" path="res://scenes/ui/tutorial_overlay.tscn" id="15_tutorial"]
 
 [node name="Main" type="Node" unique_id=785145167]
 script = ExtResource("7_main")
@@ -56,6 +57,9 @@ script = ExtResource("11_gameplay_chrome")
 layout_mode = 1
 
 [node name="IconBar" parent="UI/UIRoot/GameplayChrome" unique_id=391510951 instance=ExtResource("3_icons")]
+layout_mode = 1
+
+[node name="TutorialOverlay" parent="UI/UIRoot/GameplayChrome" instance=ExtResource("15_tutorial")]
 layout_mode = 1
 
 [node name="UpgradePanel" parent="UI/UIRoot" unique_id=811323415 instance=ExtResource("4_panel")]

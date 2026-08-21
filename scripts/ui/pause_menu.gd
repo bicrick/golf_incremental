@@ -52,7 +52,7 @@ func apply_viewport_layout() -> void:
 	var children := main_row.get_children()
 	var new_row: BoxContainer = VBoxContainer.new() if want_vertical else HBoxContainer.new()
 	new_row.name = "MainRow"
-	new_row.theme_override_constants["separation"] = 20 if not want_vertical else 12
+	new_row.add_theme_constant_override(&"separation", 20 if not want_vertical else 12)
 	new_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	parent.add_child(new_row)
 	parent.move_child(new_row, main_row.get_index())

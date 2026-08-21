@@ -36,6 +36,10 @@ var harvest_stash: int = 0
 var pending_vanish_collects: int = 0
 ## Live fairway litter (not saved). Reload starts empty, so harvest is gated.
 var fairway_litter_count: int = 0
+## First-run rat thought tutorial (persisted). Prestige does not reset these.
+var tutorial_completed: bool = false
+## Highest beat finished (0 = none, 1–4 = Hold/Tempo/Pickup/Upgrades).
+var tutorial_progress: int = 0
 
 var lifetime: Dictionary = {
 	"total_swings": 0,
@@ -455,6 +459,8 @@ func reset_to_fresh() -> void:
 		"rattling_lifetime_earnings": 0.0,
 		"perfect_count": 0,
 	}
+	tutorial_completed = false
+	tutorial_progress = 0
 	_recompute_stats()
 	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
 	EventBus.phase_changed.emit("strike")

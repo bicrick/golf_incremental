@@ -339,6 +339,12 @@ func play_ui_page() -> void:
 	_play("ui_page", -8.0)
 
 
+func play_text_blip() -> void:
+	## Typewriter key clicks — short ping with pitch jitter.
+	var pitch := randf_range(0.92, 1.22)
+	_play("text_blip", -10.0, pitch)
+
+
 func play_ratina_hit(timing_tier: int) -> void:
 	_play_golf_hit(timing_tier, Balance.FeedbackTier.WHISPER)
 
@@ -638,6 +644,7 @@ func _build_streams() -> void:
 		_streams[stream_key] = _load_cuelume_stream(file_name, stream_key)
 	# Keep charge feedback procedural — do not use Cuelume release here.
 	_streams["charge_start"] = _make_click(620.0, 0.05, 0.32)
+	_streams["text_blip"] = _make_typewriter_blip()
 	_streams["cash_register"] = _make_chime([660.0, 880.0, 1108.0, 1320.0], 0.18, 0.32)
 	_streams["play_whoosh"] = _make_thwack(150.0, 0.14, 0.2, 0.5)
 	_streams["pickup_plink"] = _load_pickup_plink_stream()
@@ -715,6 +722,22 @@ func _make_click(freq_hz: float, duration_sec: float, volume: float) -> AudioStr
 		var env := exp(-18.0 * t / duration_sec)
 		var sample := sin(TAU * freq_hz * t) * volume * env
 		_write_sample(data, i, sample)
+	return _pack_wav(data, mix_rate)
+
+
+func _make_typewriter_blip() -> AudioStreamWAV:
+	## Punchy key-tick: brief high click + soft ping overtone.
+	var mix_rate := _sfx_mix_rate()
+	var duration_sec := 0.04
+	var sample_count := int(duration_sec * mix_rate)
+	var data := PackedByteArray()
+	data.resize(sample_count * 2)
+	for i in sample_count:
+		var t := float(i) / float(mix_rate)
+		var env := exp(-42.0 * t / duration_sec)
+		var click := sin(TAU * 1450.0 * t) * 0.34
+		var ping := sin(TAU * 2200.0 * t) * 0.16
+		_write_sample(data, i, (click + ping) * env)
 	return _pack_wav(data, mix_rate)
 
 

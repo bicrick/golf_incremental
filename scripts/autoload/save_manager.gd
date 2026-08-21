@@ -56,6 +56,9 @@ func save_game() -> void:
 		"lifetime": GameState.lifetime.duplicate(),
 		"bucket_remaining": GameState.bucket_remaining,
 		"bucket_capacity": GameState.bucket_capacity,
+		"tutorial_completed": GameState.tutorial_completed,
+		"tutorial_progress": GameState.tutorial_progress,
+		"tutorial_version": 3,
 		"last_save_time": Time.get_unix_time_from_system() * 1000,
 	}
 	var json := JSON.stringify(data)
@@ -222,6 +225,50 @@ func _migrate_v7_strip_play_op() -> void:
 	GameState.shop_levels.erase("golden_ball")
 
 
+## Old saves without tutorial keys: skip intro if the player already swung.
+## Pre-expanded tutorial used progress 0–4; remap onto durable checkpoints.
+## v3 adds KEEP_GOING after first upgrade purchase + panel close.
+func _load_tutorial_flags(parsed: Dictionary) -> void:
+	const FINAL_BEAT := 10 # TutorialCopy.Beat.KEEP_GOING
+	const CURRENT_TUTORIAL_VERSION := 3
+	if parsed.has("tutorial_completed"):
+		GameState.tutorial_completed = bool(parsed.get("tutorial_completed", false))
+		GameState.tutorial_progress = int(parsed.get("tutorial_progress", 0))
+		var ver: int = int(parsed.get("tutorial_version", 1))
+		if ver < 2:
+			GameState.tutorial_progress = _remap_legacy_tutorial_progress(
+				GameState.tutorial_progress
+			)
+		# v2 completed at UPGRADES(9); v3 final is KEEP_GOING(10). Mid-v2 saves at
+		# progress==9 without completed stay there and arm the keep-going gate.
+		if GameState.tutorial_completed:
+			GameState.tutorial_progress = maxi(GameState.tutorial_progress, FINAL_BEAT)
+		elif ver < CURRENT_TUTORIAL_VERSION and GameState.tutorial_progress > FINAL_BEAT:
+			GameState.tutorial_progress = FINAL_BEAT
+		return
+	var swings: int = int(GameState.lifetime.get("total_swings", 0))
+	if swings > 0:
+		GameState.tutorial_completed = true
+		GameState.tutorial_progress = FINAL_BEAT
+	else:
+		GameState.tutorial_completed = false
+		GameState.tutorial_progress = 0
+
+
+func _remap_legacy_tutorial_progress(progress: int) -> int:
+	## Mirrors TutorialCopy.remap_legacy_progress — keep in sync.
+	match progress:
+		0, 1:
+			return progress
+		2: # old TEMPO
+			return 3 # FIRST_BUCKET
+		3: # old PICKUP
+			return 8 # HARVEST_RETURN
+		4: # old UPGRADES
+			return 9
+		_:
+			return progress
+
 func load_game() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
 		return
@@ -261,5 +308,6 @@ func load_game() -> void:
 	GameState.bucket_capacity = int(parsed.get("bucket_capacity", Balance.BUCKET_CAPACITY_DEFAULT))
 	var saved_remaining: int = int(parsed.get("bucket_remaining", -1))
 	GameState.bucket_remaining = saved_remaining if saved_remaining >= 0 else GameState.bucket_capacity
+	_load_tutorial_flags(parsed)
 	GameState.currency += _migrate_save(save_version)
 	GameState._recompute_stats()

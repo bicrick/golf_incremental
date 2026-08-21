@@ -17,6 +17,13 @@ func _initialize() -> void:
 func _run() -> void:
 	var ok := true
 
+	## Desktop/editor/headless must not use tap-inspect (trackpads can report touchscreen).
+	if UiLayout.is_mobile_touch():
+		print("FAIL: is_mobile_touch() should be false on desktop/headless")
+		ok = false
+	else:
+		print("OK: is_mobile_touch() false on desktop")
+
 	var player_defs := UpgradeDefinitions.all()
 	if player_defs.size() != 8:
 		print("FAIL: expected 8 player upgrades, got ", player_defs.size())
@@ -221,6 +228,8 @@ func _run() -> void:
 
 		ok = _check_tree_pan(panel) and ok
 		ok = await _check_purchase_after_pan(gs, panel) and ok
+		ok = _check_pan_press_does_not_claim(panel) and ok
+		ok = await _check_desktop_click_buys(gs, panel) and ok
 		ok = await _check_tap_inspect_then_buy(gs, panel) and ok
 		ok = _check_continuous_zoom(panel) and ok
 		ok = await _check_portrait_tree_fit(main, panel) and ok
@@ -536,8 +545,9 @@ func _check_tree_pan(panel: Control) -> bool:
 
 	var origin: Vector2 = tree_viewport.get_global_rect().get_center()
 	var pan_before: Vector2 = camera.get_pan_offset()
-	if not panel.consume_pan_drag_event(_left_down(origin)):
-		print("FAIL: empty TreeViewport should accept pan drag start")
+	## Press arms pan but must not claim the event (HitButtons need the press).
+	if panel.consume_pan_drag_event(_left_down(origin)):
+		print("FAIL: pan press should arm without claiming (return false)")
 		return false
 	var dragged := origin + Vector2(40.0, 24.0)
 	if not panel.consume_pan_drag_event(_mouse_motion(dragged)):
@@ -552,6 +562,63 @@ func _check_tree_pan(panel: Control) -> bool:
 		return false
 	panel.consume_pan_drag_event(_left_up(dragged))
 	print("OK: tree pan drag updates offset")
+	return true
+
+
+func _check_desktop_click_buys(gs: Node, panel: Control) -> bool:
+	## Desktop/mouse: inspect mode off → single press purchases.
+	UpgradeNodeTap.force_inspect_mode = false
+	UpgradeNodeTap.clear()
+	_reset_tree_progress(gs)
+	gs.currency = 500.0
+	panel.consume_pan_drag_event(_left_down(Vector2(-100.0, -100.0)))
+	panel.open()
+	await process_frame
+	await process_frame
+	panel._refresh_all()
+	await process_frame
+	var node := _find_tree_node(panel, "base_pay")
+	if node == null:
+		print("FAIL: base_pay tree node missing for desktop click-buy")
+		return false
+	if UpgradeNodeTap.is_inspect_mode():
+		print("FAIL: desktop path should not be in inspect mode")
+		return false
+	var level_before: int = gs.get_upgrade_level("base_pay")
+	node._on_pressed()
+	await process_frame
+	if gs.get_upgrade_level("base_pay") != level_before + 1:
+		print(
+			"FAIL: desktop single click should buy (before=%d after=%d)"
+			% [level_before, gs.get_upgrade_level("base_pay")]
+		)
+		return false
+	print("OK: desktop single click buys")
+	return true
+
+
+func _check_pan_press_does_not_claim(panel: Control) -> bool:
+	var camera: Node = panel.get_node("TreeCameraController")
+	var tree_viewport: Control = panel.get_node("Content/TreeViewport")
+	if camera == null or tree_viewport == null:
+		print("FAIL: missing camera/viewport for pan-press claim check")
+		return false
+	if not panel.is_open():
+		panel.open()
+	var origin: Vector2 = tree_viewport.get_global_rect().get_center()
+	## Simulate a click that never crosses the drag threshold.
+	if panel.consume_pan_drag_event(_left_down(origin)):
+		print("FAIL: click press must not be claimed by tree pan")
+		return false
+	var wiggle := origin + Vector2(2.0, 1.0)
+	if panel.consume_pan_drag_event(_mouse_motion(wiggle)):
+		print("FAIL: sub-threshold motion must not be claimed by tree pan")
+		return false
+	if camera.did_drag():
+		print("FAIL: sub-threshold click should not set did_drag")
+		return false
+	panel.consume_pan_drag_event(_left_up(wiggle))
+	print("OK: pan press/wiggle leaves click free for HitButton")
 	return true
 
 

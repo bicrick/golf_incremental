@@ -156,8 +156,3 @@ text = "Off"
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_default_cursor_shape = 0
-
-[node name="ResetDialog" type="ConfirmationDialog" parent="."]
-title = "Reset Character?"
-initial_position = 1
-size = Vector2i(360, 140)
