@@ -1,10 +1,18 @@
 class_name RangeBackdrop
 extends RefCounted
 ## Painted horizon backdrop — camera-facing quad sized to the perspective frustum.
-## Transparent sky in the texture lets the dynamic sky dome show through.
+## Plays the breeze GIF frames via AnimatedTexture, ping-ponging so the loop never snaps.
+## Original still frame: res://assets/sprites/background/range_backdrop.png
 
-const TEXTURE_PATH := "res://assets/sprites/background/range_backdrop.png"
+const TEXTURE_PATH := "res://assets/sprites/background/range_backdrop_breeze.gif"
+const FRAME_PATH_FORMAT := "res://assets/sprites/background/range_backdrop_breeze_frames/%02d.png"
+const ORIGINAL_STILL_PATH := "res://assets/sprites/background/range_backdrop.png"
 const BACKDROP_SHADER := preload("res://shaders/range_backdrop.gdshader")
+const FRAME_COUNT := 16
+## One beat at 120 BPM (60/120). Most range tracks sit near this.
+const FRAME_DURATION_SEC := 0.5
+
+static var _animated: AnimatedTexture
 ## Far behind the ground mesh (300 yd deep) so live geometry can never reach or
 ## clip through the backdrop plane, but still inside the 500 yd sky dome.
 ## The quad is frustum-sized, so screen-space appearance is independent of this.
@@ -33,9 +41,9 @@ static func populate(
 	if camera == null:
 		return null
 
-	var tex := load(TEXTURE_PATH) as Texture2D
+	var tex := make_animated_texture()
 	if tex == null:
-		push_error("RangeBackdrop: missing texture at %s" % TEXTURE_PATH)
+		push_error("RangeBackdrop: missing breeze GIF frames")
 		return null
 
 	var mesh := _build_camera_quad(camera, distance_yards, container, aspect_override)
@@ -67,6 +75,54 @@ static func apply_palette_tints(
 		mat.set_shader_parameter(&"grass_tint", grass_tint)
 		mat.set_shader_parameter(&"foliage_tint", foliage_tint)
 		mat.set_shader_parameter(&"albedo_color", Color.WHITE)
+
+
+static func ping_pong_frame(
+	time_sec: float,
+	frame_count: int = FRAME_COUNT,
+	duration: float = FRAME_DURATION_SEC
+) -> int:
+	var last := maxi(frame_count - 1, 1)
+	var cycle := last * 2
+	var step := int(floor(time_sec / maxf(duration, 0.001)))
+	var pos := posmod(step, cycle)
+	if pos > last:
+		return cycle - pos
+	return pos
+
+
+static func ping_pong_sequence(frame_count: int = FRAME_COUNT) -> PackedInt32Array:
+	var last := maxi(frame_count - 1, 1)
+	var sequence := PackedInt32Array()
+	for i in frame_count:
+		sequence.append(i)
+	var i := last - 1
+	while i > 0:
+		sequence.append(i)
+		i -= 1
+	return sequence
+
+
+static func make_animated_texture() -> AnimatedTexture:
+	if _animated != null:
+		return _animated
+	var frames: Array[Texture2D] = []
+	for index in FRAME_COUNT:
+		var tex := load(FRAME_PATH_FORMAT % index) as Texture2D
+		if tex == null:
+			push_error("RangeBackdrop: missing gif frame %s" % (FRAME_PATH_FORMAT % index))
+			return null
+		frames.append(tex)
+	var sequence := ping_pong_sequence(FRAME_COUNT)
+	var anim := AnimatedTexture.new()
+	anim.frames = sequence.size()
+	anim.pause = false
+	anim.speed_scale = 1.0
+	for slot in sequence.size():
+		anim.set_frame_texture(slot, frames[sequence[slot]])
+		anim.set_frame_duration(slot, FRAME_DURATION_SEC)
+	_animated = anim
+	return _animated
 
 
 static func _make_material(tex: Texture2D) -> ShaderMaterial:
