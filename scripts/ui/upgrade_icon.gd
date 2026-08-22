@@ -7,15 +7,9 @@ const ICON_SIZE := Vector2i(32, 32)
 const DEFAULT_NODE_SIZE := Vector2(44, 44)
 const NODE_HALF := Vector2(22, 22)
 
-## Prestige ids reuse play/shop art until dedicated cheese sprites exist.
+## Alias ids that reuse another upgrade's sprite.
 const ICON_ALIASES := {
-	"cheese_press": "base_pay",
-	"ambition": "distance_pay",
-	"prestige_quick_reset": "quick_reset",
-	"prestige_combo": "combo_bonus",
-	"prestige_deep_bucket": "ball_count",
-	"prestige_golden_tee": "golden_ball",
-	"prestige_perfect_chain": "perfect_pop",
+	"perfect_chain": "perfect_pop",
 }
 
 static var _cache: Dictionary = {}

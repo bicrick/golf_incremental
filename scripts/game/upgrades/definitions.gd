@@ -79,6 +79,42 @@ static func _init_defs() -> void:
 			[{"type": "add", "stat": "range_picker_radius_bonus", "value_per_level": Balance.RANGE_PICKER_RADIUS_PER_LEVEL}],
 			"pickup", {"upgrade_id": "pickup", "level": 1}
 		),
+		## Late OP nodes (formerly cheese / prestige).
+		_def(
+			"quick_reset", Balance.UpgradeBranch.QUALITY, "Quick Reset",
+			"Shorten swing cooldown (×0.85 per level). Late tempo fantasy.",
+			5, 200.0, 1.70,
+			[{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.85}],
+			"metronome", {"upgrade_id": "metronome", "level": 10}
+		),
+		_def(
+			"combo_bonus", Balance.UpgradeBranch.PICKUP, "Combo Bonus",
+			"Fast harvest clicks multiply pickup payout.",
+			5, 80.0, 1.55,
+			[{"type": "add", "stat": "combo_mult_per_tier", "value_per_level": 0.08}],
+			"pickup", {"upgrade_id": "pickup", "level": 8}
+		),
+		_def(
+			"ball_count", Balance.UpgradeBranch.PICKUP, "More Balls",
+			"+1 ball per bucket per level.",
+			4, 120.0, 1.60,
+			[{"type": "add", "stat": "bucket_capacity_bonus", "value_per_level": 1.0}],
+			"combo_bonus", {"upgrade_id": "combo_bonus", "level": 1}
+		),
+		_def(
+			"golden_ball", Balance.UpgradeBranch.QUALITY, "Golden Balls",
+			"+2% chance teed balls are golden (double pay) per level.",
+			10, 100.0, 1.45,
+			[{"type": "add", "stat": "golden_ball_chance", "value_per_level": 0.02}],
+			"perfect_pop", {"upgrade_id": "perfect_pop", "level": 5}
+		),
+		_def(
+			"perfect_chain", Balance.UpgradeBranch.QUALITY, "Perfect Chain",
+			"After 3 Perfects in a row, teed balls stay golden while the streak lasts.",
+			1, 500.0, 1.0,
+			[{"type": "binary", "stat": "perfect_chain_unlocked", "value": 1}],
+			"golden_ball", {"upgrade_id": "golden_ball", "level": 3}
+		),
 	]
 	for d in defs:
 		_by_id[d["id"]] = d

@@ -123,6 +123,10 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 			return stats.rattling_pickup_speed_multiplier
 		"rattling_golden_bonus_chance":
 			return stats.rattling_golden_bonus_chance
+		"golden_ball_chance":
+			return stats.golden_ball_chance
+		"perfect_chain_unlocked":
+			return stats.perfect_chain_unlocked
 		_:
 			push_warning("UpgradeEffects: unknown stat '%s'" % stat_name)
 			return 0.0
@@ -208,5 +212,9 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 			stats.rattling_pickup_speed_multiplier = value
 		"rattling_golden_bonus_chance":
 			stats.rattling_golden_bonus_chance = value
+		"golden_ball_chance":
+			stats.golden_ball_chance = value
+		"perfect_chain_unlocked":
+			stats.perfect_chain_unlocked = value
 		_:
 			push_warning("UpgradeEffects: unknown stat '%s'" % stat_name)

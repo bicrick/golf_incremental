@@ -33,7 +33,7 @@ Testable done gates per implementation phase. See [07-implementation-phases.md](
 - [ ] Sweet spot upgrade increases Perfect window measurably
 - [ ] Charge power bar not required for MVP tutorial text
 - [ ] First-run rat dialogue overlay: Welcome → Hold → first-shot reaction (once) → first bucket → empty/harvest tips (desktop: down-range; mobile: shag bag) → Upgrades (pulse + preview; does not complete) → Keep going after first `upgrade_purchased` + upgrades panel close → complete; typewriter; Space/tap advance; slide-out dismiss; no Skip
-- [ ] `tutorial_completed` persists; old saves with swings skip intro; wipe replays; prestige does not replay
+- [ ] `tutorial_completed` persists; old saves with swings skip intro; wipe replays
 - [ ] `verify_tutorial.gd` passes headless
 
 ## Phase F — Upgrade tree v2 data

@@ -15,10 +15,19 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
-	# Headless runs load user settings; force music on for title BGM assertions.
-	_sfx()._music_enabled = true
-	_sfx().play_title_bgm()
-	await process_frame
+	var ok := true
+
+	# Autoload + Main + TitleScreen start opening theme on load. Only force-start
+	# if this machine's saved settings have music off.
+	if not _sfx()._music_enabled:
+		_sfx()._music_enabled = true
+		_sfx().play_title_bgm()
+		await process_frame
+	elif not _sfx().is_music_playing():
+		print("FAIL: title BGM should start on load when music is enabled")
+		ok = false
+		_sfx().play_title_bgm()
+		await process_frame
 
 	var range_view: Node3D = main.get_node("RangeView")
 	var ui: CanvasLayer = main.get_node("UI")
@@ -27,8 +36,6 @@ func _run() -> void:
 	var load_fade: ColorRect = title_screen.get_node_or_null("LoadFade") as ColorRect
 	var press_space: Label = title_screen.get_node("Overlay/Center/VBox/PressSpace")
 	var title_logo: TextureRect = title_screen.get_node("Overlay/Center/VBox/TitleLogo")
-
-	var ok := true
 
 	if not title_screen.visible:
 		print("FAIL: TitleScreen should be visible on launch")
@@ -99,6 +106,13 @@ func _run() -> void:
 	var ambient := _sfx().get_node_or_null("AmbientWind") as AudioStreamPlayer
 	if music == null or not music.playing:
 		print("FAIL: title BGM should play on title screen")
+		ok = false
+	elif MusicTrackRhythm.track_basename(_sfx().get_current_music_track_path()) != MusicPlaylist.OPENING_THEME:
+		print(
+			"FAIL: title screen should play %s, got "
+			% MusicPlaylist.OPENING_THEME,
+			_sfx().get_current_music_track_path()
+		)
 		ok = false
 	elif music.stream != null and not music.stream.resource_path in music_tracks:
 		print("FAIL: title screen should play a discovered music track, got ", music.stream.resource_path)

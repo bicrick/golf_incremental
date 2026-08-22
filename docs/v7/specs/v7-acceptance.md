@@ -1,5 +1,7 @@
 # v7 Acceptance Criteria
 
+> **Obsolete.** Prestige / cheese was removed. Former OP perks are late cash-tree nodes — see [v2/04-upgrade-tree.md](../../v2/04-upgrade-tree.md). Criteria below are historical only.
+
 All must pass before calling prestige v7 done.
 
 ## Prestige loop

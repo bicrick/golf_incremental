@@ -1,14 +1,17 @@
 extends Control
 ## First-run dialogue tutorial — guided welcome through first bucket, harvest, upgrades, keep-going.
+## Returning players get a one-shot welcome-back line on each Play from title.
 
 const ThoughtBoxScript = preload("res://scripts/ui/tutorial_thought_box.gd")
 const TutorialCopyScript = preload("res://scripts/ui/tutorial_copy.gd")
 
 var _box: Control
 var _active_beat := -1
+var _showing_welcome_back := false
 var _awaiting_first_swing := false
 var _awaiting_empty_bucket := false
 var _awaiting_harvest_enter := false
+var _awaiting_harvest_pick := false
 var _awaiting_harvest_return := false
 var _awaiting_keep_going := false
 var _upgrade_bought_for_tip := false
@@ -27,6 +30,8 @@ func _ready() -> void:
 	_box.name = "ThoughtBox"
 	add_child(_box)
 	_box.dismissed.connect(_on_box_dismissed)
+	if _box.has_signal("nudge_requested"):
+		_box.nudge_requested.connect(_on_box_nudge_requested)
 	if not EventBus.swing_resolved.is_connected(_on_swing_resolved):
 		EventBus.swing_resolved.connect(_on_swing_resolved)
 	if not EventBus.bucket_changed.is_connected(_on_bucket_changed):
@@ -37,15 +42,22 @@ func _ready() -> void:
 		EventBus.upgrade_purchased.connect(_on_upgrade_purchased)
 	if not EventBus.ui_panel_toggled.is_connected(_on_ui_panel_toggled):
 		EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
+	if not EventBus.ball_collected.is_connected(_on_ball_collected):
+		EventBus.ball_collected.connect(_on_ball_collected)
 	call_deferred("_resolve_icon_bar")
 
 
 func is_blocking_input() -> bool:
-	return _box != null and _box.has_method("is_open") and _box.is_open()
+	if _box == null or not _box.has_method("is_open") or not _box.is_open():
+		return false
+	if _box.has_method("blocks_world_input"):
+		return _box.blocks_world_input()
+	return true
 
 
 func begin_if_needed() -> void:
 	if GameState.tutorial_completed:
+		_show_welcome_back()
 		return
 	var progress: int = GameState.tutorial_progress
 	if progress <= 0:
@@ -71,39 +83,67 @@ func begin_if_needed() -> void:
 		call_deferred("_try_show_keep_going")
 
 
+func _show_welcome_back() -> void:
+	## One-shot pane per Play press; does not touch tutorial_completed / progress.
+	if _showing_welcome_back:
+		return
+	if _box != null and _box.is_open():
+		return
+	_showing_welcome_back = true
+	_active_beat = -1
+	var line: String = TutorialCopyScript.pick_welcome_back_line()
+	_box.show_thought(line, false, TutorialUiPreviews.Kind.NONE)
+
+
 func apply_viewport_layout() -> void:
 	if _box != null and _box.has_method("apply_viewport_layout"):
 		_box.apply_viewport_layout()
 
 
 func _resolve_icon_bar() -> void:
-	_icon_bar = get_parent().get_node_or_null("IconBar")
+	var chrome := get_parent().get_node_or_null("GameplayChrome") if get_parent() != null else null
+	if chrome != null:
+		_icon_bar = chrome.get_node_or_null("IconBar")
+	else:
+		_icon_bar = get_parent().get_node_or_null("IconBar")
 
 
-func _show_beat(beat: int, text_override: String = "") -> void:
+func _show_beat(beat: int, text_override: String = "", force: bool = false) -> void:
 	if GameState.tutorial_completed:
 		return
-	if _box != null and _box.is_open():
+	if not force and _box != null and _box.is_open():
 		return
 	_active_beat = beat
-	_awaiting_first_swing = false
-	_awaiting_empty_bucket = false
-	_awaiting_harvest_enter = false
-	_awaiting_harvest_return = false
-	if beat != TutorialCopyScript.Beat.KEEP_GOING:
-		_awaiting_keep_going = false
+	var is_menu_tip := TutorialCopyScript.is_upgrades_menu_beat(beat)
+	if not is_menu_tip:
+		_awaiting_first_swing = false
+		_awaiting_empty_bucket = false
+		_awaiting_harvest_enter = false
+		_awaiting_harvest_pick = false
+		_awaiting_harvest_return = false
+		if beat != TutorialCopyScript.Beat.KEEP_GOING:
+			_awaiting_keep_going = false
 	var line: String = text_override
 	if line.is_empty():
 		line = TutorialCopyScript.line_for(beat)
 	var preview_kind: int = TutorialCopyScript.preview_kind_for(beat)
-	_box.show_thought(line, false, preview_kind)
+	var options := {}
+	if beat == TutorialCopyScript.Beat.HARVEST_PICK:
+		_awaiting_harvest_pick = true
+		options["advance_on_input"] = false
+	_box.show_thought(line, false, preview_kind, options)
 	if beat == TutorialCopyScript.Beat.UPGRADES:
 		_pulse_upgrades()
 
 
 func _on_box_dismissed() -> void:
+	if _showing_welcome_back:
+		_showing_welcome_back = false
+		_active_beat = -1
+		return
 	var beat := _active_beat
 	_active_beat = -1
+	_awaiting_harvest_pick = false
 	match beat:
 		TutorialCopyScript.Beat.WELCOME:
 			call_deferred("_show_beat", TutorialCopyScript.Beat.HOLD)
@@ -124,7 +164,7 @@ func _on_box_dismissed() -> void:
 			_awaiting_harvest_enter = true
 			if GameState.is_harvest_phase():
 				call_deferred("_show_beat", TutorialCopyScript.Beat.HARVEST_PICK)
-		TutorialCopyScript.Beat.HARVEST_PICK:
+		TutorialCopyScript.Beat.HARVEST_PICK, TutorialCopyScript.Beat.HARVEST_FIND_HINT:
 			call_deferred("_show_beat", TutorialCopyScript.Beat.HARVEST_DONE)
 		TutorialCopyScript.Beat.HARVEST_DONE:
 			call_deferred("_show_beat", TutorialCopyScript.Beat.HARVEST_RETURN)
@@ -133,9 +173,17 @@ func _on_box_dismissed() -> void:
 			_awaiting_harvest_return = true
 			if not GameState.is_harvest_phase():
 				call_deferred("_show_upgrades_beat")
+		TutorialCopyScript.Beat.UPGRADES_STUCK:
+			call_deferred("_show_beat", TutorialCopyScript.Beat.UPGRADES_SPEND)
+		TutorialCopyScript.Beat.UPGRADES_SPEND:
+			call_deferred("_show_beat", TutorialCopyScript.Beat.UPGRADES)
 		TutorialCopyScript.Beat.UPGRADES:
 			_advance_progress(TutorialCopyScript.Beat.UPGRADES)
 			_arm_keep_going_gate()
+		TutorialCopyScript.Beat.UPGRADES_MENU_BROKE:
+			call_deferred("_show_beat", TutorialCopyScript.Beat.UPGRADES_MENU_CLICK)
+		TutorialCopyScript.Beat.UPGRADES_MENU_CLICK:
+			_mark_upgrade_menu_seen()
 		TutorialCopyScript.Beat.KEEP_GOING:
 			_advance_progress(TutorialCopyScript.Beat.KEEP_GOING)
 			_complete_tutorial()
@@ -147,12 +195,26 @@ func _advance_progress(beat: int) -> void:
 		SaveManager.save_game()
 
 
+func _mark_upgrade_menu_seen() -> void:
+	if GameState.tutorial_upgrade_menu_seen:
+		return
+	GameState.tutorial_upgrade_menu_seen = true
+	# Interrupted range story before durable UPGRADES checkpoint: still arm keep-going.
+	if GameState.tutorial_progress < TutorialCopyScript.Beat.UPGRADES:
+		_advance_progress(TutorialCopyScript.Beat.UPGRADES)
+		_arm_keep_going_gate()
+	else:
+		SaveManager.save_game()
+
+
 func _complete_tutorial() -> void:
 	GameState.tutorial_completed = true
 	GameState.tutorial_progress = TutorialCopyScript.Beat.KEEP_GOING
+	GameState.tutorial_upgrade_menu_seen = true
 	_awaiting_first_swing = false
 	_awaiting_empty_bucket = false
 	_awaiting_harvest_enter = false
+	_awaiting_harvest_pick = false
 	_awaiting_harvest_return = false
 	_awaiting_keep_going = false
 	_upgrade_bought_for_tip = false
@@ -245,6 +307,53 @@ func _show_harvest_pick_if_needed() -> void:
 	_show_beat(TutorialCopyScript.Beat.HARVEST_PICK)
 
 
+func _on_ball_collected(_world_pos: Vector3, _combo: int) -> void:
+	## HARVEST_PICK / FIND_HINT wait for first successful pickup before advancing.
+	if GameState.tutorial_completed:
+		return
+	if not _awaiting_harvest_pick:
+		return
+	if (
+		_active_beat != TutorialCopyScript.Beat.HARVEST_PICK
+		and _active_beat != TutorialCopyScript.Beat.HARVEST_FIND_HINT
+	):
+		return
+	_awaiting_harvest_pick = false
+	if _box != null and _box.has_method("dismiss_for_event"):
+		_box.dismiss_for_event()
+
+
+func _on_box_nudge_requested() -> void:
+	## Space / Enter / tap-on-box while waiting for first pickup → soft SFX + find hint.
+	if GameState.tutorial_completed:
+		return
+	if not _awaiting_harvest_pick:
+		return
+	if (
+		_active_beat != TutorialCopyScript.Beat.HARVEST_PICK
+		and _active_beat != TutorialCopyScript.Beat.HARVEST_FIND_HINT
+	):
+		return
+	SfxManager.play_ui_error()
+	if _active_beat == TutorialCopyScript.Beat.HARVEST_FIND_HINT:
+		return
+	_show_harvest_find_hint()
+
+
+func _show_harvest_find_hint() -> void:
+	## Replace pick tip with find/zoom nudge; stay in wait-for-pickup (passthrough).
+	if GameState.tutorial_completed:
+		return
+	if not _awaiting_harvest_pick:
+		return
+	if _box == null:
+		return
+	_active_beat = TutorialCopyScript.Beat.HARVEST_FIND_HINT
+	var line: String = TutorialCopyScript.line_for(TutorialCopyScript.Beat.HARVEST_FIND_HINT)
+	var options := {"advance_on_input": false}
+	_box.show_thought(line, false, TutorialUiPreviews.Kind.NONE, options)
+
+
 func _show_upgrades_beat() -> void:
 	if GameState.tutorial_completed:
 		return
@@ -252,7 +361,18 @@ func _show_upgrades_beat() -> void:
 		return
 	if GameState.tutorial_progress >= TutorialCopyScript.Beat.UPGRADES:
 		return
-	_show_beat(TutorialCopyScript.Beat.UPGRADES)
+	_show_beat(TutorialCopyScript.Beat.UPGRADES_STUCK)
+
+
+func _maybe_show_upgrade_menu_intro() -> void:
+	if GameState.tutorial_completed:
+		return
+	if GameState.tutorial_upgrade_menu_seen:
+		return
+	var in_story := TutorialCopyScript.is_upgrades_story_beat(_active_beat)
+	if GameState.tutorial_progress < TutorialCopyScript.Beat.UPGRADES and not in_story:
+		return
+	_show_beat(TutorialCopyScript.Beat.UPGRADES_MENU_BROKE, "", true)
 
 
 func _arm_keep_going_gate() -> void:
@@ -274,11 +394,14 @@ func _on_upgrade_purchased(_id: String, _level: int, _branch: int) -> void:
 	if GameState.tutorial_progress < TutorialCopyScript.Beat.UPGRADES:
 		return
 	_upgrade_bought_for_tip = true
-	# Show only after upgrades panel closes (back on range).
+	# Show only after upgrades panel closes (back on the range).
 
 
 func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
-	if panel_id != "upgrades" or is_open:
+	if panel_id != "upgrades":
+		return
+	if is_open:
+		_maybe_show_upgrade_menu_intro()
 		return
 	if GameState.tutorial_completed:
 		return
@@ -308,10 +431,12 @@ func _has_any_play_upgrade() -> bool:
 
 
 func _is_upgrades_panel_open() -> bool:
-	var chrome := get_parent()
-	if chrome == null:
+	var ui_root := get_parent()
+	if ui_root == null:
 		return false
-	var panel := chrome.get_node_or_null("../UpgradePanel")
+	var panel := ui_root.get_node_or_null("UpgradePanel")
+	if panel == null:
+		panel = ui_root.get_node_or_null("../UpgradePanel")
 	if panel != null and panel.has_method("is_open"):
 		return bool(panel.is_open())
 	return false

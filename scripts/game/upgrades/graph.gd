@@ -27,8 +27,7 @@ static func _init_graph() -> void:
 
 	for def in UpgradeDefinitions.all():
 		_register_node(def, NAMESPACE_PLAYER)
-	# v7: shop ball/golden and crew namespaces hidden from Play graph.
-	# ShopDefinitions may be empty; Ratina/Rattling remain dormant off-graph.
+	# Shop empty; Ratina/Rattling remain dormant off-graph.
 
 
 static func _register_node(def: Dictionary, node_namespace: String) -> void:

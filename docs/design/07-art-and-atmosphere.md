@@ -149,9 +149,12 @@ Effects (1–3 seconds, then decay):
 
 ### Music
 
-- Single ambient track for v1
+- BGM starts as soon as the game loads (opening theme `main-theme`). Do not gate start on first click.
+- After the opening theme, play the daytime cycle in order, no shuffle: `sunrise` → `early-riser` → `midday` → `dusk` → `night` → `midnight` → `final`
+- When the playlist loops, skip an immediate repeat of the same track
 - Jackpot: 2–3s stinger overlay
 - No constant high-energy BGM
+- Web export: browsers may keep `AudioContext` suspended until a pointer/key; resume the already-started opening theme — do not wait to *choose* a track until that gesture
 
 ---
 

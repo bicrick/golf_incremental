@@ -2,21 +2,14 @@ class_name Balance
 extends RefCounted
 ## Tunable constants — single source for balance numbers.
 
-## v7 Prestige
-const SAVE_VERSION: int = 4  # was 3 — bump when prestige fields land
-const PRESTIGE_THRESHOLD_DEFAULT: float = 500.0
-## Whole cheese granted per prestige before Cheese Press / Ambition multipliers.
-const PRESTIGE_CHEESE_BASE: int = 3
-## Ambition level → cash threshold (index = ambition level; ×2 each step).
-const PRESTIGE_AMBITION_THRESHOLDS: Array[float] = [
-	500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0,
-]
+## Save schema version — bump when load migration is required.
+const SAVE_VERSION: int = 5
 
 const AUTOSAVE_INTERVAL_SEC: float = 30.0
 
 ## v2 Phase C — balls per strike burst before harvest.
 const BUCKET_CAPACITY_DEFAULT: int = 6
-## Pro Shop More Balls ceiling (default + max shop levels).
+## More Balls ceiling (default + max ball_count levels).
 const BUCKET_CAPACITY_MAX: int = 30
 
 ## v2 Phase D — pickup mini-game economy.

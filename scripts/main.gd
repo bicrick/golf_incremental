@@ -9,7 +9,7 @@ extends Node
 @onready var upgrade_panel: Control = $UI/UIRoot/UpgradePanel
 @onready var settings_panel: Control = $SettingsLayer/SettingsPanel
 @onready var pause_menu: Control = $SettingsLayer/PauseMenu
-@onready var tutorial_overlay: Control = $UI/UIRoot/GameplayChrome/TutorialOverlay
+@onready var tutorial_overlay: Control = $UI/UIRoot/TutorialOverlay
 
 var _build_view_active := false
 var _harvest_view_active := false
@@ -34,8 +34,9 @@ func _ready() -> void:
 	EventBus.phase_changed.connect(_on_phase_changed_view)
 	if title_screen.has_method(&"sync_atmosphere_from_range"):
 		title_screen.sync_atmosphere_from_range(range_view)
-	# Start title BGM immediately. Web autoplay may stay silent until the first
-	# pointer/key; SfxManager retries on that gesture without restarting.
+	# Opening theme starts in SfxManager._ready. Re-assert here so a late
+	# title-screen mount still has music. Web may stay silent until first
+	# pointer/key; resume handlers do not restart or reshuffle.
 	SfxManager.play_title_bgm()
 	call_deferred("_notify_portrait_layout")
 

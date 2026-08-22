@@ -47,7 +47,7 @@ Manual checks:
 - [ ] WASM load screen is black + Range Rat title wordmark (not the Godot robot or favicon golf ball)
 - [ ] When load completes, black fades out and clouds fade in; logo stays in place
 - [ ] Title screen (Range Rat) appears after WASM load
-- [ ] Title BGM tries to start on load; first click unlocks AudioContext if autoplay is blocked / advances into play
+- [ ] Opening theme (`main-theme`) starts on load, then daytime order; first click only unlocks AudioContext if the browser blocked autoplay (does not pick a new track)
 - [ ] BGM requests `audio/<track>.ogg` (Network tab) — not bundled in the PCK
 - [ ] Saves / settings persist in browser storage
 - [ ] Range 3D view and iso view both load

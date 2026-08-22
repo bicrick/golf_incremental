@@ -246,8 +246,8 @@ func discard_active_flights() -> void:
 	_ball_in_flight = false
 
 
-## After prestige ritual: strike camera, clear litter, ready tee.
-func prepare_after_prestige() -> void:
+## Reset camera / litter after a hard run wipe (settings wipe, etc.).
+func prepare_after_run_reset() -> void:
 	if GameState.is_harvest_phase():
 		GameState.exit_harvest_early()
 	EventBus.litter_cleared.emit()
