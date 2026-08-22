@@ -2,6 +2,8 @@ extends Node
 ## Global signal hub — scenes subscribe; game logic emits.
 
 signal swing_resolved(yards: float, timing_tier: int, payout: float, feedback_tier: int)
+## Lifetime farthest carry updated (player or Ratina). Harvest fog reveal follows this.
+signal max_carry_changed(yards: float)
 signal upgrade_purchased(id: String, level: int, branch: int)
 signal shop_item_purchased(id: String, level: int)
 signal stats_changed(stats: PlayerStats, currency: float)

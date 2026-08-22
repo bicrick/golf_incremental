@@ -43,6 +43,8 @@ var lifetime: Dictionary = {
 	"ratina_lifetime_earnings": 0.0,
 	"rattling_lifetime_earnings": 0.0,
 	"perfect_count": 0,
+	## Farthest single-shot carry (player or Ratina). Drives harvest fog reveal.
+	"max_carry_yards": 0.0,
 }
 
 
@@ -341,6 +343,7 @@ func reset_to_fresh() -> void:
 		"ratina_lifetime_earnings": 0.0,
 		"rattling_lifetime_earnings": 0.0,
 		"perfect_count": 0,
+		"max_carry_yards": 0.0,
 	}
 	tutorial_completed = false
 	tutorial_progress = 0
@@ -383,6 +386,40 @@ func is_collect_mode() -> bool:
 
 func is_harvest_complete() -> bool:
 	return current_phase == "harvest" and harvest_collected >= _harvest_target()
+
+
+func max_carry_yards() -> float:
+	return float(lifetime.get("max_carry_yards", 0.0))
+
+
+## Clear fairway depth for harvest fog — min pad plus one yard past best carry.
+func revealed_yards() -> float:
+	return maxf(
+		Balance.HARVEST_FOG_MIN_REVEAL_YARDS,
+		max_carry_yards() + Balance.HARVEST_FOG_BUFFER_YARDS
+	)
+
+
+## Record a resolved shot's carry. Emits only when the lifetime best grows.
+func record_carry(yards: float) -> void:
+	if yards <= 0.0:
+		return
+	var prev := max_carry_yards()
+	if yards <= prev:
+		return
+	lifetime["max_carry_yards"] = yards
+	EventBus.max_carry_changed.emit(yards)
+
+
+## Old saves lack max_carry_yards — seed from base_yards if the player already swung.
+func seed_max_carry_from_progress() -> void:
+	if lifetime.has("max_carry_yards"):
+		return
+	var swings := int(lifetime.get("total_swings", 0))
+	if swings > 0:
+		lifetime["max_carry_yards"] = float(stats.base_yards)
+	else:
+		lifetime["max_carry_yards"] = 0.0
 
 
 func consume_bucket_ball() -> bool:

@@ -76,6 +76,24 @@ static func apply_palette_uniforms(
 	mat.set_shader_parameter(&"fairway_dark", dark_color)
 
 
+static func apply_fog_uniforms(
+	mesh_instance: MeshInstance3D,
+	fog_amount: float,
+	tee_z: float,
+	reveal_yards: float,
+	fog_falloff_yards: float,
+	fog_color: Color
+) -> void:
+	if mesh_instance == null:
+		return
+	var mat := _get_shader_material(mesh_instance, make_fairway_material)
+	mat.set_shader_parameter(&"fog_amount", fog_amount)
+	mat.set_shader_parameter(&"tee_z", tee_z)
+	mat.set_shader_parameter(&"reveal_yards", reveal_yards)
+	mat.set_shader_parameter(&"fog_falloff_yards", fog_falloff_yards)
+	mat.set_shader_parameter(&"fog_color", fog_color)
+
+
 static func ensure_fairway_plane(
 	mesh_instance: MeshInstance3D,
 	x_min: float,

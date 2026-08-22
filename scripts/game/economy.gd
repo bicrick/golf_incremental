@@ -76,6 +76,19 @@ static func _apply_pickup_layer(shot_value: float, stats: PlayerStats) -> float:
 	return shot_value * stats.pickup_multiplier + stats.pickup_flat_bonus
 
 
+## Golden bird harvest click — always ≥ early floor, and ≥ N golden-equivalent balls.
+static func resolve_golden_bird_payout(stats: PlayerStats) -> float:
+	var floor_amt := Balance.GOLDEN_BIRD_BASE_REWARD * maxf(stats.pickup_multiplier, 1.0)
+	var yards := maxf(stats.base_yards, 0.0)
+	var ball := resolve_pickup_ball_payout(1, yards, 1, stats)
+	var scaled := (
+		ball
+		* Balance.GOLDEN_BIRD_BALL_EQUIVALENT
+		* maxf(stats.golden_ball_payout_multiplier, 1.0)
+	)
+	return maxf(floor_amt, scaled)
+
+
 ## Ball flight depth on the range fairway (0 at tee → 1.0 at VISUAL_MAX_YARDS).
 static func visual_depth_t(yards: float, _stats: PlayerStats) -> float:
 	var y := maxf(yards, 0.0)

@@ -16,3 +16,5 @@ Assets: assets/imported/rpg_ui_kit/
 Background music (assets/audio/music/):
 - early-riser, sunrise, midday, dusk, night, midnight, main-theme, final — playlist rotation
   (timing-named tracks; day/night cycle switching not wired yet)
+
+Bird flush SFX — see assets/audio/sfx/birds/CREDITS.txt (Mixkit + Freesound CC0).

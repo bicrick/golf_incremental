@@ -317,3 +317,4 @@ func load_game() -> void:
 	_load_tutorial_flags(parsed)
 	GameState.currency += _migrate_save(save_version)
 	GameState._recompute_stats()
+	GameState.seed_max_carry_from_progress()

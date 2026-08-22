@@ -60,6 +60,8 @@ stateDiagram-v2
 
 Crossfade 2–3s per layer `modulate`. See [02-world-and-range.md](02-world-and-range.md).
 
+**Harvest fog of war:** during ortho pickup only, a soft pearl/sage mist bank veils fairway past lifetime max carry (grass shader, not volumetric fog). Strike stays fully clear. See [v2/06-pickup-minigame.md](../v2/06-pickup-minigame.md).
+
 ---
 
 ## Parallax 2.5D art guidelines

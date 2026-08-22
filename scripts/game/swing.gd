@@ -87,6 +87,7 @@ func _resolve_swing(tier: int, timing_quality: float) -> void:
 
 	GameState.lifetime["total_swings"] = GameState.lifetime.get("total_swings", 0) + 1
 	GameState.lifetime["lifetime_yards"] = GameState.lifetime.get("lifetime_yards", 0.0) + yards
+	GameState.record_carry(yards)
 
 	var feedback := _feedback_for(tier)
 	EventBus.swing_resolved.emit(yards, tier, 0.0, feedback)

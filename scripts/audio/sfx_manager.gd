@@ -43,6 +43,7 @@ var _pool_index := 0
 var _streams: Dictionary = {}
 var _golf_hit_normal: Array[AudioStream] = []
 var _golf_hit_power: Array[AudioStream] = []
+var _bird_squawks: Array[AudioStream] = []
 var _ambient_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 var _music_tracks: Array[String] = []
@@ -66,6 +67,7 @@ func _ready() -> void:
 	_music_volume = SaveManager.music_volume
 	_build_streams()
 	_load_golf_hit_streams()
+	_load_bird_squawk_streams()
 	_build_pool()
 	if OS.has_feature("web"):
 		WebAudioUnlockScript.install()
@@ -308,6 +310,19 @@ func play_start() -> void:
 func play_pickup_plink(combo_tier: int) -> void:
 	var pitch := 1.0 + 0.08 * float(maxi(combo_tier, 1) - 1)
 	_play("pickup_plink", -6.0, pitch)
+
+
+func play_bird_squawk() -> void:
+	if _bird_squawks.is_empty():
+		return
+	var stream: AudioStream = _bird_squawks[randi() % _bird_squawks.size()]
+	_play_stream(stream, -5.0, randf_range(0.94, 1.08))
+
+
+func play_golden_bird_reward() -> void:
+	play_bird_squawk()
+	## Coin plink slightly bright so the jackpot read lands after the squawk.
+	_play("pickup_plink", -3.5, 1.18)
 
 
 func play_pickup_miss() -> void:
@@ -679,6 +694,18 @@ func _load_golf_hit_streams() -> void:
 			"SfxManager: golf hit pools empty (normal=%d power=%d) — SFX WAVs missing from export?"
 			% [_golf_hit_normal.size(), _golf_hit_power.size()]
 		)
+
+
+func _load_bird_squawk_streams() -> void:
+	_bird_squawks.clear()
+	for path in BirdSquawkSfx.paths():
+		var stream: AudioStream = load(path)
+		if stream == null:
+			push_warning("SfxManager: failed to load bird squawk at %s" % path)
+			continue
+		_bird_squawks.append(stream)
+	if _bird_squawks.is_empty():
+		push_warning("SfxManager: bird squawk pool empty")
 
 
 func _sfx_mix_rate() -> int:

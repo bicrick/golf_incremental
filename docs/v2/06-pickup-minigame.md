@@ -101,9 +101,27 @@ Add in v2.1 per [07-implementation-phases.md](07-implementation-phases.md).
 
 ## Range picker circle
 
-A **dashed ground ring** follows the mouse on the fairway alongside the range-picker OS cursor. The ring is offset so the cursor tip sits on its bottom rim (not the center). Pickup uses the same ground point as the ring center.
+A **dashed ground ring** follows the mouse on the fairway alongside the range-picker OS cursor. The ring is offset so the cursor tip sits on its bottom rim (not the center). Pickup uses the same ground point as the ring center. Over **fog-of-war** (cursor tip past the reveal line — 1 yd past furthest rest) or **off the grass**, the ring swaps to a tiny projected **X** at the tip.
+
+## Harvest fog of war
+
+While harvest view is ready (ortho pickup), the fairway past the player's **lifetime max carry** is veiled in a soft mist bank:
+
+| Rule | Value |
+|------|-------|
+| Reveal line | `max(18 yd, max_carry + 1 yd)` |
+| Tracked as | `GameState.lifetime.max_carry_yards` (player + Ratina shots) |
+| Look | Pearl/sage mist bank on the grass shader — not Godot volumetric fog |
+| Strike phase | Fully clear (no fog) |
+| Enter | Fog is already fully on when harvest appears (no green→mist fade-in) |
+| Max label | Quiet right-edge `N yd` (thin outline, low alpha); harvest-only; moves with new bests |
+| Markers | Yard signs fade through the bank instead of hard-hiding |
+| Birds | Ambient birds past the reveal line get the same cool mist modulate |
+
+Future loot / partners past the fog stay out of scope for now — the mist is the exploration teaser.
 
 ## Related docs
 
 - Core loop: [01-core-loop.md](01-core-loop.md)
 - Camera cluster: [02-ball-flight-and-camera.md](02-ball-flight-and-camera.md)
+- Atmosphere: [../design/07-art-and-atmosphere.md](../design/07-art-and-atmosphere.md)

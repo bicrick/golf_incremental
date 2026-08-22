@@ -19,6 +19,7 @@
 [ext_resource type="Texture2D" uid="uid://dgyr3ctrde6ht" path="res://assets/sprites/range/yardage_markers/200-transparent.png" id="15_marker_200"]
 [ext_resource type="Texture2D" uid="uid://bsbjyhhqhriei" path="res://assets/sprites/range/yardage_markers/250-transparent.png" id="16_marker_250"]
 [ext_resource type="Texture2D" uid="uid://bu8iq2k8c2336" path="res://assets/sprites/range/yardage_markers/300-transparent.png" id="17_marker_300"]
+[ext_resource type="Script" path="res://scripts/visual/range_bird_director.gd" id="18_birds"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_range"]
 sky_top_color = Color(0.506, 0.69, 0.8464, 1)
@@ -100,6 +101,9 @@ surface_material_override/0 = SubResource("ShaderMaterial_pel0d")
 [node name="Backdrop" type="Node3D" parent="." unique_id=1982736451]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28.652716, -8.073343, 19.6521)
 script = ExtResource("8_backdrop_node")
+
+[node name="AmbientBirds" type="Node3D" parent="."]
+script = ExtResource("18_birds")
 
 [node name="Foreground" type="Node3D" parent="." unique_id=475863636]
 
