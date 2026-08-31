@@ -40,7 +40,7 @@ stateDiagram-v2
 
 - Subtle color ramps in background layers (dither or extra ramp colors)
 - Limited palette per time-of-day phase
-- Small life: birds on sky layer, pollen motes, flag flutter on structure layer
+- Small life: birds on the fairway and high sky packs (mood-driven density, ball-landing flush), pollen motes, flag flutter on structure layer
 
 ### Placeholder art (v1)
 
@@ -59,6 +59,8 @@ stateDiagram-v2
 | Blue hour | Deep blue | Dark green | Range lamps | Warm lamp pools |
 
 Crossfade 2–3s per layer `modulate`. See [02-world-and-range.md](02-world-and-range.md).
+
+**Harvest fog of war:** during ortho pickup only, a soft pearl/sage mist bank veils fairway past lifetime max carry (grass shader, not volumetric fog). Strike stays fully clear. See [v2/06-pickup-minigame.md](../v2/06-pickup-minigame.md).
 
 ---
 
@@ -134,7 +136,7 @@ Effects (1–3 seconds, then decay):
 
 ### Ambient loop (always)
 
-- Wind, distant birds, soft pastoral bed
+- Wind, distant birds (fairway perch + high flyover packs), soft pastoral bed
 - Optional: light piano or acoustic guitar
 - `AudioStreamPlayer` loop, low volume
 
@@ -149,9 +151,12 @@ Effects (1–3 seconds, then decay):
 
 ### Music
 
-- Single ambient track for v1
+- BGM starts as soon as the game loads (opening theme `main-theme`). Do not gate start on first click.
+- After the opening theme, play the daytime cycle in order, no shuffle: `sunrise` → `early-riser` → `midday` → `dusk` → `night` → `midnight` → `final`
+- When the playlist loops, skip an immediate repeat of the same track
 - Jackpot: 2–3s stinger overlay
 - No constant high-energy BGM
+- Web export: browsers may keep `AudioContext` suspended until a pointer/key; resume the already-started opening theme — do not wait to *choose* a track until that gesture
 
 ---
 

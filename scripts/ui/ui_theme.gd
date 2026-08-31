@@ -34,7 +34,7 @@ const COLOR_PANEL_TEXT := Color(0.22, 0.48, 0.28, 1.0)
 const COLOR_PANEL_TEXT_OUTLINE := Color(0.98, 0.96, 0.88, 1.0)
 ## Readable on cream headers / bright sky (not yellow-on-cream).
 const COLOR_TITLE := Color(0.18, 0.42, 0.24, 1.0)
-## Gold accent only on dark backdrops (pause / prestige celebrate).
+## Gold accent only on dark backdrops (pause menu).
 const COLOR_TITLE_ON_DARK := Color(1.0, 0.90, 0.38, 1.0)
 const COLOR_LABEL := Color(0.14, 0.28, 0.16, 1.0)
 const COLOR_LABEL_OUTLINE := Color(0.98, 0.96, 0.88, 1.0)

@@ -1,6 +1,8 @@
 # Golf Incremental — v7 Design
 
-**Design source of truth for prestige / cheese.** Strike → harvest → cash upgrades stay the core loop. v7 adds an early prestige at **$500 on hand**, a **cheese** currency, and a **separate Prestige tab** in the upgrade menu with OP perks. Landlord days, dual shop restructure, and field consumables are **out of scope** (parked for a later version).
+> **Superseded.** Prestige / cheese was removed. Former cheese OP perks (Quick Reset, Combo, More Balls, Golden Balls, Perfect Chain) now live as **late, expensive cash-tree nodes**. See [v2/04-upgrade-tree.md](../v2/04-upgrade-tree.md). This folder is kept as historical design notes only.
+
+**Historical design source of truth for prestige / cheese.** Strike → harvest → cash upgrades stay the core loop. v7 added an early prestige at **$500 on hand**, a **cheese** currency, and a **separate Prestige tab** in the upgrade menu with OP perks. Landlord days, dual shop restructure, and field consumables are **out of scope** (parked for a later version).
 
 ## One-liner
 

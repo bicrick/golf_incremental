@@ -49,16 +49,13 @@ func save_game() -> void:
 		"shop_levels": GameState.shop_levels.duplicate(),
 		"ratina_upgrade_levels": GameState.ratina_upgrade_levels.duplicate(),
 		"rattling_upgrade_levels": GameState.rattling_upgrade_levels.duplicate(),
-		"cheese": GameState.cheese,
-		"prestige_count": GameState.prestige_count,
-		"prestige_threshold": GameState.prestige_threshold,
-		"prestige_levels": GameState.prestige_levels.duplicate(),
 		"lifetime": GameState.lifetime.duplicate(),
 		"bucket_remaining": GameState.bucket_remaining,
 		"bucket_capacity": GameState.bucket_capacity,
 		"tutorial_completed": GameState.tutorial_completed,
 		"tutorial_progress": GameState.tutorial_progress,
-		"tutorial_version": 3,
+		"tutorial_upgrade_menu_seen": GameState.tutorial_upgrade_menu_seen,
+		"tutorial_version": 4,
 		"last_save_time": Time.get_unix_time_from_system() * 1000,
 	}
 	var json := JSON.stringify(data)
@@ -214,23 +211,29 @@ func _migrate_save(from_version: int) -> float:
 	if from_version < 3:
 		refund += _migrate_distance_pays_prune()
 	if from_version < 4:
-		_migrate_v7_strip_play_op()
+		# Historical v7 strip — no longer erases quick_reset / combo_bonus.
+		GameState.upgrade_levels.erase("ratina_hire")
+		GameState.shop_levels.erase("ball_count")
+		GameState.shop_levels.erase("golden_ball")
+	if from_version < 5:
+		_migrate_v5_drop_prestige()
 	return refund
 
 
-func _migrate_v7_strip_play_op() -> void:
-	for stale_id in ["quick_reset", "combo_bonus", "ratina_hire"]:
-		GameState.upgrade_levels.erase(stale_id)
+## Prestige removed: drop cheese tree keys; move shop capacity/golden onto play levels if present.
+func _migrate_v5_drop_prestige() -> void:
 	GameState.shop_levels.erase("ball_count")
 	GameState.shop_levels.erase("golden_ball")
-
+	GameState.upgrade_levels.erase("ratina_hire")
+	# Ignore legacy prestige_* / cheese_press / ambition — they are not play ids.
 
 ## Old saves without tutorial keys: skip intro if the player already swung.
 ## Pre-expanded tutorial used progress 0–4; remap onto durable checkpoints.
 ## v3 adds KEEP_GOING after first upgrade purchase + panel close.
+## v4 adds first-visit upgrade-menu dialogue (tutorial_upgrade_menu_seen).
 func _load_tutorial_flags(parsed: Dictionary) -> void:
 	const FINAL_BEAT := 10 # TutorialCopy.Beat.KEEP_GOING
-	const CURRENT_TUTORIAL_VERSION := 3
+	const CURRENT_TUTORIAL_VERSION := 4
 	if parsed.has("tutorial_completed"):
 		GameState.tutorial_completed = bool(parsed.get("tutorial_completed", false))
 		GameState.tutorial_progress = int(parsed.get("tutorial_progress", 0))
@@ -243,16 +246,24 @@ func _load_tutorial_flags(parsed: Dictionary) -> void:
 		# progress==9 without completed stay there and arm the keep-going gate.
 		if GameState.tutorial_completed:
 			GameState.tutorial_progress = maxi(GameState.tutorial_progress, FINAL_BEAT)
+			GameState.tutorial_upgrade_menu_seen = true
 		elif ver < CURRENT_TUTORIAL_VERSION and GameState.tutorial_progress > FINAL_BEAT:
 			GameState.tutorial_progress = FINAL_BEAT
+		# Completed players skip menu intro; incomplete mid-saves keep/default the flag.
+		if not GameState.tutorial_completed:
+			GameState.tutorial_upgrade_menu_seen = bool(
+				parsed.get("tutorial_upgrade_menu_seen", false)
+			)
 		return
 	var swings: int = int(GameState.lifetime.get("total_swings", 0))
 	if swings > 0:
 		GameState.tutorial_completed = true
 		GameState.tutorial_progress = FINAL_BEAT
+		GameState.tutorial_upgrade_menu_seen = true
 	else:
 		GameState.tutorial_completed = false
 		GameState.tutorial_progress = 0
+		GameState.tutorial_upgrade_menu_seen = false
 
 
 func _remap_legacy_tutorial_progress(progress: int) -> int:
@@ -297,12 +308,7 @@ func load_game() -> void:
 	GameState.shop_levels = parsed.get("shop_levels", {})
 	GameState.ratina_upgrade_levels = parsed.get("ratina_upgrade_levels", {})
 	GameState.rattling_upgrade_levels = parsed.get("rattling_upgrade_levels", {})
-	GameState.cheese = int(floor(float(parsed.get("cheese", 0))))
-	GameState.prestige_count = int(parsed.get("prestige_count", 0))
-	GameState.prestige_levels = parsed.get("prestige_levels", {}).duplicate()
-	if typeof(GameState.prestige_levels) != TYPE_DICTIONARY:
-		GameState.prestige_levels = {}
-	# threshold recomputed in _recompute_stats via Ambition
+	# Prestige fields (cheese, prestige_*) ignored — stripped in v5 migration.
 	GameState.currency += _refund_removed_rattling_payout()
 	GameState.lifetime = parsed.get("lifetime", GameState.lifetime)
 	GameState.bucket_capacity = int(parsed.get("bucket_capacity", Balance.BUCKET_CAPACITY_DEFAULT))
@@ -311,3 +317,4 @@ func load_game() -> void:
 	_load_tutorial_flags(parsed)
 	GameState.currency += _migrate_save(save_version)
 	GameState._recompute_stats()
+	GameState.seed_max_carry_from_progress()

@@ -425,6 +425,7 @@ func _launch_ball() -> void:
 	var strike_quality: float = Balance.TIER_MULTS[tier]
 	var quality := Economy.quality_for_tier(tier)
 	var yards := Economy.yards_from_quality(strike_quality, GameState.ratina_stats)
+	GameState.record_carry(yards)
 	EventBus.ratina_swing_resolved.emit(yards, tier, 0.0)
 	SfxManager.play_ratina_hit(tier)
 

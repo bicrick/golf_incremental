@@ -15,6 +15,7 @@ const PLATE_CAPTURE_OUTPUT := "res://captures/range_bg.png"
 
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
 const RangePickerIndicatorScript := preload("res://scripts/range/range_picker_indicator.gd")
+const HarvestFogScript := preload("res://scripts/range/harvest_fog.gd")
 const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
 const RattlingControllerScript := preload("res://scripts/range/rattling_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
@@ -57,6 +58,7 @@ const RangeSkyStarsScript := preload("res://scripts/visual/range_sky_stars.gd")
 @onready var strike_feedback_anchor: Marker3D = $StrikeFeedbackAnchor
 @onready var _camera_controller: RangeCameraController = $CameraController
 @onready var _view_mode_controller: ViewModeController = $ViewModeController
+@onready var ambient_birds: Node3D = get_node_or_null("AmbientBirds")
 
 ## Editor-only debug hook: with the game running, select RangeView in the
 ## Remote scene tree and tick this checkbox in the Inspector to force-unlock
@@ -86,6 +88,7 @@ var _tee_ball_prepared: bool = false
 var _ball_lay_texture: Texture2D
 var _pickup: Node
 var _picker_indicator: Node3D
+var _harvest_fog # HarvestFog
 var _next_litter_id: int = 1
 var _suppress_litter_bus := false
 var _ratina: Node
@@ -153,6 +156,7 @@ func _ready() -> void:
 	_setup_player_refs()
 	_camera_controller.setup(camera)
 	_setup_view_mode_controller()
+	_setup_harvest_fog()
 	_setup_strike_feedback_billboard()
 	apply_viewport_aspect()
 
@@ -246,8 +250,8 @@ func discard_active_flights() -> void:
 	_ball_in_flight = false
 
 
-## After prestige ritual: strike camera, clear litter, ready tee.
-func prepare_after_prestige() -> void:
+## Reset camera / litter after a hard run wipe (settings wipe, etc.).
+func prepare_after_run_reset() -> void:
 	if GameState.is_harvest_phase():
 		GameState.exit_harvest_early()
 	EventBus.litter_cleared.emit()
@@ -272,6 +276,25 @@ func _setup_view_mode_controller() -> void:
 			_view_mode_controller.bind_transition(transition)
 	_view_mode_controller.view_mode_changed.connect(_on_view_mode_changed)
 	EventBus.phase_changed.connect(_view_mode_controller.on_phase_changed)
+
+
+func _setup_harvest_fog() -> void:
+	_harvest_fog = HarvestFogScript.new()
+	# Must match BallFlight3D origin (world tee), not bay-local ball home.z.
+	var tee_world_z := RangeGrid.player_bay_origin().z
+	if player_bay != null:
+		tee_world_z = player_bay.to_global(_ball_home).z
+	_harvest_fog.setup(
+		ground,
+		yardage_markers,
+		_view_mode_controller,
+		tee_world_z,
+		foreground,
+		ambient_birds as RangeBirdDirector
+	)
+	_harvest_fog.set_atmosphere_tint(_sprite_atmosphere_tint)
+	if _view_mode_controller:
+		_harvest_fog.on_view_mode_changed(_view_mode_controller.get_mode())
 
 
 func get_fx_reference_ortho_size() -> float:
@@ -511,6 +534,8 @@ func _update_backdrop_visibility(mode: ViewModeController.Mode) -> void:
 
 func _on_view_mode_changed(mode: ViewModeController.Mode) -> void:
 	_update_backdrop_visibility(mode)
+	if _harvest_fog:
+		_harvest_fog.on_view_mode_changed(mode)
 	var flight_cam := get_flight_camera()
 	if _ratina != null and _ratina.has_method("set_flight_camera"):
 		_ratina.set_flight_camera(flight_cam)
@@ -608,6 +633,9 @@ func apply_atmosphere(cycle_time: float) -> void:
 		RangeBackdrop.apply_palette_tints(_backdrop_mesh, backdrop_tint, backdrop_tint)
 	_apply_divider_brightness(day_factor)
 	_apply_sprite_atmosphere_tint()
+	if _harvest_fog:
+		_harvest_fog.set_fog_color(DayNightPalette.harvest_fog_color(day_factor))
+		_harvest_fog.set_atmosphere_tint(_sprite_atmosphere_tint)
 	EventBus.atmosphere_tint_changed.emit(_sprite_atmosphere_tint)
 
 
@@ -753,7 +781,8 @@ func _apply_sprite_atmosphere_tint() -> void:
 					child.modulate = Balance.GOLDEN_BALL_TINT
 				else:
 					child.modulate = _sprite_atmosphere_tint
-	if yardage_markers:
+	# Yardage markers: HarvestFog owns modulate when active (fog fade + atmosphere).
+	if yardage_markers and _harvest_fog == null:
 		for child in yardage_markers.get_children():
 			if child is SpriteBase3D:
 				(child as SpriteBase3D).modulate = _sprite_atmosphere_tint
@@ -761,6 +790,8 @@ func _apply_sprite_atmosphere_tint() -> void:
 		_ratina.apply_atmosphere_tint(_sprite_atmosphere_tint)
 	if _rattling_controller and _rattling_controller.has_method("apply_atmosphere_tint"):
 		_rattling_controller.apply_atmosphere_tint(_sprite_atmosphere_tint)
+	if ambient_birds and ambient_birds.has_method("apply_atmosphere_tint"):
+		ambient_birds.apply_atmosphere_tint(_sprite_atmosphere_tint)
 
 
 func _process(delta: float) -> void:
@@ -773,6 +804,8 @@ func _process(delta: float) -> void:
 	_swing.update(delta)
 	_update_ball_reload()
 	_update_charge_visuals()
+	if _harvest_fog:
+		_harvest_fog.update(delta)
 
 
 func _input(event: InputEvent) -> void:
@@ -872,11 +905,39 @@ func _handle_harvest_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			GameState.exit_harvest_early()
 		return
+	if _try_harvest_bird_click(event):
+		if _camera_controller and _camera_controller.has_method(&"cancel_pending_pan"):
+			_camera_controller.cancel_pending_pan()
+		get_viewport().set_input_as_handled()
+		return
 	if _pickup and _pickup.handle_input(event):
 		if _camera_controller and _camera_controller.has_method(&"cancel_pending_pan"):
 			_camera_controller.cancel_pending_pan()
 		get_viewport().set_input_as_handled()
 		return
+
+
+func _try_harvest_bird_click(event: InputEvent) -> bool:
+	if ambient_birds == null or not ambient_birds.has_method("try_harvest_click"):
+		return false
+	if not GameState.is_collect_mode():
+		return false
+	if not is_harvest_view_ready():
+		return false
+	var screen := Vector2.ZERO
+	if event is InputEventMouseButton:
+		var click := event as InputEventMouseButton
+		if click.button_index != MOUSE_BUTTON_LEFT or not click.pressed:
+			return false
+		screen = click.position
+	elif event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if not touch.pressed:
+			return false
+		screen = touch.position
+	else:
+		return false
+	return ambient_birds.try_harvest_click(screen)
 
 
 ## Hitting mode: Space swings when the bucket has balls. Desktop left-click
@@ -1284,6 +1345,7 @@ func show_vanished_ball_fx(
 	if payout > 0.0 and source != "ratina":
 		EventBus.pickup_payout.emit(payout, 1)
 	SfxManager.play_pickup_plink(1)
+	EventBus.fairway_impact.emit(landing)
 	_fly_vanished_ball_to_bucket(landing)
 
 
@@ -1393,7 +1455,15 @@ func _setup_range_picker_indicator() -> void:
 	foreground.add_child(_picker_indicator)
 	_picker_indicator.setup(
 		func() -> Camera3D: return get_flight_camera(),
-		func() -> bool: return _pickup != null and _pickup.is_active()
+		func() -> bool: return _pickup != null and _pickup.is_active(),
+		func() -> Dictionary:
+			if _harvest_fog == null or _harvest_fog.fog_amount() <= 0.001:
+				return {"active": false, "tee_z": 0.0, "reveal_yards": 0.0}
+			return {
+				"active": true,
+				"tee_z": _harvest_fog.tee_z(),
+				"reveal_yards": _harvest_fog.displayed_reveal_yards(),
+			}
 	)
 
 
@@ -1483,6 +1553,8 @@ func leave_litter_ball(
 	is_golden: bool = false,
 	source: String = "player"
 ) -> void:
+	# Fog / blocked-cursor line tracks furthest rest, not carry alone (bounces run past).
+	_record_rest_reach(land_position)
 	var litter_id := _next_litter_id
 	_next_litter_id += 1
 	var litter := Sprite3D.new()
@@ -1501,6 +1573,20 @@ func leave_litter_ball(
 	EventBus.litter_spawned.emit(
 		litter_id, land_position, quality, yardage, is_golden, source
 	)
+	EventBus.fairway_impact.emit(land_position)
+
+
+func _tee_world_z() -> float:
+	if _harvest_fog != null:
+		return _harvest_fog.tee_z()
+	if player_bay != null:
+		return player_bay.to_global(_ball_home).z
+	return RangeGrid.player_bay_origin().z
+
+
+func _record_rest_reach(land_position: Vector3) -> void:
+	var reach := -(land_position.z - _tee_world_z())
+	GameState.record_carry(reach)
 
 
 func _on_bus_litter_removed(litter_id: int) -> void:

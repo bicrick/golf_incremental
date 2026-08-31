@@ -9,9 +9,9 @@ const SWING_SHEET := BASE + "/range-rat-swing-sheet.png"
 const RETURN_SHEET := BASE + "/return-to-address.png"
 
 const FRAME_SIZE := 52
-const IDLE_COLS := 3
-const IDLE_FRAME_COUNT := 5
-const IDLE_FPS := 2.5
+const IDLE_COLS := 5
+const IDLE_FRAME_COUNT := 17
+const IDLE_FPS := 6.0
 const IDLE_OUT_OF_BALLS_COLS := 5
 const IDLE_OUT_OF_BALLS_FRAME_COUNT := 17
 const IDLE_OUT_OF_BALLS_FPS := 6.0

@@ -6,12 +6,12 @@ extends RefCounted
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 
 const NODE_SIZE := 44.0
-const RING_SPACING := 96.0
+const RING_SPACING := 108.0
 const MIN_NODE_DISTANCE := 68.0
-const RELAX_ITERATIONS := 150
-const SEPARATION_ITERATIONS := 30
-const POST_FIT_SEPARATION_ITERATIONS := 20
-const REPULSION_STRENGTH := 1800.0
+const RELAX_ITERATIONS := 180
+const SEPARATION_ITERATIONS := 48
+const POST_FIT_SEPARATION_ITERATIONS := 36
+const REPULSION_STRENGTH := 2200.0
 const SPRING_STRENGTH := 0.08
 const CENTER_PULL := 0.002
 const DAMPING := 0.85
@@ -21,6 +21,8 @@ const TARGET_ASPECT := 16.0 / 9.0
 const PORTRAIT_ASPECT := 9.0 / 16.0
 const ASPECT_SOFT_STRENGTH := 0.04
 const ASPECT_TOLERANCE := 0.08
+## Floating-point slack so exact MIN_NODE_DISTANCE after separation still passes.
+const MIN_DISTANCE_EPSILON := 0.05
 
 ## When true, settle into a tall 9:16 band (mobile portrait panels).
 static var use_portrait_aspect := false

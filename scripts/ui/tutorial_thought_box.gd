@@ -2,6 +2,9 @@ extends Control
 ## Pokémon-style dialogue box — typewriter text, blips, continue caret.
 
 signal dismissed
+## Emitted when the player tries to advance while waiting for a gameplay event
+## (advance_on_input false, typing finished). Controller may show a nudge tip.
+signal nudge_requested
 
 const CHAR_INTERVAL_SEC := 0.032
 const BLIP_EVERY_N_CHARS := 1
@@ -12,11 +15,12 @@ const BOX_WIDTH := 360.0
 const BOX_MIN_HEIGHT := 78.0
 const PORTRAIT_SIZE := 44
 const FONT_SIZE := 7
-const IDLE_360_PATH := "res://assets/sprites/range_rat/360-idle-rat.png"
-const IDLE_360_FRAME := 52
-const IDLE_360_COLS := 3
-const IDLE_360_FRAMES := 8
-const IDLE_360_FPS := 6.0
+## Speaking sheet: 156×156, 52px cells, 3×3 grid, 7 occupied (row-major; skip 2 empty).
+const SPEAKING_PATH := "res://assets/sprites/range_rat/rat-speaking-sheet.png"
+const SPEAKING_FRAME := 52
+const SPEAKING_COLS := 3
+const SPEAKING_FRAMES := 7
+const SPEAKING_FPS := 8.0
 const FOOTER_HEIGHT := 12.0
 
 
@@ -42,9 +46,11 @@ var _slide_tween: Tween
 var _portrait_frames: Array[AtlasTexture] = []
 var _portrait_frame_i := 0
 var _portrait_anim_timer := 0.0
-var _portrait_dir := 1
 var _dismissing := false
 var _preview_kind: int = TutorialUiPreviews.Kind.NONE
+## When false: overlay ignores mouse so world (harvest pickup) receives clicks;
+## Space/tap only finish typewriter — dismiss requires dismiss_for_event().
+var _advance_on_input := true
 
 
 func _ready() -> void:
@@ -63,21 +69,27 @@ func is_typing() -> bool:
 	return _typing
 
 
+## True while open in normal click-to-advance mode (blocks range input).
+func blocks_world_input() -> bool:
+	return _open and _advance_on_input
+
+
 func show_thought(
 	text: String,
 	_allow_skip: bool = false,
-	preview_kind: int = TutorialUiPreviews.Kind.NONE
+	preview_kind: int = TutorialUiPreviews.Kind.NONE,
+	options: Dictionary = {}
 ) -> void:
 	if _slide_tween != null and _slide_tween.is_valid():
 		_slide_tween.kill()
 	_dismissing = false
+	_advance_on_input = bool(options.get("advance_on_input", true))
 	_full_text = text
 	_char_index = 0
 	_char_timer = 0.0
 	_typing = true
 	_open = true
 	_portrait_frame_i = 0
-	_portrait_dir = 1
 	_portrait_anim_timer = 0.0
 	if not _portrait_frames.is_empty():
 		_portrait.texture = _portrait_frames[0]
@@ -87,7 +99,7 @@ func show_thought(
 	_set_footer_pulse(false)
 	_set_preview(preview_kind)
 	_sync_continue_hint()
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	_apply_input_filters()
 	visible = true
 	_layout_box()
 	_play_slide_in()
@@ -99,28 +111,53 @@ func hide_thought() -> void:
 	_typing = false
 	_open = false
 	_dismissing = false
+	_advance_on_input = true
 	_clear_preview()
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _panel != null:
+		_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_process(false)
 	set_process_unhandled_input(false)
 	if _slide_tween != null and _slide_tween.is_valid():
 		_slide_tween.kill()
 
 
+## Programmatic dismiss while waiting for a gameplay event (e.g. first pickup).
+func dismiss_for_event() -> void:
+	if not _open or _dismissing:
+		return
+	if _typing:
+		_finish_typing_visuals()
+	_play_slide_out_then_dismiss()
+
+
+func _apply_input_filters() -> void:
+	if _advance_on_input:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		if _panel != null:
+			_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	else:
+		# Root passthrough so harvest / fairway clicks reach PickupController.
+		# Panel still catches taps on the dialogue (mobile nudge / Space-equivalent).
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if _panel != null:
+			_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
 func _build_portrait_frames() -> void:
 	_portrait_frames.clear()
-	var sheet: Texture2D = load(IDLE_360_PATH)
+	var sheet: Texture2D = load(SPEAKING_PATH)
 	if sheet == null:
 		return
-	for i in IDLE_360_FRAMES:
+	for i in SPEAKING_FRAMES:
 		var atlas := AtlasTexture.new()
 		atlas.atlas = sheet
 		atlas.region = Rect2i(
-			(i % IDLE_360_COLS) * IDLE_360_FRAME,
-			(i / IDLE_360_COLS) * IDLE_360_FRAME,
-			IDLE_360_FRAME,
-			IDLE_360_FRAME
+			(i % SPEAKING_COLS) * SPEAKING_FRAME,
+			(i / SPEAKING_COLS) * SPEAKING_FRAME,
+			SPEAKING_FRAME,
+			SPEAKING_FRAME
 		)
 		_portrait_frames.append(atlas)
 
@@ -299,9 +336,12 @@ func _play_slide_out_then_dismiss() -> void:
 func _finish_slide_out_dismiss() -> void:
 	_open = false
 	_dismissing = false
+	_advance_on_input = true
 	_clear_preview()
 	visible = false
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if _panel != null:
+		_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_process(false)
 	set_process_unhandled_input(false)
 	dismissed.emit()
@@ -327,23 +367,17 @@ func _process(delta: float) -> void:
 
 
 func _tick_portrait(delta: float) -> void:
-	## Ping-pong frames 0→7→0 (skip empty 9th cell — only 8 frames loaded).
+	## Loop expressive speaking frames while the dialogue box is open.
 	if _portrait_frames.is_empty():
 		return
-	var last_i := _portrait_frames.size() - 1
-	if last_i <= 0:
+	var count := _portrait_frames.size()
+	if count <= 1:
 		return
 	_portrait_anim_timer += delta
-	var frame_sec := 1.0 / IDLE_360_FPS
+	var frame_sec := 1.0 / SPEAKING_FPS
 	while _portrait_anim_timer >= frame_sec:
 		_portrait_anim_timer -= frame_sec
-		_portrait_frame_i += _portrait_dir
-		if _portrait_frame_i >= last_i:
-			_portrait_frame_i = last_i
-			_portrait_dir = -1
-		elif _portrait_frame_i <= 0:
-			_portrait_frame_i = 0
-			_portrait_dir = 1
+		_portrait_frame_i = (_portrait_frame_i + 1) % count
 		_portrait.texture = _portrait_frames[_portrait_frame_i]
 
 
@@ -369,8 +403,12 @@ func _finish_typing_visuals() -> void:
 	_body.visible_characters = -1
 	_typing = false
 	_caret_timer = 0.0
-	_sync_continue_hint()
-	_set_footer_pulse(true)
+	if _advance_on_input:
+		_sync_continue_hint()
+		_set_footer_pulse(true)
+	else:
+		# Wait-for-event: no continue caret — player must pick up a ball.
+		_set_footer_pulse(false)
 	_layout_box()
 
 
@@ -386,6 +424,9 @@ func _request_advance() -> void:
 		return
 	if _typing:
 		_complete_typing()
+		return
+	if not _advance_on_input:
+		nudge_requested.emit()
 		return
 	_play_slide_out_then_dismiss()
 

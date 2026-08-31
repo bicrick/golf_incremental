@@ -13,6 +13,8 @@ enum Kind {
 }
 
 const ICON_SIZE := Vector2i(24, 24)
+## PixelUpArrow draws on GRID*PIXEL (11×2) — must stay 22×22, centered in ICON_SIZE.
+const ARROW_GLYPH_SIZE := Vector2i(22, 22)
 const WRAP_MARGIN_H := 2
 const WRAP_MARGIN_V := 1
 const BALL_ICON_SIZE := Vector2(16, 16)
@@ -31,7 +33,9 @@ static func build(kind: int) -> Control:
 
 
 static func make_upgrades_preview() -> Control:
-	## Matches IconBar UpgradesWrap: cream plate + up-arrow glyph.
+	## Matches IconBar UpgradesWrap: cream plate + Button slot + centered up-arrow.
+	## Glyph must be ARROW_GLYPH_SIZE (not ICON_SIZE): PixelUpArrow draws for 22×22;
+	## stretching to 24×24 leaves empty space on the right/bottom (looks left-shifted).
 	var wrap := PanelContainer.new()
 	wrap.name = "UpgradesPreview"
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -43,12 +47,25 @@ static func make_upgrades_preview() -> Control:
 	style.content_margin_bottom = WRAP_MARGIN_V
 	wrap.add_theme_stylebox_override(&"panel", style)
 
+	# Slot matches UpgradesButton (24×24); glyph centered like icon_bar.tscn.
+	var slot := Control.new()
+	slot.name = "Slot"
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.custom_minimum_size = Vector2(ICON_SIZE)
+	wrap.add_child(slot)
+
 	var glyph: Control = PixelUpArrowScript.new()
 	glyph.name = "Glyph"
 	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	glyph.custom_minimum_size = Vector2(ICON_SIZE)
-	glyph.size = Vector2(ICON_SIZE)
-	wrap.add_child(glyph)
+	glyph.custom_minimum_size = Vector2(ARROW_GLYPH_SIZE)
+	glyph.size = Vector2(ARROW_GLYPH_SIZE)
+	var half := float(ARROW_GLYPH_SIZE.x) * 0.5
+	glyph.set_anchors_preset(Control.PRESET_CENTER)
+	glyph.offset_left = -half
+	glyph.offset_top = -half
+	glyph.offset_right = half
+	glyph.offset_bottom = half
+	slot.add_child(glyph)
 	return wrap
 
 

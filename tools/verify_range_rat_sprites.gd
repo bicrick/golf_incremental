@@ -31,8 +31,11 @@ func _test_constants() -> bool:
 	if RangeRat.SWING_FRAME_COUNT != 17:
 		print("FAIL: SWING_FRAME_COUNT expected 17, got %d" % RangeRat.SWING_FRAME_COUNT)
 		ok = false
-	if RangeRat.IDLE_FRAME_COUNT != 5:
-		print("FAIL: IDLE_FRAME_COUNT expected 5, got %d" % RangeRat.IDLE_FRAME_COUNT)
+	if RangeRat.IDLE_FRAME_COUNT != 17:
+		print("FAIL: IDLE_FRAME_COUNT expected 17, got %d" % RangeRat.IDLE_FRAME_COUNT)
+		ok = false
+	if RangeRat.IDLE_COLS != 5:
+		print("FAIL: IDLE_COLS expected 5, got %d" % RangeRat.IDLE_COLS)
 		ok = false
 	if RangeRat.IDLE_OUT_OF_BALLS_FRAME_COUNT != 17:
 		print(
@@ -53,8 +56,8 @@ func _test_frame_regions() -> bool:
 		print("FAIL: contact region expected Rect2i(156, 52, 52, 52), got %s" % contact)
 		ok = false
 	var idle_last := RangeRat.frame_region(RangeRat.IDLE_COLS, RangeRat.IDLE_FRAME_COUNT - 1)
-	if idle_last != Rect2i(52, 52, 52, 52):
-		print("FAIL: idle frame 5 region expected Rect2i(52, 52, 52, 52), got %s" % idle_last)
+	if idle_last != Rect2i(52, 156, 52, 52):
+		print("FAIL: idle frame 17 region expected Rect2i(52, 156, 52, 52), got %s" % idle_last)
 		ok = false
 	var oob_last := RangeRat.frame_region(
 		RangeRat.IDLE_OUT_OF_BALLS_COLS, RangeRat.IDLE_OUT_OF_BALLS_FRAME_COUNT - 1
@@ -76,6 +79,12 @@ func _test_sprite_frames() -> bool:
 		ok = false
 	if not frames.get_animation_loop(&"idle"):
 		print("FAIL: idle animation should loop")
+		ok = false
+	if frames.get_animation_speed(&"idle") != RangeRat.IDLE_FPS:
+		print(
+			"FAIL: idle speed expected %.1f, got %.1f"
+			% [RangeRat.IDLE_FPS, frames.get_animation_speed(&"idle")]
+		)
 		ok = false
 	if frames.get_frame_count(&"idle_out_of_balls") != RangeRat.IDLE_OUT_OF_BALLS_FRAME_COUNT:
 		print(

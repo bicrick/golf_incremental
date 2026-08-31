@@ -7,10 +7,48 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	var save_manager: Node = root.get_node_or_null("SaveManager")
+	var autoload: Node = root.get_node_or_null("SfxManager")
+	var settings_music_on := save_manager != null and bool(save_manager.music_enabled)
+	if autoload != null and settings_music_on:
+		await process_frame
+		if not autoload.is_music_playing():
+			print("FAIL: autoload SfxManager should start BGM on load")
+			quit(1)
+			return
+		if MusicTrackRhythm.track_basename(autoload.get_current_music_track_path()) != MusicPlaylist.OPENING_THEME:
+			print(
+				"FAIL: autoload BGM should be %s on load, got "
+				% MusicPlaylist.OPENING_THEME,
+				autoload.get_current_music_track_path()
+			)
+			quit(1)
+			return
+		print("OK: autoload_starts_on_load=true")
+	elif autoload != null:
+		print("OK: autoload_music_disabled_in_settings=true")
+
+	if save_manager != null:
+		save_manager.music_enabled = true
 	var sfx: Node = load("res://scripts/audio/sfx_manager.gd").new()
 	root.add_child(sfx)
 	await process_frame
 	sfx._music_enabled = true
+
+	var ready_music := sfx.get_node_or_null("BackgroundMusic") as AudioStreamPlayer
+	if ready_music == null or not ready_music.playing:
+		print("FAIL: SfxManager._ready should start BGM without play_title_bgm")
+		quit(1)
+		return
+	if MusicTrackRhythm.track_basename(sfx.get_current_music_track_path()) != MusicPlaylist.OPENING_THEME:
+		print(
+			"FAIL: _ready BGM should be %s, got "
+			% MusicPlaylist.OPENING_THEME,
+			sfx.get_current_music_track_path()
+		)
+		quit(1)
+		return
+	print("OK: starts_on_load=true")
 
 	var tracks: Array = sfx.get_music_tracks()
 	print("OK: track_count=", tracks.size())
@@ -21,6 +59,36 @@ func _run() -> void:
 		print("FAIL: expected at least 2 music tracks for rotation")
 		quit(1)
 		return
+
+	var expected_order := MusicPlaylist.ordered_basenames()
+	var got_order: PackedStringArray = PackedStringArray()
+	for track_path in tracks:
+		got_order.append(MusicTrackRhythm.track_basename(str(track_path)))
+	if got_order.size() < expected_order.size():
+		print("FAIL: playlist missing tracks, got ", got_order)
+		quit(1)
+		return
+	for i in expected_order.size():
+		if got_order[i] != expected_order[i]:
+			print(
+				"FAIL: playlist order expected %s at %d, got %s"
+				% [expected_order[i], i, got_order[i]]
+			)
+			quit(1)
+			return
+	print("OK: playlist_order=", ",".join(got_order))
+
+	var wrap_repeat: Array[String] = [
+		"res://audio/main-theme.ogg",
+		"res://audio/sunrise.ogg",
+		"res://audio/main-theme.ogg",
+	]
+	var wrap_i := MusicPlaylist.next_index(wrap_repeat, 2)
+	if MusicTrackRhythm.track_basename(wrap_repeat[wrap_i]) == MusicPlaylist.OPENING_THEME:
+		print("FAIL: loop should skip an immediate opening-theme repeat")
+		quit(1)
+		return
+	print("OK: no_consecutive_repeat=true")
 
 	sfx.play_title_bgm()
 	await process_frame
@@ -40,12 +108,17 @@ func _run() -> void:
 		return
 
 	var title_path: String = sfx.get_current_music_track_path()
-	if not title_path in tracks:
-		print("FAIL: title BGM should be one of discovered tracks, got ", title_path)
+	if MusicTrackRhythm.track_basename(title_path) != MusicPlaylist.OPENING_THEME:
+		print(
+			"FAIL: title BGM should always be %s, got "
+			% MusicPlaylist.OPENING_THEME,
+			title_path
+		)
 		quit(1)
 		return
 
 	print("OK: title_track=", title_path)
+	print("OK: opening_theme_first=true")
 	print("OK: title_playing=", music.playing)
 
 	sfx.play_title_bgm()
@@ -130,6 +203,27 @@ func _run() -> void:
 
 	print("OK: volume_db=", music.volume_db)
 	print("OK: gameplay_mode=playlist_rotation")
+
+	var played: Array[String] = [MusicTrackRhythm.track_basename(title_path)]
+	for _i in tracks.size():
+		sfx._on_music_finished()
+		await process_frame
+		var next_path: String = sfx.get_current_music_track_path()
+		var next_name := MusicTrackRhythm.track_basename(next_path)
+		if next_name.is_empty():
+			print("FAIL: rotation produced an empty track")
+			quit(1)
+			return
+		if next_name == played[played.size() - 1]:
+			print("FAIL: consecutive repeat after ", next_name)
+			quit(1)
+			return
+		played.append(next_name)
+	if played[1] != "sunrise":
+		print("FAIL: after opening theme expected sunrise, got ", played[1])
+		quit(1)
+		return
+	print("OK: daytime_sequence=", ",".join(played))
 
 	var display_name: String = sfx.get_current_music_display_name()
 	if display_name.is_empty():

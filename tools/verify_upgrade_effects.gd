@@ -109,8 +109,7 @@ func _check_pickup_formula(gs: Node) -> bool:
 		)
 		return false
 
-	gs.upgrade_levels = {"base_pay": 1, "pickup": 1}
-	gs.prestige_levels = {"cheese_press": 1, "prestige_combo": 1}
+	gs.upgrade_levels = {"base_pay": 1, "pickup": 1, "combo_bonus": 1}
 	gs._recompute_stats()
 	var combo2 := Economy.resolve_pickup_ball_payout(1, SAMPLE_YARDAGE, 2, gs.stats)
 	var combo1 := Economy.resolve_pickup_ball_payout(1, SAMPLE_YARDAGE, 1, gs.stats)
@@ -118,8 +117,38 @@ func _check_pickup_formula(gs: Node) -> bool:
 		print("FAIL: combo tier 2 expected 1.08x, got %.4f vs %.4f" % [combo2, combo1])
 		return false
 
-	print("OK: pickup formula unlock stages (distance-pays)")
+	gs.upgrade_levels = {"base_pay": 1, "ball_count": 2}
+	gs._recompute_stats()
+	if gs.get_bucket_capacity() != Balance.BUCKET_CAPACITY_DEFAULT + 2:
+		print(
+			"FAIL: ball_count capacity expected %d, got %d"
+			% [Balance.BUCKET_CAPACITY_DEFAULT + 2, gs.get_bucket_capacity()]
+		)
+		return false
 
+	gs.upgrade_levels = {"base_pay": 1, "quick_reset": 1}
+	gs._recompute_stats()
+	var expected_cd := Balance.default_stats().swing_cooldown_ms * 0.85
+	if not is_equal_approx(gs.stats.swing_cooldown_ms, expected_cd):
+		print(
+			"FAIL: quick_reset cooldown expected %.1f, got %.1f"
+			% [expected_cd, gs.stats.swing_cooldown_ms]
+		)
+		return false
+
+	gs.upgrade_levels = {"base_pay": 1, "golden_ball": 3}
+	gs._recompute_stats()
+	if not is_equal_approx(gs.stats.golden_ball_chance, 0.06):
+		print("FAIL: golden_ball chance expected 0.06, got %.3f" % gs.stats.golden_ball_chance)
+		return false
+
+	gs.upgrade_levels = {"base_pay": 1, "perfect_chain": 1}
+	gs._recompute_stats()
+	if int(gs.stats.perfect_chain_unlocked) < 1:
+		print("FAIL: perfect_chain should unlock flag")
+		return false
+
+	print("OK: pickup formula unlock stages (distance-pays)")
 	gs.upgrade_levels = {
 		"base_pay": 1,
 		"distance_pay": UpgradeDefinitions.get_def("distance_pay").get("max_level", 0),

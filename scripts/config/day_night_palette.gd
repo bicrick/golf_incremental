@@ -380,5 +380,12 @@ static func backdrop_tint(snap: AtmosphereSnapshot, day_factor: float) -> Color:
 	return apply_moonlight(_phase_tint(day.hills, snap.hills, day_factor), day_factor)
 
 
+## Harvest mist bank — warm pearl by day, cool blue-grey at night (no purple).
+static func harvest_fog_color(day_factor: float) -> Color:
+	const DAY_FOG := Color(0.78, 0.82, 0.74, 1.0)
+	const NIGHT_FOG := Color(0.42, 0.48, 0.52, 1.0)
+	return DAY_FOG.lerp(NIGHT_FOG, 1.0 - clampf(day_factor, 0.0, 1.0))
+
+
 static func backdrop_night_darken(day_factor: float) -> float:
 	return (1.0 - clampf(day_factor, 0.0, 1.0)) * BACKDROP_NIGHT_DARKEN

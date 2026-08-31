@@ -3,7 +3,6 @@ extends Control
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 const UpgradeTreeStroke = preload("res://scripts/ui/upgrade_tree_stroke.gd")
-const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitions.gd")
 
 const NODE_HALF := UpgradeIcon.NODE_HALF
 ## Pull endpoints slightly inside the node so strokes meet drawn borders.
@@ -12,8 +11,6 @@ const SURGE_DURATION_SEC := 0.35
 
 var _layout_positions: Dictionary = {}
 var _animating := false
-## "play" uses UpgradeGraph; "prestige" uses PrestigeDefinitions connections.
-var _tab_mode: String = "play"
 ## to_id → remaining surge time (seconds).
 var _edge_surges: Dictionary = {}
 
@@ -23,9 +20,8 @@ func _ready() -> void:
 	set_process(false)
 
 
-func setup(layout_positions: Dictionary, _nodes: Dictionary = {}, tab_mode: String = "play") -> void:
+func setup(layout_positions: Dictionary, _nodes: Dictionary = {}, _tab_mode: String = "play") -> void:
 	_layout_positions = layout_positions
-	_tab_mode = tab_mode
 	_edge_surges.clear()
 	queue_redraw()
 
@@ -67,31 +63,14 @@ func _process(delta: float) -> void:
 		set_process(false)
 
 
-func _game_state() -> Node:
-	return Engine.get_main_loop().root.get_node_or_null("GameState")
-
-
-func _connections() -> Array:
-	if _tab_mode == "prestige":
-		return PrestigeDefinitionsScript.connections()
-	return UpgradeGraph.connections()
-
-
-func _is_revealed(id: String) -> bool:
-	# Prestige: always draw the full cheese tree (cash-out does not hide nodes).
-	if _tab_mode == "prestige":
-		return true
-	return UpgradeGraph.is_revealed(id)
-
-
 func _draw() -> void:
 	var corner_r := UpgradeTreeStroke.squircle_corner_radius(NODE_HALF * 2.0)
-	for link in _connections():
+	for link in UpgradeGraph.connections():
 		var from_id: String = link["from"]
 		var to_id: String = link["to"]
 		if not _layout_positions.has(from_id) or not _layout_positions.has(to_id):
 			continue
-		if not _is_revealed(from_id) or not _is_revealed(to_id):
+		if not UpgradeGraph.is_revealed(from_id) or not UpgradeGraph.is_revealed(to_id):
 			continue
 		var from_center: Vector2 = _layout_positions[from_id]
 		var to_center: Vector2 = _layout_positions[to_id]
@@ -101,7 +80,7 @@ func _draw() -> void:
 		var to_point: Vector2 = UpgradeTreeStroke.squircle_rim_point(
 			to_center, from_center, NODE_HALF, corner_r, EDGE_INSET
 		)
-		var edge_state := resolve_edge_state(to_id, _tab_mode)
+		var edge_state := resolve_edge_state(to_id)
 		if _edge_surges.has(to_id):
 			edge_state = UpgradeTreeStroke.EdgeState.CHARGED
 		var style := UpgradeTreeStroke.edge_style_for_upgrade(edge_state, to_id)
@@ -123,22 +102,8 @@ func _draw() -> void:
 		)
 
 
-static func resolve_edge_state(to_id: String, tab_mode: String = "play") -> UpgradeTreeStroke.EdgeState:
+static func resolve_edge_state(to_id: String, _tab_mode: String = "play") -> UpgradeTreeStroke.EdgeState:
 	var gs: Node = Engine.get_main_loop().root.get_node_or_null("GameState")
-	if tab_mode == "prestige":
-		if gs == null:
-			return UpgradeTreeStroke.EdgeState.DORMANT
-		if not PrestigeDefinitionsScript.is_unlocked(to_id, gs.prestige_levels):
-			return UpgradeTreeStroke.EdgeState.DORMANT
-		var pdef := PrestigeDefinitionsScript.get_def(to_id)
-		var pmax := int(pdef.get("max_level", 0))
-		var plevel: int = gs.get_prestige_upgrade_level(to_id)
-		if pmax > 0 and plevel >= pmax:
-			return UpgradeTreeStroke.EdgeState.COMPLETE
-		var pcost: float = gs.get_prestige_upgrade_cost(to_id)
-		if plevel < pmax and gs.cheese >= pcost:
-			return UpgradeTreeStroke.EdgeState.CHARGED
-		return UpgradeTreeStroke.EdgeState.LIVE
 	if not UpgradeGraph.is_unlocked(to_id):
 		return UpgradeTreeStroke.EdgeState.DORMANT
 	var def := UpgradeGraph.get_def(to_id)

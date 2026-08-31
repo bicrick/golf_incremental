@@ -1,6 +1,6 @@
 class_name ShopDefinitions
 extends RefCounted
-## Pro Shop item definitions — v7: ball_count / golden moved to cheese tree.
+## Pro Shop item definitions — empty; ball_count / golden live on the cash tree.
 
 static var _by_id: Dictionary = {}
 static var _order: Array[String] = []
@@ -9,7 +9,7 @@ static var _order: Array[String] = []
 static func _init_defs() -> void:
 	if not _order.is_empty():
 		return
-	# Play shop capacity / golden removed in v7 — Deep Bucket / Golden Tee on cheese.
+	# Capacity / golden are cash-tree nodes (ball_count, golden_ball).
 	var defs: Array[Dictionary] = []
 	for d in defs:
 		_by_id[d["id"]] = d

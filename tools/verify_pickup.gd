@@ -59,6 +59,10 @@ func _cleanup_save() -> void:
 
 func _reset(gs: Node) -> void:
 	gs.reset_to_fresh()
+	## Pickup input tests are not tutorial coverage — keep dialogue off so Space /
+	## background click reach RangeView.
+	gs.tutorial_completed = true
+	gs.tutorial_progress = 10
 
 
 func _enter_harvest(gs: Node) -> void:
@@ -68,9 +72,27 @@ func _enter_harvest(gs: Node) -> void:
 
 func _start_playing(main: Node) -> void:
 	## Play fade shows the range before title hide — verifies must match that order.
+	var gs: Node = root.get_node("GameState")
+	gs.tutorial_completed = true
+	gs.tutorial_progress = 10
 	if main.has_method("_on_play_transition_started"):
 		main._on_play_transition_started()
 	main._on_play_pressed()
+	_dismiss_tutorial_overlay(main)
+
+
+func _dismiss_tutorial_overlay(main: Node) -> void:
+	## Welcome-back / residual dialogue blocks Space and background collect clicks.
+	var overlay := main.get_node_or_null("UI/UIRoot/TutorialOverlay")
+	if overlay == null:
+		return
+	var box = overlay.get_node_or_null("ThoughtBox")
+	if box == null:
+		return
+	if box.has_method("hide_thought"):
+		box.hide_thought()
+	if box.has_signal("dismissed"):
+		box.dismissed.emit()
 
 
 func _wait_harvest_view(range_view: Node, timeout_ms: int = 2000) -> void:
@@ -378,8 +400,8 @@ func _check_combo_logic() -> bool:
 		return false
 	var levels := {"base_pay": 1, "pickup": 1, "combo_bonus": 1}
 	stats = UpgradeEffects.preview_stats(levels)
-	if not is_equal_approx(Economy.combo_multiplier(2, stats), 1.10):
-		print("FAIL: combo tier 2 mult should be 1.10 with combo_bonus Lv.1")
+	if not is_equal_approx(Economy.combo_multiplier(2, stats), 1.08):
+		print("FAIL: combo tier 2 mult should be 1.08 with combo_bonus Lv.1")
 		return false
 	print("OK: combo multiplier gated by upgrade")
 	return true
@@ -388,14 +410,15 @@ func _check_combo_logic() -> bool:
 func _check_vanish_auto_collect(gs: Node) -> bool:
 	_reset(gs)
 	var start_currency: float = gs.currency
+	var expected_base: float = gs.stats.base_amount
 	var payout: float = gs.credit_vanished_ball(Vector3(0.0, 0.0, -250.0), 1, 250.0)
-	if not is_equal_approx(payout, 0.25):
-		print("FAIL: vanish payout expected $0.25, got %.4f" % payout)
+	if not is_equal_approx(payout, expected_base):
+		print("FAIL: vanish payout expected $%.2f, got %.4f" % [expected_base, payout])
 		return false
-	if not is_equal_approx(gs.currency - start_currency, 0.25):
+	if not is_equal_approx(gs.currency - start_currency, expected_base):
 		print(
-			"FAIL: vanish payout currency delta expected $0.25, got %.4f"
-			% (gs.currency - start_currency)
+			"FAIL: vanish payout currency delta expected $%.2f, got %.4f"
+			% [expected_base, gs.currency - start_currency]
 		)
 		return false
 	if gs.pending_vanish_collects != 1:
@@ -421,9 +444,10 @@ func _check_vanish_auto_collect(gs: Node) -> bool:
 
 	_reset(gs)
 	_enter_harvest(gs)
+	expected_base = gs.stats.base_amount
 	payout = gs.credit_vanished_ball(Vector3(0.0, 0.0, -250.0), 1, 250.0)
-	if not is_equal_approx(payout, 0.25):
-		print("FAIL: harvest-phase vanish payout expected $0.25, got %.4f" % payout)
+	if not is_equal_approx(payout, expected_base):
+		print("FAIL: harvest-phase vanish payout expected $%.2f, got %.4f" % [expected_base, payout])
 		return false
 	if gs.harvest_collected != 1:
 		print(

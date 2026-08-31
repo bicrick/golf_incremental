@@ -2,8 +2,6 @@ extends Node
 ## Currency, upgrade levels, and computed stats.
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
-const PrestigeEffectsScript = preload("res://scripts/game/prestige/effects.gd")
-const PrestigeDefinitionsScript = preload("res://scripts/game/prestige/definitions.gd")
 
 var currency: float = 0.0
 var upgrade_levels: Dictionary = {}
@@ -18,12 +16,7 @@ var rattlings_active: bool = true
 var shop_levels: Dictionary = {}
 var ratina_upgrade_levels: Dictionary = {}
 var rattling_upgrade_levels: Dictionary = {}
-## Whole-number prestige currency — never store fractional cheese.
-var cheese: int = 0
-var prestige_count: int = 0
-var prestige_threshold: float = Balance.PRESTIGE_THRESHOLD_DEFAULT
-var prestige_levels: Dictionary = {}
-## Perfect Chain: consecutive Perfect swing count this life (runtime; optional to save)
+## Perfect Chain: consecutive Perfect swing count (runtime; not saved).
 var perfect_swing_streak: int = 0
 var stats: PlayerStats = Balance.default_stats()
 var ratina_stats: PlayerStats = Balance.default_ratina_stats()
@@ -36,10 +29,12 @@ var harvest_stash: int = 0
 var pending_vanish_collects: int = 0
 ## Live fairway litter (not saved). Reload starts empty, so harvest is gated.
 var fairway_litter_count: int = 0
-## First-run rat thought tutorial (persisted). Prestige does not reset these.
+## First-run rat thought tutorial (persisted).
 var tutorial_completed: bool = false
 ## Highest beat finished (0 = none, 1–4 = Hold/Tempo/Pickup/Upgrades).
 var tutorial_progress: int = 0
+## First visit to the upgrade menu dialogue (persisted; independent of progress).
+var tutorial_upgrade_menu_seen: bool = false
 
 var lifetime: Dictionary = {
 	"total_swings": 0,
@@ -48,6 +43,8 @@ var lifetime: Dictionary = {
 	"ratina_lifetime_earnings": 0.0,
 	"rattling_lifetime_earnings": 0.0,
 	"perfect_count": 0,
+	## Farthest single-shot carry (player or Ratina). Drives harvest fog reveal.
+	"max_carry_yards": 0.0,
 }
 
 
@@ -77,122 +74,14 @@ func get_upgrade_level(id: String) -> int:
 
 func _recompute_stats() -> void:
 	stats = Balance.default_stats()
-	# defaults → prestige → play → shop (crew dormant in v7 but keep apply harmless)
-	PrestigeEffectsScript.apply_all(stats, prestige_levels)
+	# defaults → play → shop (crew dormant but keep apply harmless)
 	UpgradeEffects.apply_all(stats, upgrade_levels)
 	ShopEffects.apply_all(stats, shop_levels)
 	ratina_stats = Balance.default_ratina_stats()
 	RatinaUpgradeEffects.apply_all(ratina_stats, ratina_upgrade_levels)
 	rattling_stats = Balance.default_rattling_stats()
 	RattlingUpgradeEffects.apply_all(rattling_stats, rattling_upgrade_levels)
-	_apply_ambition_threshold()
 	bucket_capacity = get_bucket_capacity()
-
-
-func _apply_ambition_threshold() -> void:
-	var ambition: int = int(prestige_levels.get("ambition", 0))
-	var idx: int = mini(ambition, Balance.PRESTIGE_AMBITION_THRESHOLDS.size() - 1)
-	prestige_threshold = Balance.PRESTIGE_AMBITION_THRESHOLDS[idx]
-
-
-func can_prestige() -> bool:
-	return currency >= prestige_threshold
-
-
-## Cheese payout (always int):
-##   base = PRESTIGE_CHEESE_BASE + cheese_press_levels
-##   total = base * 2^ambition_level
-## Cash above the threshold does not grant extra cheese.
-func cheese_from_prestige_cash(_cash_on_hand: float) -> int:
-	var press: int = int(prestige_levels.get("cheese_press", 0))
-	var ambition: int = int(prestige_levels.get("ambition", 0))
-	var base: int = Balance.PRESTIGE_CHEESE_BASE + press
-	var ambition_mult: int = 1 << clampi(ambition, 0, 30)
-	return base * ambition_mult
-
-
-func add_cheese(amount: int) -> void:
-	var grant: int = amount
-	if grant == 0:
-		return
-	cheese += grant
-	EventBus.cheese_changed.emit(cheese)
-
-
-func prestige() -> bool:
-	if not can_prestige():
-		return false
-	var cash_before: float = currency
-	var gained: int = cheese_from_prestige_cash(cash_before)
-	# Wipe run (Play) progress — keep cheese tree + cheese balance
-	currency = 0.0
-	upgrade_levels.clear()
-	shop_levels.clear()
-	ratina_upgrade_levels.clear()
-	rattling_upgrade_levels.clear()
-	ratina_unlocked = false
-	rattlings_unlocked = false
-	ratina_active = true
-	rattlings_active = true
-	perfect_swing_streak = 0
-	current_phase = "strike"
-	harvest_collected = 0
-	harvest_stash = 0
-	pending_vanish_collects = 0
-	add_cheese(gained)
-	prestige_count += 1
-	_recompute_stats()
-	bucket_remaining = bucket_capacity
-	EventBus.prestiged.emit(prestige_count, gained)
-	EventBus.currency_changed.emit(currency)
-	EventBus.stats_changed.emit(stats, currency)
-	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
-	EventBus.phase_changed.emit("strike")
-	return true
-
-
-func get_prestige_upgrade_level(id: String) -> int:
-	return int(prestige_levels.get(id, 0))
-
-
-## Whole-number cheese cost — no cash stretch. With base_cost 1 and growth_rate 1.0 → always 1.
-func get_prestige_upgrade_cost(id: String) -> int:
-	var def: Dictionary = PrestigeDefinitionsScript.get_def(id)
-	if def.is_empty():
-		return 0
-	var level: int = get_prestige_upgrade_level(id)
-	return int(
-		floor(float(def["base_cost"]) * pow(float(def["growth_rate"]), float(level)) + 0.0001)
-	)
-
-
-func purchase_prestige_upgrade(id: String) -> bool:
-	var def: Dictionary = PrestigeDefinitionsScript.get_def(id)
-	if def.is_empty():
-		return false
-	var level: int = get_prestige_upgrade_level(id)
-	if level >= int(def["max_level"]):
-		return false
-	var parent_id: String = str(def.get("parent_id", ""))
-	if not parent_id.is_empty() and get_prestige_upgrade_level(parent_id) < 1:
-		return false
-	var prereq: Dictionary = def.get("prerequisite", {})
-	if not prereq.is_empty():
-		var req_id: String = str(prereq.get("upgrade_id", ""))
-		var req_lv: int = int(prereq.get("level", 1))
-		if get_prestige_upgrade_level(req_id) < req_lv:
-			return false
-	var cost: int = get_prestige_upgrade_cost(id)
-	if cheese < cost:
-		return false
-	cheese -= cost
-	prestige_levels[id] = level + 1
-	_recompute_stats()
-	EventBus.prestige_upgrade_purchased.emit(id, level + 1)
-	EventBus.cheese_changed.emit(cheese)
-	EventBus.stats_changed.emit(stats, currency)
-	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
-	return true
 
 
 func note_swing_tier(tier: int) -> void:
@@ -437,10 +326,6 @@ func reset_to_fresh() -> void:
 	shop_levels.clear()
 	ratina_upgrade_levels.clear()
 	rattling_upgrade_levels.clear()
-	cheese = 0
-	prestige_count = 0
-	prestige_threshold = Balance.PRESTIGE_THRESHOLD_DEFAULT
-	prestige_levels.clear()
 	perfect_swing_streak = 0
 	stats = Balance.default_stats()
 	ratina_stats = Balance.default_ratina_stats()
@@ -458,14 +343,15 @@ func reset_to_fresh() -> void:
 		"ratina_lifetime_earnings": 0.0,
 		"rattling_lifetime_earnings": 0.0,
 		"perfect_count": 0,
+		"max_carry_yards": 0.0,
 	}
 	tutorial_completed = false
 	tutorial_progress = 0
+	tutorial_upgrade_menu_seen = false
 	_recompute_stats()
 	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
 	EventBus.phase_changed.emit("strike")
 	EventBus.currency_changed.emit(currency)
-	EventBus.cheese_changed.emit(cheese)
 	EventBus.stats_changed.emit(stats, currency)
 
 
@@ -500,6 +386,40 @@ func is_collect_mode() -> bool:
 
 func is_harvest_complete() -> bool:
 	return current_phase == "harvest" and harvest_collected >= _harvest_target()
+
+
+func max_carry_yards() -> float:
+	return float(lifetime.get("max_carry_yards", 0.0))
+
+
+## Clear fairway depth for harvest fog — min pad plus one yard past best carry.
+func revealed_yards() -> float:
+	return maxf(
+		Balance.HARVEST_FOG_MIN_REVEAL_YARDS,
+		max_carry_yards() + Balance.HARVEST_FOG_BUFFER_YARDS
+	)
+
+
+## Record a resolved shot's carry. Emits only when the lifetime best grows.
+func record_carry(yards: float) -> void:
+	if yards <= 0.0:
+		return
+	var prev := max_carry_yards()
+	if yards <= prev:
+		return
+	lifetime["max_carry_yards"] = yards
+	EventBus.max_carry_changed.emit(yards)
+
+
+## Old saves lack max_carry_yards — seed from base_yards if the player already swung.
+func seed_max_carry_from_progress() -> void:
+	if lifetime.has("max_carry_yards"):
+		return
+	var swings := int(lifetime.get("total_swings", 0))
+	if swings > 0:
+		lifetime["max_carry_yards"] = float(stats.base_yards)
+	else:
+		lifetime["max_carry_yards"] = 0.0
 
 
 func consume_bucket_ball() -> bool:

@@ -3,7 +3,7 @@ extends RefCounted
 ## Per-track tempo hints for music-synced backdrop sway.
 ## Keys are track basenames (no extension) so .wav / .ogg / HTTP URLs all resolve.
 ## Tune `bpm` / `offset_sec` here if a track drifts; live onset detection also refines timing.
-## Tracks are timing-named for future day/night wiring; playlist rotation only for now.
+## Tracks are timing-named; play order lives in MusicPlaylist (opening theme, then daytime).
 
 const DEFAULT_BPM := 112.0
 const DEFAULT_OFFSET_SEC := 0.0

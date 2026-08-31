@@ -13,16 +13,6 @@ const MUSIC_DIR := "res://assets/audio/music/"
 ## Web export serves BGM as same-origin static files (not packed in the PCK).
 ## Root-relative so HTTPRequest resolves correctly from any page URL.
 const WEB_MUSIC_URL_PREFIX := "/audio/"
-const WEB_MUSIC_BASENAMES := [
-	"dusk",
-	"early-riser",
-	"final",
-	"main-theme",
-	"midday",
-	"midnight",
-	"night",
-	"sunrise",
-]
 const PICKUP_PLINK_PATH := "res://assets/audio/sfx/pickup/throwing-a-coin-into-a-piggy-bank.mp3"
 const CUELUME_DIR := "res://assets/audio/sfx/ui/cuelume/"
 ## Cuelume recipes peak very soft; +24 dB ≈ 16× amplitude so UI cues read clearly over BGM.
@@ -53,6 +43,7 @@ var _pool_index := 0
 var _streams: Dictionary = {}
 var _golf_hit_normal: Array[AudioStream] = []
 var _golf_hit_power: Array[AudioStream] = []
+var _bird_squawks: Array[AudioStream] = []
 var _ambient_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 var _music_tracks: Array[String] = []
@@ -76,6 +67,7 @@ func _ready() -> void:
 	_music_volume = SaveManager.music_volume
 	_build_streams()
 	_load_golf_hit_streams()
+	_load_bird_squawk_streams()
 	_build_pool()
 	if OS.has_feature("web"):
 		WebAudioUnlockScript.install()
@@ -85,6 +77,9 @@ func _ready() -> void:
 		_web_bgm_fetcher.fetch_succeeded.connect(_on_web_bgm_fetch_succeeded)
 		_web_bgm_fetcher.fetch_failed.connect(_on_web_bgm_fetch_failed)
 	_refresh_music_tracks()
+	# Start opening theme as soon as the autoload is ready. Web autoplay may
+	# stay silent until the first pointer/key; resume handlers do not restart.
+	play_title_bgm()
 	EventBus.swing_charging_changed.connect(_on_swing_charging_changed)
 	EventBus.swing_resolved.connect(_on_swing_resolved)
 	EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
@@ -94,7 +89,6 @@ func _ready() -> void:
 	EventBus.ratina_upgrade_purchased.connect(_on_ratina_upgrade_purchased)
 	EventBus.shop_item_purchased.connect(_on_shop_item_purchased)
 	EventBus.rattling_upgrade_purchased.connect(_on_rattling_upgrade_purchased)
-	EventBus.prestige_upgrade_purchased.connect(_on_prestige_upgrade_purchased)
 
 
 func _process(_delta: float) -> void:
@@ -171,8 +165,7 @@ func toggle_music_playback() -> void:
 		return
 	if _music_player == null or _music_player.stream == null:
 		_is_title_mode = false
-		if _rotation_index < 0 or _rotation_index >= _music_tracks.size():
-			_rotation_index = 0
+		_rotation_index = MusicPlaylist.opening_index(_music_tracks)
 		_play_track_at_path(_music_tracks[_rotation_index], false)
 		return
 	if _music_player.playing and not _music_player.stream_paused:
@@ -191,7 +184,7 @@ func skip_music_track() -> void:
 	if _music_tracks.is_empty():
 		return
 	_is_title_mode = false
-	_rotation_index = (_rotation_index + 1) % _music_tracks.size()
+	_rotation_index = MusicPlaylist.next_index(_music_tracks, _rotation_index)
 	_play_track_at_path(_music_tracks[_rotation_index], false)
 
 
@@ -202,7 +195,7 @@ func previous_music_track() -> void:
 	if _music_tracks.is_empty():
 		return
 	_is_title_mode = false
-	_rotation_index = (_rotation_index - 1 + _music_tracks.size()) % _music_tracks.size()
+	_rotation_index = MusicPlaylist.previous_index(_music_tracks, _rotation_index)
 	_play_track_at_path(_music_tracks[_rotation_index], false)
 
 
@@ -269,7 +262,7 @@ func play_title_bgm() -> void:
 	if _music_tracks.is_empty():
 		return
 	_is_title_mode = true
-	_rotation_index = _random_track_index()
+	_rotation_index = MusicPlaylist.opening_index(_music_tracks)
 	_play_track_at_path(_music_tracks[_rotation_index], false)
 
 
@@ -305,7 +298,7 @@ func start_bgm() -> void:
 	_is_title_mode = false
 	if _music_player != null and _music_player.finished.is_connected(_on_music_finished):
 		_music_player.finished.disconnect(_on_music_finished)
-	_rotation_index = _random_track_index()
+	_rotation_index = MusicPlaylist.opening_index(_music_tracks)
 	_start_rotation_at(_rotation_index)
 
 
@@ -317,6 +310,19 @@ func play_start() -> void:
 func play_pickup_plink(combo_tier: int) -> void:
 	var pitch := 1.0 + 0.08 * float(maxi(combo_tier, 1) - 1)
 	_play("pickup_plink", -6.0, pitch)
+
+
+func play_bird_squawk() -> void:
+	if _bird_squawks.is_empty():
+		return
+	var stream: AudioStream = _bird_squawks[randi() % _bird_squawks.size()]
+	_play_stream(stream, -5.0, randf_range(0.94, 1.08))
+
+
+func play_golden_bird_reward() -> void:
+	play_bird_squawk()
+	## Coin plink slightly bright so the jackpot read lands after the squawk.
+	_play("pickup_plink", -3.5, 1.18)
 
 
 func play_pickup_miss() -> void:
@@ -353,11 +359,6 @@ func play_bucket_full_chime() -> void:
 	_play("bucket_full_chime", -4.0)
 
 
-func play_prestige_fanfare() -> void:
-	_play("play_loading", -4.0)
-	_play("upgrade_bling")
-
-
 func play_upgrade_bling() -> void:
 	_play_upgrade_bling(1)
 
@@ -374,7 +375,7 @@ func _discover_music_tracks() -> Array[String]:
 
 func _discover_web_music_tracks() -> Array[String]:
 	var tracks: Array[String] = []
-	for basename in WEB_MUSIC_BASENAMES:
+	for basename in MusicPlaylist.ordered_basenames():
 		tracks.append("%s%s.ogg" % [WEB_MUSIC_URL_PREFIX, basename])
 	return tracks
 
@@ -403,12 +404,7 @@ func _discover_packed_music_tracks() -> Array[String]:
 	var candidates: Array[String] = []
 	for basename in by_basename.keys():
 		candidates.append(by_basename[basename])
-	candidates.sort()
-	return candidates
-
-
-func _random_track_index() -> int:
-	return randi() % _music_tracks.size()
+	return MusicPlaylist.sort_discovered(candidates)
 
 
 func _start_rotation_at(index: int) -> void:
@@ -472,7 +468,7 @@ func _apply_music_stream(path: String, stream: AudioStream, loop: bool) -> void:
 func _on_music_finished() -> void:
 	if _music_tracks.is_empty():
 		return
-	_rotation_index = (_rotation_index + 1) % _music_tracks.size()
+	_rotation_index = MusicPlaylist.next_index(_music_tracks, _rotation_index)
 	_play_track_at_path(_music_tracks[_rotation_index], false)
 
 
@@ -621,10 +617,6 @@ func _on_rattling_upgrade_purchased(_id: String, level: int) -> void:
 	_play_upgrade_bling(level)
 
 
-func _on_prestige_upgrade_purchased(_id: String, level: int) -> void:
-	_play_upgrade_bling(level)
-
-
 func _play_upgrade_bling(_level: int) -> void:
 	_play("upgrade_bling")
 
@@ -702,6 +694,18 @@ func _load_golf_hit_streams() -> void:
 			"SfxManager: golf hit pools empty (normal=%d power=%d) — SFX WAVs missing from export?"
 			% [_golf_hit_normal.size(), _golf_hit_power.size()]
 		)
+
+
+func _load_bird_squawk_streams() -> void:
+	_bird_squawks.clear()
+	for path in BirdSquawkSfx.paths():
+		var stream: AudioStream = load(path)
+		if stream == null:
+			push_warning("SfxManager: failed to load bird squawk at %s" % path)
+			continue
+		_bird_squawks.append(stream)
+	if _bird_squawks.is_empty():
+		push_warning("SfxManager: bird squawk pool empty")
 
 
 func _sfx_mix_rate() -> int:

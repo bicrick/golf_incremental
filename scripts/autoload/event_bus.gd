@@ -2,6 +2,8 @@ extends Node
 ## Global signal hub — scenes subscribe; game logic emits.
 
 signal swing_resolved(yards: float, timing_tier: int, payout: float, feedback_tier: int)
+## Lifetime farthest carry updated (player or Ratina). Harvest fog reveal follows this.
+signal max_carry_changed(yards: float)
 signal upgrade_purchased(id: String, level: int, branch: int)
 signal shop_item_purchased(id: String, level: int)
 signal stats_changed(stats: PlayerStats, currency: float)
@@ -19,6 +21,8 @@ signal pickup_payout(amount: float, combo: int)
 signal litter_spawned(litter_id: int, world_pos: Vector3, quality: int, yardage: float, is_golden: bool, source: String)
 signal litter_removed(litter_id: int)
 signal litter_cleared()
+## Ball rest / vanish impact on the fairway — ambient birds flush or startle.
+signal fairway_impact(world_pos: Vector3)
 signal ratina_upgrade_purchased(id: String, level: int)
 signal ratina_swing_resolved(yards: float, timing_tier: int, payout: float)
 signal ratina_ball_collected(amount: float) 
@@ -26,6 +30,3 @@ signal atmosphere_tint_changed(tint: Color)
 signal rattling_upgrade_purchased(id: String, level: int)
 signal rattling_ball_collected(amount: float)
 signal helper_toggled(helper: String, active: bool)
-signal cheese_changed(cheese: int)
-signal prestiged(prestige_count: int, cheese_gained: int)
-signal prestige_upgrade_purchased(id: String, level: int)

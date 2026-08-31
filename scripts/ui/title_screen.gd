@@ -142,6 +142,8 @@ func _is_headless() -> bool:
 
 
 func _input(event: InputEvent) -> void:
+	# Resume only — opening theme already started on load. Web autoplay unlock
+	# must not pick a different track.
 	if WebAudioUnlockScript.is_unlock_gesture(event):
 		SfxManager.play_title_bgm()
 	if not _transitioning:

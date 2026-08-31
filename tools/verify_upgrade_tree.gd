@@ -25,16 +25,45 @@ func _run() -> void:
 		print("OK: is_mobile_touch() false on desktop")
 
 	var player_defs := UpgradeDefinitions.all()
-	if player_defs.size() != 8:
-		print("FAIL: expected 8 player upgrades, got ", player_defs.size())
+	if player_defs.size() != 13:
+		print("FAIL: expected 13 player upgrades, got ", player_defs.size())
 		ok = false
 	var base_pay := UpgradeDefinitions.get_def("base_pay")
 	if base_pay.is_empty() or base_pay.get("parent_id", "x") != "":
 		print("FAIL: base_pay root missing or has parent")
 		ok = false
-	for removed_id in ["quick_reset", "combo_bonus", "ratina_hire"]:
-		if not UpgradeDefinitions.get_def(removed_id).is_empty():
-			print("FAIL: %s should be removed from Play defs" % removed_id)
+	for late_id in ["quick_reset", "combo_bonus", "ball_count", "golden_ball", "perfect_chain"]:
+		if UpgradeDefinitions.get_def(late_id).is_empty():
+			print("FAIL: late OP node %s missing from Play defs" % late_id)
+			ok = false
+	if not UpgradeDefinitions.get_def("ratina_hire").is_empty():
+		print("FAIL: ratina_hire should stay off Play defs")
+		ok = false
+	var qr := UpgradeDefinitions.get_def("quick_reset")
+	if float(qr.get("base_cost", 0.0)) < 150.0:
+		print("FAIL: quick_reset should be expensive (base_cost >= 150), got ", qr.get("base_cost", 0.0))
+		ok = false
+	if not UpgradeDefinitions.is_unlocked("quick_reset", {"metronome": 9}):
+		pass  # expected locked
+	else:
+		print("FAIL: quick_reset should require metronome Lv.10")
+		ok = false
+	if not UpgradeDefinitions.is_unlocked("quick_reset", {"metronome": 10}):
+		print("FAIL: quick_reset should unlock at metronome Lv.10")
+		ok = false
+	var late_parents := {
+		"quick_reset": "metronome",
+		"combo_bonus": "pickup",
+		"ball_count": "combo_bonus",
+		"golden_ball": "perfect_pop",
+		"perfect_chain": "golden_ball",
+	}
+	for late_id in late_parents:
+		if UpgradeGraph.parent_id(late_id) != late_parents[late_id]:
+			print(
+				"FAIL: %s parent expected %s, got %s"
+				% [late_id, late_parents[late_id], UpgradeGraph.parent_id(late_id)]
+			)
 			ok = false
 	var branch_heads := ["distance_pay", "quality", "pickup"]
 	for head in branch_heads:
@@ -42,16 +71,27 @@ func _run() -> void:
 		if graph_parent != "base_pay":
 			print("FAIL: %s should branch from base_pay in graph, got %s" % [head, graph_parent])
 			ok = false
-	if UpgradeGraph.all_nodes().size() != 8:
-		print("FAIL: expected 8 graph nodes, got ", UpgradeGraph.all_nodes().size())
+	if UpgradeGraph.all_nodes().size() != 13:
+		print("FAIL: expected 13 graph nodes, got ", UpgradeGraph.all_nodes().size())
 		ok = false
-	if UpgradeGraph.connections().size() != 7:
-		print("FAIL: expected 7 graph connections, got ", UpgradeGraph.connections().size())
+	if UpgradeGraph.connections().size() != 12:
+		print("FAIL: expected 12 graph connections, got ", UpgradeGraph.connections().size())
 		ok = false
-	for hidden_id in ["ball_count", "golden_ball", "ratina_hire", "rattling_more"]:
+	for hidden_id in ["ratina_hire", "rattling_more"]:
 		if not UpgradeGraph.get_node(hidden_id).is_empty():
 			print("FAIL: %s should be hidden from Play graph" % hidden_id)
 			ok = false
+	var gs_probe: Node = Engine.get_main_loop().root.get_node_or_null("GameState")
+	if gs_probe != null:
+		var prop_names: Dictionary = {}
+		for p in gs_probe.get_property_list():
+			prop_names[str(p.name)] = true
+		for banned in ["cheese", "prestige_count", "prestige_threshold", "prestige_levels"]:
+			if prop_names.has(banned):
+				print("FAIL: GameState still has prestige field '%s'" % banned)
+				ok = false
+		if ok:
+			print("OK: GameState has no prestige fields")
 
 	var icon_assets_ok := true
 	for node_def in UpgradeGraph.all_nodes():
@@ -70,8 +110,8 @@ func _run() -> void:
 
 	var layout_a := RadialTreeLayout.compute_positions()
 	var layout_b := RadialTreeLayout.compute_positions()
-	if layout_a.size() != 8:
-		print("FAIL: expected 8 layout positions, got ", layout_a.size())
+	if layout_a.size() != 13:
+		print("FAIL: expected 13 layout positions, got ", layout_a.size())
 		ok = false
 	if layout_a.get("base_pay", Vector2.ONE) != Vector2.ZERO:
 		print("FAIL: base_pay should be at origin")
@@ -81,9 +121,11 @@ func _run() -> void:
 			print("FAIL: layout not deterministic for ", id)
 			ok = false
 			break
-	if RadialTreeLayout.min_pair_distance(layout_a) < RadialTreeLayout.MIN_NODE_DISTANCE:
+	if RadialTreeLayout.min_pair_distance(layout_a) + RadialTreeLayout.MIN_DISTANCE_EPSILON < RadialTreeLayout.MIN_NODE_DISTANCE:
 		print("FAIL: layout nodes overlap after relaxation (min=%.2f)" % RadialTreeLayout.min_pair_distance(layout_a))
 		ok = false
+	else:
+		print("OK: layout min pair distance=%.2f" % RadialTreeLayout.min_pair_distance(layout_a))
 	var layout_aspect := RadialTreeLayout.content_aspect(layout_a)
 	if absf(layout_aspect / RadialTreeLayout.TARGET_ASPECT - 1.0) > RadialTreeLayout.ASPECT_TOLERANCE:
 		print(
@@ -217,8 +259,8 @@ func _run() -> void:
 			print("FAIL: expected 4 revealed nodes after base_pay, got ", visible_after_base)
 			ok = false
 
-		if nodes_root.get_child_count() != 8:
-			print("FAIL: expected 8 tree nodes built, got ", nodes_root.get_child_count())
+		if nodes_root.get_child_count() != 13:
+			print("FAIL: expected 13 tree nodes built, got ", nodes_root.get_child_count())
 			ok = false
 
 		ok = _check_tree_node_icons(nodes_root) and ok
@@ -776,21 +818,6 @@ func _check_portrait_tree_fit(main: Node, panel: Control) -> bool:
 			print("FAIL: tree node center under header after portrait fit: ", child.name)
 			_restore_landscape_tree(main, panel)
 			return false
-	panel._select_tab(panel.Tab.PRESTIGE)
-	await process_frame
-	await process_frame
-	var prestige_btn: Control = panel.get_node_or_null("Content/PrestigeButton") as Control
-	if prestige_btn != null and prestige_btn.visible:
-		var btn_rect := prestige_btn.get_global_rect()
-		var prestige_nodes: Control = panel.get_node("Content/TreeViewport/TreeWorld/Nodes")
-		for child in prestige_nodes.get_children():
-			if not child.visible or not (child is Control):
-				continue
-			var center: Vector2 = (child as Control).get_global_rect().get_center()
-			if btn_rect.has_point(center):
-				print("FAIL: prestige node center under Prestige button")
-				_restore_landscape_tree(main, panel)
-				return false
 	print("OK: portrait tree aspect=%.3f and chrome clears node centers" % aspect)
 	_restore_landscape_tree(main, panel)
 	return true
@@ -805,8 +832,6 @@ func _restore_landscape_tree(main: Node, panel: Control) -> void:
 	RadialTreeLayout.use_portrait_aspect = false
 	if panel.has_method("apply_viewport_layout"):
 		panel.apply_viewport_layout()
-	if panel.has_method("_select_tab"):
-		panel._select_tab(panel.Tab.PLAY)
 
 
 func _set_logical_size(size: Vector2i) -> void:

@@ -2,21 +2,14 @@ class_name Balance
 extends RefCounted
 ## Tunable constants — single source for balance numbers.
 
-## v7 Prestige
-const SAVE_VERSION: int = 4  # was 3 — bump when prestige fields land
-const PRESTIGE_THRESHOLD_DEFAULT: float = 500.0
-## Whole cheese granted per prestige before Cheese Press / Ambition multipliers.
-const PRESTIGE_CHEESE_BASE: int = 3
-## Ambition level → cash threshold (index = ambition level; ×2 each step).
-const PRESTIGE_AMBITION_THRESHOLDS: Array[float] = [
-	500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0,
-]
+## Save schema version — bump when load migration is required.
+const SAVE_VERSION: int = 5
 
 const AUTOSAVE_INTERVAL_SEC: float = 30.0
 
 ## v2 Phase C — balls per strike burst before harvest.
 const BUCKET_CAPACITY_DEFAULT: int = 6
-## Pro Shop More Balls ceiling (default + max shop levels).
+## More Balls ceiling (default + max ball_count levels).
 const BUCKET_CAPACITY_MAX: int = 30
 
 ## v2 Phase D — pickup mini-game economy.
@@ -35,6 +28,17 @@ const RANGE_PICKER_MAX_RADIUS_YARDS: float = 1.77
 const RANGE_PICKER_RADIUS_CURVE_EXP: float = 1.5
 ## Extra world slack so balls near the ring edge register as hits.
 const RANGE_PICKER_HIT_SLACK_YARDS: float = 0.03
+
+## Harvest fog of war — mist bank starts this far past lifetime max carry.
+const HARVEST_FOG_BUFFER_YARDS: float = 1.0
+## Tee pad stays clear even before any swings.
+const HARVEST_FOG_MIN_REVEAL_YARDS: float = 18.0
+## Soft depth of the mist bank (clear → settled fog).
+const HARVEST_FOG_FALLOFF_YARDS: float = 14.0
+## Fade fog_amount out when leaving harvest (enter snaps on — no green→mist).
+const HARVEST_FOG_FADE_SEC: float = 0.35
+## How long the mist bank recedes after a new personal-best carry.
+const HARVEST_FOG_REVEAL_LERP_SEC: float = 1.0
 
 # v2 Phase E — contact swing (release at frame-8 contact, not hold-to-peak)
 const CONTACT_WINDUP_SEC: float = 0.5
@@ -174,6 +178,16 @@ const GOLDEN_BALL_TINT := Color(1.0, 0.78, 0.12, 1.0)
 const GOLDEN_TRAIL_COLOR := Color(1.0, 0.82, 0.18, 1.0)
 const GOLDEN_SPARKLE_COLOR := Color(1.0, 0.92, 0.45, 1.0)
 const GOLDEN_TRAIL_WIDTH_MULT: float = 1.35
+## Ambient fairway birds — rare gold click reward during harvest.
+const GOLDEN_BIRD_CHANCE: float = 0.08
+## Early-game floor (× pickup_multiplier). Late game uses ball-equivalent instead.
+const GOLDEN_BIRD_BASE_REWARD: float = 18.0
+## Payout = max(floor, this × current pickup ball value × golden-ball mult).
+const GOLDEN_BIRD_BALL_EQUIVALENT: float = 3.0
+## Warm shimmer highlight over gold-recolored frames (not a blue→gold multiply).
+const GOLDEN_BIRD_TINT := Color(1.08, 0.96, 0.62, 1.0)
+const GOLDEN_BIRD_SHIMMER_HI := Color(1.22, 1.08, 0.78, 1.0)
+const GOLDEN_BIRD_SHIMMER_HZ: float = 3.6
 ## Extra balls per bucket per More Balls shop level.
 const BALL_COUNT_BONUS_PER_LEVEL: float = 1.0
 
