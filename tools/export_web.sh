@@ -150,6 +150,8 @@ if "status-title" in html:
     raise SystemExit("export_web: yellow RANGE RAT text loader should be gone")
 if "__rangeRatTitleReady" not in html or "fade-chrome" not in html:
     raise SystemExit("export_web: custom title-ready fade shell was not applied")
+if "window.va" not in html or "/_vercel/insights/script.js" not in html:
+    raise SystemExit("export_web: Vercel Analytics snippet missing from index.html")
 if "background-color: #000" not in html:
     raise SystemExit("export_web: loader background must be black")
 if "image-rendering: pixelated" not in html:

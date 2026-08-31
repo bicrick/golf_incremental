@@ -10,6 +10,7 @@ var _active_beat := -1
 var _showing_welcome_back := false
 var _awaiting_first_swing := false
 var _awaiting_empty_bucket := false
+var _player_ball_in_flight := false
 var _awaiting_harvest_enter := false
 var _awaiting_harvest_pick := false
 var _awaiting_harvest_return := false
@@ -44,6 +45,8 @@ func _ready() -> void:
 		EventBus.ui_panel_toggled.connect(_on_ui_panel_toggled)
 	if not EventBus.ball_collected.is_connected(_on_ball_collected):
 		EventBus.ball_collected.connect(_on_ball_collected)
+	if EventBus.has_signal("fairway_impact") and not EventBus.fairway_impact.is_connected(_on_fairway_impact):
+		EventBus.fairway_impact.connect(_on_fairway_impact)
 	call_deferred("_resolve_icon_bar")
 
 
@@ -67,7 +70,7 @@ func begin_if_needed() -> void:
 	elif progress == TutorialCopyScript.Beat.FIRST_BUCKET:
 		_awaiting_empty_bucket = true
 		if GameState.bucket_remaining <= 0 and not GameState.is_harvest_phase():
-			_show_beat(TutorialCopyScript.Beat.OUT_OF_BALLS)
+			_maybe_show_out_of_balls()
 	elif progress == TutorialCopyScript.Beat.HARVEST_ENTER:
 		_awaiting_harvest_enter = true
 		if GameState.is_harvest_phase():
@@ -213,6 +216,7 @@ func _complete_tutorial() -> void:
 	GameState.tutorial_upgrade_menu_seen = true
 	_awaiting_first_swing = false
 	_awaiting_empty_bucket = false
+	_player_ball_in_flight = false
 	_awaiting_harvest_enter = false
 	_awaiting_harvest_pick = false
 	_awaiting_harvest_return = false
@@ -229,6 +233,8 @@ func _on_swing_resolved(
 ) -> void:
 	if GameState.tutorial_completed:
 		return
+	# Bucket empties on contact; hold the "we're out" beat until this shot rests.
+	_player_ball_in_flight = true
 	if not _awaiting_first_swing:
 		return
 	if GameState.tutorial_progress < TutorialCopyScript.Beat.HOLD:
@@ -259,6 +265,14 @@ func _on_bucket_changed(count: int, _capacity: int) -> void:
 	_maybe_show_out_of_balls()
 
 
+func _on_fairway_impact(_world_pos: Vector3) -> void:
+	if GameState.tutorial_completed:
+		return
+	_player_ball_in_flight = false
+	if _awaiting_empty_bucket:
+		_maybe_show_out_of_balls()
+
+
 func _maybe_show_out_of_balls() -> void:
 	if GameState.tutorial_completed:
 		return
@@ -267,6 +281,8 @@ func _maybe_show_out_of_balls() -> void:
 	if GameState.bucket_remaining > 0:
 		return
 	if GameState.is_harvest_phase():
+		return
+	if _player_ball_in_flight:
 		return
 	if GameState.tutorial_progress < TutorialCopyScript.Beat.FIRST_BUCKET:
 		return
@@ -279,6 +295,17 @@ func _on_phase_changed(phase: String) -> void:
 	if GameState.tutorial_completed:
 		return
 	if phase == "harvest":
+		_player_ball_in_flight = false
+		if (
+			_awaiting_empty_bucket
+			and GameState.tutorial_progress == TutorialCopyScript.Beat.FIRST_BUCKET
+		):
+			# Already collecting during the last flight — skip "we're out".
+			_awaiting_empty_bucket = false
+			_advance_progress(TutorialCopyScript.Beat.HARVEST_ENTER)
+			_awaiting_harvest_enter = false
+			call_deferred("_show_harvest_pick_if_needed")
+			return
 		if (
 			_awaiting_harvest_enter
 			or GameState.tutorial_progress == TutorialCopyScript.Beat.HARVEST_ENTER

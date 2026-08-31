@@ -1,32 +1,44 @@
 class_name RangeBirdDirector
 extends Node3D
-## Spawns near-fairway birds that enter high, perch, then climb out.
+## Fairway perch birds + high sky flyover packs across the 300yd range.
 
-const POOL_SIZE := 5
-const PERCH_MIN_SEP := 3.2
-const FLUSH_RADIUS := 8.0
+enum Mood { QUIET, NORMAL, BUSY }
+
+const POOL_SIZE := 32
+const PERCH_MIN_SEP := 3.8
+const FLUSH_RADIUS := 12.0
+const STARTLE_HOP_RADIUS := 22.0
 const BAY_EXCLUSION_X := 8.0
 const BAY_EXCLUSION_Z_NEAR := -24.0
 const PERCH_Z_NEAR := -28.0
-const PERCH_Z_FAR := -88.0
-## depth^POWER — higher = more birds near the tee / front of the range.
-const PERCH_FRONT_BIAS := 2.35
+## Most of VISUAL_MAX_YARDS (world unit = 1 yard).
+const PERCH_Z_FAR := -250.0
+## Softened so mid/deep fairway still get birds.
+const PERCH_FRONT_BIAS := 1.75
 const PERCH_X_INNER := 6.0
 const PERCH_X_OUTER := 17.0
 const MIN_APPROACH_Y := 9.0
 const MAX_APPROACH_Y := 15.0
-const SIDE_SPAWN_X := 22.0
+const MIN_FLYOVER_Y := 11.0
+const MAX_FLYOVER_Y := 17.0
+const SIDE_SPAWN_X := 24.0
 const TREELINE_SCREEN_Y := 0.40
-const PAIR_CHANCE := 0.16
+const PAIR_CHANCE := 0.28
 ## Screen-space click radius (px) for perched birds in harvest ortho.
 const CLICK_RADIUS_PX := 36.0
+const SQUAWK_COOLDOWN_SEC := 0.4
 
 var _birds: Array[RangeBird] = []
 var _rng := RandomNumberGenerator.new()
 var _camera: Camera3D
 var _next_arrival := 1.2
+var _next_pack := 8.0
 var _atmosphere_tint := Color.WHITE
 var _range_view: Node = null
+var _mood: Mood = Mood.NORMAL
+var _mood_left := 30.0
+var _perch_target := 12
+var _squawk_cooldown := 0.0
 
 
 func _ready() -> void:
@@ -38,10 +50,13 @@ func _ready() -> void:
 		set_process(false)
 		return
 	var bus := get_node_or_null("/root/EventBus")
-	if bus != null and not bus.litter_spawned.is_connected(_on_litter_spawned):
-		bus.litter_spawned.connect(_on_litter_spawned)
+	if bus != null and bus.has_signal("fairway_impact"):
+		if not bus.fairway_impact.is_connected(_on_fairway_impact):
+			bus.fairway_impact.connect(_on_fairway_impact)
+	_roll_mood()
 	_launch_arrival()
-	_next_arrival = _rng.randf_range(2.5, 6.0)
+	_next_arrival = _rng.randf_range(1.5, 4.0)
+	_schedule_next_pack()
 	set_process(true)
 
 
@@ -71,13 +86,39 @@ func perched_count() -> int:
 	return n
 
 
+func perch_lifecycle_count() -> int:
+	var n := 0
+	for bird in _birds:
+		if bird.is_perch_lifecycle():
+			n += 1
+	return n
+
+
+func flyover_count() -> int:
+	var n := 0
+	for bird in _birds:
+		if bird.is_flyover():
+			n += 1
+	return n
+
+
 func target_active_count() -> int:
+	return target_perch_count()
+
+
+func target_perch_count() -> int:
 	var day_factor := _day_factor()
-	if day_factor > 0.55:
-		return 3
-	if day_factor > 0.22:
-		return 2
-	return 1
+	var target := _perch_target
+	## Night dampens toward quiet.
+	if day_factor < 0.22:
+		target = mini(target, 5)
+	elif day_factor < 0.55:
+		target = mini(target, 12)
+	return target
+
+
+func current_mood() -> Mood:
+	return _mood
 
 
 static func is_above_treeline(camera: Camera3D, world_pos: Vector3) -> bool:
@@ -96,7 +137,7 @@ static func is_above_treeline(camera: Camera3D, world_pos: Vector3) -> bool:
 
 
 func pick_perch() -> Vector3:
-	for _i in 16:
+	for _i in 24:
 		var candidate := _sample_perch()
 		if _perch_free(candidate):
 			return candidate
@@ -140,16 +181,149 @@ func _process(delta: float) -> void:
 	var parent_3d := get_parent() as Node3D
 	if parent_3d != null and not parent_3d.visible:
 		return
+	_squawk_cooldown = maxf(_squawk_cooldown - delta, 0.0)
+	_mood_left -= delta
+	if _mood_left <= 0.0:
+		_roll_mood()
+
 	_next_arrival -= delta
-	if _next_arrival > 0.0:
+	if _next_arrival <= 0.0:
+		var perch_cap := target_perch_count()
+		if perch_lifecycle_count() < perch_cap:
+			_launch_arrival()
+			if (
+				_rng.randf() < PAIR_CHANCE
+				and perch_lifecycle_count() < perch_cap
+			):
+				_launch_arrival()
+			## Busy mood: burst a few more arrivals when slots are free.
+			if _mood == Mood.BUSY:
+				for _i in 2:
+					if perch_lifecycle_count() >= perch_cap:
+						break
+					if _rng.randf() < 0.55:
+						_launch_arrival()
+		_next_arrival = _rng.randf_range(1.8, 5.5)
+
+	_next_pack -= delta
+	if _next_pack <= 0.0:
+		_try_launch_packs()
+		_schedule_next_pack()
+
+
+func _roll_mood() -> void:
+	var roll := _rng.randf()
+	if roll < 0.22:
+		_mood = Mood.QUIET
+		_perch_target = _rng.randi_range(4, 6)
+	elif roll < 0.72:
+		_mood = Mood.NORMAL
+		_perch_target = _rng.randi_range(10, 14)
+	else:
+		_mood = Mood.BUSY
+		_perch_target = _rng.randi_range(16, 20)
+	_mood_left = _rng.randf_range(20.0, 50.0)
+
+
+func _schedule_next_pack() -> void:
+	match _mood:
+		Mood.QUIET:
+			_next_pack = _rng.randf_range(28.0, 48.0)
+		Mood.BUSY:
+			_next_pack = _rng.randf_range(8.0, 16.0)
+		_:
+			_next_pack = _rng.randf_range(14.0, 28.0)
+
+
+func _try_launch_packs() -> void:
+	var packs := 1
+	if _mood == Mood.BUSY and _rng.randf() < 0.45:
+		packs = 2
+	elif _mood == Mood.QUIET and _rng.randf() < 0.55:
+		## Quiet often skips the pack tick entirely.
 		return
-	if active_count() >= target_active_count():
-		_next_arrival = _rng.randf_range(2.5, 5.0)
+	for _i in packs:
+		_launch_flyover_pack()
+
+
+func _pack_size_for_mood() -> int:
+	match _mood:
+		Mood.QUIET:
+			return _rng.randi_range(4, 5)
+		Mood.BUSY:
+			return _rng.randi_range(5, 8)
+		_:
+			return _rng.randi_range(5, 7)
+
+
+func _launch_flyover_pack() -> void:
+	var size := _pack_size_for_mood()
+	var idle := _idle_count()
+	if idle < 3:
 		return
-	_launch_arrival()
-	if randf() < PAIR_CHANCE and active_count() < target_active_count():
-		_launch_arrival()
-	_next_arrival = _rng.randf_range(3.5, 9.0)
+	size = mini(size, idle)
+	var species := _rng.randi_range(0, SkyBirdFrames.SPECIES_COUNT - 1)
+	var path := _sample_flyover_path()
+	var right := path["right"] as Vector3
+	var from_base: Vector3 = path["from"]
+	var to_base: Vector3 = path["to"]
+	for i in size:
+		## Shallow V: lead bird on the path, trailers offset back/side.
+		var wing := float(i) - float(size - 1) * 0.5
+		var lateral := right * (wing * 0.55)
+		var trail := (from_base - to_base).normalized() * (absf(wing) * 0.85)
+		var from := from_base + lateral + trail
+		var to := to_base + lateral + trail * 0.35
+		from.y = clampf(from.y + _rng.randf_range(-0.4, 0.4), MIN_FLYOVER_Y, MAX_FLYOVER_Y)
+		to.y = clampf(to.y + _rng.randf_range(-0.4, 0.4), MIN_FLYOVER_Y, MAX_FLYOVER_Y)
+		var delay := float(i) * _rng.randf_range(0.08, 0.16)
+		if delay <= 0.001:
+			_spawn_flyover_member(from, to, species)
+		else:
+			get_tree().create_timer(delay).timeout.connect(
+				_spawn_flyover_member.bind(from, to, species)
+			)
+
+
+func _spawn_flyover_member(from: Vector3, to: Vector3, species: int) -> void:
+	if not is_inside_tree():
+		return
+	var bird := _idle_bird()
+	if bird == null:
+		return
+	bird.start_flyover(from, to, species)
+
+
+func _sample_flyover_path() -> Dictionary:
+	var strike_cam := _find_strike_camera()
+	var right := Vector3.RIGHT
+	if strike_cam != null and strike_cam.is_inside_tree():
+		right = strike_cam.global_transform.basis.x.normalized()
+	var go_right := _rng.randf() < 0.5
+	var side_in := 1.0 if go_right else -1.0
+	var z := _sample_flyover_z()
+	var y := _rng.randf_range(MIN_FLYOVER_Y, MAX_FLYOVER_Y)
+	var from := Vector3(side_in * -SIDE_SPAWN_X, y, z)
+	var to := Vector3(side_in * SIDE_SPAWN_X, y + _rng.randf_range(-0.8, 1.2), z + _rng.randf_range(-6.0, 6.0))
+	## Nudge altitude up until treeline-safe when a camera exists.
+	for _i in 6:
+		if is_above_treeline(strike_cam, from) and is_above_treeline(strike_cam, to):
+			break
+		from.y = minf(from.y + 1.2, MAX_FLYOVER_Y + 2.0)
+		to.y = minf(to.y + 1.2, MAX_FLYOVER_Y + 2.0)
+	return {"from": from, "to": to, "right": right}
+
+
+func _sample_flyover_z() -> float:
+	## Near / mid / far sky bands across the 300yd fairway.
+	var band := _rng.randi() % 3
+	match band:
+		0:
+			return _rng.randf_range(-40.0, -90.0)
+		1:
+			return _rng.randf_range(-90.0, -160.0)
+		_:
+			return _rng.randf_range(-160.0, -240.0)
 
 
 func _launch_arrival() -> void:
@@ -210,9 +384,7 @@ func _flush_clicked(bird: RangeBird) -> void:
 		if bus != null and bus.has_signal("pickup_payout"):
 			bus.pickup_payout.emit(reward, 1)
 	else:
-		var sfx2 := get_node_or_null("/root/SfxManager")
-		if sfx2 != null and sfx2.has_method("play_bird_squawk"):
-			sfx2.play_bird_squawk()
+		_play_squawk_throttled()
 	bird.flush_to(pick_exit(bird.position, bird.faces_screen_right()))
 
 
@@ -225,9 +397,16 @@ func _on_leave_requested(bird: RangeBird) -> void:
 func _on_hop_requested(bird: RangeBird) -> void:
 	if bird == null or not bird.is_perched():
 		return
-	var next := pick_perch()
-	if next.distance_to(bird.position) > 14.0:
+	var next := _pick_startle_hop(bird)
+	if next == Vector3.ZERO:
 		return
+	bird.hop_to(next)
+
+
+func _pick_startle_hop(bird: RangeBird) -> Vector3:
+	var next := pick_perch()
+	if next.distance_to(bird.position) > 18.0:
+		return Vector3.ZERO
 	## Prefer a hop that continues the beak direction when possible.
 	var cam := _find_active_camera()
 	var right := Vector3.RIGHT
@@ -242,23 +421,35 @@ func _on_hop_requested(bird: RangeBird) -> void:
 		next.y = RangeBird.PERCH_Y
 		if not _perch_free(next) or absf(next.x) > PERCH_X_OUTER + 1.0:
 			next = pick_perch()
-	bird.hop_to(next)
+			if next.distance_to(bird.position) > 18.0:
+				return Vector3.ZERO
+	return next
 
 
-func _on_litter_spawned(
-	_litter_id: int,
-	world_pos: Vector3,
-	_quality: int,
-	_yardage: float,
-	_is_golden: bool,
-	_source: String
-) -> void:
+func _on_fairway_impact(world_pos: Vector3) -> void:
+	var flushed := 0
 	for bird in _birds:
-		if not bird.is_busy():
+		if not bird.is_perched():
 			continue
-		if bird.position.distance_to(world_pos) > FLUSH_RADIUS:
-			continue
-		bird.flush_to(pick_exit(bird.position, bird.faces_screen_right()))
+		var dist := bird.position.distance_to(world_pos)
+		if dist <= FLUSH_RADIUS:
+			bird.flush_to(pick_exit(bird.position, bird.faces_screen_right()))
+			flushed += 1
+		elif dist <= STARTLE_HOP_RADIUS and _rng.randf() < 0.55:
+			var hop := _pick_startle_hop(bird)
+			if hop != Vector3.ZERO:
+				bird.hop_to(hop)
+	if flushed > 0:
+		_play_squawk_throttled()
+
+
+func _play_squawk_throttled() -> void:
+	if _squawk_cooldown > 0.0:
+		return
+	var sfx := get_node_or_null("/root/SfxManager")
+	if sfx != null and sfx.has_method("play_bird_squawk"):
+		sfx.play_bird_squawk()
+	_squawk_cooldown = SQUAWK_COOLDOWN_SEC
 
 
 func _idle_bird() -> RangeBird:
@@ -266,6 +457,14 @@ func _idle_bird() -> RangeBird:
 		if not bird.is_busy():
 			return bird
 	return null
+
+
+func _idle_count() -> int:
+	var n := 0
+	for bird in _birds:
+		if not bird.is_busy():
+			n += 1
+	return n
 
 
 func _build_pool() -> void:
@@ -323,7 +522,7 @@ func _sample_exit(from: Vector3, right: Vector3 = Vector3.RIGHT, side: float = 0
 
 func _perch_free(candidate: Vector3) -> bool:
 	for bird in _birds:
-		if not bird.is_busy():
+		if not bird.is_busy() or bird.is_flyover():
 			continue
 		if bird.perch.distance_to(candidate) < PERCH_MIN_SEP:
 			return false

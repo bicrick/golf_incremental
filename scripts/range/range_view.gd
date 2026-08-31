@@ -1345,6 +1345,7 @@ func show_vanished_ball_fx(
 	if payout > 0.0 and source != "ratina":
 		EventBus.pickup_payout.emit(payout, 1)
 	SfxManager.play_pickup_plink(1)
+	EventBus.fairway_impact.emit(landing)
 	_fly_vanished_ball_to_bucket(landing)
 
 
@@ -1572,6 +1573,7 @@ func leave_litter_ball(
 	EventBus.litter_spawned.emit(
 		litter_id, land_position, quality, yardage, is_golden, source
 	)
+	EventBus.fairway_impact.emit(land_position)
 
 
 func _tee_world_z() -> float:

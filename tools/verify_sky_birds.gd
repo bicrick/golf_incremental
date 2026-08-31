@@ -12,12 +12,15 @@ func _run() -> void:
 	ok = _check_frames() and ok
 	ok = _check_recolor_and_flip() and ok
 	ok = await _check_range_view_director() and ok
+	ok = await _check_deep_fairway_perch_band() and ok
 	ok = await _check_bird_cycle() and ok
 	ok = await _check_species_sticky_across_facing() and ok
 	ok = _check_treeline_gate() and ok
 	ok = await _check_ground_and_front_bias() and ok
 	ok = _check_squawk_assets() and ok
 	ok = await _check_golden_and_click_flush() and ok
+	ok = await _check_flyover_and_impact_flush() and ok
+	ok = _check_mood_targets() and ok
 	print("sky_birds_ok=", ok)
 	quit(0 if ok else 1)
 
@@ -129,6 +132,23 @@ func _check_range_view_director() -> bool:
 
 	range_view.queue_free()
 	print("OK: RangeView has AmbientBirds pool and near-fairway perches")
+	return true
+
+
+func _check_deep_fairway_perch_band() -> bool:
+	var director := RangeBirdDirector.new()
+	root.add_child(director)
+	await process_frame
+	var deep := 0
+	for _i in 120:
+		var perch := director.pick_perch()
+		if perch.z <= -150.0:
+			deep += 1
+	director.queue_free()
+	if deep < 8:
+		print("FAIL: expected some deep-fairway perches, deep=%d" % deep)
+		return false
+	print("OK: perch band reaches deep fairway (%d/120 ≤ -150z)" % deep)
 	return true
 
 
@@ -397,4 +417,124 @@ func _check_golden_and_click_flush() -> bool:
 
 	director.queue_free()
 	print("OK: golden reward + harvest click API")
+	return true
+
+
+func _check_flyover_and_impact_flush() -> bool:
+	var director := RangeBirdDirector.new()
+	root.add_child(director)
+	await process_frame
+
+	var flyer: RangeBird = null
+	var perched: RangeBird = null
+	var approacher: RangeBird = null
+	for child in director.get_children():
+		if child is RangeBird:
+			if flyer == null:
+				flyer = child
+			elif perched == null:
+				perched = child
+			elif approacher == null:
+				approacher = child
+				break
+	if flyer == null or perched == null or approacher == null:
+		print("FAIL: need at least 3 pooled birds for flyover/flush test")
+		director.queue_free()
+		return false
+
+	flyer.start_flyover(
+		Vector3(-22.0, 14.0, -120.0),
+		Vector3(22.0, 14.5, -118.0),
+		SkyBirdFrames.Species.BLUE
+	)
+	if not flyer.is_flyover():
+		print("FAIL: start_flyover should enter FLYOVER state")
+		director.queue_free()
+		return false
+	if flyer.is_perched() or flyer.is_clickable():
+		print("FAIL: flyover birds must not perch or be clickable")
+		director.queue_free()
+		return false
+
+	## Force complete the flyover without waiting full duration.
+	flyer._fly_t = 1.0
+	flyer._tick_flight(0.0)
+	if flyer.is_busy():
+		print("FAIL: completed flyover should return to pool")
+		director.queue_free()
+		return false
+
+	perched.start_cycle(
+		Vector3(18.0, 12.0, -50.0),
+		Vector3(10.0, 0.02, -50.0),
+		SkyBirdFrames.Species.SPARROW,
+		12.0,
+		false
+	)
+	perched._enter_perch()
+	approacher.start_cycle(
+		Vector3(-18.0, 12.0, -50.0),
+		Vector3(-10.0, 0.02, -50.0),
+		SkyBirdFrames.Species.RUST,
+		12.0,
+		false
+	)
+	## Leave approacher in APPROACH — impact must not flush airborne birds.
+	var approach_pos := approacher.position
+
+	director._on_fairway_impact(Vector3(10.0, 0.0, -50.0))
+	if perched.is_perched():
+		print("FAIL: perched bird in flush radius should take off")
+		director.queue_free()
+		return false
+	if approacher.position.distance_to(approach_pos) > 0.05 and not approacher.is_perch_lifecycle():
+		print("FAIL: approach bird should not be converted to flyover by impact")
+		director.queue_free()
+		return false
+	## Approacher should still be busy in approach (not flushed).
+	if not approacher.is_busy() or approacher.is_flyover():
+		print("FAIL: approach bird should remain on perch lifecycle after distant impact logic")
+		director.queue_free()
+		return false
+
+	director.queue_free()
+	print("OK: flyover completes without perch; impact flushes only perched birds")
+	return true
+
+
+func _check_mood_targets() -> bool:
+	var director := RangeBirdDirector.new()
+	root.add_child(director)
+	## Force each mood and confirm perch targets fall in plan bands.
+	director._mood = RangeBirdDirector.Mood.QUIET
+	director._perch_target = 5
+	if director.target_perch_count() < 4 or director.target_perch_count() > 6:
+		## Night dampen can lower further when day_factor is low; without cycle expect 5.
+		if director.target_perch_count() != 5:
+			print("FAIL: quiet perch target unexpected %s" % director.target_perch_count())
+			director.queue_free()
+			return false
+	director._mood = RangeBirdDirector.Mood.NORMAL
+	director._perch_target = 12
+	if director.target_perch_count() < 10 or director.target_perch_count() > 14:
+		print("FAIL: normal perch target unexpected %s" % director.target_perch_count())
+		director.queue_free()
+		return false
+	director._mood = RangeBirdDirector.Mood.BUSY
+	director._perch_target = 18
+	var busy := director.target_perch_count()
+	if busy < 12 or busy > 20:
+		print("FAIL: busy perch target unexpected %s" % busy)
+		director.queue_free()
+		return false
+	if RangeBirdDirector.POOL_SIZE < 32:
+		print("FAIL: pool should be at least 32 for 300yd density")
+		director.queue_free()
+		return false
+	if RangeBirdDirector.PERCH_Z_FAR > -200.0:
+		print("FAIL: perch far band should reach deep fairway")
+		director.queue_free()
+		return false
+	director.queue_free()
+	print("OK: mood targets and pool/depth scale for 300yd range")
 	return true

@@ -6,7 +6,7 @@ signal cycle_finished
 signal leave_requested
 signal hop_requested
 
-enum State { POOLED, APPROACH, PERCH, HOP, TAKEOFF }
+enum State { POOLED, APPROACH, PERCH, HOP, TAKEOFF, FLYOVER }
 
 const PIXEL_SIZE := 0.022
 ## Feet sit on the fairway (y≈0). Sprite is foot-anchored via offset.
@@ -14,6 +14,7 @@ const PERCH_Y := 0.02
 const FLY_SPEED := 9.0
 const HOP_SPEED := 6.5
 const TAKEOFF_SPEED := 11.0
+const FLYOVER_SPEED := 12.0
 ## Approach uses a settle curve (not a mid-arc lift) so the path never dips under grass.
 const HOP_LIFT := 1.4
 const TAKEOFF_LIFT := 2.4
@@ -71,6 +72,15 @@ func is_busy() -> bool:
 
 func is_perched() -> bool:
 	return _state == State.PERCH
+
+
+func is_flyover() -> bool:
+	return _state == State.FLYOVER
+
+
+## Approach / perch / hop / takeoff — not sky pack crossings.
+func is_perch_lifecycle() -> bool:
+	return is_busy() and not is_flyover()
 
 
 func is_in_harvest_fog() -> bool:
@@ -155,6 +165,22 @@ func start_cycle(
 	_refresh_modulate()
 
 
+## High sky crossing — never perches, never golden, never harvest-clickable.
+func start_flyover(from: Vector3, to: Vector3, next_species: int) -> void:
+	is_golden = false
+	species = next_species
+	_reward_claimed = false
+	perch = Vector3.ZERO
+	_frames_normal = SkyBirdFrames.make_frames(species, false)
+	_frames_flipped = SkyBirdFrames.make_frames(species, true)
+	_using_flipped = not _using_flipped
+	_leave_emitted = false
+	_set_sparkles_active(false)
+	visible = true
+	_refresh_modulate()
+	_begin_flight(State.FLYOVER, from, to, FLYOVER_SPEED, 0.0)
+
+
 ## Returns cash awarded (0 if not golden / already claimed).
 func claim_golden_reward() -> float:
 	if not is_golden or _reward_claimed:
@@ -175,13 +201,13 @@ func hop_to(next_perch: Vector3) -> void:
 
 
 func takeoff_to(exit_pos: Vector3) -> void:
-	if _state == State.POOLED or _state == State.TAKEOFF:
+	if _state == State.POOLED or _state == State.TAKEOFF or _state == State.FLYOVER:
 		return
 	_begin_flight(State.TAKEOFF, position, exit_pos, TAKEOFF_SPEED, TAKEOFF_LIFT)
 
 
 func flush_to(exit_pos: Vector3) -> void:
-	if _state == State.POOLED or _state == State.TAKEOFF:
+	if _state == State.POOLED or _state == State.TAKEOFF or _state == State.FLYOVER:
 		return
 	_perch_left = 0.0
 	_begin_flight(State.TAKEOFF, position, exit_pos, TAKEOFF_SPEED * 1.15, TAKEOFF_LIFT + 0.8)
@@ -196,9 +222,13 @@ func _begin_flight(next: State, from: Vector3, to: Vector3, speed: float, lift: 
 	_state = next
 	_from = from
 	_to = to
-	_to.y = maxf(_to.y, PERCH_Y)
-	if next == State.APPROACH or next == State.HOP:
-		_from.y = maxf(_from.y, PERCH_Y)
+	if next == State.FLYOVER:
+		## Keep full sky altitude — do not pull endpoints down to grass.
+		pass
+	else:
+		_to.y = maxf(_to.y, PERCH_Y)
+		if next == State.APPROACH or next == State.HOP:
+			_from.y = maxf(_from.y, PERCH_Y)
 	_fly_lift = lift
 	var dist := from.distance_to(to)
 	_fly_duration = maxf(dist / maxf(speed, 0.1), 0.45)
@@ -214,7 +244,7 @@ func _process(delta: float) -> void:
 	if is_golden:
 		_tick_golden_fx(delta)
 	match _state:
-		State.APPROACH, State.HOP, State.TAKEOFF:
+		State.APPROACH, State.HOP, State.TAKEOFF, State.FLYOVER:
 			_tick_flight(delta)
 		State.PERCH:
 			_tick_perch(delta)
@@ -292,9 +322,12 @@ func _tick_flight(delta: float) -> void:
 	if _state == State.APPROACH:
 		## Ease altitude down onto the grass — stay above PERCH_Y the whole way.
 		pos.y = lerpf(_from.y, _to.y, eased * eased)
+	elif _state == State.FLYOVER:
+		## Straight sky path with a tiny breathe so the pack doesn’t look locked.
+		pos.y += sin(t * PI) * 0.35
 	else:
 		pos.y += sin(t * PI) * _fly_lift
-	if _state != State.TAKEOFF:
+	if _state != State.TAKEOFF and _state != State.FLYOVER:
 		pos.y = maxf(pos.y, PERCH_Y)
 	var vel := pos - position
 	position = pos
@@ -302,7 +335,7 @@ func _tick_flight(delta: float) -> void:
 		_face_toward(vel)
 	if t < 1.0:
 		return
-	if _state == State.TAKEOFF:
+	if _state == State.TAKEOFF or _state == State.FLYOVER:
 		_pool()
 		cycle_finished.emit()
 		return

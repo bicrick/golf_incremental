@@ -82,6 +82,9 @@ func _run() -> void:
 	elif "__rangeRatTitleReady" not in shell or "fade-chrome" not in shell:
 		print("FAIL: HTML shell missing title-ready fade handshake")
 		ok = false
+	elif "window.va" not in shell or "/_vercel/insights/script.js" not in shell:
+		print("FAIL: HTML shell missing Vercel Analytics snippet")
+		ok = false
 	elif "godot.svg" in shell.to_lower() or "game engine" in shell.to_lower():
 		print("FAIL: HTML shell still has Godot branding")
 		ok = false

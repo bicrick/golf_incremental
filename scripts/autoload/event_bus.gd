@@ -21,6 +21,8 @@ signal pickup_payout(amount: float, combo: int)
 signal litter_spawned(litter_id: int, world_pos: Vector3, quality: int, yardage: float, is_golden: bool, source: String)
 signal litter_removed(litter_id: int)
 signal litter_cleared()
+## Ball rest / vanish impact on the fairway — ambient birds flush or startle.
+signal fairway_impact(world_pos: Vector3)
 signal ratina_upgrade_purchased(id: String, level: int)
 signal ratina_swing_resolved(yards: float, timing_tier: int, payout: float)
 signal ratina_ball_collected(amount: float) 

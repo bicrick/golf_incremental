@@ -40,7 +40,7 @@ stateDiagram-v2
 
 - Subtle color ramps in background layers (dither or extra ramp colors)
 - Limited palette per time-of-day phase
-- Small life: birds on sky layer, pollen motes, flag flutter on structure layer
+- Small life: birds on the fairway and high sky packs (mood-driven density, ball-landing flush), pollen motes, flag flutter on structure layer
 
 ### Placeholder art (v1)
 
@@ -136,7 +136,7 @@ Effects (1–3 seconds, then decay):
 
 ### Ambient loop (always)
 
-- Wind, distant birds, soft pastoral bed
+- Wind, distant birds (fairway perch + high flyover packs), soft pastoral bed
 - Optional: light piano or acoustic guitar
 - `AudioStreamPlayer` loop, low volume
 

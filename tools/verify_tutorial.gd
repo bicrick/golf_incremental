@@ -445,13 +445,24 @@ func _check_beat_advances() -> bool:
 		main.queue_free()
 		await process_frame
 		return false
-	# Empty bucket → out-of-balls → harvest enter
+	bus.fairway_impact.emit(Vector3.ZERO)
+	await process_frame
+	# Last ball: empty on contact must wait until the shot lands and settles.
+	bus.swing_resolved.emit(38.0, Balance.TimingTier.GOOD, 0.0, 0)
 	gs.bucket_remaining = 0
 	bus.bucket_changed.emit(0, 6)
 	await process_frame
 	await process_frame
+	if overlay.is_blocking_input():
+		print("FAIL: out-of-balls pane must wait until last ball settles")
+		main.queue_free()
+		await process_frame
+		return false
+	bus.fairway_impact.emit(Vector3.ZERO)
+	await process_frame
+	await process_frame
 	if not overlay.is_blocking_input():
-		print("FAIL: out-of-balls pane should open on empty bucket")
+		print("FAIL: out-of-balls pane should open after last ball settles")
 		main.queue_free()
 		await process_frame
 		return false
