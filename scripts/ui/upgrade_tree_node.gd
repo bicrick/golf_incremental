@@ -35,8 +35,8 @@ const TOOLTIP_DESC := Color(0.82, 0.78, 0.66, 1)
 const TOOLTIP_LEVEL := Color(0.62, 0.72, 0.52, 1)
 const TOOLTIP_PRICE := Color(1.0, 0.9, 0.45, 1)
 const TOOLTIP_PRICE_DIM := Color(0.72, 0.62, 0.52, 1)
-const MODULATE_LOCKED := Color(0.42, 0.4, 0.38, 0.72)
-const MODULATE_UNAFFORDABLE := Color(0.58, 0.55, 0.5, 0.82)
+const MODULATE_LOCKED := Color(0.42, 0.4, 0.38, 1.0)
+const MODULATE_UNAFFORDABLE := Color(0.58, 0.55, 0.5, 1.0)
 const MODULATE_MAXED := Color(1.0, 0.92, 0.62, 1.0)
 
 var upgrade_id: String = ""
