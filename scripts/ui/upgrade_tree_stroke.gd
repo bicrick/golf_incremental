@@ -14,9 +14,9 @@ const BORDER_GLOW_WIDTH := 2.0
 const BORDER_WIDTH_MAXED := 2.0
 const CORNER_RADIUS := 2.0
 ## Pixel stair cut on each corner (44×44 medallion → chunky rounded square).
-const PIXEL_CORNER_CUT := 3
+const PIXEL_CORNER_CUT := 5
 const CIRCLE_SEGMENTS := 28
-const FILL_COLOR := Color(0.12, 0.10, 0.08, 0.55)
+const FILL_COLOR := Color(0.12, 0.10, 0.08, 1.0)
 const GLOW_ALPHA_SCALE := 0.65
 ## Phase wrap for alpha pulse (no dash marching).
 const PULSE_PERIOD := TAU
@@ -321,8 +321,8 @@ static func draw_squircle_border(
 		stroke = Color(color.r, color.g, color.b, pulse_alpha(phase, SPEED_BORDER, color.a))
 		soft = Color(soft.r, soft.g, soft.b, pulse_alpha(phase, SPEED_BORDER, soft.a))
 	if with_glow:
-		canvas.draw_polyline(points, soft, BORDER_GLOW_WIDTH, true)
-	canvas.draw_polyline(points, stroke, width, true)
+		canvas.draw_polyline(points, soft, BORDER_GLOW_WIDTH, false)
+	canvas.draw_polyline(points, stroke, width, false)
 
 
 static func draw_circle_border(
@@ -354,8 +354,8 @@ static func draw_circle_border(
 		stroke = Color(color.r, color.g, color.b, pulse_alpha(phase, SPEED_BORDER, color.a))
 		soft = Color(soft.r, soft.g, soft.b, pulse_alpha(phase, SPEED_BORDER, soft.a))
 	if with_glow:
-		canvas.draw_polyline(points, soft, BORDER_GLOW_WIDTH, true)
-	canvas.draw_polyline(points, stroke, width, true)
+		canvas.draw_polyline(points, soft, BORDER_GLOW_WIDTH, false)
+	canvas.draw_polyline(points, stroke, width, false)
 
 
 ## Rim point on a centered pixel squircle from `center` toward `toward`.
