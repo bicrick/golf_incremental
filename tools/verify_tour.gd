@@ -139,6 +139,26 @@ func _scene_checks() -> void:
 	_check(w.last_tier == 0, "perfect timing is a Perfect")
 	await _wait(4.0)
 	_check(T.money > 0.0, "the ball paid on landing ($%.2f)" % T.money)
+	## Flow: a tip that becomes due mid-swing waits for the ball to land.
+	T.seen.erase("tip_shop")
+	T.money = 100000.0
+	w.cooldown = 0.0
+	w.begin_swing()
+	await _wait(0.2)
+	_check(not _main.dialogue.is_blocking(), "no tip while charging")
+	w.charge_t = TourData.WINDUP_SEC
+	w.release_swing()
+	await _wait(0.4)
+	_check(not _main.dialogue.is_blocking(), "no tip while the ball flies")
+	for _i in 30:
+		await _wait(0.3)
+		if _main.dialogue.is_blocking():
+			break
+	_check(_main.dialogue.is_blocking() and w.flying.is_empty(), "the tip plays once the ball is down")
+	while _main.dialogue.is_blocking():
+		_main.dialogue.advance()
+		await _wait(0.1)
+	T.money = 0.0
 	## Empty the bucket and sweep.
 	T.bucket_remaining = 0
 	w.begin_sweep()

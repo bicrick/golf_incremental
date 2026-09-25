@@ -26,7 +26,6 @@ const ACE_MULT := 10.0
 const FIRST_GREEN_BONUS_BALLS := 4.0
 const STREAK_STEP := 0.1
 const GOLDEN_MULT := 5.0
-const SWEEP_TIP := 0.08 ## share of an average ball's pay, × chain
 
 const RANGES: Array[Dictionary] = [
 	{
@@ -64,7 +63,7 @@ const RANGES: Array[Dictionary] = [
 		"name": "Saltwind Cliffs",
 		"time": "Late morning",
 		"songs": ["midday", "main-theme"],
-		"pay_mult": 3.6,
+		"pay_mult": 5.5,
 		"sky_hour": 11.0,
 		"fairway_half_width": 34.0,
 		"tee_height": 14.0,
@@ -93,7 +92,7 @@ const RANGES: Array[Dictionary] = [
 		"name": "Redrock Mesa",
 		"time": "Dusk",
 		"songs": ["dusk"],
-		"pay_mult": 10.0,
+		"pay_mult": 5.0,
 		"sky_hour": 18.6,
 		"fairway_half_width": 34.0,
 		"tee_height": 22.0,
@@ -122,7 +121,7 @@ const RANGES: Array[Dictionary] = [
 		"name": "Frostpine",
 		"time": "Night",
 		"songs": ["night", "midnight"],
-		"pay_mult": 5.5,
+		"pay_mult": 2.8,
 		"sky_hour": 22.5,
 		"fairway_half_width": 34.0,
 		"tee_height": 18.0,
@@ -152,7 +151,7 @@ const RANGES: Array[Dictionary] = [
 		"name": "The Edge",
 		"time": "Before sunrise",
 		"songs": ["final"],
-		"pay_mult": 14.0,
+		"pay_mult": 10.0,
 		"sky_hour": 5.2,
 		"fairway_half_width": 30.0,
 		"tee_height": 34.0,
@@ -178,27 +177,27 @@ const RANGES: Array[Dictionary] = [
 
 ## cost = base × growth^level. "shows" gates when a card appears in the shop.
 const UPGRADES: Array[Dictionary] = [
-	{"id": "power", "name": "Club Speed", "icon": "quality", "base": 6.0, "growth": 1.35, "max": 60,
+	{"id": "power", "name": "Club Speed", "icon": "quality", "base": 9.6, "growth": 1.35, "max": 60,
 		"desc": "Hit farther. +8% reach.", "shows": ""},
-	{"id": "fee", "name": "Range Fee", "icon": "base_pay", "base": 8.0, "growth": 1.4, "max": 60,
+	{"id": "fee", "name": "Range Fee", "icon": "base_pay", "base": 12.8, "growth": 1.4, "max": 60,
 		"desc": "Every ball pays more. +35% pay.", "shows": ""},
-	{"id": "bucket", "name": "Bigger Bucket", "icon": "ball_count", "base": 26.8, "growth": 2.4, "max": 6,
+	{"id": "bucket", "name": "Bigger Bucket", "icon": "ball_count", "base": 42.9, "growth": 2.4, "max": 6,
 		"desc": "+2 balls per bucket.", "shows": ""},
-	{"id": "sweet", "name": "Sweet Spot", "icon": "metronome", "base": 40.2, "growth": 2.3, "max": 6,
+	{"id": "sweet", "name": "Sweet Spot", "icon": "metronome", "base": 64.3, "growth": 2.3, "max": 6,
 		"desc": "Wider timing windows. Perfects come easier.", "shows": "bought_any"},
-	{"id": "greens", "name": "Green Reader", "icon": "combo_bonus", "base": 53.6, "growth": 2.4, "max": 6,
+	{"id": "greens", "name": "Green Reader", "icon": "combo_bonus", "base": 85.8, "growth": 2.4, "max": 6,
 		"desc": "Balls that stop on a green pay +0.5× more.", "shows": "green_hit"},
-	{"id": "streak", "name": "Hot Streak", "icon": "perfect_pop", "base": 100.6, "growth": 2.4, "max": 5,
+	{"id": "streak", "name": "Hot Streak", "icon": "perfect_pop", "base": 161.0, "growth": 2.4, "max": 5,
 		"desc": "Great or better in a row: +10% pay each, up to a higher cap.", "shows": "stars_2"},
-	{"id": "cart", "name": "Picker Cart", "icon": "range_picker", "base": 33.5, "growth": 2.3, "max": 6,
-		"desc": "Bigger, faster sweep. Longer tip chains.", "shows": "swept"},
-	{"id": "golden", "name": "Golden Balls", "icon": "golden_ball", "base": 201.2, "growth": 2.3, "max": 8,
+	{"id": "cart", "name": "Tip Jar", "icon": "range_picker", "base": 53.6, "growth": 2.3, "max": 6,
+		"desc": "The bucket bonus grows. +25% per level.", "shows": "swept"},
+	{"id": "golden", "name": "Golden Balls", "icon": "golden_ball", "base": 321.9, "growth": 2.3, "max": 8,
 		"desc": "+2% chance a ball is golden and pays ×5.", "shows": "range_1"},
-	{"id": "wind", "name": "Wind Reader", "icon": "distance_pay", "base": 1005.8, "growth": 2.4, "max": 5,
+	{"id": "wind", "name": "Wind Reader", "icon": "distance_pay", "base": 1609.3, "growth": 2.4, "max": 5,
 		"desc": "Shows where the wind will take the ball. Less crosswind drift.", "shows": "range_1"},
-	{"id": "roll", "name": "Run-Up", "icon": "iron_set", "base": 5364.0, "growth": 2.4, "max": 5,
+	{"id": "roll", "name": "Run-Up", "icon": "iron_set", "base": 8582.4, "growth": 2.4, "max": 5,
 		"desc": "Shows the roll. Rolled yards pay double.", "shows": "range_2"},
-	{"id": "oil", "name": "Lamp Oil", "icon": "pickup", "base": 33525.0, "growth": 2.4, "max": 5,
+	{"id": "oil", "name": "Lamp Oil", "icon": "pickup", "base": 53640.0, "growth": 2.4, "max": 5,
 		"desc": "Every lit lantern pays +10% more.", "shows": "range_3"},
 ]
 

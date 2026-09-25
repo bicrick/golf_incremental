@@ -57,12 +57,11 @@ static func golden_chance(levels: Dictionary) -> float:
 	return 0.02 * level(levels, "golden")
 
 
-static func cart_radius(levels: Dictionary) -> float:
-	return 7.0 * (1.0 + 0.2 * level(levels, "cart"))
-
-
-static func cart_speed(levels: Dictionary) -> float:
-	return 70.0 * (1.0 + 0.2 * level(levels, "cart"))
+## The bucket report's bonus: a cut of what the bucket earned, more for
+## greens and Perfects, grown by the Tip Jar.
+static func bucket_bonus(stats: Dictionary, levels: Dictionary) -> float:
+	var share := 0.12 + 0.04 * int(stats.get("greens", 0)) + 0.02 * int(stats.get("perfects", 0))
+	return float(stats.get("pay", 0.0)) * share * (1.0 + 0.25 * level(levels, "cart"))
 
 
 static func green_mult(levels: Dictionary) -> float:

@@ -1,7 +1,6 @@
 shader_type canvas_item;
-// Foreground sway: grass at the bottom and leaves at the top move with the
-// music (energy) and kick on the beat (pulse). Trunks in the middle hold
-// still. Offsets snap to whole pixels so the art stays crisp.
+// Foreground sway: grass at the bottom and leaves at the top drift gently
+// with the music (energy) and lean on the beat (pulse). Trunks hold still.
 
 uniform float energy = 0.0;
 uniform float pulse = 0.0;
@@ -12,8 +11,10 @@ void fragment() {
 	float grass = smoothstep(0.62, 1.0, UV.y);
 	float leaves = smoothstep(0.3, 0.0, UV.y);
 	float weight = max(grass, leaves * 0.6);
-	float wave = sin(t * 1.3 + UV.y * 9.0 + UV.x * 3.0) * (0.6 + energy * 1.6) + pulse * 1.2;
-	float px = floor(wave * weight * 2.2 + 0.5);
+	// Smooth, gentle drift (sub-pixel is fine: the art stays pixel art, the
+	// motion doesn't have to stair-step). Tips move, bases stay planted.
+	float wave = sin(t * 0.9 + UV.y * 5.0 + UV.x * 2.0) * (0.35 + energy * 0.6) + pulse * 0.35;
+	float px = wave * weight * 1.1;
 	vec2 uv = UV + vec2(px / size.x, 0.0);
 	COLOR = texture(TEXTURE, uv);
 }

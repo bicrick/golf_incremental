@@ -35,6 +35,9 @@ uniform float mist_far = 1.0; // mist thickens with distance
 uniform float reach = 150.0;
 uniform float time_s = 0.0;
 uniform float sea_side = 0.0; // cliffs: sea past this x (0 = none)
+uniform float cloud_shadows = 0.0; // strength of drifting cloud shadows
+uniform vec2 wind_dir = vec2(1.0, 0.3); // ground-space drift for shadows and grass waves
+uniform float grass_waves = 0.0; // wind rolling through the grass
 
 varying vec3 world_pos;
 
@@ -183,6 +186,21 @@ void fragment() {
 		vec3 warm = col * lamp_color * 1.1;
 		col = mix(col, mix(night, warm, lq), darkness);
 		if (grain > 0.992 && lit < 0.2) col += vec3(0.25) * darkness; // snow glints
+	}
+
+	// Wind rolling through the grass: soft bright bands sweeping downwind.
+	if (grass_waves > 0.0 && ax < hw + 40.0) {
+		vec2 wd = normalize(wind_dir);
+		float along = dot(p, wd) * 0.09 - time_s * 1.1;
+		float band = sin(along + fbm(p * 0.02) * 4.0);
+		float gust = smoothstep(0.55, 1.0, band) * smoothstep(0.35, 0.75, fbm(p * 0.012 + wd * time_s * 0.05));
+		col = mix(col, col * 1.18 + vec3(0.02, 0.03, 0.0), gust * grass_waves);
+	}
+	// Cloud shadows drifting over everything: smooth, large, slow.
+	if (cloud_shadows > 0.0) {
+		float cs = fbm(p * 0.0065 + normalize(wind_dir) * time_s * 0.012);
+		float shade = smoothstep(0.52, 0.66, cs);
+		col *= 1.0 - shade * cloud_shadows;
 	}
 
 	// Ground mist: flat, drifting shapes with a bright lip on their far

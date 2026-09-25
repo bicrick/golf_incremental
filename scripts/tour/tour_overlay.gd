@@ -8,7 +8,7 @@ const TOUR := "res://assets/sprites/tour/"
 const FLAG_W := 15
 const RING_START_R := 26.0
 const RING_TARGET_R := 4.0
-const RAT_BALL_OFFSET := Vector2(38, 43) ## ball position inside a 52×52 rat frame
+const RAT_BALL_OFFSET := Vector2(46, 45) ## ball position inside a 52×52 rat frame
 
 var world: TourWorld
 var rat: AnimatedSprite2D
@@ -23,6 +23,7 @@ var _flag_frame := 0
 var _flag_timer := 0.0
 var _shake := 0.0
 var _critters: Array[Dictionary] = []
+var _sparks: Array[Dictionary] = []
 var _popup := {"text": "", "color": Color.WHITE, "t": 99.0}
 var _critter_timer := 2.0
 
@@ -103,11 +104,22 @@ func _spawn_particle(anywhere: bool) -> Dictionary:
 		"pollen":
 			p["v"] = Vector2(_rng.randf_range(3, 9), _rng.randf_range(-2, 2))
 			p["color"] = Color(1.0, 0.95, 0.7, _rng.randf_range(0.5, 0.9))
+			if _rng.randf() < 0.35:
+				p["petal"] = true
+				p["v"] = Vector2(_rng.randf_range(10, 22), _rng.randf_range(6, 14))
+				p["color"] = Color(1.0, 0.82, 0.88, 0.9) if _rng.randf() < 0.6 else Color(1, 1, 1, 0.9)
+				if not anywhere:
+					p["pos"] = Vector2(_rng.randf_range(-40, 400), -6)
 		"dust":
 			p["v"] = Vector2(_rng.randf_range(12, 30), _rng.randf_range(-1, 1))
 			p["color"] = Color(1.0, 0.82, 0.6, _rng.randf_range(0.25, 0.55))
 			if not anywhere:
 				p["pos"] = Vector2(-4, _rng.randf_range(90, 270))
+			if _rng.randf() < 0.3:
+				p["firefly"] = true
+				p["v"] = Vector2(_rng.randf_range(-4, 4), _rng.randf_range(-3, 1))
+				p["pos"] = Vector2(_rng.randf_range(0, 480), _rng.randf_range(140, 260))
+				p["color"] = Color(1.0, 0.9, 0.45, 1.0)
 		"motes":
 			p["v"] = Vector2(_rng.randf_range(-2, 2), _rng.randf_range(-5, -1))
 			p["color"] = Color(1.0, 0.92, 0.8, _rng.randf_range(0.3, 0.8))
@@ -139,6 +151,10 @@ func _process(delta: float) -> void:
 			var np := _spawn_particle(false)
 			p.merge(np, true)
 	_update_streaks(delta)
+	for sp in _sparks:
+		sp["t"] = float(sp["t"]) + delta
+		sp["pos"] = (sp["pos"] as Vector2) + (sp["v"] as Vector2) * delta
+	_sparks = _sparks.filter(func(sp: Dictionary) -> bool: return float(sp["t"]) < float(sp["life"]))
 	_update_critters(delta)
 	_update_rat()
 	queue_redraw()
@@ -319,10 +335,8 @@ func _draw() -> void:
 		_draw_aim()
 	_draw_resting()
 	_draw_splashes()
-	if sweeping:
+	if playing:
 		_draw_keepsakes()
-		_draw_cart()
-		_draw_offscreen_arrows()
 	_draw_flying()
 	_draw_floaters()
 	for s in _streaks:
@@ -331,8 +345,19 @@ func _draw() -> void:
 		draw_line(p, p - dir * float(s["len"]), Color(1, 1, 1, 0.55), 1.0)
 	_draw_weather(false)
 	if playing and rat.modulate.a > 0.5:
+		_draw_rat_shadow()
 		_draw_tee()
 		_draw_popup()
+
+
+## A soft pool of shade under the rat's feet (drawn under him: the rat sprite
+## is a child node, so it paints after this).
+func _draw_rat_shadow() -> void:
+	var c := world.tee_screen + Vector2(-20, 3)
+	draw_set_transform(c, 0.0, Vector2(1.0, 0.32))
+	for i in 4:
+		draw_circle(Vector2.ZERO, 16.0 - i * 3.5, Color(0.02, 0.03, 0.06, 0.07 + i * 0.03))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_popup() -> void:
@@ -359,9 +384,20 @@ func _draw_weather(back: bool) -> void:
 		if (i % 3 == 0) != back:
 			continue
 		var p: Dictionary = _weather[i]
-		var s := int(p["size"])
-		var pos: Vector2 = (p["pos"] as Vector2).floor()
-		draw_rect(Rect2(pos, Vector2(s, s)), p["color"])
+		var pos: Vector2 = p["pos"]
+		if p.get("petal", false):
+			draw_set_transform(pos, world.time_s * 2.0 + float(p["seed"]) * 3.0, Vector2(1.0, 0.5 + 0.5 * absf(sin(world.time_s * 3.0 + float(p["seed"])))))
+			draw_circle(Vector2.ZERO, 1.6, p["color"])
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		elif p.get("firefly", false):
+			var blink := 0.5 + 0.5 * sin(world.time_s * 2.5 + float(p["seed"]) * 5.0)
+			var fc: Color = p["color"]
+			draw_circle(pos, 4.0, Color(fc.r, fc.g, fc.b, 0.08 * blink))
+			draw_circle(pos, 1.8, Color(fc.r, fc.g, fc.b, 0.3 * blink))
+			draw_circle(pos, 0.8, Color(1, 1, 0.8, blink))
+		else:
+			var s := float(p["size"])
+			draw_circle(pos, s * 0.6, p["color"])
 
 
 func _draw_flags() -> void:
@@ -427,19 +463,17 @@ func _draw_aim() -> void:
 	var rest := world.expected_rest(land)
 	var show_wind: bool = world.range_def.get("mechanic", "") == "wind"
 	var show_roll: bool = float(world.range_def.get("roll", 0.0)) > 0.05
-	## Trajectory preview: a dotted arc from the tee.
-	var apex := clampf(aim.length() * 0.16, 2.0, 38.0)
+	## Trajectory preview: the real flight curve, dotted.
+	var apex := clampf(aim.length() * 0.13 + 3.0, 1.5, 44.0)
 	var pulse := fmod(world.time_s * 1.2, 1.0)
-	for i in range(1, 14):
-		var t := (float(i) + pulse) / 14.0
-		var gp := Vector2.ZERO.lerp(aim, t)
-		var p := Vector3(gp.x, apex * 4.0 * t * (1.0 - t), -gp.y)
+	for i in range(1, 18):
+		var t := (float(i) + pulse) / 18.0
+		var p := world.flight_point(aim, apex, t)
 		if not _visible_point(p):
 			continue
-		var sp := _proj(p).floor()
-		var a := 0.45 + 0.45 * sin(t * PI)
-		draw_rect(Rect2(sp + Vector2(1, 1), Vector2(1, 1)), Color(0.1, 0.08, 0.12, a * 0.6))
-		draw_rect(Rect2(sp, Vector2(1, 1)), Color(1, 1, 1, a))
+		var sp := _proj(p)
+		var a := 0.3 + 0.45 * sin(t * PI)
+		draw_circle(sp, 0.9, Color(1, 1, 1, a))
 	_draw_reticle(aim, Color(1, 1, 1, 0.9), true)
 	if show_wind and land.distance_to(aim) > 1.0:
 		if Tour.level("wind") > 0:
@@ -479,21 +513,24 @@ func _draw_reticle(g: Vector2, col: Color, main: bool) -> void:
 		draw_rect(Rect2(c - Vector2(0, 0), Vector2(1, 1)), col)
 
 
+## True size: a golf ball is 0.047 yd across, so it's a few pixels at the
+## tee and a speck at 200 yd. Specks get a soft halo so you can follow them.
 func _ball_radius(p: Vector3) -> float:
-	var d := _cam_dist(p)
-	return clampf(160.0 / maxf(d, 1.0), 1.0, 3.0)
+	var f := 135.0 / tan(deg_to_rad(TourWorld.FOV * 0.5))
+	return 0.0235 * f / maxf(_cam_dist(p), 0.1)
 
 
 func _draw_ball(sp: Vector2, r: float, golden: bool, glow: bool) -> void:
 	var col := Color(1.0, 0.86, 0.3) if golden else Color(1, 1, 1)
-	if glow:
-		_draw_glow(sp, r + 4.0, Color(col.r, col.g, col.b, 0.18))
-	if r <= 1.2:
-		draw_rect(Rect2(sp.floor(), Vector2(1, 1)), col)
-		return
-	var ri := int(round(r))
-	draw_circle(sp.floor() + Vector2(0.5, 0.5), float(ri), col)
-	draw_rect(Rect2(sp.floor() + Vector2(ri - 1, ri - 1) * 0.5, Vector2(1, 1)), col.darkened(0.25))
+	var rr := maxf(r, 0.55)
+	if glow or r < 0.8:
+		var halo := clampf(1.2 - r, 0.3, 1.0)
+		draw_circle(sp, rr + 2.2, Color(col.r, col.g, col.b, 0.10 * halo + (0.12 if glow else 0.0)))
+		draw_circle(sp, rr + 1.1, Color(col.r, col.g, col.b, 0.22 * halo + (0.1 if glow else 0.0)))
+	draw_circle(sp, rr, col)
+	if r > 1.4:
+		draw_circle(sp + Vector2(r * 0.3, r * 0.3), r * 0.55, Color(0.82, 0.84, 0.9, 0.6))
+		draw_circle(sp - Vector2(r * 0.3, r * 0.3), r * 0.35, Color(1, 1, 1, 0.9))
 
 
 func _draw_resting() -> void:
@@ -515,22 +552,93 @@ func _draw_flying() -> void:
 		if not _visible_point(p):
 			continue
 		var golden := bool(b["golden"])
-		## Trail.
-		var trail: Array = b["trail"]
-		for i in range(1, trail.size()):
-			var a := float(i) / trail.size()
-			var p0: Vector3 = trail[i - 1]
-			var p1: Vector3 = trail[i]
-			if _visible_point(p0) and _visible_point(p1):
-				var tc := Color(1.0, 0.9, 0.5, a * 0.5) if golden else Color(1, 1, 1, a * 0.35)
-				draw_line(_proj(p0), _proj(p1), tc, 1.0)
-		## Shadow on the ground.
-		var shadow := Vector3(p.x, 0.0, p.z)
+		var tier := int(b["tier"])
+		_draw_tracer(b, golden, tier)
+		## Soft shadow on the ground (or the tee), shrinking as the ball climbs.
+		var ground_y := world.tee_height if (-p.z) < 1.5 else 0.0
+		var shadow := Vector3(p.x, ground_y, p.z)
 		if _visible_point(shadow):
-			var ss := _proj(shadow).floor()
-			draw_rect(Rect2(ss - Vector2(1, 0), Vector2(3, 1)), Color(0, 0, 0, 0.28))
+			var ss := _proj(shadow)
+			var sr := maxf(_ball_radius(shadow) * 1.6, 0.8)
+			var fade := clampf(1.0 - (p.y - ground_y) / 25.0, 0.15, 0.5)
+			draw_set_transform(ss, 0.0, Vector2(1.0, 0.45))
+			draw_circle(Vector2.ZERO, sr + 1.0, Color(0, 0, 0, fade * 0.6))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		var cine: bool = b.get("cinematic", false)
-		_draw_ball(_proj(p), maxf(_ball_radius(p), 2.0 if cine else 0.0), golden, night or golden or cine)
+		_draw_ball(_proj(p), _ball_radius(p), golden, night or golden or cine or tier == 0)
+		if tier == 0 and b["phase"] == "fly" and _rng.randf() < 0.7:
+			_sparks.append({"pos": _proj(p) + Vector2(_rng.randf_range(-2, 2), _rng.randf_range(-2, 2)),
+				"v": Vector2(_rng.randf_range(-6, 6), _rng.randf_range(4, 16)), "t": 0.0,
+				"life": _rng.randf_range(0.5, 1.0), "gold": not golden})
+	_draw_sparks()
+	_draw_puffs()
+
+
+## Broadcast-style tracer: a tapered, anti-aliased ribbon behind the ball.
+## Perfects burn gold, Greats cool blue, the rest a thin white thread.
+func _draw_tracer(b: Dictionary, golden: bool, tier: int) -> void:
+	var trail: Array = b["trail"]
+	if trail.size() < 2:
+		return
+	var col := Color(1, 1, 1)
+	var width := 1.4
+	if tier == 0:
+		col = Color(1.0, 0.82, 0.35)
+		width = 3.0
+	elif tier == 1:
+		col = Color(0.7, 0.9, 1.0)
+		width = 2.0
+	if golden:
+		col = Color(1.0, 0.75, 0.25)
+		width = maxf(width, 2.6)
+	var n := trail.size()
+	for i in range(1, n):
+		var p0: Vector3 = trail[i - 1]
+		var p1: Vector3 = trail[i]
+		if not (_visible_point(p0) and _visible_point(p1)):
+			continue
+		var f := float(i) / n
+		var w := width * f
+		var a := f * f * (0.75 if tier <= 1 else 0.45)
+		var a0 := _proj(p0)
+		var a1 := _proj(p1)
+		if tier == 0:
+			draw_line(a0, a1, Color(col.r, col.g, col.b, a * 0.25), w * 2.6, true)
+		draw_line(a0, a1, Color(col.r, col.g, col.b, a), maxf(w, 0.6), true)
+		if tier <= 1:
+			draw_line(a0, a1, Color(1, 1, 1, a * 0.8), maxf(w * 0.35, 0.5), true)
+
+
+func _draw_sparks() -> void:
+	for sp in _sparks:
+		var t := float(sp["t"]) / float(sp["life"])
+		var a := (1.0 - t)
+		var c := Color(1.0, 0.86, 0.45, a) if sp["gold"] else Color(1, 1, 1, a)
+		var pos: Vector2 = sp["pos"]
+		var s := 1.5 * (1.0 - t) + 0.5
+		draw_line(pos - Vector2(s, 0), pos + Vector2(s, 0), c, 0.8, true)
+		draw_line(pos - Vector2(0, s), pos + Vector2(0, s), c, 0.8, true)
+
+
+## Where a ball lands: a little ring of turf, sand or snow kicked up.
+func _draw_puffs() -> void:
+	var tint := TourLooks.c(world.look.get("fairway_a", "5fa83c")).lightened(0.3)
+	if world.range_def.get("id", "") == "frost":
+		tint = Color(0.95, 0.97, 1.0)
+	elif world.range_def.get("id", "") == "mesa":
+		tint = Color(0.95, 0.75, 0.55)
+	for pf in world.puffs:
+		var p: Vector3 = pf["pos"]
+		if not _visible_point(p):
+			continue
+		var t := float(pf["t"]) / 0.9
+		var sp := _proj(Vector3(p.x, 0.0, p.z))
+		var scale := clampf(_ball_radius(p) * 6.0, 1.5, 10.0) * (1.8 if pf["big"] else 1.0)
+		for i in 8:
+			var ang := -PI * (0.1 + 0.8 * float(i) / 7.0)
+			var d := scale * (0.4 + t * 1.4)
+			var q := sp + Vector2(cos(ang) * d * 1.6, sin(ang) * d * (1.2 - t))
+			draw_circle(q, maxf(scale * 0.18 * (1.0 - t), 0.5), Color(tint.r, tint.g, tint.b, (1.0 - t) * 0.8))
 
 
 func _draw_splashes() -> void:
@@ -548,76 +656,20 @@ func _draw_splashes() -> void:
 			draw_arc(sp, 2.0 + t * 8.0, 0, TAU, 12, Color(1, 1, 1, 0.6 * (1.0 - t)), 1.0)
 
 
+## Keepsakes glint in the grass out on the range; land a ball near one.
 func _draw_keepsakes() -> void:
-	for k in world._visible_keepsakes():
+	for k in world.visible_keepsakes():
 		var p := _ground(Vector2(k["x"], k["z"]))
 		if not _visible_point(p):
 			continue
-		var sp := _proj(p).round()
-		var tex: Texture2D = _tex.get(k["id"])
-		var bob := sin(world.time_s * 3.0 + float(k["z"])) * 1.5
-		_draw_glow(sp + Vector2(0, -6), 9.0, Color(1.0, 0.95, 0.6, 0.18))
-		if tex:
-			draw_texture(tex, (sp + Vector2(-7, -16 + bob)).round())
-		var sparkle: Texture2D = _tex["sparkle"]
-		if int(world.time_s * 4.0 + float(k["z"])) % 3 == 0:
-			draw_texture(sparkle, sp + Vector2(4, -20))
-
-
-func _draw_cart() -> void:
-	var p := _ground(world.cart_pos)
-	if not _visible_point(p):
-		return
-	var sp := _proj(p).round()
-	## Pickup radius, drawn on the ground.
-	var r := world.cart_radius_world()
-	var pts := PackedVector2Array()
-	for i in 25:
-		var a := TAU * float(i) / 24.0
-		pts.append(_proj(_ground(world.cart_pos + Vector2(cos(a), sin(a)) * r)))
-	for i in range(0, 24, 2):
-		draw_line(pts[i], pts[i + 1], Color(1, 1, 1, 0.5), 1.0)
-	var tex: Texture2D = _tex["cart"]
-	var flip := cos(world.cart_heading) < -0.2
-	var dst := Rect2(sp + Vector2(-12, -14), Vector2(24, 18))
-	if flip:
-		draw_set_transform(sp, 0.0, Vector2(-1, 1))
-		draw_texture(tex, Vector2(-12, -14))
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	else:
-		draw_texture_rect(tex, dst, false)
-	if world.chain > 1:
-		TinyText.draw(self, sp + Vector2(10, -20), "x%d" % world.chain, Color(1.0, 0.92, 0.45), Color(0.1, 0.1, 0.1, 0.8))
-
-
-## Little arrows on the screen edge pointing at balls and keepsakes you can't see.
-func _draw_offscreen_arrows() -> void:
-	var targets: Array = []
-	for b in world.resting:
-		targets.append([b["pos"], Color(1, 1, 1, 0.9)])
-	for k in world._visible_keepsakes():
-		targets.append([_ground(Vector2(k["x"], k["z"])), Color(1.0, 0.9, 0.5, 0.95)])
-	var screen := Rect2(Vector2(10, 30), Vector2(460, 200))
-	var center := Vector2(240, 135)
-	for tgt in targets:
-		var p: Vector3 = tgt[0]
-		var sp: Vector2
-		if world.camera.is_position_behind(p):
-			sp = center + (center - _proj(p)) * 10.0
-		else:
-			sp = _proj(p)
-		if screen.has_point(sp):
-			continue
-		var dir := (sp - center).normalized()
-		## Walk from the centre to the edge of the inset rect.
-		var tx := (screen.size.x * 0.5) / maxf(absf(dir.x), 0.001)
-		var ty := (screen.size.y * 0.5) / maxf(absf(dir.y), 0.001)
-		var edge := center + dir * minf(tx, ty)
-		var side := Vector2(-dir.y, dir.x)
-		var col: Color = tgt[1]
-		var pts := PackedVector2Array([edge + dir * 4.0, edge - dir * 2.0 + side * 3.0, edge - dir * 2.0 - side * 3.0])
-		draw_colored_polygon(pts, Color(0.08, 0.06, 0.1, 0.6))
-		draw_colored_polygon(PackedVector2Array([pts[0] - dir, pts[1] - dir * 0.5 + side * -0.5, pts[2] - dir * 0.5 + side * 0.5]), col)
+		var sp := _proj(p)
+		var tw := 0.5 + 0.5 * sin(world.time_s * 4.0 + float(k["z"]))
+		draw_circle(sp, 5.0 + tw * 2.0, Color(1.0, 0.95, 0.6, 0.12 + tw * 0.1))
+		var s := 2.0 + tw * 2.5
+		var c := Color(1.0, 0.97, 0.75, 0.6 + tw * 0.4)
+		draw_line(sp - Vector2(s, 0), sp + Vector2(s, 0), c, 1.0, true)
+		draw_line(sp - Vector2(0, s * 1.4), sp + Vector2(0, s * 1.4), c, 1.0, true)
+		draw_circle(sp, 1.2, Color(1, 1, 1))
 
 
 func _draw_floaters() -> void:
@@ -646,8 +698,12 @@ func _draw_tee() -> void:
 	var tee := world.tee_screen
 	var has_ball := Tour.bucket_remaining > 0 and (world.charging or world.cooldown <= 0.0)
 	if has_ball:
-		draw_rect(Rect2(tee + Vector2(-1, 1), Vector2(3, 1)), Color(0, 0, 0, 0.3))
-		draw_circle(tee + Vector2(0.5, -0.5), 1.6, Color(1, 1, 1))
+		var r := _ball_radius(world.tee_pos())
+		draw_set_transform(tee + Vector2(0, r * 0.8), 0.0, Vector2(1.0, 0.4))
+		draw_circle(Vector2.ZERO, r * 1.3, Color(0, 0, 0, 0.3))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_line(tee + Vector2(0, r * 0.2), tee + Vector2(0, r * 1.1), Color(0.95, 0.9, 0.8), 1.0)
+		_draw_ball(tee - Vector2(0, r * 0.4), r, false, false)
 	if world.charging:
 		var t := world.charge_t
 		var target := TourData.WINDUP_SEC

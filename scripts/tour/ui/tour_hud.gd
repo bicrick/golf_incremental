@@ -184,6 +184,44 @@ func _on_song(name: String) -> void:
 	tw.tween_property(_song_card, "modulate:a", 0.0, 0.8)
 
 
+## Bucket report: what that bucket was worth, and the bonus it earned.
+func show_report(r: Dictionary) -> void:
+	if r.is_empty() or int(r.get("balls", 0)) == 0:
+		return
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override(&"panel", TourUi.plate(TourUi.PAPER, TourUi.INK, 5))
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override(&"separation", 3)
+	p.add_child(vb)
+	var title := TourUi.label("BUCKET REPORT", 8, TourUi.GREEN_DARK)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(title)
+	var lines := [
+		"%d balls   %d Perfect   %d on greens" % [int(r["balls"]), int(r["perfects"]), int(r["greens"])],
+		"Best carry %sy   Earned $%s" % [TourFormat.yards(float(r["best"])), TourFormat.money(float(r["pay"]))],
+	]
+	for l in lines:
+		var lab := TourUi.label(l, 8, TourUi.INK)
+		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vb.add_child(lab)
+	var bonus := TourUi.label("", 8, TourUi.PINK.darkened(0.3))
+	bonus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(bonus)
+	add_child(p)
+	p.reset_size()
+	p.position = Vector2(240 - p.size.x * 0.5, 80)
+	p.modulate.a = 0.0
+	var target := float(r["bonus"])
+	var tw := p.create_tween()
+	tw.tween_property(p, "modulate:a", 1.0, 0.25)
+	tw.tween_method(func(v: float) -> void: bonus.text = "Bucket bonus +$" + TourFormat.money(v), 0.0, target, 0.9)
+	tw.tween_interval(1.6)
+	tw.tween_property(p, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(p.queue_free)
+	Audio.play("star")
+
+
 func show_range_chip(text: String) -> void:
 	_range_chip.text = text
 	var tw := create_tween()
@@ -234,7 +272,9 @@ func _refresh_aim() -> void:
 	var text := ""
 	if o["id"] == "drive":
 		text = "Long drive · %sy" % TourFormat.yards(Tour.reach())
-	else:
+	elif o.has("keepsake"):
+		text = "Something glinting · %sy" % TourFormat.yards(o["point"].length())
+	if not o.has("keepsake") and o["id"] != "drive":
 		var g: Dictionary = o["green"]
 		text = "%s · %sy" % [g["name"], TourFormat.yards(float(g["z"]))]
 		if Tour.stars.get(g["id"], false):
@@ -261,10 +301,7 @@ func _process(delta: float) -> void:
 	_goal_plate.queue_redraw()
 	_map_btn.visible = Tour.unlocked_range > 0 or Tour.story_complete
 	if world.mode == TourWorld.Mode.SWEEP:
-		var left := world.resting.size()
-		_sweep_label.text = "Sweep! %d left  ·  Space: done" % left
-		if world.chain > 1:
-			_sweep_label.text = "Chain x%d  ·  %d left" % [world.chain, left]
+		_sweep_label.text = "The Big Picker  ·  %d in  ·  Space: skip" % world.sweep_collected
 	queue_redraw()
 
 

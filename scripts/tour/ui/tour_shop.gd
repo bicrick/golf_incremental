@@ -182,7 +182,7 @@ func _preview(id: String) -> String:
 		"golden":
 			return "%d%% -> %d%%" % [2 * lv, 2 * (lv + 1)]
 		"cart":
-			return "Radius +%d%% -> +%d%%" % [20 * lv, 20 * (lv + 1)]
+			return "Bonus +%d%% -> +%d%%" % [25 * lv, 25 * (lv + 1)]
 		"wind":
 			return "Drift -%d%% -> -%d%%" % [15 * lv, 15 * (lv + 1)]
 		"roll":

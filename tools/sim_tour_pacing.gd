@@ -40,6 +40,8 @@ func _run() -> void:
 		## --- a bucket ---
 		var landed: Array = []
 		var bucket_pay := 0.0
+		var bucket_greens := 0
+		var bucket_perfects := 0
 		while T.bucket_remaining > 0 and not T.story_complete:
 			var aim := _choose_aim(r)
 			var err := _rng.randfn(0.0, sigma)
@@ -85,20 +87,18 @@ func _run() -> void:
 						break
 			T.add_money(pay)
 			bucket_pay += pay
+			if verdict["green"] != "":
+				bucket_greens += 1
+			if tier == 0:
+				bucket_perfects += 1
 			if verdict["lost"] == "":
 				landed.append(pay)
 		if T.story_complete:
 			break
-		## --- sweep ---
-		var n := landed.size()
-		var cart: float = 1.0 + 0.2 * T.level("cart")
-		_t += SWEEP_BASE_SEC + n * SWEEP_SEC_PER_BALL / cart
-		if n > 0:
-			var avg := bucket_pay / n
-			var tip := 0.0
-			for i in n:
-				tip += avg * 0.05 * mini(i + 1, 6 + 2 * T.level("cart"))
-			T.add_money(tip)
+		## --- the Big Picker + bucket report ---
+		_t += 0.8 + 3.6 * 0.6 + 0.7
+		var stats := {"pay": bucket_pay, "greens": bucket_greens, "perfects": bucket_perfects}
+		T.add_money(TourPhysics.bucket_bonus(stats, T.levels))
 		T.flags["swept"] = true
 		T.refill_bucket()
 		## Keepsakes: spotted once the reach covers them.

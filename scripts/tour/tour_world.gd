@@ -39,6 +39,7 @@ var mode: int = Mode.PLAY
 var range_def: Dictionary = {}
 var look: Dictionary = {}
 var camera: Camera3D
+var sun: DirectionalLight3D
 var ground_mat: ShaderMaterial
 var env: Environment
 var overlay: Node2D ## TourOverlay
@@ -63,6 +64,7 @@ var flying: Array[Dictionary] = []
 var resting: Array[Dictionary] = []
 var floaters: Array[Dictionary] = []
 var splashes: Array[Dictionary] = []
+var puffs: Array[Dictionary] = []
 
 ## Wind (cliffs): x = crosswind yd per 100 yd (+ right), y = along share (+ tail).
 var wind := Vector2.ZERO
@@ -70,17 +72,8 @@ var _wind_target := Vector2.ZERO
 var _wind_timer := 0.0
 
 ## Sweep
-var cart_pos := Vector2.ZERO ## ground (x, d)
-var cart_target := Vector2.ZERO
-var cart_heading := 0.0
-var chain := 0
-var chain_timer := 0.0
-var sweep_tips := 0.0
 var sweep_collected := 0
-var _sweep_bucket_pay := 0.0
-var _sweep_bucket_count := 0
 var _pulled: Array[Dictionary] = []
-var _keys_move := Vector2.ZERO
 
 var cinematic_ball: Dictionary = {}
 var home_xform := Transform3D()
@@ -89,6 +82,8 @@ var _cam_tween: Tween
 var _rng := RandomNumberGenerator.new()
 var time_s := 0.0
 var input_enabled := true
+## Set while a story beat is waiting (e.g. Ratina's flag was just reached).
+var hold_swings := false
 var finale_ready := false
 
 
@@ -103,6 +98,10 @@ func _ready() -> void:
 	we.environment = env
 	add_child(we)
 
+	sun = DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-50, -35, 0)
+	sun.light_energy = 1.1
+	add_child(sun)
 	camera = Camera3D.new()
 	camera.fov = FOV
 	camera.near = 0.5
@@ -144,6 +143,7 @@ func load_range(index: int) -> void:
 	_wind_target = Vector2.ZERO
 	_wind_timer = 0.0
 	finale_ready = false
+	hold_swings = false
 	frame_distance = float(TourData.flag_green(range_def).get("z", 150.0))
 	tee_height = float(range_def.get("tee_height", 8.0))
 	_apply_look()
@@ -174,6 +174,8 @@ func _apply_look() -> void:
 	m.set_shader_parameter("half_width", float(range_def["fairway_half_width"]))
 	m.set_shader_parameter("stripe_len", float(look["stripe"]))
 	m.set_shader_parameter("sea_side", float(look.get("sea_side", 0.0)))
+	m.set_shader_parameter("cloud_shadows", float(look.get("cloud_shadows", 0.0)))
+	m.set_shader_parameter("grass_waves", float(look.get("grass_waves", 0.0)))
 	var hz: Array[Vector4] = [Vector4.ZERO, Vector4.ZERO]
 	var hazards: Array = range_def["hazards"]
 	for i in mini(hazards.size(), 2):
@@ -298,6 +300,40 @@ func _add_prop(name: String, pos: Vector3, px: float, dark: bool) -> void:
 	if dark:
 		s.modulate = Color(0.42, 0.48, 0.72)
 	_props_root.add_child(s)
+	## Soft contact shadow on the ground, stretched away from the sun.
+	var shadow := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	var w := tex.get_width() * px
+	q.size = Vector2(w * 1.1, w * 0.55)
+	q.orientation = PlaneMesh.FACE_Y
+	shadow.mesh = q
+	shadow.position = pos + Vector3(w * 0.15, 0.05, -w * 0.08)
+	shadow.material_override = _shadow_mat()
+	shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_props_root.add_child(shadow)
+
+
+var _shadow_material: StandardMaterial3D
+
+
+func _shadow_mat() -> StandardMaterial3D:
+	if _shadow_material == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(0.02, 0.03, 0.06, 0.42))
+		g.set_color(1, Color(0.02, 0.03, 0.06, 0.0))
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.fill = GradientTexture2D.FILL_RADIAL
+		gt.fill_from = Vector2(0.5, 0.5)
+		gt.fill_to = Vector2(1.0, 0.5)
+		gt.width = 64
+		gt.height = 64
+		_shadow_material = StandardMaterial3D.new()
+		_shadow_material.albedo_texture = gt
+		_shadow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_shadow_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_shadow_material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	return _shadow_material
 
 
 func _push_greens() -> void:
@@ -363,6 +399,9 @@ func _refresh_aim_options() -> void:
 			continue
 		var in_reach := landing_for(Vector2(g["x"], g["z"]), g).length() <= reach + 0.5
 		aim_options.append({"id": g["id"], "green": g, "point": Vector2(g["x"], g["z"]), "in_reach": in_reach})
+	for k in visible_keepsakes():
+		var kp := Vector2(k["x"], k["z"])
+		aim_options.append({"id": k["id"], "green": {}, "keepsake": k, "point": kp, "in_reach": kp.length() <= reach + 0.5})
 	aim_options.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["point"].y < b["point"].y)
 	aim_options.append({"id": "drive", "green": {}, "point": Vector2(0, reach), "in_reach": true})
 	aim_index = -1
@@ -380,7 +419,7 @@ func _default_aim() -> int:
 	var best_score := -1.0
 	for i in aim_options.size():
 		var o: Dictionary = aim_options[i]
-		if not o["in_reach"] or o["id"] == "drive":
+		if not o["in_reach"] or o["id"] == "drive" or o.has("keepsake"):
 			continue
 		var score: float = o["point"].y
 		if not Tour.stars.get(o["id"], false):
@@ -511,7 +550,7 @@ func _update_wind(delta: float) -> void:
 
 func can_swing() -> bool:
 	return (mode == Mode.PLAY and input_enabled and not charging and cooldown <= 0.0
-		and not cinematic_active()
+		and not cinematic_active() and not hold_swings
 		and Tour.bucket_remaining > 0 and not range_def.is_empty())
 
 
@@ -562,8 +601,8 @@ func _launch(tier: int, err_ms: float) -> void:
 		"tier": tier,
 		"golden": golden,
 		"t": 0.0,
-		"dur": 0.9 + 0.1 * sqrt(maxf(carry, 1.0)),
-		"apex": clampf(carry * (0.16 if tier <= 3 else 0.07), 2.0, 38.0),
+		"dur": 1.0 + 0.11 * sqrt(maxf(carry, 1.0)),
+		"apex": clampf(carry * (0.13 if tier <= 3 else 0.05) + (3.0 if tier <= 3 else 0.5), 1.5, 44.0),
 		"phase": "fly",
 		"pos": Vector3.ZERO,
 		"trail": [],
@@ -579,6 +618,19 @@ func _launch(tier: int, err_ms: float) -> void:
 		cinematic_ball = ball
 	flying.append(ball)
 	_sfx_hit(tier)
+
+
+## A golf ball's flight, not a parabola: drag bleeds off speed so it covers
+## ground fast early and slow late, the apex comes ~60% of the way out, and
+## it falls more steeply than it climbed. Starts from the raised tee.
+const DRAG_K := 1.3
+
+
+func flight_point(land: Vector2, apex: float, t: float) -> Vector3:
+	var s := (1.0 - exp(-DRAG_K * t)) / (1.0 - exp(-DRAG_K))
+	var gp := land * s
+	var y := tee_height * (1.0 - s) + apex * sin(PI * pow(t, 0.85))
+	return Vector3(gp.x, maxf(y, 0.0), -gp.y)
 
 
 func _green_by_id(id: String) -> Dictionary:
@@ -598,12 +650,11 @@ func _update_balls(delta: float) -> void:
 		if b["phase"] == "fly":
 			b["t"] = float(b["t"]) + delta / float(b["dur"])
 			var t := minf(float(b["t"]), 1.0)
-			var gp := Vector2.ZERO.lerp(land, t)
-			var y := tee_height * (1.0 - t) + float(b["apex"]) * 4.0 * t * (1.0 - t)
-			b["pos"] = Vector3(gp.x, y, -gp.y)
+			var p3 := flight_point(land, float(b["apex"]), t)
+			b["pos"] = p3
 			var trail: Array = b["trail"]
-			trail.append(b["pos"])
-			if trail.size() > 14:
+			trail.append(p3)
+			if trail.size() > 40:
 				trail.pop_front()
 			if t >= 1.0:
 				var verdict: Dictionary = b["verdict"]
@@ -613,6 +664,7 @@ func _update_balls(delta: float) -> void:
 				else:
 					b["phase"] = "roll"
 					b["roll_t"] = 0.0
+					puffs.append({"pos": b["pos"], "t": 0.0, "big": int(b["tier"]) <= 1})
 					_sfx("land")
 		elif b["phase"] == "roll":
 			var verdict2: Dictionary = b["verdict"]
@@ -638,7 +690,7 @@ func _update_balls(delta: float) -> void:
 				done.append(b)
 	for b in done:
 		flying.erase(b)
-	if Tour.bucket_remaining <= 0 and flying.is_empty() and mode == Mode.PLAY and not charging and input_enabled:
+	if Tour.bucket_remaining <= 0 and flying.is_empty() and mode == Mode.PLAY and not charging and input_enabled and not cinematic_active() and not hold_swings:
 		bucket_emptied.emit()
 
 
@@ -676,8 +728,14 @@ func _ball_rests(b: Dictionary) -> void:
 	_float_text(pos3 + Vector3(0, 2, 0), text, Color(1.0, 0.92, 0.5) if bool(b["golden"]) else Color(1, 1, 1), false)
 	var ball := {"pos": pos3, "ground": rest, "golden": b["golden"], "pay": pay, "id": b["id"]}
 	resting.append(ball)
-	_sweep_bucket_pay += pay
-	_sweep_bucket_count += 1
+	record_bucket_ball(int(b["tier"]), pay, not g.is_empty(), float(shot["carry"]))
+	## A ball that stops near a keepsake in the grass turns it up.
+	for k in visible_keepsakes():
+		if rest.distance_to(Vector2(k["x"], k["z"])) <= 8.0:
+			Tour.find_keepsake(k["id"])
+			keepsake_picked.emit(k)
+			_sfx("keepsake")
+			_refresh_aim_options()
 	var result := {"lost": "", "tier": b["tier"], "pay": pay, "green": verdict["green"], "ace": verdict["ace"],
 		"carry": shot["carry"], "rest": rest}
 	if b == cinematic_ball:
@@ -704,6 +762,9 @@ func _update_floaters(delta: float) -> void:
 	for f in floaters:
 		f["t"] = float(f["t"]) + delta
 	floaters = floaters.filter(func(f: Dictionary) -> bool: return float(f["t"]) < (2.2 if f["big"] else 1.4))
+	for pf in puffs:
+		pf["t"] = float(pf["t"]) + delta
+	puffs = puffs.filter(func(pf: Dictionary) -> bool: return float(pf["t"]) < 0.9)
 	for s in splashes:
 		s["t"] = float(s["t"]) + delta
 	splashes = splashes.filter(func(s: Dictionary) -> bool: return float(s["t"]) < 1.0)
@@ -745,39 +806,97 @@ func _update_cinematic(delta: float) -> void:
 	camera.global_transform = camera.global_transform.interpolate_with(target, clampf(delta * 2.6, 0.0, 1.0))
 
 
-# --- sweep ------------------------------------------------------------------------
+# --- the Big Picker ------------------------------------------------------------------
+
+## When the bucket runs dry the big range tractor rumbles out and scoops up
+## every ball while the camera watches from above; the bucket report pays a
+## bonus for how well the bucket went. Space skips it.
+const PICKER_SEC := 3.6
+
+var picker: TourPicker
+var _route: Array[Vector2] = []
+var _route_i := 0
+var _picker_pos := Vector2.ZERO
+var _picker_yaw := 0.0
+var _picker_speed := 60.0
+var bucket_stats := {"pay": 0.0, "balls": 0, "perfects": 0, "greens": 0, "best": 0.0}
+var last_report: Dictionary = {}
+
 
 func begin_sweep() -> void:
 	if mode != Mode.PLAY:
 		return
-	if resting.is_empty() and _visible_keepsakes().is_empty():
+	if resting.is_empty():
 		_finish_sweep_now()
 		return
 	mode = Mode.TRANSITION
-	chain = 0
-	chain_timer = 0.0
-	sweep_tips = 0.0
 	sweep_collected = 0
 	_pulled.clear()
-	cart_pos = Vector2(0, maxf(frame_distance * 0.12, 12.0))
-	cart_target = cart_pos
-	var xf := _sweep_xform(cart_pos)
-	_tween_camera(xf, 0.7)
+	_build_route()
+	if picker == null:
+		picker = TourPicker.new()
+		add_child(picker)
+	picker.visible = true
+	_place_picker(0.0)
+	_tween_camera(_overview_xform(), 0.8)
 	if backdrop != null:
 		backdrop.fade_view(0.0, 0.5)
 	sweep_started.emit()
 	_sfx("sweep_start")
-	get_tree().create_timer(0.7).timeout.connect(func() -> void:
+	get_tree().create_timer(0.8).timeout.connect(func() -> void:
 		if mode == Mode.TRANSITION:
 			mode = Mode.SWEEP
 	)
 
 
-func _sweep_xform(center: Vector2) -> Transform3D:
+## Visit every ball, nearest first, entering from the rough on the left and
+## driving out past the last one.
+func _build_route() -> void:
+	var left: Array = []
+	for b in resting:
+		left.append(b["ground"])
+	var min_z := INF
+	for g in left:
+		min_z = minf(min_z, (g as Vector2).y)
+	var start := Vector2(-float(range_def["fairway_half_width"]) - 25.0, maxf(min_z - 15.0, 5.0))
+	_route = [start]
+	var cur := start
+	while not left.is_empty():
+		var best := 0
+		var bd := INF
+		for i in left.size():
+			var d := cur.distance_to(left[i])
+			if d < bd:
+				bd = d
+				best = i
+		cur = left[best]
+		left.remove_at(best)
+		_route.append(cur)
+	var last: Vector2 = _route[-1]
+	var prev: Vector2 = _route[-2] if _route.size() > 1 else start
+	_route.append(last + (last - prev).normalized() * 30.0)
+	var length := 0.0
+	for i in range(1, _route.size()):
+		length += _route[i - 1].distance_to(_route[i])
+	_picker_speed = maxf(length / PICKER_SEC, 35.0)
+	_picker_pos = start
+	_route_i = 1
+	var d0: Vector2 = _route[1] - start
+	_picker_yaw = atan2(-d0.x, d0.y)
+
+
+## High, framing every ball (pitch fixed so it reads like the sweep of old).
+func _overview_xform() -> Transform3D:
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for p in _route:
+		lo = lo.min(p)
+		hi = hi.max(p)
+	var center := (lo + hi) * 0.5
+	var extent := maxf(maxf((hi.y - lo.y) * 0.75, (hi.x - lo.x) * 0.45), 28.0)
 	var q := deg_to_rad(SWEEP_PITCH_DEG)
-	var dist := clampf(frame_distance * 0.55, 60.0, 260.0)
-	var look_at := Vector3(center.x * 0.5, 0, -clampf(center.y, dist * 0.35, 9999.0))
-	var pos := look_at + Vector3(0, sin(q), cos(q)) * dist
+	var look_at := Vector3(center.x, 0, -center.y)
+	var pos := look_at + Vector3(0, sin(q), cos(q)) * extent * 1.15
 	return Transform3D(Basis.from_euler(Vector3(-q, 0, 0)), pos)
 
 
@@ -789,14 +908,10 @@ func _tween_camera(xf: Transform3D, sec: float) -> void:
 	_cam_tween.tween_property(camera, "global_transform", xf, sec)
 
 
-func set_cart_target_screen(screen: Vector2) -> void:
-	var hit: Variant = ground_at_screen(screen)
-	if hit != null:
-		cart_target = hit
-
-
-func set_keys_move(v: Vector2) -> void:
-	_keys_move = v
+func _place_picker(delta: float) -> void:
+	picker.position = Vector3(_picker_pos.x, 0.0, -_picker_pos.y)
+	picker.rotation.y = _picker_yaw
+	picker.spin(_picker_speed * 0.12, delta)
 
 
 func ground_at_screen(screen: Vector2) -> Variant:
@@ -809,7 +924,7 @@ func ground_at_screen(screen: Vector2) -> Variant:
 	return Vector2(hit.x, -hit.z)
 
 
-func _visible_keepsakes() -> Array:
+func visible_keepsakes() -> Array:
 	var out: Array = []
 	for k in range_def.get("keepsakes", []):
 		if Tour.keepsakes.get(k["id"], false):
@@ -820,82 +935,82 @@ func _visible_keepsakes() -> Array:
 
 
 func _update_sweep(delta: float) -> void:
-	var speed := TourPhysics.cart_speed(Tour.levels) * clampf(frame_distance / 150.0, 1.0, 3.0)
-	var radius := TourPhysics.cart_radius(Tour.levels) * clampf(frame_distance / 150.0, 1.0, 2.5)
-	if _keys_move != Vector2.ZERO:
-		cart_target = cart_pos + _keys_move.normalized() * speed * 0.25
-	var to := cart_target - cart_pos
-	var step := minf(to.length(), speed * delta)
-	if step > 0.01:
-		cart_pos += to.normalized() * step
-		cart_heading = to.angle()
-	## Camera eases along with the cart.
-	camera.global_transform = camera.global_transform.interpolate_with(_sweep_xform(cart_pos), clampf(delta * 2.5, 0.0, 1.0))
-	chain_timer += delta
-	if chain_timer > CHAIN_GAP_SEC:
-		chain = 0
+	if _route_i < _route.size():
+		var target: Vector2 = _route[_route_i]
+		var to := target - _picker_pos
+		var step := _picker_speed * delta
+		if to.length() <= step:
+			_picker_pos = target
+			_route_i += 1
+		else:
+			_picker_pos += to.normalized() * step
+		var want := atan2(-to.x, to.y) if to.length() > 0.5 else _picker_yaw
+		_picker_yaw = lerp_angle(_picker_yaw, want, clampf(delta * 8.0, 0.0, 1.0))
+		_place_picker(delta)
+	## The reels sit out front; anything under them hops into the hopper.
+	var fwd := Vector2(-sin(_picker_yaw), cos(_picker_yaw))
+	var reel := _picker_pos + fwd * 1.6 * TourPicker.SCALE
+	var reach := TourPicker.reach_width() * 0.6
 	for b in resting.duplicate():
-		if (b["ground"] as Vector2).distance_to(cart_pos) <= radius:
+		if (b["ground"] as Vector2).distance_to(reel) <= reach:
 			resting.erase(b)
 			b["pull_t"] = 0.0
 			b["from"] = b["ground"]
 			_pulled.append(b)
 	for b in _pulled.duplicate():
 		b["pull_t"] = float(b["pull_t"]) + delta / MAGNET_SEC
-		var gp: Vector2 = (b["from"] as Vector2).lerp(cart_pos, minf(float(b["pull_t"]), 1.0))
-		b["pos"] = Vector3(gp.x, sin(minf(float(b["pull_t"]), 1.0) * PI) * 2.0, -gp.y)
-		if float(b["pull_t"]) >= 1.0:
+		var k := minf(float(b["pull_t"]), 1.0)
+		var hopper := _picker_pos - fwd * 1.4 * TourPicker.SCALE
+		var gp: Vector2 = (b["from"] as Vector2).lerp(hopper, k)
+		b["pos"] = Vector3(gp.x, sin(k * PI) * 3.0 * TourPicker.SCALE * 0.5 + k * 2.0, -gp.y)
+		if k >= 1.0:
 			_pulled.erase(b)
-			_collect(b)
-	for k in _visible_keepsakes():
-		if Vector2(k["x"], k["z"]).distance_to(cart_pos) <= radius:
-			Tour.find_keepsake(k["id"])
-			keepsake_picked.emit(k)
-			_sfx("keepsake")
-	if resting.is_empty() and _pulled.is_empty() and _visible_keepsakes().is_empty():
-		finish_sweep()
+			sweep_collected += 1
+			Audio.play_plink(mini(sweep_collected, 12))
+	if _route_i >= _route.size() and _pulled.is_empty():
+		_finish_sweep_now()
 
 
-func _collect(b: Dictionary) -> void:
-	chain += 1
-	chain_timer = 0.0
-	sweep_collected += 1
-	var avg := _sweep_bucket_pay / maxf(float(_sweep_bucket_count), 1.0)
-	var cap := 6 + 2 * Tour.level("cart")
-	var tip := avg * TourData.SWEEP_TIP * mini(chain, cap)
-	sweep_tips += tip
-	Tour.add_money(tip)
-	_float_text(Vector3(cart_pos.x, 3, -cart_pos.y), "+$%s" % TourFormat.money(tip), Color(0.95, 1.0, 0.8), false)
-	Audio.play_plink(mini(chain, 12))
-
-
-## Space in the sweep: scoop the rest with no tips.
+## Space: skip the show, every ball is in.
 func finish_sweep() -> void:
-	if mode != Mode.SWEEP:
+	if mode != Mode.SWEEP and mode != Mode.TRANSITION:
 		return
+	sweep_collected += resting.size() + _pulled.size()
 	resting.clear()
 	_pulled.clear()
 	_finish_sweep_now()
 
 
+func record_bucket_ball(tier: int, pay: float, green: bool, carry: float) -> void:
+	bucket_stats["balls"] = int(bucket_stats["balls"]) + 1
+	bucket_stats["pay"] = float(bucket_stats["pay"]) + pay
+	if tier == 0:
+		bucket_stats["perfects"] = int(bucket_stats["perfects"]) + 1
+	if green:
+		bucket_stats["greens"] = int(bucket_stats["greens"]) + 1
+	bucket_stats["best"] = maxf(float(bucket_stats["best"]), carry)
+
+
 func _finish_sweep_now() -> void:
 	mode = Mode.TRANSITION
 	Tour.flags["swept"] = true
+	var bonus := TourPhysics.bucket_bonus(bucket_stats, Tour.levels)
+	Tour.add_money(bonus)
+	last_report = bucket_stats.duplicate()
+	last_report["bonus"] = bonus
+	last_report["collected"] = sweep_collected
+	bucket_stats = {"pay": 0.0, "balls": 0, "perfects": 0, "greens": 0, "best": 0.0}
 	Tour.refill_bucket()
-	_sweep_bucket_pay = 0.0
-	_sweep_bucket_count = 0
-	_tween_camera(home_xform, 0.6)
+	if picker != null:
+		picker.visible = false
+	_tween_camera(home_xform, 0.7)
 	if backdrop != null:
-		backdrop.fade_view(1.0, 0.6)
-	sweep_finished.emit(sweep_collected, sweep_tips)
-	get_tree().create_timer(0.6).timeout.connect(func() -> void:
+		backdrop.fade_view(1.0, 0.7)
+	sweep_finished.emit(sweep_collected, bonus)
+	get_tree().create_timer(0.7).timeout.connect(func() -> void:
 		if mode == Mode.TRANSITION:
 			mode = Mode.PLAY
 	)
-
-
-func cart_radius_world() -> float:
-	return TourPhysics.cart_radius(Tour.levels) * clampf(frame_distance / 150.0, 1.0, 2.5)
 
 
 # --- sound ------------------------------------------------------------------------

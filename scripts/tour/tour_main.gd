@@ -16,6 +16,9 @@ var pause: TourPause
 var journal: TourJournal
 
 var _mouse_swing := false
+## Story beats wait here for a quiet moment: never mid-swing, never with a
+## ball in the air, never during the flyover.
+var _beats: Array[Dictionary] = []
 var _in_session := false
 var _pending_flag := {}
 var _range_swings_at_start := 0
@@ -142,8 +145,10 @@ func _on_bucket_emptied() -> void:
 	if world.mode != TourWorld.Mode.PLAY or dialogue.is_blocking():
 		return
 	world.input_enabled = false
+	if not _pending_flag.is_empty() or Tour.story_complete and world.range_def.get("mechanic", "") == "finale" and ending.visible:
+		return
 	if Tour.mark_seen("tip_sweep"):
-		dialogue.play("tip_sweep")
+		_say("tip_sweep")
 		return
 	get_tree().create_timer(0.45).timeout.connect(func() -> void:
 		if world.mode == TourWorld.Mode.PLAY and Tour.bucket_remaining <= 0 and world.flying.is_empty():
@@ -152,8 +157,7 @@ func _on_bucket_emptied() -> void:
 
 
 func _on_sweep_finished(collected: int, tips: float) -> void:
-	if collected > 2 and tips > 0.0:
-		hud.toast("Swept %d  ·  tips $%s" % [collected, TourFormat.money(tips)], TourUi.GREEN_DARK, "i_ball")
+	hud.show_report(world.last_report)
 
 
 func _on_new_star(green: Dictionary, bonus: float) -> void:
@@ -161,7 +165,7 @@ func _on_new_star(green: Dictionary, bonus: float) -> void:
 		hud.toast("%s lit!  +$%s" % [green["name"], TourFormat.money(bonus)], TourUi.GOLD.darkened(0.4), "i_star")
 		Audio.play("lantern")
 		if Tour.lit_count(world.range_def) >= 4 and Tour.mark_seen("frost_path"):
-			dialogue.play("frost_path")
+			_say("frost_path")
 	elif not green.get("ratina", false):
 		hud.toast("New green: %s  +$%s" % [green["name"], TourFormat.money(bonus)], TourUi.GREEN_DARK, "i_star")
 		Audio.play("star")
@@ -179,11 +183,9 @@ func _on_flag_reached(green: Dictionary, _result: Dictionary) -> void:
 		return
 	Audio.play("flag")
 	overlay.shake(3.0)
-	world.mode = TourWorld.Mode.LOCKED
 	_pending_flag = {"index": Tour.range_index, "green": green}
-	get_tree().create_timer(1.1).timeout.connect(func() -> void:
-		dialogue.play("flag_" + String(r["id"]))
-	)
+	world.hold_swings = true
+	_say("flag_" + String(r["id"]), [], func() -> void: world.mode = TourWorld.Mode.LOCKED)
 
 
 func _finish_flag() -> void:
@@ -194,6 +196,7 @@ func _finish_flag() -> void:
 	if not rw.is_empty():
 		hud.toast(TourStory.REWARD_TEXT.get(rw["id"], rw["name"]), TourUi.PINK.darkened(0.3), "i_star")
 	world.mode = TourWorld.Mode.PLAY
+	world.hold_swings = false
 	if index + 1 < TourData.range_count():
 		get_tree().create_timer(1.2).timeout.connect(func() -> void:
 			map.travel(index, index + 1)
@@ -213,7 +216,7 @@ func _open_map() -> void:
 
 
 func _on_keepsake(k: Dictionary) -> void:
-	dialogue.play("keepsake", [{
+	_say("keepsake", [{
 		"who": "keepsake",
 		"title": k["name"],
 		"icon": "res://assets/sprites/tour/%s.png" % k["id"],
@@ -227,7 +230,7 @@ func _on_ball_rest(result: Dictionary) -> void:
 		var aim := world.current_aim_option()
 		if aim.get("green", {}).get("ratina", false) and result.get("green", "") != "e_flag":
 			if Tour.mark_seen("edge_miss"):
-				dialogue.play("edge_miss")
+				_say("edge_miss")
 
 
 # --- the ending -----------------------------------------------------------------
@@ -248,26 +251,49 @@ func _start_ending() -> void:
 
 func _on_ending_done() -> void:
 	world.mode = TourWorld.Mode.PLAY
-	dialogue.play("postgame")
+	_say("postgame")
 	Audio.set_playlist(["sunrise"] + world.range_def["songs"])
 
 
 # --- per-frame story checks ----------------------------------------------------
 
+func _say(beat: String, lines: Array = [], on_start: Callable = Callable()) -> void:
+	_beats.append({"beat": beat, "lines": lines, "on_start": on_start})
+
+
+## Quiet: nothing being swung, nothing flying, the camera home.
+func _quiet() -> bool:
+	return (not world.charging and world.flying.is_empty() and not world.cinematic_active()
+		and not dialogue.is_blocking() and not map.is_blocking() and not pause.is_blocking()
+		and not journal.is_blocking() and not title.visible)
+
+
+func _pump_beats() -> void:
+	if _beats.is_empty() or not _quiet():
+		return
+	var b: Dictionary = _beats.pop_front()
+	var cb: Callable = b["on_start"]
+	if cb.is_valid():
+		cb.call()
+	dialogue.play(b["beat"], b["lines"])
+
+
 func _process(_delta: float) -> void:
+	if _in_session:
+		_pump_beats()
 	var blocked := _blocked()
 	world.input_enabled = _in_session and not blocked
 	if not _in_session or blocked or world.mode != TourWorld.Mode.PLAY:
 		return
 	var r := world.range_def
 	if Tour.range_index == 0 and int(Tour.stats["swings"]) >= 4 and Tour.mark_seen("tip_aim"):
-		dialogue.play("tip_aim")
+		_say("tip_aim")
 	elif hud._any_affordable() and Tour.mark_seen("tip_shop"):
-		dialogue.play("tip_shop")
+		_say("tip_shop")
 	elif r.get("mechanic", "") == "finale" and not Tour.story_complete:
 		var flag := TourData.flag_green(r)
 		if Vector2(flag["x"], flag["z"]).length() <= Tour.reach() + 0.5 and Tour.mark_seen("edge_ready"):
-			dialogue.play("edge_ready")
+			_say("edge_ready")
 
 
 func _blocked() -> bool:
@@ -348,25 +374,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		world.hovered_option = _flag_at((event as InputEventMouseMotion).position)
 
 
+## The Big Picker drives itself; Space, Enter or a click skips the show.
 func _sweep_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion:
-		world.set_cart_target_screen((event as InputEventMouseMotion).position)
-	elif event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
-		world.set_cart_target_screen((event as InputEventMouseButton).position)
-	elif event is InputEventKey and not event.echo:
-		var k: InputEventKey = event
-		if k.pressed and k.physical_keycode in [KEY_SPACE, KEY_ENTER]:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if (event as InputEventKey).physical_keycode in [KEY_SPACE, KEY_ENTER]:
 			world.finish_sweep()
-		var v := Vector2.ZERO
-		if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
-			v.x -= 1
-		if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
-			v.x += 1
-		if Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP):
-			v.y += 1
-		if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN):
-			v.y -= 1
-		world.set_keys_move(v)
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		world.finish_sweep()
 
 
 ## Index into world.aim_options of a flag under the pointer, or -1.

@@ -249,6 +249,35 @@ def ledge_rock(L, x0, x1, y_top, y_bottom, ramp, light=1, seed=5, cap=None):
         y += seg
 
 
+def boulder(L, cx, cy, rx, ry, ramp, light=1, seed=9, lichen=None, cracks=None):
+    """A big weathered rock: lumpy outline, soft form shading, lichen, cracks."""
+    r = random.Random(seed)
+    n = noise(seed)
+    for y in range(int(cy - ry) - 2, int(cy + ry) + 2):
+        for x in range(int(cx - rx) - 2, int(cx + rx) + 2):
+            dx, dy = (x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry
+            ang = math.atan2(dy, dx)
+            wob = 1.0 + 0.07 * math.sin(ang * 3 + seed) + 0.05 * (n(ang * 4 + 10) - 0.5)
+            d = math.hypot(dx, dy)
+            if d > wob:
+                continue
+            nz = math.sqrt(max(0.0, 1 - min(d / wob, 1.0) ** 2))
+            lit = (-dx * 0.45 * light - dy * 0.75 + nz * 0.5)
+            k = 0.75 - lit * 0.6 + (n(x * 0.15 + y * 0.07) - 0.5) * 0.25
+            c = ramp_pick(ramp, max(0.0, min(1.0, k)), x, y)
+            if lichen and lit > 0.2 and n(x * 0.3 + y * 0.21 + 50) > 0.72:
+                c = lichen[0] if (x + y) % 3 else lichen[1]
+            L.set(x, y, c)
+    if cracks:
+        for i in range(4):
+            x, y = cx + r.uniform(-rx * 0.5, rx * 0.5), cy + r.uniform(-ry * 0.3, ry * 0.5)
+            for k in range(r.randint(8, 22)):
+                x += r.choice([-1, 0, 1])
+                y += 1
+                if L.get(int(x), int(y))[3]:
+                    L.set(int(x), int(y), cracks)
+
+
 def light_shafts(L, x0, x1, color, count=5, seed=4):
     r = random.Random(seed)
     for i in range(count):
@@ -296,22 +325,24 @@ def barley():
 
 def cliffs():
     L = Layer()
-    rockr = [hx("f4ecd8"), hx("dccca8"), hx("b8a484"), hx("8a7864"), hx("5e5048")]
+    granite = [hx("f2ebdc"), hx("d8ccb4"), hx("b4a690"), hx("8a7c6c"), hx("5e5250")]
+    lichen = (hx("d8c860"), hx("b8a848"))
     grass = [hx("e2e39a"), hx("b8c268"), hx("849a48"), hx("4e6a30")]
-    capc = (hx("b8d070"), hx("7a9a48"))
-    # A chalk headland rising out of frame on the left, in stacked ledges.
-    ledge_rock(L, -10, 70, 0, 272, rockr, light=1, seed=3, cap=capc)
-    ledge_rock(L, -10, 118, 150, 272, rockr, light=1, seed=4, cap=capc)
+    # A pile of giant sea boulders on the left, lit by the late-morning sun (right).
+    boulder(L, 20, 230, 110, 90, granite, light=-1, seed=3, lichen=lichen, cracks=hx("6e6258"))
+    boulder(L, -10, 120, 70, 110, granite, light=-1, seed=4, lichen=lichen, cracks=hx("6e6258"))
+    boulder(L, 118, 262, 46, 30, granite, light=-1, seed=5, lichen=lichen)
     r = random.Random(21)
-    for i in range(36):
+    # Tufts rooted in the cracks and on top.
+    for i in range(26):
         x = r.randint(0, 120)
-        top = 150 + r.randint(-4, 4) if x > 60 else r.randint(0, 150)
-        blade(L, x, top + 2, r.randint(6, 18), r.uniform(-1, 1), 2, grass, light=1)
-    # Dune grass and sea thrift towering at the bottom right.
+        top = 150 + r.randint(-10, 10) if x > 40 else r.randint(20, 60)
+        blade(L, x, top, r.randint(8, 22), r.uniform(-1.4, 0.4), 2.5, grass, light=-1)
+    # Dune grass and sea thrift towering at the bottom right, leaning with the wind.
     for i in range(44):
         x = r.randint(320, 485)
-        blade(L, x, 272, r.randint(30, 100), r.uniform(-1.8, 0.3), r.uniform(2.5, 5), grass, light=1)
-    for x, h in [(352, 70), (396, 88), (436, 60), (128, 42), (150, 30)]:
+        blade(L, x, 272, r.randint(30, 100), r.uniform(-1.8, 0.3), r.uniform(2.5, 5), grass, light=-1)
+    for x, h in [(352, 70), (396, 88), (436, 60), (160, 40), (176, 28)]:
         flower(L, x, 270, h, hx("f08ab8"), hx("c04a80"), petals=12, size=6, stem=hx("7a9a4a"))
     L.outline(hx("2a2428"))
     L.save("cliffs.png")

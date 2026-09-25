@@ -26,7 +26,7 @@ At dawn, Ratina's bag is sitting on the mat with a note. She took old Barley's s
 2. **Watch it fly.** The camera eases up with the ball. On landing, a yardage tag pops at the spot and the pay pops with it.
 3. **Greens.** Every range has 3–4 greens at set distances. A ball that stops on a green pays **×Green**. Stopping within 2 yd of the pin is an **ACE** (×10, fireworks). The first ball onto each green pays a one-time *first-green* bonus and ticks a star.
 4. **Ratina's flag.** Each range's last green has her pink-ribbon flag on it. It's out of reach when you arrive. Land on it and you get her note, a new club, and the road to the next range.
-5. **Sweep.** When the bucket is empty, the view drops to top-down and your picker cart follows the mouse (or WASD). Balls inside its radius get sucked in. Each pickup refills the bucket, and a fast chain pays a little tip that grows (+$ ×chain) with rising plinks. **Keepsakes** (two per range, Barley's old things) lie in the rough and only show up in the sweep. Space ends the sweep: leftovers are scooped up automatically, with no tip.
+5. **The Big Picker.** When the bucket runs dry, a big old range tractor (enormous to a rat) rumbles out with its gang of spinning reels and scoops up every ball while the camera watches from above (about 4 s; Space skips it). The **Bucket Report** then pays a bonus of 12% of the bucket's earnings, +4% per green and +2% per Perfect, grown by the Tip Jar. **Keepsakes** glint out on the range; aim at one like a green and land a ball within 8 yd to find it.
 6. **Shop** (Tab/E, anytime). A compact card list; one purchase should land every ~20–30 s.
 
 ## The five ranges
@@ -94,7 +94,7 @@ All upgrades carry across ranges. Venue upgrades appear when you reach their ran
 | greens | Green Reader | +0.5× green mult | 6 | first green hit |
 | streak | Hot Streak | +2 streak cap (Great+ in a row, +10% each) | 5 | 2 stars |
 | golden | Golden Balls | +2% chance (×5 pay) | 8 | reached range II |
-| cart | Picker Cart | +20% sweep radius and speed, longer tip chains | 6 | first sweep |
+| cart | Tip Jar | +25% bucket bonus | 6 | first sweep |
 | wind | Wind Reader | shows the wind landing, aims into it, −15% drift, +tailwind | 5 | reached range II |
 | roll | Run-Up | +20% roll, shows the roll, rolled yards pay double | 5 | reached range III |
 | oil | Lamp Oil | +10% per lit lantern (base +15% each) | 5 | reached range IV |
@@ -109,7 +109,7 @@ All of it lives in `scripts/tour/tour_physics.gd` and `tour_data.gd`.
 - **Where it lands.** A Perfect lands within ~2.5 yd of the aim point at any distance. Worse tiers come up short (`[1, .965, .91, .82, .66, .38]` of the aim) and start off line by `[—, 1.4°, 3.2°, 5.8°, 9.5°, 15°]`, left if you were early and right if you were late. Wind adds carry and drift, and roll adds `range roll × (1 + Run-Up)`.
 - **Pay** = `(0.05 + 0.0025·yards) × (1 + 0.5·Range Fee) × range pay × tier [1.5, 1.2, 1, .8, .55, .3] × streak × green (×3 +0.5/level) × ace (×10, ≤0.7 yd) × golden (×5) × lanterns`.
 - **First ball on a green** pays a one-time bonus (4 balls' worth ×green) and earns a star.
-- **Range pay** multipliers are 1 / 3.6 / 17 / 9 / 30. Frostpine is low because its lanterns multiply pay.
+- **Range pay** multipliers are 1 / 5.5 / 5 / 2.8 / 10. Frostpine is low because its lanterns multiply pay.
 - **Costs** = `base × growth^level`. Club Speed and Range Fee are cheap and steep (×1.35 / ×1.4); the rest are few-level perks (×2.3–2.4).
 - **Target:** ~25 min for a steady player (autoplayer at ~2 s per swing: 20–30 min). The first range takes about 3–5 minutes.
 
@@ -121,7 +121,9 @@ All of it lives in `scripts/tour/tour_physics.gd` and `tour_data.gd`.
 - **Backdrops.** Each range has 3–4 parallax layers painted at native 480 px (`tools/art/draw_tour_backdrops.py`). The horizon row matches the camera's horizon.
 - **Ground.** One shader with per-range palettes: wide mown fairways (30–36 yd half width), rough, sea, canyon, greens, lantern light, stylized ground mist, and dithered haze.
 - **Music as style.** The music runs through an analyzer bus. Foreground grass and leaves sway with the song's energy and kick on the beat, the sky brightens a touch, clouds and weather drift with it, and flags wave faster. A "now playing" card names each song, and the Journal keeps every song you've heard so you can replay it. None of this changes gameplay.
-- **Weather and life.** Pollen and birds at dawn, spray and gulls, dust and a tumbleweed, snow and shooting stars, and motes at the Edge.
+- **Ball flight.** It's real 3D: drag bleeds off speed, the apex comes ~60% of the way out, and the ball falls steeper than it climbed. It's drawn at true size (a few pixels at the tee, a speck at 200 yd, with a soft halo to follow) with a tapered tracer; Perfects burn gold with sparks. A puff of turf, sand or snow marks the landing.
+- **Light.** Smooth, high-fidelity light over pixel-art forms: a sun or moon halo and slow god rays from where the sun sits in each sky (they breathe with the music), drifting cloud shadows and wind waves rolling through the grass, soft contact shadows under every tree, rock and the rat, the aurora rippling, heat shimmer off the mesa, and a vignette with a per-range colour grade.
+- **Weather and life.** Pollen, petals and birds at dawn, spray and gulls, dust, fireflies and a tumbleweed, snow and shooting stars, and motes at the Edge.
 - **Travel.** *The Road*, a hand-drawn map; the next range loads behind it before it lifts.
 
 ## Controls
@@ -143,7 +145,9 @@ Space / left mouse: swing (hold and release). Tab or E: shop. M: map (after rang
 | `scripts/tour/tour_overlay.gd` | Crisp 2D layer: rat, flags, reticle, balls, cart, critters, weather |
 | `scripts/tour/tour_backdrop.gd` | Painted parallax sky/horizon layers |
 | `scripts/tour/tour_ground.gdshader` | The whole ground: fairway, rough, sea, canyon, greens, lantern light, mist, haze |
-| `scripts/tour/ui/*` | HUD, shop, dialogue, map, journal, ending, title, pause |
+| `scripts/tour/tour_picker.gd` | The Big Picker, built from lit 3D shapes |
+| `scripts/tour/tour_light.gdshader` · `tour_grade.gdshader` · `tour_layer.gdshader` · `tour_sway.gdshader` | Sun halo and rays · vignette and grade · aurora and heat shimmer · foreground sway |
+| `scripts/tour/ui/*` | HUD (incl. bucket report), shop, dialogue, map, journal, ending, title, pause |
 | `tools/art/*.py` | Backdrops, props, sprites and the map, drawn procedurally |
 | `tools/verify_tour.gd` | Regression check |
 | `tools/sim_tour_pacing.gd` · `tools/tour_autoplay.gd` · `tools/tour_shot.gd` | Pacing sim · real-input autoplayer · screenshots |

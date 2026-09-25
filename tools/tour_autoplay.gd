@@ -49,6 +49,10 @@ func _start() -> void:
 	_main.title.visible = false
 	_main._on_play(false)
 	_world = _main.world
+	if _env("LOG_BALLS", "0") == "1":
+		_world.ball_came_to_rest.connect(func(r: Dictionary) -> void:
+			_log("ball tier %d lost '%s' green '%s' pay %.2f carry %.0f" % [int(r.get("tier", -1)), r.get("lost", ""), r.get("green", ""), float(r.get("pay", 0.0)), float(r.get("carry", 0.0))]))
+		_world.sweep_finished.connect(func(c: int, bonus: float) -> void: _log("sweep %d bonus %.2f" % [c, bonus]))
 
 
 func _env(k: String, d: String) -> String:
@@ -108,6 +112,9 @@ func _step(T: Node) -> void:
 	if _hold_until > 0.0:
 		if _t >= _hold_until:
 			_hold_until = -1.0
+			## Release with exactly the modelled human error, independent of
+			## frame rate (software rendering at high time scale is choppy).
+			_world.charge_t = TourData.WINDUP_SEC + _pending_err / 1000.0
 			_world.release_swing()
 			_next = _t + float(_env("THINK", "1.0"))
 		return
@@ -143,29 +150,16 @@ func _play(T: Node) -> void:
 	## when the flag is still out of reach and greens are all starred.
 	_world.aim_index = _world._default_aim()
 	var err := _rng.randfn(0.0, _sigma)
+	_pending_err = err
 	_world.begin_swing()
 	_hold_until = _t + TourData.WINDUP_SEC + err / 1000.0
 	_next = _t + 0.1
 
 
+## The Big Picker drives itself; a real player sometimes skips it.
 func _sweep() -> void:
-	var best: Variant = null
-	var bd := INF
-	for b in _world.resting:
-		var d: float = (b["ground"] as Vector2).distance_to(_world.cart_pos)
-		if d < bd:
-			bd = d
-			best = b["ground"]
-	for k in _world._visible_keepsakes():
-		var kp := Vector2(k["x"], k["z"])
-		var d2 := kp.distance_to(_world.cart_pos)
-		if d2 < bd:
-			bd = d2
-			best = kp
-	if best == null:
+	if _rng.randf() < 0.01:
 		_world.finish_sweep()
-		return
-	_world.cart_target = best
 
 
 func _spend(T: Node) -> void:
