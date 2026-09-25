@@ -201,3 +201,103 @@ def text(cv: Canvas, x: int, y: int, s: str, c: Color, shadow: Color | None = No
 
 def text_width(s: str) -> int:
     return len(s) * 4 - 1
+
+
+# --- v5 quality passes ---------------------------------------------------------
+import colorsys
+import random as _random
+
+
+def shift(c: Color, dl: float, hue_shift: float = 0.0, ds: float = 0.0) -> Color:
+    """Lighten/darken with hue shifting (shadows cool, highlights warm)."""
+    r, g, b, a = c
+    h, l, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
+    l = min(max(l + dl, 0.0), 1.0)
+    h = (h + hue_shift) % 1.0
+    s = min(max(s + ds, 0.0), 1.0)
+    rr, gg, bb = colorsys.hls_to_rgb(h, l, s)
+    return (int(rr * 255), int(gg * 255), int(bb * 255), a)
+
+
+def _toward(h: float, target: float, amt: float) -> float:
+    d = ((target - h + 0.5) % 1.0) - 0.5
+    return (h + d * amt) % 1.0
+
+
+def warm(c: Color, dl: float) -> Color:
+    r, g, b, a = c
+    h, l, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
+    return shift(c, dl, _toward(h, 0.13, 0.12) - h, 0.04)
+
+
+def cool(c: Color, dl: float) -> Color:
+    r, g, b, a = c
+    h, l, s = colorsys.rgb_to_hls(r / 255.0, g / 255.0, b / 255.0)
+    return shift(c, -dl, _toward(h, 0.72, 0.16) - h, -0.02)
+
+
+def auto_light(cv: "Canvas", reach: int = 2, hi: float = 0.07, lo: float = 0.09, skip=None) -> None:
+    """Bevel every form: pixels near an up/left edge get a warm highlight, near a
+    down/right edge a cool shadow. Keeps the light direction consistent."""
+    src = [row[:] for row in cv.px]
+
+    def empty(x, y):
+        if 0 <= x < cv.w and 0 <= y < cv.h:
+            p = src[y][x]
+            return p is None or p[3] < 128
+        return True
+
+    for y in range(cv.h):
+        for x in range(cv.w):
+            c = src[y][x]
+            if c is None or c[3] < 200:
+                continue
+            if skip is not None and skip(x, y, c):
+                continue
+            up = any(empty(x, y - k) or empty(x - k, y) for k in range(1, reach + 1))
+            dn = any(empty(x, y + k) or empty(x + k, y) for k in range(1, reach + 1))
+            if up and not dn:
+                cv.px[y][x] = warm(c, hi)
+            elif dn and not up:
+                cv.px[y][x] = cool(c, lo)
+
+
+def grain(cv: "Canvas", pred, amount: float = 0.05, density: float = 0.22, seed: int = 1, streak: int = 0) -> None:
+    """Material texture: speckle (stone/paper) or horizontal streaks (wood)."""
+    rnd = _random.Random(seed)
+    for y in range(cv.h):
+        run = 0
+        for x in range(cv.w):
+            c = cv.px[y][x]
+            if c is None or c[3] < 200 or not pred(x, y, c):
+                run = 0
+                continue
+            if run > 0:
+                cv.px[y][x] = cool(c, amount)
+                run -= 1
+            elif rnd.random() < density:
+                if streak > 0:
+                    run = rnd.randint(1, streak)
+                    cv.px[y][x] = cool(c, amount)
+                else:
+                    cv.px[y][x] = warm(c, amount) if rnd.random() < 0.4 else cool(c, amount)
+
+
+def ground_contact(cv: "Canvas", rows: int = 2, amount: float = 0.10) -> None:
+    """Darken the lowest opaque pixels of each column (contact shadow)."""
+    for x in range(cv.w):
+        found = 0
+        for y in range(cv.h - 1, -1, -1):
+            c = cv.px[y][x]
+            if c is None or c[3] < 200:
+                if found:
+                    break
+                continue
+            if found < rows:
+                cv.px[y][x] = cool(c, amount * (1.0 - found / rows))
+            found += 1
+
+
+def is_green(c) -> bool:
+    r, g, b, _ = c
+    return g > r + 20 and g > b + 20

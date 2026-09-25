@@ -10,7 +10,11 @@ import random
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from pixel import Canvas, darken, hexc, lighten, mix, text, text_width  # noqa: E402
+import colorsys  # noqa: E402
+
+from pixel import (  # noqa: E402
+    Canvas, auto_light, darken, grain, ground_contact, hexc, lighten, mix, text, text_width,
+)
 
 OUT = os.path.join("assets", "sprites", "story")
 
@@ -43,7 +47,41 @@ def tuft(cv: Canvas, x: int, y: int, h: int = 3) -> None:
     cv.set(x, y - 1, GRASS[0])
 
 
-def finish(cv: Canvas) -> Canvas:
+def _hls(c):
+    return colorsys.rgb_to_hls(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0)
+
+
+def _interior(cv: Canvas, x: int, y: int) -> bool:
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        n = cv.get(x + dx, y + dy)
+        if n is None or n[3] < 200:
+            return False
+    return True
+
+
+def is_wood(cv, x, y, c) -> bool:
+    h, l, s = _hls(c)
+    return 0.02 <= h <= 0.11 and 0.25 < s < 0.68 and 0.18 < l < 0.62 and _interior(cv, x, y)
+
+
+def is_stone(cv, x, y, c) -> bool:
+    h, l, s = _hls(c)
+    return s < 0.14 and 0.3 < l < 0.9 and _interior(cv, x, y)
+
+
+def is_soft(cv, x, y, c) -> bool:
+    h, l, s = _hls(c)
+    return (h > 0.88 or l > 0.82) and _interior(cv, x, y)
+
+
+def finish(cv: Canvas, seed: int = 3, contact: bool = True) -> Canvas:
+    """House finishing: material texture → bevel light → contact shade → outline."""
+    grain(cv, lambda x, y, c: is_wood(cv, x, y, c), amount=0.045, density=0.09, seed=seed, streak=3)
+    grain(cv, lambda x, y, c: is_stone(cv, x, y, c), amount=0.05, density=0.20, seed=seed + 1)
+    grain(cv, lambda x, y, c: is_soft(cv, x, y, c), amount=0.025, density=0.08, seed=seed + 2)
+    auto_light(cv)
+    if contact:
+        ground_contact(cv)
     cv.selective_outline(OUTLINE, 0.78)
     return cv
 
