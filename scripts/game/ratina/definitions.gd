@@ -1,6 +1,6 @@
 class_name RatinaUpgradeDefinitions
 extends RefCounted
-## Ratina upgrade tree — pruned mirror of player distance-pays + Frequency.
+## Ratina upgrade tree — v5 coach: her mark (bonus, size, luck).
 
 static var _by_id: Dictionary = {}
 static var _tree_order: Array[String] = []
@@ -9,54 +9,29 @@ static var _tree_order: Array[String] = []
 static func _init_defs() -> void:
 	if not _tree_order.is_empty():
 		return
+	## v5 crew refactor: Ratina coaches instead of swinging. Each bucket she
+	## plants a mark in your range; balls that rest on it pay extra.
 	var defs: Array[Dictionary] = [
 		_def(
-			"ratina_base_pay", Balance.UpgradeBranch.BASE_PAY, "Base Pay",
-			"Flat cash per ball Ratina hits.",
-			25, 1.20, 1.42,
-			[{"type": "multiply", "stat": "base_amount", "value_per_level": 1.15}],
+			"ratina_coaching", Balance.UpgradeBranch.BASE_PAY, "Coaching",
+			"Balls that land on Ratina's mark pay more.",
+			20, 6.0, 1.42,
+			[{"type": "add", "stat": "ratina_mark_bonus", "value_per_level": 0.25}],
 			"", {}
 		),
 		_def(
-			"ratina_distance_pay", Balance.UpgradeBranch.POWER, "Yardage Pay",
-			"Unlock pay per yard on Ratina's hits.",
-			25, 10.0, 1.28,
-			[
-				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
-				{"type": "multiply", "stat": "pay_per_yard", "value_per_level": 1.20},
-			],
-			"ratina_base_pay", {"upgrade_id": "ratina_base_pay", "level": 1}
+			"ratina_big_flag", Balance.UpgradeBranch.QUALITY, "Bigger Flag",
+			"Ratina's mark gets wider — easier to land on.",
+			12, 14.0, 1.45,
+			[{"type": "add", "stat": "ratina_mark_radius", "value_per_level": 0.5}],
+			"ratina_coaching", {"upgrade_id": "ratina_coaching", "level": 1}
 		),
 		_def(
-			"ratina_consistency", Balance.UpgradeBranch.QUALITY, "Consistency",
-			"Fewer bad swings — more Great and Perfect hits.",
-			15, 15.0, 1.28,
-			[{"type": "add", "stat": "consistency", "value_per_level": 0.08}],
-			"ratina_base_pay", {"upgrade_id": "ratina_base_pay", "level": 1}
-		),
-		_def(
-			"ratina_frequency", Balance.UpgradeBranch.PICKUP, "Frequency",
-			"Ratina swings more often — shorter hit interval.",
-			30, 12.0, 1.28,
-			[{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.90}],
-			"ratina_base_pay", {"upgrade_id": "ratina_base_pay", "level": 1}
-		),
-		_def(
-			"ratina_raw_power", Balance.UpgradeBranch.POWER, "Raw Power",
-			"+3 yards baseline carry on every Ratina hit.",
-			40, 30.0, 1.20,
-			[{"type": "add", "stat": "base_yards", "value_per_level": 3.0}],
-			"ratina_distance_pay", {"upgrade_id": "ratina_distance_pay", "level": 1}
-		),
-		_def(
-			"ratina_quality", Balance.UpgradeBranch.QUALITY, "Sweet Spot",
-			"Cleaner Ratina contact flies farther — pulls high strikes toward Perfect.",
-			20, 18.0, 1.30,
-			[
-				{"type": "binary", "stat": "sweet_spot_unlocked", "value": 1},
-				{"type": "add", "stat": "sweet_spot_bonus", "value_per_level": 0.04},
-			],
-			"ratina_consistency", {"upgrade_id": "ratina_consistency", "level": 1}
+			"ratina_lucky_flag", Balance.UpgradeBranch.PICKUP, "Lucky Flag",
+			"Balls on the mark have a chance to turn golden.",
+			10, 40.0, 1.5,
+			[{"type": "add", "stat": "ratina_mark_golden_chance", "value_per_level": 0.05}],
+			"ratina_coaching", {"upgrade_id": "ratina_coaching", "level": 3}
 		),
 	]
 	for d in defs:

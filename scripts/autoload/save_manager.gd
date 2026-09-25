@@ -244,6 +244,10 @@ func _load_story(parsed: Dictionary) -> void:
 	GameState.story_finale_armed = bool(parsed.get("story_finale_armed", false))
 	GameState.story_complete = bool(parsed.get("story_complete", false))
 	GameState.play_time_sec = float(parsed.get("play_time_sec", 0.0))
+	## v5 crew refactor: Ratina's golfer tree became the coach tree — drop stale keys.
+	for key in GameState.ratina_upgrade_levels.keys():
+		if RatinaUpgradeDefinitions.get_def(String(key)).is_empty():
+			GameState.ratina_upgrade_levels.erase(key)
 	## Crew is reached through the story now; keep flags consistent with finds.
 	if GameState.story_found.has("ratina_bag"):
 		GameState.ratina_unlocked = true

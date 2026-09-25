@@ -25,8 +25,8 @@ func _run() -> void:
 		print("OK: is_mobile_touch() false on desktop")
 
 	var player_defs := UpgradeDefinitions.all()
-	if player_defs.size() != 13:
-		print("FAIL: expected 13 player upgrades, got ", player_defs.size())
+	if player_defs.size() != 15:
+		print("FAIL: expected 15 player upgrades, got ", player_defs.size())
 		ok = false
 	var base_pay := UpgradeDefinitions.get_def("base_pay")
 	if base_pay.is_empty() or base_pay.get("parent_id", "x") != "":
@@ -71,7 +71,7 @@ func _run() -> void:
 		if graph_parent != "base_pay":
 			print("FAIL: %s should branch from base_pay in graph, got %s" % [head, graph_parent])
 			ok = false
-	## v5: 13 player + 6 Ratina + 4 Rattling nodes (crew story-gated).
+	## v5: 15 player + 3 Ratina (coach) + 5 Rattling nodes (crew story-gated).
 	if UpgradeGraph.all_nodes().size() != 23:
 		print("FAIL: expected 23 graph nodes, got ", UpgradeGraph.all_nodes().size())
 		ok = false
@@ -83,7 +83,7 @@ func _run() -> void:
 	## Crew roots are in the graph but hidden until their story find.
 	var gs_hidden: Node = root.get_node("GameState")
 	gs_hidden.story_found.clear()
-	for hidden_id in ["ratina_base_pay", "rattling_more"]:
+	for hidden_id in ["ratina_coaching", "rattling_more"]:
 		if UpgradeGraph.is_revealed(hidden_id):
 			print("FAIL: %s should be hidden until its find" % hidden_id)
 			ok = false

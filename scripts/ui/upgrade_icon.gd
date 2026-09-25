@@ -10,6 +10,10 @@ const NODE_HALF := Vector2(22, 22)
 ## Alias ids that reuse another upgrade's sprite.
 const ICON_ALIASES := {
 	"perfect_chain": "perfect_pop",
+	"ratina_coaching": "ratina_base_pay",
+	"ratina_big_flag": "ratina_consistency",
+	"ratina_lucky_flag": "ratina_quality",
+	"rattling_finders_fee": "rattling_keen_nose",
 }
 
 static var _cache: Dictionary = {}

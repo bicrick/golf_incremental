@@ -1595,9 +1595,11 @@ func leave_litter_ball(
 	yardage: float,
 	is_golden: bool = false,
 	source: String = "player"
-) -> void:
+) -> Sprite3D:
 	# Fog / blocked-cursor line tracks furthest rest, not carry alone (bounces run past).
-	_record_rest_reach(land_position)
+	# Ratina's demo mark never pushes the mist.
+	if source != "ratina_mark":
+		_record_rest_reach(land_position)
 	var litter_id := _next_litter_id
 	_next_litter_id += 1
 	var litter := Sprite3D.new()
@@ -1617,6 +1619,7 @@ func leave_litter_ball(
 		litter_id, land_position, quality, yardage, is_golden, source
 	)
 	EventBus.fairway_impact.emit(land_position)
+	return litter
 
 
 func _tee_world_z() -> float:

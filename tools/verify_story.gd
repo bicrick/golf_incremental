@@ -96,13 +96,21 @@ func _check_rewards() -> bool:
 	var ok := true
 	var gs := _gs()
 	gs.reset_to_fresh()
-	var q := 1.0
-	var before: float = Economy.yards_from_quality(q, gs.stats)
 	gs.record_carry(200.0)
+	gs.upgrade_levels["iron_set"] = 1
+	if UpgradeGraph.is_unlocked("spoon_club"):
+		print("FAIL: Barley's Spoon node should wait for the spoon find")
+		ok = false
 	gs.discover_find("barley_spoon")
-	var after: float = Economy.yards_from_quality(q, gs.stats)
-	if not is_equal_approx(after / before, 1.15):
-		print("FAIL: spoon should give carry ×1.15, got ×%.3f" % (after / before))
+	if not UpgradeGraph.is_unlocked("spoon_club"):
+		print("FAIL: finding the spoon should open the Barley's Spoon node")
+		ok = false
+	var before: float = Economy.yards_from_quality(1.0, gs.stats)
+	gs.currency = 1e9
+	gs.purchase_upgrade("spoon_club")
+	var after: float = Economy.yards_from_quality(1.0, gs.stats)
+	if not is_equal_approx(after / before, 1.03):
+		print("FAIL: spoon node should give carry ×1.03 per level, got ×%.3f" % (after / before))
 		ok = false
 	var cap_before: int = gs.bucket_capacity
 	gs.discover_find("picker_cart")
@@ -141,11 +149,11 @@ func _check_story_gates() -> bool:
 	if not UpgradeGraph.is_unlocked("ball_count"):
 		print("FAIL: More Balls should unlock after the picker cart")
 		ok = false
-	if UpgradeGraph.is_revealed("ratina_base_pay"):
+	if UpgradeGraph.is_revealed("ratina_coaching"):
 		print("FAIL: Ratina subtree should be hidden before her bag")
 		ok = false
 	gs.discover_find("ratina_bag")
-	if not UpgradeGraph.is_revealed("ratina_base_pay") or not UpgradeGraph.is_unlocked("ratina_base_pay"):
+	if not UpgradeGraph.is_revealed("ratina_coaching") or not UpgradeGraph.is_unlocked("ratina_coaching"):
 		print("FAIL: Ratina subtree should open after her bag")
 		ok = false
 	if ok:

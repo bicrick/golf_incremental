@@ -14,7 +14,8 @@ Every ball you hit farther pushes the mist back a little — and the mist has be
 | [02-finds.md](02-finds.md) | Finds catalog: yardage, kind, reward, dialogue key, sprite |
 | [03-systems.md](03-systems.md) | Code map: `StoryFinds`, `GameState.story_*`, save v6, fog props, dialogue, story gates |
 | [04-finale.md](04-finale.md) | The last ball, ending overlay, credits, postgame |
-| [05-upgrade-menu.md](05-upgrade-menu.md) | Upgrade menu aesthetic refresh ("Clubhouse corkboard") |
+| [05-upgrade-menu.md](05-upgrade-menu.md) | Upgrade menu aesthetic refresh |
+| [06-balance.md](06-balance.md) | Economy rebalance (measured) + crew refactor (Ratina's flag, Rattling leftovers) |
 
 ## Pillars (v5 additions)
 

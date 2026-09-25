@@ -12,8 +12,8 @@ static func _init_defs() -> void:
 	var defs: Array[Dictionary] = [
 		_def(
 			"rattling_more", Balance.UpgradeBranch.BASE_PAY, "Rattlings",
-			"Hire a Rattling to work the forest edge. Each level adds one more.",
-			24, 10.0, 1.45,
+			"Rattlings fetch the balls you leave behind. Each level adds one more.",
+			8, 10.0, 1.6,
 			[{"type": "add", "stat": "rattling_count", "value_per_level": Balance.RATTLING_COUNT_BONUS_PER_LEVEL}],
 			"", {}
 		),
@@ -30,6 +30,13 @@ static func _init_defs() -> void:
 			10, 9.0, 1.30,
 			[{"type": "multiply", "stat": "rattling_pickup_speed_multiplier", "value_per_level": 1.10}],
 			"rattling_more", {"upgrade_id": "rattling_more", "level": 1}
+		),
+		_def(
+			"rattling_finders_fee", Balance.UpgradeBranch.BASE_PAY, "Finder's Fee",
+			"Leftover balls a Rattling brings back pay a bigger share.",
+			6, 30.0, 1.6,
+			[{"type": "add", "stat": "rattling_leftover_share", "value_per_level": 0.1}],
+			"rattling_more", {"upgrade_id": "rattling_more", "level": 2}
 		),
 		_def(
 			"rattling_keen_nose", Balance.UpgradeBranch.QUALITY, "Keen Nose",

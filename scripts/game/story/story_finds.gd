@@ -26,19 +26,19 @@ static func _init_defs() -> void:
 	var defs: Array[Dictionary] = [
 		_def("scorecard_1", "Torn Scorecard", Act.RANGE, 30.0, 1.5, "find",
 			"scorecard", {"note": "note_1"}, {"persist": false}),
-		_def("ratina_bag", "Someone's Golf Bag", Act.RANGE, 64.0, -6.0, "find",
+		_def("ratina_bag", "Someone's Golf Bag", Act.RANGE, 54.0, -6.0, "find",
 			"ratina_bag", {"unlock_ratina": true}, {"persist": false}),
-		_def("range_bell", "Range Bell", Act.RANGE, 92.0, 2.0, "target",
+		_def("range_bell", "Range Bell", Act.RANGE, 74.0, 2.0, "target",
 			"range_bell", {"swing_cooldown_mult": 0.85},
 			{"radius": 7.0, "sprite_found": "range_bell_rung"}),
-		_def("picker_cart", "Buried Picker Cart", Act.MIST, 118.0, -8.0, "find",
+		_def("picker_cart", "Buried Picker Cart", Act.MIST, 105.0, -8.0, "find",
 			"picker_cart", {"bucket_bonus": 2.0}, {}),
 		_def("rattling_burrow", "Burrow at the Edge", Act.MIST, 146.0, 11.0, "find",
 			"rattling_burrow", {"unlock_rattlings": true}, {}),
 		_def("scorecard_2", "Another Scorecard", Act.MIST, 168.0, -3.0, "find",
 			"scorecard", {"note": "note_2"}, {"persist": false}),
 		_def("barley_spoon", "Barley's Spoon", Act.MIST, 190.0, 5.0, "find",
-			"barley_spoon", {"carry_mult": 1.15}, {"persist": false}),
+			"barley_spoon", {"unlock_node": "spoon_club"}, {"persist": false}),
 		_def("stone_lantern", "Stone Lantern", Act.MIST, 222.0, -9.0, "find",
 			"stone_lantern", {"golden_chance": 0.03}, {}),
 		_def("birdhouse", "Birdhouse", Act.MIST, 248.0, -1.5, "target",
@@ -47,7 +47,7 @@ static func _init_defs() -> void:
 		_def("scorecard_3", "A Third Scorecard", Act.COURSE, 275.0, 4.0, "find",
 			"scorecard", {"note": "note_3"}, {"persist": false}),
 		_def("persimmon_driver", "Persimmon Driver", Act.COURSE, 305.0, -4.0, "find",
-			"persimmon_driver", {"carry_mult": 1.20}, {"persist": false}),
+			"persimmon_driver", {"unlock_node": "driver_club"}, {"persist": false}),
 		_def("footbridge", "Footbridge", Act.COURSE, 330.0, 0.0, "find",
 			"footbridge", {"rattling_speed_mult": 1.3}, {"pixel_size": 0.036}),
 		_def("tee_sign", "Hole 1 Tee Sign", Act.COURSE, 356.0, -10.0, "find",
@@ -169,11 +169,14 @@ static func apply_rattling_rewards(stats: PlayerStats, found: Dictionary) -> voi
 static func reward_text(id: String) -> String:
 	var r: Dictionary = get_def(id).get("reward", {})
 	if r.has("unlock_ratina"):
-		return "Ratina joined the range."
+		return "Ratina joined: land on her pink ball for bonus pay."
 	if r.has("unlock_rattlings"):
-		return "The Rattlings joined the crew."
+		return "Rattlings joined: they fetch balls you leave behind."
 	if r.has("carry_mult"):
 		return "Carry ×%.2f" % float(r["carry_mult"])
+	if r.has("unlock_node"):
+		var node_name := String(UpgradeDefinitions.get_def(String(r["unlock_node"])).get("display_name", ""))
+		return "New in the upgrade tree: %s" % node_name
 	if r.has("swing_cooldown_mult"):
 		return "Swings recover faster."
 	if r.has("bucket_bonus"):

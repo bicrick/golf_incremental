@@ -277,8 +277,10 @@ func credit_rattling_ball(
 	quality: int,
 	yardage: float,
 	is_golden: bool = false,
-	source: String = "player"
+	source: String = "player",
+	already_credited: bool = false
 ) -> float:
+	## v5: Rattlings fetch leftovers only, at rattling_leftover_share of full pay.
 	var golden := is_golden
 	var collect_stats := _stats_for_rattling_collect(source)
 	if source == "player" and not golden and rattling_stats.rattling_golden_bonus_chance > 0.0:
@@ -286,18 +288,16 @@ func credit_rattling_ball(
 	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, 1, collect_stats)
 	if golden:
 		payout *= collect_stats.golden_ball_payout_multiplier
+	payout *= clampf(rattling_stats.rattling_leftover_share, 0.0, 1.0)
 	add_currency(payout)
-	if source == "ratina":
-		lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout
-		EventBus.ratina_ball_collected.emit(payout)
-	else:
-		lifetime["rattling_lifetime_earnings"] = lifetime.get("rattling_lifetime_earnings", 0.0) + payout
-		EventBus.rattling_ball_collected.emit(payout)
-	if current_phase == "harvest":
-		harvest_collected += 1
-	else:
-		bucket_remaining = mini(bucket_remaining + 1, bucket_capacity)
-	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	lifetime["rattling_lifetime_earnings"] = lifetime.get("rattling_lifetime_earnings", 0.0) + payout
+	EventBus.rattling_ball_collected.emit(payout)
+	if not already_credited:
+		if current_phase == "harvest":
+			harvest_collected += 1
+		else:
+			bucket_remaining = mini(bucket_remaining + 1, bucket_capacity)
+		EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
 	return payout
 
 
@@ -817,3 +817,35 @@ func complete_story() -> void:
 	EventBus.max_carry_changed.emit(max_carry_yards())
 	EventBus.story_completed.emit()
 	SaveManager.save_game()
+
+
+# --- v5 crew: Ratina's mark ------------------------------------------------------
+
+
+## Extra pay for a player ball that rested on Ratina's mark. Returns the extra.
+func pay_ratina_mark_bonus(base_payout: float) -> float:
+	var extra := base_payout * maxf(ratina_stats.ratina_mark_bonus - 1.0, 0.0)
+	if extra > 0.0:
+		add_currency(extra)
+		lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + extra
+	return extra
+
+
+## Ratina's pink demo ball: worth one of your balls at that distance. Doesn't
+## count toward the harvest target.
+func collect_ratina_mark_ball(yardage: float, combo_tier: int) -> float:
+	if current_phase != "harvest":
+		return 0.0
+	var payout := Economy.resolve_pickup_ball_payout(4, yardage, combo_tier, stats)
+	add_currency(payout)
+	lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout
+	return payout
+
+
+## Pay for a ball that isn't part of the current bucket (already returned free).
+func collect_uncounted_ball(quality: int, yardage: float, combo_tier: int, is_golden: bool) -> float:
+	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, combo_tier, stats)
+	if is_golden:
+		payout *= stats.golden_ball_payout_multiplier
+	add_currency(payout)
+	return payout

@@ -1,6 +1,9 @@
 extends SceneTree
-## Headless Ratina smoke test — run:
+## v5 Ratina (coach) tests — run:
 ## godot --headless --script res://tools/verify_ratina.gd
+##
+## Ratina joins via her golf bag, never draws from the player's bucket, plants
+## one standing pink flag, and a player ball resting on it pays the mark bonus.
 
 
 func _initialize() -> void:
@@ -9,474 +12,91 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var ok := true
-	ok = _test_swing_sprite_frames() and ok
-
+	var gs: Node = root.get_node("GameState")
+	gs.reset_to_fresh()
+	gs.tutorial_completed = true
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
-	await process_frame
-	await process_frame
-
-	var gs: Node = root.get_node_or_null("GameState")
-	if gs == null:
-		print("FAIL: GameState autoload missing")
+	for _i in 4:
+		await process_frame
+	var range_view: Node = main.get_node("RangeView")
+	var ratina: Node = range_view.get("_ratina")
+	if ratina == null:
+		print("FAIL: RangeView should create the Ratina controller")
 		quit(1)
 		return
 
-	var range_view: Node3D = main.get_node("RangeView")
-	var ratina_controller: Node = range_view.get_node_or_null("RatinaController")
-	var ratina_sprite: Node = range_view.ratina_sprite
+	if gs.ratina_unlocked or ratina.get_golfer_sprite().visible:
+		print("FAIL: Ratina should be absent before her bag is found")
+		ok = false
 
-	gs.reset_to_fresh()
+	## Tree shape — coach tree, 3 nodes, root hangs off base_pay behind the bag.
+	if RatinaUpgradeDefinitions.all().size() != 3:
+		print("FAIL: expected 3 Ratina coach nodes, got ", RatinaUpgradeDefinitions.all().size())
+		ok = false
+	if UpgradeGraph.parent_id("ratina_coaching") != "base_pay":
+		print("FAIL: ratina_coaching should hang off base_pay")
+		ok = false
+
+	gs.record_carry(80.0)
+	gs.discover_find("ratina_bag")
 	await process_frame
-
-	if ratina_controller == null:
-		print("FAIL: RatinaController missing from RangeView")
-		ok = false
-	elif ratina_sprite != null and ratina_sprite.visible:
-		print("FAIL: Ratina sprite should be hidden before unlock")
+	if not gs.ratina_unlocked or not ratina.get_golfer_sprite().visible:
+		print("FAIL: Ratina should join and appear after her bag")
 		ok = false
 	else:
-		print("OK: Ratina inactive before unlock")
+		print("OK: Ratina joins via her bag")
 
-	var defs: Array = RatinaUpgradeDefinitions.all()
-	if defs.size() != 6:
-		print("FAIL: expected 6 Ratina upgrade nodes, got %d" % defs.size())
-		ok = false
-	else:
-		print("OK: Ratina upgrade tree has 6 nodes")
-
-	for link in RatinaUpgradeDefinitions.connections():
-		var from_id: String = link["from"]
-		var to_id: String = link["to"]
-		if RatinaUpgradeDefinitions.get_def(from_id).is_empty():
-			print("FAIL: ratina connection parent missing: %s" % from_id)
-			ok = false
-		if RatinaUpgradeDefinitions.get_def(to_id).is_empty():
-			print("FAIL: ratina connection child missing: %s" % to_id)
-			ok = false
-	if ok:
-		print("OK: Ratina tree connections resolve")
-
-	for player_id in UpgradeDefinitions.tree_order():
-		if RatinaUpgradeDefinitions.get_def(player_id).size() > 0:
-			print("FAIL: Ratina tree id collides with player id: %s" % player_id)
-			ok = false
-	if ok:
-		print("OK: Ratina ids do not overlap player tree")
-
-	gs.currency = 500.0
-	gs.upgrades_unlocked = true
-	gs.upgrade_levels = {"base_pay": 3}
-	gs._recompute_stats()
-	## v5: Ratina joins when her golf bag is found in the mist.
-	gs.lifetime["max_carry_yards"] = 80.0
-	if not gs.discover_find("ratina_bag"):
-		print("FAIL: could not find Ratina's bag")
-		ok = false
-	await process_frame
-
-	if not gs.ratina_unlocked:
-		print("FAIL: ratina_unlocked flag not set")
-		ok = false
-	else:
-		print("OK: Ratina unlocked")
-
-	if not is_equal_approx(gs.ratina_stats.swing_cooldown_ms, 10000.0):
-		print(
-			"FAIL: base swing_cooldown_ms should be 10000, got %.1f"
-			% gs.ratina_stats.swing_cooldown_ms
-		)
-		ok = false
-	else:
-		print("OK: Ratina base swing interval is 10s")
-
-	if ratina_sprite == null or not ratina_sprite.visible:
-		print("FAIL: Ratina sprite should be visible after unlock")
-		ok = false
-	else:
-		print("OK: Ratina visible after unlock")
-
-	var before_base: float = gs.ratina_stats.base_amount
-	var before_currency: float = gs.currency
-	if not gs.purchase_ratina_upgrade("ratina_base_pay"):
-		print("FAIL: could not purchase ratina_base_pay")
-		ok = false
-	elif gs.ratina_stats.base_amount <= before_base:
-		print(
-			"FAIL: ratina_base_pay should raise base_amount (%.3f -> %.3f)"
-			% [before_base, gs.ratina_stats.base_amount]
-		)
-		ok = false
-	elif gs.currency >= before_currency:
-		print("FAIL: ratina_base_pay should deduct currency")
-		ok = false
-	else:
-		print("OK: ratina_base_pay raises base_amount and costs currency")
-
-	var before_interval: float = gs.ratina_stats.swing_cooldown_ms
-	gs.currency = 500.0
-	if not gs.purchase_ratina_upgrade("ratina_frequency"):
-		print("FAIL: could not purchase ratina_frequency")
-		ok = false
-	elif gs.ratina_stats.swing_cooldown_ms >= before_interval:
-		print(
-			"FAIL: ratina_frequency should lower interval (%.1f -> %.1f ms)"
-			% [before_interval, gs.ratina_stats.swing_cooldown_ms]
-		)
-		ok = false
-	else:
-		print("OK: ratina_frequency lowers swing interval")
-
-	ok = await _test_controller_cooldown_refresh(gs, range_view, ratina_controller) and ok
-	ok = await _test_ratina_harvest_trail_uses_flight_camera(range_view, ratina_controller) and ok
-
-	var swing_state := {
-		"fired": false,
-		"yards": 0.0,
-		"payout": -1.0,
-	}
-	var on_swing := func(yards: float, _tier: int, payout: float) -> void:
-		swing_state["fired"] = true
-		swing_state["yards"] = yards
-		swing_state["payout"] = payout
-	var event_bus: Node = root.get_node("EventBus")
-	event_bus.ratina_swing_resolved.connect(on_swing)
-
-	var tier: int = RatinaSwingResolver.roll_tier(gs.ratina_stats.consistency)
-	var quality: int = Economy.quality_for_tier(tier)
-	var yards: float = Economy.yards_from_quality(Balance.TIER_MULTS[tier], gs.ratina_stats)
-
-	var currency_before_collect: float = gs.currency
-	var collect_payout: float = gs.credit_ratina_ball(yards, quality)
-	if collect_payout <= 0.0:
-		print("FAIL: credit_ratina_ball should return positive payout")
-		ok = false
-	elif gs.currency <= currency_before_collect:
-		print("FAIL: credit_ratina_ball should add currency on collection")
-		ok = false
-	else:
-		print("OK: credit_ratina_ball awards cash on collection")
-
+	## She plants her first flag from her own pocket — bucket untouched.
 	var bucket_before: int = gs.bucket_remaining
-	if not gs.consume_bucket_ball():
-		print("FAIL: consume_bucket_ball should succeed with balls remaining")
+	Engine.time_scale = 8.0
+	var start := Time.get_ticks_msec()
+	while ratina.mark_position() == Vector3.INF and Time.get_ticks_msec() - start < 4000:
+		await process_frame
+	Engine.time_scale = 1.0
+	var mark: Vector3 = ratina.mark_position()
+	if mark == Vector3.INF:
+		print("FAIL: Ratina should plant a flag after joining")
 		ok = false
-	event_bus.ratina_swing_resolved.emit(yards, tier, 0.0)
-	await process_frame
-
-	if not swing_state["fired"]:
-		print("FAIL: ratina_swing_resolved signal not received")
-		ok = false
-	elif float(swing_state["yards"]) <= 0.0:
-		print("FAIL: ratina swing yards should be positive")
-		ok = false
-	elif not is_equal_approx(float(swing_state["payout"]), 0.0):
-		print("FAIL: ratina_swing_resolved payout should be 0 at contact (deferred to collection)")
-		ok = false
-	elif gs.bucket_remaining != bucket_before - 1:
-		print("FAIL: ratina swing should consume one bucket ball")
+	elif gs.bucket_remaining != bucket_before:
+		print("FAIL: Ratina must not draw from the player's bucket")
 		ok = false
 	else:
-		print("OK: ratina swing consumes bucket and defers payout to collection")
+		print("OK: Ratina plants a flag at %.0f yd without touching the bucket" % ratina.get("_mark_yards"))
 
-	ok = _test_ratina_swings_during_harvest(gs, ratina_controller) and ok
+	## The flag stands until hit — no new demo pending while it's up.
+	if bool(ratina.get("_demo_pending")):
+		print("FAIL: no new demo should be pending while a flag stands")
+		ok = false
 
-	var upgrade_panel: Control = main.get_node("UI/UIRoot/UpgradePanel")
-	if upgrade_panel.has_method("open"):
-		upgrade_panel.open()
-		await process_frame
-		var nodes_root: Control = upgrade_panel.get_node("Content/TreeViewport/TreeWorld/Nodes")
-		var ratina_nodes := 0
-		for child in nodes_root.get_children():
-			if child.upgrade_id.begins_with("ratina_"):
-				ratina_nodes += 1
-		if ratina_nodes < 6:
-			print("FAIL: unified tree should include Ratina nodes, got ", ratina_nodes)
+	## A player ball resting on the flag is tagged and the flag clears.
+	if mark != Vector3.INF:
+		var litter: Sprite3D = range_view.leave_litter_ball(
+			mark + Vector3(1.0, 0.0, 0.5), Vector3.ONE, 5, 80.0, false, "player"
+		)
+		if litter == null or not bool(litter.get_meta("ratina_mark", false)):
+			print("FAIL: a ball on the flag should be tagged ratina_mark")
+			ok = false
+		elif ratina.mark_position() != Vector3.INF:
+			print("FAIL: hitting the flag should clear it")
 			ok = false
 		else:
-			print("OK: unified tree includes Ratina upgrade nodes")
+			print("OK: landing on the flag tags the ball and clears the flag")
 
-	if ok:
-		print("PASS: verify_ratina")
-		quit(0)
+	## Bonus math + coach upgrade.
+	var extra: float = gs.pay_ratina_mark_bonus(10.0)
+	if not is_equal_approx(extra, 10.0 * (gs.ratina_stats.ratina_mark_bonus - 1.0)):
+		print("FAIL: mark bonus should pay (bonus - 1) × base")
+		ok = false
+	gs.currency = 1000.0
+	var bonus_before: float = gs.ratina_stats.ratina_mark_bonus
+	if not gs.purchase_ratina_upgrade("ratina_coaching") or gs.ratina_stats.ratina_mark_bonus <= bonus_before:
+		print("FAIL: Coaching should raise the mark bonus")
+		ok = false
 	else:
-		print("FAIL: verify_ratina")
-		quit(1)
+		print("OK: mark bonus pays; Coaching raises it")
 
-
-## Player collect mode should not stop Ratina — she keeps hitting from the
-## stashed (unhit) balls while the player collects litter.
-func _test_ratina_swings_during_harvest(gs: Node, ratina_controller: Node) -> bool:
-	gs.current_phase = "strike"
-	gs.bucket_remaining = 3
-	gs.harvest_stash = 0
-	if not gs.try_enter_harvest():
-		print("FAIL: try_enter_harvest should succeed from strike")
-		return false
-	if gs.harvest_stash != 3:
-		print("FAIL: harvest_stash expected 3, got %d" % gs.harvest_stash)
-		gs.exit_harvest_early()
-		return false
-	if not ratina_controller.call("_can_swing"):
-		print("FAIL: Ratina should still be able to swing during harvest with stashed balls")
-		gs.exit_harvest_early()
-		return false
-	if not gs.consume_ratina_bucket_ball():
-		print("FAIL: consume_ratina_bucket_ball should draw from harvest_stash")
-		gs.exit_harvest_early()
-		return false
-	if gs.harvest_stash != 2:
-		print("FAIL: consume_ratina_bucket_ball should decrement harvest_stash, got %d" % gs.harvest_stash)
-		gs.exit_harvest_early()
-		return false
-	gs.harvest_stash = 0
-	if ratina_controller.call("_can_swing"):
-		print("FAIL: Ratina should be blocked once harvest_stash is exhausted")
-		gs.exit_harvest_early()
-		return false
-	gs.exit_harvest_early()
-	print("OK: Ratina keeps swinging from the stash during the player's collect mode")
-	return true
-
-
-func _test_ratina_harvest_trail_uses_flight_camera(
-	range_view: Node3D, ratina_controller: Node
-) -> bool:
-	const BallFlightTrailScript := preload("res://scripts/visual/ball_flight_trail.gd")
-
-	var view_mode: Node = range_view.get_node_or_null("ViewModeController")
-	if view_mode == null or not view_mode.has_method("_enter_harvest_immediate"):
-		print("FAIL: ViewModeController missing for harvest trail test")
-		return false
-
-	var perspective: Camera3D = range_view.get_perspective_camera()
-	var ortho: Camera3D = range_view.camera
-	if perspective == null or ortho == null:
-		print("FAIL: expected strike perspective + harvest ortho cameras")
-		return false
-
-	view_mode._enter_harvest_immediate()
+	main.queue_free()
 	await process_frame
-
-	var flight_cam: Camera3D = range_view.get_flight_camera()
-	if flight_cam != ortho:
-		print("FAIL: get_flight_camera should return ortho in harvest")
-		view_mode._enter_strike_immediate()
-		return false
-
-	if ratina_controller._camera != ortho:
-		print("FAIL: view_mode_changed should set Ratina flight camera to ortho")
-		view_mode._enter_strike_immediate()
-		return false
-
-	var resolved: Camera3D = ratina_controller.call("_resolve_flight_camera")
-	if resolved != ortho:
-		print("FAIL: Ratina _resolve_flight_camera should return harvest ortho")
-		view_mode._enter_strike_immediate()
-		return false
-
-	var fx_layer: Node2D = range_view.get_node_or_null("FxLayer")
-	if fx_layer == null:
-		print("FAIL: FxLayer missing for harvest trail test")
-		view_mode._enter_strike_immediate()
-		return false
-
-	var trail = BallFlightTrailScript.begin(
-		fx_layer,
-		resolved,
-		Balance.TimingTier.GOOD,
-		range_view.get_fx_reference_ortho_size()
-	)
-	var world_points := [
-		Vector3(2.0, 0.05, -4.0),
-		Vector3(2.2, 1.2, -18.0),
-		Vector3(2.4, 0.4, -36.0),
-	]
-	for point in world_points:
-		trail.track(point)
-	await process_frame
-
-	var ok := true
-	for i in trail.point_count():
-		var expected: Vector2 = fx_layer.to_local(ortho.unproject_position(trail.world_point_at(i)))
-		var actual: Vector2 = trail.screen_point_at(i)
-		if expected.distance_to(actual) > 0.5:
-			print(
-				"FAIL: Ratina harvest trail point %d mismatch (expected %s, got %s)"
-				% [i, expected, actual]
-			)
-			ok = false
-			break
-		var stale: Vector2 = fx_layer.to_local(
-			perspective.unproject_position(trail.world_point_at(i))
-		)
-		if actual.distance_to(stale) < 1.0:
-			print(
-				"FAIL: Ratina harvest trail point %d still matches perspective (%s)"
-				% [i, actual]
-			)
-			ok = false
-			break
-
-	# Mid-flight camera swap (strike → harvest path in reverse for coverage).
-	trail.set_camera(perspective)
-	await process_frame
-	for i in trail.point_count():
-		var expected_p: Vector2 = fx_layer.to_local(
-			perspective.unproject_position(trail.world_point_at(i))
-		)
-		var actual_p: Vector2 = trail.screen_point_at(i)
-		if expected_p.distance_to(actual_p) > 0.5:
-			print(
-				"FAIL: Ratina trail set_camera point %d mismatch (expected %s, got %s)"
-				% [i, expected_p, actual_p]
-			)
-			ok = false
-			break
-
-	trail.finish()
-	view_mode._enter_strike_immediate()
-	await process_frame
-
-	if ok:
-		print("OK: Ratina harvest tracers use live get_flight_camera / ortho reprojection")
-	return ok
-
-
-func _test_swing_sprite_frames() -> bool:
-	var ok := true
-	if RatinaSpriteFrames.SWING_FRAME_COUNT != 17:
-		print(
-			"FAIL: SWING_FRAME_COUNT expected 17, got %d"
-			% RatinaSpriteFrames.SWING_FRAME_COUNT
-		)
-		ok = false
-	if RatinaSpriteFrames.WINDUP_LAST != 11:
-		print("FAIL: WINDUP_LAST expected 11, got %d" % RatinaSpriteFrames.WINDUP_LAST)
-		ok = false
-	if RatinaSpriteFrames.CONTACT_FRAME != 12:
-		print("FAIL: CONTACT_FRAME expected 12, got %d" % RatinaSpriteFrames.CONTACT_FRAME)
-		ok = false
-	if RatinaSpriteFrames.FOLLOW_START != 13 or RatinaSpriteFrames.FOLLOW_END != 16:
-		print(
-			"FAIL: follow range expected 13-16, got %d-%d"
-			% [RatinaSpriteFrames.FOLLOW_START, RatinaSpriteFrames.FOLLOW_END]
-		)
-		ok = false
-
-	if RatinaSpriteFrames.FOLLOW_HOLD_FRAMES != 2:
-		print(
-			"FAIL: FOLLOW_HOLD_FRAMES expected 2, got %d"
-			% RatinaSpriteFrames.FOLLOW_HOLD_FRAMES
-		)
-		ok = false
-	var frames := RatinaSpriteFrames.make_golfer_frames()
-	if frames.get_frame_count(&"waiting") != RatinaSpriteFrames.WAITING_FRAME_COUNT:
-		print(
-			"FAIL: waiting animation has %d frames, expected %d"
-			% [frames.get_frame_count(&"waiting"), RatinaSpriteFrames.WAITING_FRAME_COUNT]
-		)
-		ok = false
-	if frames.get_frame_count(&"swing") != RatinaSpriteFrames.SWING_FRAME_COUNT:
-		print(
-			"FAIL: swing animation has %d frames, expected %d"
-			% [frames.get_frame_count(&"swing"), RatinaSpriteFrames.SWING_FRAME_COUNT]
-		)
-		ok = false
-	var follow_count := RatinaSpriteFrames.FOLLOW_END - RatinaSpriteFrames.FOLLOW_START + 1
-	if frames.get_frame_count(&"follow") != follow_count:
-		print(
-			"FAIL: follow animation has %d frames, expected %d"
-			% [frames.get_frame_count(&"follow"), follow_count]
-		)
-		ok = false
-	var contact_tex: Texture2D = frames.get_frame_texture(&"swing", RatinaSpriteFrames.CONTACT_FRAME)
-	if contact_tex == null:
-		print("FAIL: swing contact frame texture is null")
-		ok = false
-	elif ok:
-		print("OK: Ratina swing uses full 17-frame sheet (contact 12, follow 13-16)")
-	return ok
-
-
-func _test_controller_cooldown_refresh(gs: Node, range_view: Node3D, ratina_controller: Node) -> bool:
-	if ratina_controller == null:
-		print("FAIL: RatinaController missing for cooldown refresh test")
-		return false
-
-	var swing_timer: Timer = ratina_controller.get_node_or_null("SwingTimer")
-	if swing_timer == null:
-		print("FAIL: Ratina SwingTimer missing")
-		return false
-
-	var base_sec: float = gs.ratina_stats.swing_cooldown_ms / 1000.0
-	if not is_equal_approx(swing_timer.wait_time, maxf(base_sec, 0.35)):
-		print(
-			"FAIL: Ratina timer should match stats (%.3fs vs timer %.3fs)"
-			% [base_sec, swing_timer.wait_time]
-		)
-		return false
-	print("OK: Ratina timer matches swing_cooldown_ms after unlock")
-
-	gs.currency = 500.0
-	gs.ratina_upgrade_levels = {"ratina_base_pay": 1}
-	gs._recompute_stats()
-	# Force timer to match reset stats before buying Frequency.
-	if ratina_controller.has_method("_refresh_cooldown_timer"):
-		ratina_controller._refresh_cooldown_timer()
-	elif ratina_controller.has_method("_on_ratina_upgrade_purchased"):
-		ratina_controller._on_ratina_upgrade_purchased("ratina_base_pay", 1)
-	var before_sec: float = swing_timer.wait_time
-	if not gs.purchase_ratina_upgrade("ratina_frequency"):
-		print("FAIL: could not purchase ratina_frequency for timer refresh test")
-		return false
-
-	var expected_sec: float = maxf(gs.ratina_stats.swing_cooldown_ms / 1000.0, 0.35)
-	if swing_timer.wait_time >= before_sec:
-		print(
-			"FAIL: ratina_frequency should lower timer wait (%.3fs -> %.3fs, got %.3fs)"
-			% [before_sec, expected_sec, swing_timer.wait_time]
-		)
-		return false
-	if not is_equal_approx(swing_timer.wait_time, expected_sec):
-		print(
-			"FAIL: Ratina timer wait_time stale after upgrade (expected %.3fs, got %.3fs)"
-			% [expected_sec, swing_timer.wait_time]
-		)
-		return false
-	if swing_timer.is_stopped():
-		print("FAIL: Ratina timer should restart after frequency upgrade while idle")
-		return false
-
-	# Simulate a missed timeout while busy — cadence upgrades must still fire when idle.
-	ratina_controller._swinging = true
-	ratina_controller._ball_in_flight = true
-	swing_timer.wait_time = 0.01
-	swing_timer.start()
-	await swing_timer.timeout
-	await process_frame
-
-	if not ratina_controller._pending_swing:
-		print("FAIL: Ratina should queue pending swing when cooldown expires while busy")
-		ratina_controller._swinging = false
-		ratina_controller._ball_in_flight = false
-		ratina_controller._pending_swing = false
-		return false
-
-	ratina_controller._swinging = false
-	ratina_controller._ball_in_flight = false
-	ratina_controller.call("_try_pending_swing")
-	await process_frame
-
-	if ratina_controller._swinging:
-		print("OK: Ratina pending swing fires once idle after missed timeout")
-	else:
-		print("FAIL: Ratina pending swing did not start after becoming idle")
-		ratina_controller._pending_swing = false
-		return false
-
-	ratina_controller._swinging = false
-	ratina_controller._pending_swing = false
-	ratina_controller._refresh_cooldown_timer()
-	print("OK: Ratina timer refreshes on frequency upgrade and pending swings recover")
-	return true
+	print("ratina_ok=", ok)
+	quit(0 if ok else 1)

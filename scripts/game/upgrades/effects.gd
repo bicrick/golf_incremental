@@ -128,6 +128,8 @@ static func _read_stat(stats: PlayerStats, stat_name: String) -> float:
 		"perfect_chain_unlocked":
 			return stats.perfect_chain_unlocked
 		_:
+			if stat_name in stats:
+				return float(stats.get(stat_name))
 			push_warning("UpgradeEffects: unknown stat '%s'" % stat_name)
 			return 0.0
 
@@ -217,4 +219,7 @@ static func _write_stat(stats: PlayerStats, stat_name: String, value: float) -> 
 		"perfect_chain_unlocked":
 			stats.perfect_chain_unlocked = value
 		_:
+			if stat_name in stats:
+				stats.set(stat_name, value)
+				return
 			push_warning("UpgradeEffects: unknown stat '%s'" % stat_name)

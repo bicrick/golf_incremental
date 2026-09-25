@@ -155,8 +155,10 @@ func _check_pickup_formula(gs: Node) -> bool:
 	}
 	gs._recompute_stats()
 	var max_ppy: float = gs.stats.pay_per_yard
-	if max_ppy < 8.0 or max_ppy > 12.0:
-		print("FAIL: max Yardage Pay expected ~10.0 $/yd, got %.3f" % max_ppy)
+	## v5 rebalance: Yardage Pay ×1.06/level (0.1 → ~0.43) so distance, not
+	## stacked multipliers, drives income. See docs/v5/06-balance.md.
+	if max_ppy < 0.35 or max_ppy > 0.55:
+		print("FAIL: max Yardage Pay expected ~0.43 $/yd, got %.3f" % max_ppy)
 		return false
 	print("OK: max Yardage Pay pay_per_yard=%.2f" % max_ppy)
 	return true
@@ -249,8 +251,8 @@ func _check_upgrade(id: String, before: Dictionary, after: Dictionary) -> String
 	var a_stats: PlayerStats = after.stats
 	match id:
 		"base_pay":
-			if not is_equal_approx(a_stats.base_amount, 0.4025):
-				return "base_amount expected $0.4025 at Lv.1, got %.2f" % a_stats.base_amount
+			if not is_equal_approx(a_stats.base_amount, 0.35 * 1.06):
+				return "base_amount expected $%.4f at Lv.1, got %.4f" % [0.35 * 1.06, a_stats.base_amount]
 			if a_stats.base_amount <= b_stats.base_amount:
 				return "base_amount did not increase"
 			if after.pickup_payout <= before.pickup_payout:

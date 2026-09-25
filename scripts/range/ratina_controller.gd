@@ -39,6 +39,33 @@ var _flight_tween: Tween
 var _flight_with_bounces := false
 var _fade_tween: Tween
 var _debug_mode := false
+## v5 crew refactor — Ratina plants ONE standing challenge: she hits her own
+## ball (never from your bucket) and it becomes a pink flag. The flag stays
+## until one of your balls rests within ratina_mark_radius — that ball pays
+## × ratina_mark_bonus at pickup — then she plants the next one.
+var _demo_pending := false
+var _mark_pos := Vector3.INF
+var _mark_yards := 0.0
+var _mark_ring: Sprite3D
+var _mark_flag: Sprite3D
+var _mark_label: Label3D
+
+const MARK_FLAG_PATH := "res://assets/sprites/story/ratina_flag.png"
+const MARK_FLAG_PIXEL_SIZE := 0.03
+## Strike view: grow the flag with distance so it reads from the tee.
+const MARK_FLAG_STRIKE_SCALE_PER_100YD := 2.2
+const NEXT_MARK_DELAY_SEC := 2.5
+## Screen-space call-out above Ratina's head in strike view ("Land it: 109 yd").
+var _call_tag: PanelContainer
+var _call_label: Label
+const CALL_TAG_OFFSET := Vector2(0.0, -30.0)
+const CALL_PINK := Color(0.86, 0.36, 0.56, 1.0)
+
+const MARK_RING_COLOR := Color(1.0, 0.70, 0.84, 1.0)
+const MARK_MIN_YARDS := 14.0
+const MARK_RANGE_MIN := 0.45
+const MARK_RANGE_MAX := 0.9
+const DEMO_DELAY_SEC := 1.4
 
 
 func setup(range_view: Node3D, bay_cell: Node) -> void:
@@ -76,6 +103,7 @@ func setup(range_view: Node3D, bay_cell: Node) -> void:
 	EventBus.phase_changed.connect(_on_phase_changed)
 	EventBus.bucket_changed.connect(_on_bucket_changed)
 	EventBus.helper_toggled.connect(_on_helper_toggled)
+	EventBus.fairway_impact.connect(_on_fairway_impact)
 	_enabled = GameState.ratina_active
 	_refresh_active_state()
 
@@ -205,8 +233,6 @@ func _on_ratina_upgrade_purchased(_id: String, _level: int) -> void:
 
 
 func _on_phase_changed(_new_phase: String) -> void:
-	## She keeps hitting through the player's collect mode — only her own
-	## bucket/stash availability (via _can_swing) gates her, not the phase.
 	if _hired_and_enabled() and not _debug_mode and not _swinging and not _ball_in_flight:
 		_refresh_cooldown_timer()
 		if _swing_timer.is_stopped() and not _pending_swing:
@@ -246,6 +272,7 @@ func _refresh_active_state() -> void:
 			_flight_trail = null
 		_clear_flight_group()
 		return
+	_demo_pending = _mark_pos == Vector3.INF
 	_refresh_cooldown_timer()
 	_start_waiting_phase()
 
@@ -337,11 +364,16 @@ func _hired_and_enabled() -> bool:
 
 
 func _can_swing() -> bool:
-	return _hired_and_enabled() and not _debug_mode and GameState.ratina_has_ball_to_hit()
+	return (
+		_hired_and_enabled()
+		and not _debug_mode
+		and _demo_pending
+		and GameState.current_phase == "strike"
+	)
 
 
 func _cooldown_sec() -> float:
-	return maxf(GameState.ratina_stats.swing_cooldown_ms / 1000.0, 0.35)
+	return DEMO_DELAY_SEC
 
 
 func _update_timer_interval() -> void:
@@ -416,20 +448,16 @@ func _on_golfer_frame_changed() -> void:
 
 
 func _launch_ball() -> void:
-	if not GameState.consume_ratina_bucket_ball():
+	## Demo ball — her own, not from the bucket. She places it on purpose.
+	if not _demo_pending:
 		_abort_swing_no_ball()
 		return
-	_start_cooldown_timer()
+	_demo_pending = false
 	_camera = _resolve_flight_camera()
-	var tier := RatinaSwingResolver.roll_tier(GameState.ratina_stats.consistency)
-	var strike_quality: float = Balance.TIER_MULTS[tier]
+	var tier := Balance.TimingTier.PERFECT
 	var quality := Economy.quality_for_tier(tier)
-	var yards := Economy.yards_from_quality(strike_quality, GameState.ratina_stats)
-	GameState.record_carry(yards)
-	EventBus.ratina_swing_resolved.emit(yards, tier, 0.0)
+	var yards := _pick_mark_yards()
 	SfxManager.play_ratina_hit(tier)
-
-	var contact_screen := _project_to_screen(_ball.global_position)
 	HitPoof.spawn(
 		_fx_layer,
 		_camera,
@@ -439,14 +467,15 @@ func _launch_ball() -> void:
 		Vector3(0.0, 0.0, -12.0),
 		_fx_reference_ortho_size()
 	)
-	FloatStrikeTextScript.spawn(
-		_fx_layer,
-		contact_screen,
-		tier,
-		yards,
-		_strike_text_offset()
-	)
 	_fly_ball(yards, tier, quality)
+
+
+## Somewhere inside what you can reach on a clean swing — a distance-control test.
+func _pick_mark_yards() -> float:
+	var reach := Economy.yards_from_quality(1.0, GameState.stats)
+	var lo := maxf(MARK_MIN_YARDS, reach * MARK_RANGE_MIN)
+	var hi := maxf(lo + 4.0, reach * MARK_RANGE_MAX)
+	return randf_range(lo, hi)
 
 
 func _abort_swing_no_ball() -> void:
@@ -533,16 +562,206 @@ func _fly_ball(yards: float, timing_tier: int, quality: int) -> void:
 	)
 
 
-func _resolve_landing(landing: Vector3, quality: int, yards: float) -> void:
+func _resolve_landing(landing: Vector3, _quality: int, yards: float) -> void:
 	if _range_view == null:
 		return
-	if landing.z >= -RangeGrid.DEPTH_YARDS:
-		if _range_view.has_method("leave_litter_ball"):
-			_range_view.leave_litter_ball(
-				landing, _base_ball_scale, quality, yards, false, "ratina"
-			)
-	elif _range_view.has_method("show_vanished_ball_fx"):
-		_range_view.show_vanished_ball_fx(landing, quality, yards, false, "ratina")
+	if landing.z < -RangeGrid.DEPTH_YARDS:
+		_demo_pending = true
+		return
+	_mark_pos = landing
+	_mark_yards = yards
+	_plant_flag()
+
+
+func _mark_parent() -> Node:
+	var parent: Node = _range_view.get_node_or_null("Foreground")
+	return parent if parent != null else _range_view
+
+
+func _plant_flag() -> void:
+	if _mark_ring == null or not is_instance_valid(_mark_ring):
+		_mark_ring = _make_ring()
+		_mark_parent().add_child(_mark_ring)
+	if _mark_flag == null or not is_instance_valid(_mark_flag):
+		_mark_flag = Sprite3D.new()
+		_mark_flag.name = "RatinaMarkFlag"
+		_mark_flag.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+		_mark_flag.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_mark_flag.shaded = false
+		_mark_flag.render_priority = 2
+		_mark_flag.pixel_size = MARK_FLAG_PIXEL_SIZE
+		_mark_flag.texture = load(MARK_FLAG_PATH)
+		_mark_parent().add_child(_mark_flag)
+		_mark_label = Label3D.new()
+		_mark_label.name = "RatinaMarkLabel"
+		_mark_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_mark_label.shaded = false
+		_mark_label.no_depth_test = true
+		_mark_label.font = PixelFont.font_for_size(14)
+		_mark_label.font_size = 14
+		_mark_label.outline_size = 4
+		_mark_label.modulate = Color(1.0, 0.82, 0.90, 1.0)
+		_mark_label.outline_modulate = Color(0.42, 0.14, 0.26, 1.0)
+		_mark_parent().add_child(_mark_label)
+	var radius := GameState.ratina_stats.ratina_mark_radius
+	_mark_ring.pixel_size = radius * 2.0 / 64.0
+	_mark_ring.global_position = _mark_pos + Vector3(0.0, 0.03, 0.0)
+	_mark_label.text = "%d yd" % int(round(_mark_yards))
+	for node in [_mark_ring, _mark_flag, _mark_label]:
+		node.visible = true
+	_mark_flag.scale = Vector3.ZERO
+	var tw := create_tween()
+	tw.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_property(_mark_flag, "scale", Vector3.ONE, 0.35)
+	_mark_ring.modulate = Color(1, 1, 1, 0.85)
+
+
+func _ensure_call_tag() -> void:
+	if _call_tag != null and is_instance_valid(_call_tag):
+		return
+	if _fx_layer == null:
+		return
+	_call_tag = PanelContainer.new()
+	_call_tag.name = "RatinaCallTag"
+	_call_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = CALL_PINK
+	plate.border_color = Color(0.46, 0.14, 0.28, 1.0)
+	plate.set_border_width_all(1)
+	plate.shadow_color = Color(0.1, 0.12, 0.08, 0.35)
+	plate.shadow_offset = Vector2(1, 1)
+	plate.shadow_size = 0
+	plate.content_margin_left = 4
+	plate.content_margin_right = 4
+	plate.content_margin_top = 2
+	plate.content_margin_bottom = 2
+	_call_tag.add_theme_stylebox_override(&"panel", plate)
+	_call_label = Label.new()
+	_call_label.add_theme_color_override(&"font_color", Color(1.0, 0.96, 0.90, 1.0))
+	PixelFont.apply_label(_call_label, 8)
+	_call_tag.add_child(_call_label)
+	_fx_layer.add_child(_call_tag)
+
+
+func _update_call_tag() -> void:
+	var show := (
+		_hired_and_enabled()
+		and _mark_pos != Vector3.INF
+		and GameState.current_phase == "strike"
+		and _golfer != null
+		and _golfer.visible
+		and _range_view != null
+		and _range_view.visible
+	)
+	if not show:
+		if _call_tag != null and is_instance_valid(_call_tag):
+			_call_tag.visible = false
+		return
+	_ensure_call_tag()
+	if _call_tag == null:
+		return
+	_call_label.text = "Land it %d yd" % int(round(_mark_yards))
+	_call_tag.visible = true
+	_call_tag.reset_size()
+	var head := _project_to_screen(_golfer.global_position)
+	_call_tag.position = (head + CALL_TAG_OFFSET - _call_tag.size * 0.5).round()
+
+
+func _process(_delta: float) -> void:
+	_update_call_tag()
+	## Keep the flag readable from the tee: scale up with distance in strike view.
+	if _mark_flag == null or not is_instance_valid(_mark_flag) or not _mark_flag.visible:
+		return
+	var strike := GameState.current_phase == "strike"
+	var s := 1.0
+	if strike:
+		s = maxf(1.0, _mark_yards / 100.0 * MARK_FLAG_STRIKE_SCALE_PER_100YD)
+	if not _mark_flag.scale.is_equal_approx(Vector3.ZERO) and _mark_flag.scale.x >= 0.99:
+		_mark_flag.scale = Vector3.ONE * s
+	var h := 40.0 * MARK_FLAG_PIXEL_SIZE * _mark_flag.scale.x
+	_mark_flag.global_position = _mark_pos + Vector3(0.0, h * 0.5, 0.0)
+	_mark_label.global_position = _mark_pos + Vector3(0.0, h + 0.3 * s, 0.0)
+	_mark_label.pixel_size = 0.012 * s
+	_mark_ring.visible = not strike
+
+
+func _make_ring() -> Sprite3D:
+	var n := 64
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var c := (n - 1) * 0.5
+	for y in n:
+		for x in n:
+			var d := Vector2(x - c, y - c).length() / c
+			if d <= 1.0 and d >= 0.88:
+				img.set_pixel(x, y, MARK_RING_COLOR)
+			elif d < 0.88 and (x + y) % 6 == 0 and int(d * 8.0) % 2 == 0:
+				img.set_pixel(x, y, Color(MARK_RING_COLOR, 0.3))
+	var ring := Sprite3D.new()
+	ring.name = "RatinaMarkRing"
+	ring.axis = Vector3.AXIS_Y
+	ring.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	ring.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	ring.shaded = false
+	ring.double_sided = true
+	ring.render_priority = -1
+	ring.texture = ImageTexture.create_from_image(img)
+	return ring
+
+
+func _clear_mark() -> void:
+	_mark_pos = Vector3.INF
+	for node in [_mark_ring, _mark_flag, _mark_label]:
+		if node != null and is_instance_valid(node):
+			node.visible = false
+
+
+func _on_fairway_impact(world_pos: Vector3) -> void:
+	if _mark_pos == Vector3.INF or not _hired_and_enabled():
+		return
+	var flat := Vector2(world_pos.x - _mark_pos.x, world_pos.z - _mark_pos.z)
+	if flat.length() > GameState.ratina_stats.ratina_mark_radius:
+		return
+	var litter_root: Node = _range_view.get("littered_balls")
+	if litter_root == null:
+		return
+	for child in litter_root.get_children():
+		if not child is Sprite3D:
+			continue
+		if String(child.get_meta("ball_source", "")) != "player":
+			continue
+		if (child as Sprite3D).global_position.distance_to(world_pos) > 0.05:
+			continue
+		if bool(child.get_meta("ratina_mark", false)):
+			return
+		child.set_meta("ratina_mark", true)
+		if randf() < GameState.ratina_stats.ratina_mark_golden_chance:
+			child.set_meta("ball_golden", true)
+			(child as Sprite3D).modulate = Balance.GOLDEN_BALL_TINT
+		GameState.lifetime["ratina_marks_hit"] = int(GameState.lifetime.get("ratina_marks_hit", 0)) + 1
+		EventBus.ratina_mark_hit.emit(world_pos)
+		_celebrate()
+		_clear_mark()
+		get_tree().create_timer(NEXT_MARK_DELAY_SEC).timeout.connect(_queue_next_mark)
+		return
+
+
+func _queue_next_mark() -> void:
+	_demo_pending = true
+	if _hired_and_enabled() and not _swinging and not _ball_in_flight:
+		_refresh_cooldown_timer()
+
+
+func _celebrate() -> void:
+	if _golfer != null and not _swinging and _golfer.sprite_frames.has_animation(&"waiting"):
+		_golfer.play(&"waiting")
+	var sfx := get_node_or_null("/root/SfxManager")
+	if sfx != null and sfx.has_method("play_ratina_mark_hit"):
+		sfx.play_ratina_mark_hit()
+
+
+func mark_position() -> Vector3:
+	return _mark_pos
 
 
 func _apply_flight_sample(progress: float, path: BallFlight3D.FlightPath) -> void:

@@ -503,6 +503,30 @@ def flagstick(with_cap: bool = True) -> Canvas:
     return cv
 
 
+def ratina_flag() -> Canvas:
+    """Ratina's standing challenge — a pink pennant with a little heart."""
+    cv = Canvas(22, 40)
+    cv.shadow_blob(6, 38, 5, 1.5)
+    cv.rect(5, 3, 6, 38, WHITE[1])
+    cv.rect(5, 3, 5, 38, WHITE[0])
+    for x in range(7, 20):
+        wave = int(round(1.2 * __import__("math").sin((x - 7) / 2.5)))
+        top = 3 + wave
+        bot = 14 - (x - 7) // 2 + wave
+        if bot < top:
+            continue
+        cv.rect(x, top, x, bot, PINK[1])
+        cv.set(x, top, PINK[0])
+        cv.set(x, bot, PINK[2])
+    for x, y in [(10, 7), (12, 7), (9, 8), (10, 8), (11, 8), (12, 8), (13, 8), (10, 9), (11, 9), (12, 9), (11, 10)]:
+        cv.set(x, y, WHITE[0])
+    cv.set(5, 2, PINK[0]); cv.set(6, 2, PINK[0])
+    finish(cv)
+    tuft(cv, 3, 39, 2)
+    tuft(cv, 9, 39, 2)
+    return cv
+
+
 def sparkle() -> Canvas:
     cv = Canvas(9, 9)
     col = hexc("fff6c2")
@@ -528,6 +552,39 @@ def journal_icon() -> Canvas:
     return cv
 
 
+def club_icon(head_ramp, insert, big: bool) -> Canvas:
+    """32x32 upgrade icon: wooden club head with a diagonal shaft (tree style)."""
+    cv = Canvas(32, 32)
+    # shaft from grip (top-right) to hosel
+    cv.line(26, 3, 14, 19, METAL[1], 2)
+    cv.line(27, 3, 15, 19, METAL[2])
+    cv.line(25, 2, 29, 0, hexc("3a2a26"), 2)
+    cv.rect(24, 3, 27, 6, hexc("3a2a26"))
+    # head
+    rx, ry = (10, 7) if big else (8.5, 6)
+    cx, cy = 12, 22
+    cv.ellipse(cx, cy, rx, ry, head_ramp[1])
+    cv.replace_in(lambda x, y, c: c == head_ramp[1] and y <= cy - 3, lambda x, y, c: head_ramp[0])
+    cv.replace_in(lambda x, y, c: c == head_ramp[1] and y >= cy + 3, lambda x, y, c: head_ramp[2])
+    # face insert + sole plate
+    cv.line(int(cx - rx + 2), cy + 2, int(cx + 1), int(cy + ry - 1), insert)
+    cv.line(int(cx - rx + 3), int(cy + ry - 2), int(cx + rx - 3), int(cy + ry - 1), hexc("e8c25a"))
+    # highlight
+    cv.set(cx - 3, cy - 4, lighten(head_ramp[0], 0.55))
+    cv.set(cx - 2, cy - 4, lighten(head_ramp[0], 0.55))
+    cv.set(cx - 4, cy - 3, lighten(head_ramp[0], 0.35))
+    # whipping
+    cv.rect(16, 16, 18, 17, hexc("1e1418"))
+    cv.outline(OUTLINE)
+    return cv
+
+
+UPGRADE_ICONS = {
+    "spoon_club": lambda: club_icon(WOOD, hexc("f0d9a0"), False),
+    "driver_club": lambda: club_icon(DARKWOOD, hexc("fff2d0"), True),
+}
+
+
 SPRITES = {
     "scorecard": scorecard,
     "ratina_bag": ratina_bag,
@@ -545,6 +602,7 @@ SPRITES = {
     "green_disc": green_disc,
     "flagstick": flagstick,
     "sparkle": sparkle,
+    "ratina_flag": ratina_flag,
     "journal_icon": journal_icon,
 }
 
@@ -579,7 +637,9 @@ def main() -> None:
         for im, px, py in placed:
             sheet.alpha_composite(im, (px, py))
         sheet.save(out)
-    print("wrote", len(made), "sprites to", OUT)
+    for name, fn in UPGRADE_ICONS.items():
+        fn().save(os.path.join("assets", "sprites", "upgrades", name + ".png"))
+    print("wrote", len(made), "sprites to", OUT, "+", len(UPGRADE_ICONS), "upgrade icons")
 
 
 if __name__ == "__main__":

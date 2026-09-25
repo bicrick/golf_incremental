@@ -24,6 +24,8 @@ const FIND_LINES := {
 		["ratina", "So I sat down. I've been counting your shots. You slice, by the way."],
 		["rat", "...Do you want a bay? We have bays."],
 		["ratina", "Do I want a bay. Yes. Obviously."],
+		["ratina", "Here's the deal. Every bucket, I hit one. Pink ball. You land yours next to it."],
+		["ratina", "Land it close and I'll make it worth your while. Miss and I'll just... watch."],
 	],
 	"range_bell": [
 		["rat", "...DONNNG."],
@@ -39,6 +41,7 @@ const FIND_LINES := {
 		["rat", "There's a pile of balls in there. ...Some of them have a B on them."],
 		["rat", "They watched him go by. They've been keeping his balls safe."],
 		["rat", "They like shiny round things. We have a lot of shiny round things."],
+		["rat", "They won't touch what I'm picking up. But anything I leave behind... they'll bring back."],
 	],
 	"scorecard_2": [
 		["rat", "Another one."],

@@ -74,6 +74,13 @@ extends Resource
 @export var rattling_walk_speed: float = 3.2
 @export var rattling_pickup_speed_multiplier: float = 1.0
 @export var rattling_golden_bonus_chance: float = 0.0
+## v5 crew refactor — Rattlings fetch leftovers at this share of full pay.
+@export var rattling_leftover_share: float = 0.4
+## v5 crew refactor — Ratina coaches: a mark each bucket; balls resting inside
+## `ratina_mark_radius` yards pay × `ratina_mark_bonus` at pickup.
+@export var ratina_mark_bonus: float = 2.0
+@export var ratina_mark_radius: float = 4.0
+@export var ratina_mark_golden_chance: float = 0.0
 
 ## Prestige — Perfect Chain unlock (0/1)
 @export var perfect_chain_unlocked: float = 0.0
@@ -126,5 +133,9 @@ static func duplicate_stats(from: PlayerStats) -> PlayerStats:
 	copy.rattling_walk_speed = from.rattling_walk_speed
 	copy.rattling_pickup_speed_multiplier = from.rattling_pickup_speed_multiplier
 	copy.rattling_golden_bonus_chance = from.rattling_golden_bonus_chance
+	copy.rattling_leftover_share = from.rattling_leftover_share
+	copy.ratina_mark_bonus = from.ratina_mark_bonus
+	copy.ratina_mark_radius = from.ratina_mark_radius
+	copy.ratina_mark_golden_chance = from.ratina_mark_golden_chance
 	copy.perfect_chain_unlocked = from.perfect_chain_unlocked
 	return copy

@@ -69,8 +69,8 @@ func _check_sprite_frames() -> bool:
 func _check_definitions() -> bool:
 	var ok := true
 	var defs := RattlingUpgradeDefinitions.all()
-	if defs.size() != 4:
-		print("FAIL: expected 4 rattling upgrades, got ", defs.size())
+	if defs.size() != 5:
+		print("FAIL: expected 5 rattling upgrades, got ", defs.size())
 		ok = false
 	var root_def := RattlingUpgradeDefinitions.get_def("rattling_more")
 	if root_def.is_empty() or root_def.get("parent_id", "x") != "":
@@ -219,7 +219,9 @@ func _check_credit_accounting(gs: Node) -> bool:
 
 	gs.rattling_stats.rattling_golden_bonus_chance = 1.0
 	var normal_payout := Economy.resolve_pickup_ball_payout(4, 30.0, 1, gs.stats)
-	var expected_golden: float = normal_payout * gs.stats.golden_ball_payout_multiplier
+	var expected_golden: float = (
+		normal_payout * gs.stats.golden_ball_payout_multiplier * gs.rattling_stats.rattling_leftover_share
+	)
 	var golden_payout: float = gs.credit_rattling_ball(4, 30.0, false)
 	if not is_equal_approx(golden_payout, expected_golden):
 		print("FAIL: keen nose golden bonus should apply the player's golden multiplier")
@@ -234,28 +236,22 @@ func _check_credit_accounting(gs: Node) -> bool:
 
 
 func _check_ratina_source_collect(gs: Node) -> bool:
+	## v5: Rattlings fetch leftovers at a share of full pay; balls the bucket
+	## already got back free are paid but not re-credited.
 	var ok := true
 	gs.reset_to_fresh()
 	gs.current_phase = "strike"
 	gs.bucket_remaining = 3
-	var before_ratina_earnings: float = gs.lifetime.get("ratina_lifetime_earnings", 0.0)
-	var before_rattling_earnings: float = gs.lifetime.get("rattling_lifetime_earnings", 0.0)
-	var before_currency: float = gs.currency
-	var payout: float = gs.credit_rattling_ball(4, 30.0, false, "ratina")
-	if payout <= 0.0:
-		print("FAIL: ratina-source rattling collect returned non-positive payout")
+	var full := Economy.resolve_pickup_ball_payout(4, 30.0, 1, gs.stats)
+	var payout: float = gs.credit_rattling_ball(4, 30.0, false, "player", true)
+	if not is_equal_approx(payout, full * gs.rattling_stats.rattling_leftover_share):
+		print("FAIL: leftover pay should be %.3f of full, got %.3f" % [gs.rattling_stats.rattling_leftover_share, payout / full])
 		ok = false
-	if not is_equal_approx(gs.currency - before_currency, payout):
-		print("FAIL: ratina-source rattling collect did not add payout to currency")
-		ok = false
-	if gs.lifetime.get("ratina_lifetime_earnings", 0.0) <= before_ratina_earnings:
-		print("FAIL: ratina-source collect should increment ratina_lifetime_earnings")
-		ok = false
-	if gs.lifetime.get("rattling_lifetime_earnings", 0.0) != before_rattling_earnings:
-		print("FAIL: ratina-source collect should not increment rattling_lifetime_earnings")
+	if gs.bucket_remaining != 3:
+		print("FAIL: already-credited leftover should not refill the bucket")
 		ok = false
 	if ok:
-		print("OK: rattling collect of ratina litter pays via ratina_stats")
+		print("OK: leftovers pay the Rattling share; credited leftovers don't double-refill")
 	return ok
 
 
@@ -330,7 +326,23 @@ func _check_controller_pickup_cycle(main: Node, gs: Node) -> bool:
 	gs.rattling_stats.rattling_walk_speed = 500.0
 	gs.rattling_stats.rattling_pickup_speed_multiplier = 50.0
 
+	gs.current_phase = "strike"
+	var harvest_litter := Sprite3D.new()
+	harvest_litter.set_meta("collectible", true)
+	harvest_litter.set_meta("ball_quality", 4)
+	littered_balls.add_child(harvest_litter)
+	harvest_litter.global_position = Vector3(0.0, 0.0, -10.0)
+	var controller_probe: Node = range_view.get("_rattling_controller")
+	for _i in 30:
+		await process_frame
+	if not is_instance_valid(harvest_litter) or controller_probe._agents.size() > 0:
+		print("FAIL: Rattlings must not fetch fresh (non-leftover) balls")
+		ok = false
+	harvest_litter.queue_free()
+	await process_frame
+
 	var litter := Sprite3D.new()
+	litter.set_meta("leftover", true)
 	litter.set_meta("collectible", true)
 	litter.set_meta("ball_quality", 4)
 	litter.set_meta("ball_yardage", 30.0)
@@ -367,9 +379,12 @@ func _check_controller_pickup_cycle(main: Node, gs: Node) -> bool:
 	gs.rattling_stats.rattling_pickup_speed_multiplier = 50.0
 	gs.rattling_stats.rattling_golden_bonus_chance = 0.0
 	var normal_payout := Economy.resolve_pickup_ball_payout(4, 30.0, 1, gs.stats)
-	var expected_golden_payout: float = normal_payout * gs.stats.golden_ball_payout_multiplier
+	var expected_golden_payout: float = (
+		normal_payout * gs.stats.golden_ball_payout_multiplier * gs.rattling_stats.rattling_leftover_share
+	)
 
 	var golden_litter := Sprite3D.new()
+	golden_litter.set_meta("leftover", true)
 	golden_litter.set_meta("collectible", true)
 	golden_litter.set_meta("ball_quality", 4)
 	golden_litter.set_meta("ball_yardage", 30.0)

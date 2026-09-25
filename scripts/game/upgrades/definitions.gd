@@ -13,25 +13,25 @@ static func _init_defs() -> void:
 		_def(
 			"base_pay", Balance.UpgradeBranch.BASE_PAY, "Base Pay",
 			"Flat cash per ball picked up. Does not change how far you hit.",
-			25, 1.0, 1.40,
-			[{"type": "multiply", "stat": "base_amount", "value_per_level": 1.15}],
+			25, 1.0, 1.39,
+			[{"type": "multiply", "stat": "base_amount", "value_per_level": 1.06}],
 			"", {}
 		),
 		_def(
 			"distance_pay", Balance.UpgradeBranch.POWER, "Yardage Pay",
 			"Unlock pay per yard. Keep base $; each yard flown adds bonus cash at pickup.",
-			25, 2.0, 1.24,
+			25, 2.0, 1.39,
 			[
 				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
 				## 0.1 → ~10.0 at max: 1.20^25 ≈ 95.4 → 0.1×95.4 ≈ 9.5
-				{"type": "multiply", "stat": "pay_per_yard", "value_per_level": 1.20},
+				{"type": "multiply", "stat": "pay_per_yard", "value_per_level": 1.06},
 			],
 			"base_pay", {"upgrade_id": "base_pay", "level": 1}
 		),
 		_def(
 			"quality", Balance.UpgradeBranch.QUALITY, "Sweet Spot",
 			"Cleaner contact flies farther — pulls high strikes toward Perfect power.",
-			20, 2.5, 1.32,
+			20, 2.5, 1.44,
 			[
 				{"type": "binary", "stat": "sweet_spot_unlocked", "value": 1},
 				{"type": "add", "stat": "sweet_spot_bonus", "value_per_level": 0.04},
@@ -41,24 +41,24 @@ static func _init_defs() -> void:
 		_def(
 			"pickup", Balance.UpgradeBranch.PICKUP, "Pickup",
 			"Unlock pickup bonuses on collected balls.",
-			20, 2.5, 1.35,
+			20, 2.5, 1.42,
 			[
 				{"type": "binary", "stat": "pickup_bonus_unlocked", "value": 1},
-				{"type": "multiply", "stat": "pickup_multiplier", "value_per_level": 1.06},
+				{"type": "multiply", "stat": "pickup_multiplier", "value_per_level": 1.03},
 			],
 			"base_pay", {"upgrade_id": "base_pay", "level": 1}
 		),
 		_def(
 			"iron_set", Balance.UpgradeBranch.POWER, "Raw Power",
 			"+3 yards baseline carry on every swing tier.",
-			40, 9.0, 1.22,
+			40, 7, 1.34,
 			[{"type": "add", "stat": "base_yards", "value_per_level": 3.0}],
 			"distance_pay", {"upgrade_id": "distance_pay", "level": 1}
 		),
 		_def(
 			"metronome", Balance.UpgradeBranch.QUALITY, "Metronome",
 			"Widen the Perfect timing window — easier clean strikes.",
-			15, 4.5, 1.30,
+			15, 4.5, 1.4,
 			[
 				{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 8.0},
 				{"type": "add", "stat": "timing_window_great_ms", "value_per_level": 6.0},
@@ -68,14 +68,14 @@ static func _init_defs() -> void:
 		_def(
 			"perfect_pop", Balance.UpgradeBranch.QUALITY, "Perfect Pop",
 			"Near-Perfect contact hits even farther — late power fantasy.",
-			15, 12.0, 1.28,
+			15, 16, 1.54,
 			[{"type": "multiply", "stat": "perfect_power_bonus", "value_per_level": 1.08}],
 			"quality", {"upgrade_id": "quality", "level": 3}
 		),
 		_def(
 			"range_picker", Balance.UpgradeBranch.PICKUP, "Range Picker",
 			"Larger collection circle when harvesting balls.",
-			10, 4.5, 1.32,
+			10, 4.5, 1.49,
 			[{"type": "add", "stat": "range_picker_radius_bonus", "value_per_level": Balance.RANGE_PICKER_RADIUS_PER_LEVEL}],
 			"pickup", {"upgrade_id": "pickup", "level": 1}
 		),
@@ -83,37 +83,52 @@ static func _init_defs() -> void:
 		_def(
 			"quick_reset", Balance.UpgradeBranch.QUALITY, "Quick Reset",
 			"Shorten swing cooldown (×0.85 per level). Late tempo fantasy.",
-			5, 200.0, 1.70,
+			5, 200.0, 1.94,
 			[{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.85}],
 			"metronome", {"upgrade_id": "metronome", "level": 10}
 		),
 		_def(
 			"combo_bonus", Balance.UpgradeBranch.PICKUP, "Combo Bonus",
 			"Fast harvest clicks multiply pickup payout.",
-			5, 80.0, 1.55,
+			5, 80.0, 1.74,
 			[{"type": "add", "stat": "combo_mult_per_tier", "value_per_level": 0.08}],
 			"pickup", {"upgrade_id": "pickup", "level": 8}
 		),
 		_def(
 			"ball_count", Balance.UpgradeBranch.PICKUP, "More Balls",
 			"+1 ball per bucket per level.",
-			4, 120.0, 1.60,
+			4, 300, 2.24,
 			[{"type": "add", "stat": "bucket_capacity_bonus", "value_per_level": 1.0}],
 			"combo_bonus", {"upgrade_id": "combo_bonus", "level": 1}
 		),
 		_def(
 			"golden_ball", Balance.UpgradeBranch.QUALITY, "Golden Balls",
 			"+2% chance teed balls are golden (double pay) per level.",
-			10, 100.0, 1.45,
+			10, 400, 1.64,
 			[{"type": "add", "stat": "golden_ball_chance", "value_per_level": 0.02}],
 			"perfect_pop", {"upgrade_id": "perfect_pop", "level": 5}
 		),
 		_def(
 			"perfect_chain", Balance.UpgradeBranch.QUALITY, "Perfect Chain",
 			"After 3 Perfects in a row, teed balls stay golden while the streak lasts.",
-			1, 500.0, 1.0,
+			1, 500.0, 1.04,
 			[{"type": "binary", "stat": "perfect_chain_unlocked", "value": 1}],
 			"golden_ball", {"upgrade_id": "golden_ball", "level": 3}
+		),
+		## v5: Barley's clubs — found in the mist, then levelled with cash.
+		_def(
+			"spoon_club", Balance.UpgradeBranch.POWER, "Barley's Spoon",
+			"His old wooden spoon. +3% carry per level.",
+			10, 1500.0, 1.54,
+			[{"type": "multiply", "stat": "carry_multiplier", "value_per_level": 1.03}],
+			"iron_set", {"upgrade_id": "iron_set", "level": 1}
+		),
+		_def(
+			"driver_club", Balance.UpgradeBranch.POWER, "Persimmon Driver",
+			"Barley's prized driver. +3% carry per level.",
+			10, 20000.0, 1.54,
+			[{"type": "multiply", "stat": "carry_multiplier", "value_per_level": 1.03}],
+			"spoon_club", {"upgrade_id": "spoon_club", "level": 1}
 		),
 	]
 	for d in defs:

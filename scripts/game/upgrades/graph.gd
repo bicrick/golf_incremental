@@ -17,7 +17,7 @@ static var _children: Dictionary = {}
 static func _graph_overrides() -> Dictionary:
 	## Crew subtrees hang off the player tree (they are story-gated below).
 	return {
-		"ratina_base_pay": "base_pay",
+		"ratina_coaching": "base_pay",
 		"rattling_more": "pickup",
 	}
 
@@ -25,14 +25,16 @@ static func _graph_overrides() -> Dictionary:
 ## v5 story gates — node id → StoryFinds id that must be found first.
 ## Crew roots stay hidden until their find; other gated nodes show locked with a hint.
 const STORY_GATES := {
-	"ratina_base_pay": "ratina_bag",
+	"ratina_coaching": "ratina_bag",
 	"rattling_more": "rattling_burrow",
 	"quick_reset": "range_bell",
 	"ball_count": "picker_cart",
 	"golden_ball": "stone_lantern",
 	"perfect_chain": "tee_sign",
+	"spoon_club": "barley_spoon",
+	"driver_club": "persimmon_driver",
 }
-const HIDDEN_UNTIL_FOUND := ["ratina_base_pay", "rattling_more"]
+const HIDDEN_UNTIL_FOUND := ["ratina_coaching", "rattling_more"]
 
 
 static func story_gate(id: String) -> String:

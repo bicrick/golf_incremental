@@ -17,11 +17,34 @@ var _atmosphere_tint: Color = Color.WHITE
 func setup(_range_view: Node3D, foreground: Node3D, littered_balls: Node3D) -> void:
 	_foreground = foreground
 	_littered_balls = littered_balls
+	EventBus.phase_changed.connect(_on_phase_changed)
 	EventBus.helper_toggled.connect(_on_helper_toggled)
 
 
 ## Toggled off — live agents finish carrying balls home (no lost payout) or
 ## walk back empty; no new spawns until re-enabled.
+## Anything still on the fairway when you head back to the tee is a leftover.
+## `credited` = the bucket already got that ball back (free return).
+static func mark_leftovers(littered_balls: Node, credited: bool) -> int:
+	var count := 0
+	if littered_balls == null:
+		return 0
+	for child in littered_balls.get_children():
+		if not child is Sprite3D or child.get_meta("leftover", false):
+			continue
+		if String(child.get_meta("ball_source", "")) == "ratina_mark":
+			continue
+		child.set_meta("leftover", true)
+		child.set_meta("leftover_credited", credited)
+		count += 1
+	return count
+
+
+func _on_phase_changed(phase: String) -> void:
+	if phase == "strike":
+		mark_leftovers(_littered_balls, false)
+
+
 func _on_helper_toggled(helper: String, active: bool) -> void:
 	if helper != "rattlings" or active:
 		return
@@ -45,6 +68,10 @@ func apply_atmosphere_tint(tint: Color) -> void:
 func _process(delta: float) -> void:
 	_time_since_spawn += delta
 	if not GameState.rattlings_unlocked or not GameState.rattlings_active:
+		return
+	## v5 crew refactor: harvest is the player's job. Rattlings only fetch the
+	## leftovers you walked away from, once you're back on the tee.
+	if GameState.current_phase != "strike":
 		return
 	if _time_since_spawn < Balance.RATTLING_SPAWN_STAGGER_SEC:
 		return
@@ -74,6 +101,8 @@ func _pick_unclaimed_litter() -> Sprite3D:
 		if not child is Sprite3D:
 			continue
 		if not child.get_meta("collectible", false):
+			continue
+		if not child.get_meta("leftover", false):
 			continue
 		if _claimed_ids.has(child.get_instance_id()):
 			continue
