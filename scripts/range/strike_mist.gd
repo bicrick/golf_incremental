@@ -17,10 +17,10 @@ const PUFFS := [
 ]
 ## [yards past the fog line, puffs in the row, texel scale, alpha]
 const ROWS := [
-	[1.0, 11, 0.62, 0.95],
-	[9.0, 10, 0.7, 1.0],
-	[22.0, 9, 0.8, 1.0],
-	[42.0, 8, 0.9, 1.0],
+	[1.0, 15, 1.0, 0.95],
+	[7.0, 15, 1.0, 1.0],
+	[16.0, 15, 1.0, 1.0],
+	[30.0, 15, 1.0, 1.0],
 ]
 ## Fraction of each puff buried below the ground plane.
 const SINK := 0.44
@@ -29,8 +29,15 @@ const OVERLAP := 0.62
 const DRIFT_TEXELS := 6.0
 const TINT_STRENGTH := 0.32
 ## Clamp so puffs never become sub-pixel mush or giant blobs.
-const MIN_PIXEL_SIZE := 0.03
+const MIN_PIXEL_SIZE := 0.02
 const MAX_PIXEL_SIZE := 0.6
+## HARD LIMITS so the mist never paints over the backdrop poster (trees and
+## mountains are a flat image behind the fairway):
+## • visible height stays below the tee camera's eye height (≈1.88 yd), so a
+##   puff's top can never rise above the horizon line;
+## • puffs stay inside the fairway corridor, never out over the tree line.
+const MAX_VISIBLE_HEIGHT_YARDS := 1.35
+const CORRIDOR_MARGIN_YARDS := 1.0
 
 var _puffs: Array[Dictionary] = []
 var _tee_z := 0.0
@@ -109,15 +116,17 @@ func update(delta: float, reveal_yards: float) -> void:
 			MIN_PIXEL_SIZE,
 			MAX_PIXEL_SIZE
 		)
+		px = minf(px, MAX_VISIBLE_HEIGHT_YARDS / (float(p["h"]) * (1.0 - SINK)))
 		sprite.pixel_size = px
 		var w := float(p["w"]) * px
 		var h := float(p["h"]) * px
 		var drift := sin(_time * 0.1 + float(p["phase"])) * DRIFT_TEXELS * px
-		sprite.position = Vector3(
-			float(p["u"]) * w * OVERLAP + drift,
-			h * (0.5 - SINK),
-			z
-		)
+		var x := float(p["u"]) * w * OVERLAP + drift
+		var half_corridor := Balance.FAIRWAY_HALF_WIDTH_YARDS - CORRIDOR_MARGIN_YARDS
+		if absf(x) + w * 0.5 > half_corridor:
+			sprite.visible = false
+			continue
+		sprite.position = Vector3(x, h * (0.5 - SINK), z)
 		var c := _tint
 		c.a = float(row[3])
 		sprite.modulate = c
