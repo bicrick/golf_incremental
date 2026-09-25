@@ -13,8 +13,10 @@ enum NodeState { LOCKED, UNAFFORDABLE, PURCHASABLE, MAXED }
 
 const NODE_SIZE := UpgradeIcon.DEFAULT_NODE_SIZE
 const TOOLTIP_DELAY_SEC := 0.08
-const TOOLTIP_MAX_WIDTH := 150
-const TOOLTIP_PORTRAIT_MAX_WIDTH := 128
+## v5: wide enough for a sentence per line (was wrapping every two words).
+const TOOLTIP_MAX_WIDTH := 196
+const TOOLTIP_PORTRAIT_MAX_WIDTH := 156
+const TOOLTIP_TEXT_WIDTH := 180.0
 const TOOLTIP_GAP := 5
 const TOOLTIP_EDGE_MARGIN := 8.0
 const PRESS_SLIDE_PX := 6.0
@@ -68,9 +70,9 @@ var _mystery_label: Label
 var _bar_fill_t := 0.0
 var _bar_color := Color.WHITE
 
-const INFO_BAR_Y := 47.0
-const INFO_BAR_H := 3.0
-const INFO_BAR_INSET := 6.0
+const INFO_BAR_Y := 46.0
+const INFO_BAR_H := 2.0
+const INFO_BAR_INSET := 8.0
 const PRICE_Y := 51.0
 const PRICE_AFFORD := Color(0.98, 0.86, 0.30, 1)
 const PRICE_DIM := Color(0.93, 0.93, 0.88, 1)
@@ -98,7 +100,7 @@ func _ready() -> void:
 	_button.mouse_entered.connect(_on_mouse_entered)
 	_button.mouse_exited.connect(_on_mouse_exited)
 	_button.tooltip_text = ""
-	PixelFont.apply_label(_tooltip_name, 7)
+	PixelFont.apply_label(_tooltip_name, 8)
 	PixelFont.apply_label(_tooltip_desc, 6)
 	PixelFont.apply_label(_tooltip_level_label, 6)
 	PixelFont.apply_label(_tooltip_price_label, 6)
@@ -108,7 +110,27 @@ func _ready() -> void:
 	_tooltip_timer.wait_time = TOOLTIP_DELAY_SEC
 	_tooltip_timer.timeout.connect(_on_tooltip_timer_timeout)
 	_style_tooltip_panel()
+	for label in [_tooltip_name, _tooltip_desc]:
+		label.custom_minimum_size = Vector2(TOOLTIP_TEXT_WIDTH, 0)
 	_build_info_tag()
+	## The tooltip lives on the panel root, not inside this node: otherwise it
+	## inherits the tree zoom and this node's fade/scale (see-through ghosting).
+	call_deferred("_detach_tooltip")
+	tree_exiting.connect(_free_detached_tooltip)
+
+
+func _detach_tooltip() -> void:
+	var panel := _upgrade_panel()
+	if panel == null or _tooltip_panel.get_parent() == panel:
+		return
+	_tooltip_panel.reparent(panel, false)
+	_tooltip_panel.top_level = true
+	_tooltip_panel.z_index = 50
+
+
+func _free_detached_tooltip() -> void:
+	if is_instance_valid(_tooltip_panel) and _tooltip_panel.get_parent() != self:
+		_tooltip_panel.queue_free()
 
 
 func _build_info_tag() -> void:
@@ -129,7 +151,7 @@ func _build_info_tag() -> void:
 	_price_label.size = Vector2(NODE_SIZE.x + 36.0, 10.0)
 	_price_label.add_theme_color_override(&"font_outline_color", PRICE_OUTLINE)
 	_price_label.add_theme_constant_override(&"outline_size", 3)
-	PixelFont.apply_label(_price_label, 8)
+	PixelFont.apply_label(_price_label, 10)
 	_border.add_child(_price_label)
 	_mystery_label = Label.new()
 	_mystery_label.name = "Mystery"
@@ -147,7 +169,7 @@ func _build_info_tag() -> void:
 
 func _draw_info_bar() -> void:
 	var w := _info_bar.size.x
-	_info_bar.draw_rect(Rect2(0, 0, w, INFO_BAR_H + 2.0), Color(0.12, 0.16, 0.10, 0.75))
+	_info_bar.draw_rect(Rect2(0, 0, w, INFO_BAR_H + 2.0), Color(0.14, 0.2, 0.12, 0.55))
 	var fill_w := floorf((w - 2.0) * clampf(_bar_fill_t, 0.0, 1.0))
 	if fill_w >= 1.0:
 		_info_bar.draw_rect(Rect2(1, 1, fill_w, INFO_BAR_H), _bar_color)
@@ -165,7 +187,9 @@ func _refresh_info_tag(level: int, max_level: int, unlocked: bool, maxed: bool, 
 		upgrade_id,
 		UpgradeTreeStroke.BorderState.MAXED if maxed else UpgradeTreeStroke.BorderState.AFFORD
 	)
-	_info_bar.visible = max_level > 1 and (level > 0 or unlocked) and not story_locked
+	_info_bar.visible = max_level > 1 and level > 0 and not story_locked
+	## Price sits just under the node when there's no bar, below the bar otherwise.
+	_price_label.position.y = PRICE_Y if _info_bar.visible else INFO_BAR_Y - 1.0
 	_info_bar.queue_redraw()
 	if maxed:
 		_price_label.text = "MAX"
@@ -433,7 +457,7 @@ func _update_tooltip_content() -> void:
 		_tooltip_def, _tooltip_level, _levels_for_namespace(), _tooltip_maxed, _preview_for_namespace()
 	)
 	if not preview.is_empty():
-		desc = "%s\n%s" % [desc, preview]
+		desc = "%s\n\n%s" % [desc, preview]
 	_tooltip_desc.text = desc
 	var max_level := int(_tooltip_def.get("max_level", 0))
 	if _tooltip_maxed:
@@ -444,17 +468,17 @@ func _update_tooltip_content() -> void:
 		_tooltip_level_label.text = hint if not hint.is_empty() else "Locked"
 		_tooltip_price_label.visible = false
 	else:
-		_tooltip_level_label.text = "Lv %d/%d" % [_tooltip_level, max_level]
+		_tooltip_level_label.text = "Level %d of %d" % [_tooltip_level, max_level]
 		_tooltip_price_label.visible = true
 		var currency_mark := "$"
 		if _tooltip_affordable:
-			var cost_text := "Cost: %s%s" % [currency_mark, _format_cost(_tooltip_cost)]
+			var cost_text := "Buy: %s%s" % [currency_mark, _format_cost(_tooltip_cost)]
 			if UpgradeNodeTap.is_inspect_mode() and UpgradeNodeTap.is_selected(self):
 				cost_text = "%s — tap again" % cost_text
 			_tooltip_price_label.text = cost_text
 			_tooltip_price_label.add_theme_color_override(&"font_color", TOOLTIP_PRICE)
 		else:
-			_tooltip_price_label.text = "Need: %s%s" % [currency_mark, _format_cost(_tooltip_cost)]
+			_tooltip_price_label.text = "Costs %s%s" % [currency_mark, _format_cost(_tooltip_cost)]
 			_tooltip_price_label.add_theme_color_override(&"font_color", TOOLTIP_PRICE_DIM)
 
 
@@ -470,11 +494,14 @@ func _position_tooltip() -> void:
 	_tooltip_panel.size = tip_size
 
 	var bounds: Rect2 = TooltipViewportClampScript.visible_bounds(self)
-	var y: float = (NODE_SIZE.y - tip_size.y) * 0.5
-	var x_right: float = NODE_SIZE.x + TOOLTIP_GAP
+	## On-screen size of the medallion (tree zoom + hover scale included).
+	var node_screen: Vector2 = NODE_SIZE * get_global_transform().get_scale()
+	var node_origin: Vector2 = get_global_transform().origin
+	var y: float = (node_screen.y - tip_size.y) * 0.5
+	var x_right: float = node_screen.x + TOOLTIP_GAP
 	var x_left: float = -tip_size.x - TOOLTIP_GAP
 
-	var right_global := global_position + Vector2(x_right, y)
+	var right_global := node_origin + Vector2(x_right, y)
 	var right_fits := (
 		right_global.x >= bounds.position.x + TOOLTIP_EDGE_MARGIN
 		and right_global.x + tip_size.x <= bounds.end.x - TOOLTIP_EDGE_MARGIN
@@ -482,7 +509,7 @@ func _position_tooltip() -> void:
 
 	var x: float = x_right
 	if not right_fits:
-		var left_global := global_position + Vector2(x_left, y)
+		var left_global := node_origin + Vector2(x_left, y)
 		var left_fits := (
 			left_global.x >= bounds.position.x + TOOLTIP_EDGE_MARGIN
 			and left_global.x + tip_size.x <= bounds.end.x - TOOLTIP_EDGE_MARGIN
@@ -490,9 +517,9 @@ func _position_tooltip() -> void:
 		if left_fits:
 			x = x_left
 		else:
-			x = x_left if global_position.x > bounds.position.x + bounds.size.x * 0.5 else x_right
+			x = x_left if node_origin.x > bounds.position.x + bounds.size.x * 0.5 else x_right
 
-	var global_pos := global_position + Vector2(x, y)
+	var global_pos := node_origin + Vector2(x, y)
 	global_pos = TooltipViewportClampScript.clamp_pos(global_pos, tip_size, bounds, TOOLTIP_EDGE_MARGIN)
 	_tooltip_rest_global = global_pos
 	_tooltip_panel.global_position = global_pos

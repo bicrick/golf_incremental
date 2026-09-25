@@ -12,14 +12,14 @@ static func _init_defs() -> void:
 	var defs: Array[Dictionary] = [
 		_def(
 			"base_pay", Balance.UpgradeBranch.BASE_PAY, "Base Pay",
-			"Flat cash per ball picked up. Does not change how far you hit.",
+			"Every ball you pick up is worth a little more.",
 			25, 1.0, 1.39,
 			[{"type": "multiply", "stat": "base_amount", "value_per_level": 1.06}],
 			"", {}
 		),
 		_def(
 			"distance_pay", Balance.UpgradeBranch.POWER, "Yardage Pay",
-			"Unlock pay per yard. Keep base $; each yard flown adds bonus cash at pickup.",
+			"Longer shots pay more. Every yard a ball flies adds to what it's worth.",
 			25, 2.0, 1.39,
 			[
 				{"type": "binary", "stat": "yardage_term_unlocked", "value": 1},
@@ -30,7 +30,7 @@ static func _init_defs() -> void:
 		),
 		_def(
 			"quality", Balance.UpgradeBranch.QUALITY, "Sweet Spot",
-			"Cleaner contact flies farther — pulls high strikes toward Perfect power.",
+			"Good contact gets nudged toward great. Near-misses fly almost as far as Perfects.",
 			20, 2.5, 1.44,
 			[
 				{"type": "binary", "stat": "sweet_spot_unlocked", "value": 1},
@@ -40,7 +40,7 @@ static func _init_defs() -> void:
 		),
 		_def(
 			"pickup", Balance.UpgradeBranch.PICKUP, "Pickup",
-			"Unlock pickup bonuses on collected balls.",
+			"Picking balls up by hand pays a bonus on each one.",
 			20, 2.5, 1.42,
 			[
 				{"type": "binary", "stat": "pickup_bonus_unlocked", "value": 1},
@@ -57,7 +57,7 @@ static func _init_defs() -> void:
 		),
 		_def(
 			"metronome", Balance.UpgradeBranch.QUALITY, "Metronome",
-			"Widen the Perfect timing window — easier clean strikes.",
+			"A steadier tempo. The Perfect window gets wider.",
 			15, 4.5, 1.4,
 			[
 				{"type": "add", "stat": "timing_window_perfect_ms", "value_per_level": 8.0},
@@ -67,14 +67,14 @@ static func _init_defs() -> void:
 		),
 		_def(
 			"perfect_pop", Balance.UpgradeBranch.QUALITY, "Perfect Pop",
-			"Near-Perfect contact hits even farther — late power fantasy.",
+			"Perfect strikes launch. Your best contact flies much farther.",
 			15, 16, 1.54,
 			[{"type": "multiply", "stat": "perfect_power_bonus", "value_per_level": 1.08}],
 			"quality", {"upgrade_id": "quality", "level": 3}
 		),
 		_def(
 			"range_picker", Balance.UpgradeBranch.PICKUP, "Range Picker",
-			"Larger collection circle when harvesting balls.",
+			"A wider picker. Scoop up balls from farther away.",
 			10, 4.5, 1.49,
 			[{"type": "add", "stat": "range_picker_radius_bonus", "value_per_level": Balance.RANGE_PICKER_RADIUS_PER_LEVEL}],
 			"pickup", {"upgrade_id": "pickup", "level": 1}
@@ -82,14 +82,14 @@ static func _init_defs() -> void:
 		## Late OP nodes (formerly cheese / prestige).
 		_def(
 			"quick_reset", Balance.UpgradeBranch.QUALITY, "Quick Reset",
-			"Shorten swing cooldown (×0.85 per level). Late tempo fantasy.",
+			"Reload faster between swings.",
 			5, 200.0, 1.94,
 			[{"type": "multiply", "stat": "swing_cooldown_ms", "value_per_level": 0.85}],
 			"metronome", {"upgrade_id": "metronome", "level": 10}
 		),
 		_def(
 			"combo_bonus", Balance.UpgradeBranch.PICKUP, "Combo Bonus",
-			"Fast harvest clicks multiply pickup payout.",
+			"Grab balls quickly one after another and each pays more.",
 			5, 80.0, 1.74,
 			[{"type": "add", "stat": "combo_mult_per_tier", "value_per_level": 0.08}],
 			"pickup", {"upgrade_id": "pickup", "level": 8}

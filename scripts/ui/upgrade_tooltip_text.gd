@@ -89,12 +89,13 @@ static func _format_delta_preview(def: Dictionary, current: PlayerStats, next: P
 	var prefix := _axis_prefix(stat_name)
 	var cur_text := _format_stat_value(stat_name, current, false)
 	var next_text := _format_stat_value(stat_name, next, false)
-	if stat_name == "pay_per_yard":
-		var sample_yards := 30.0
-		var cur_bonus := current.base_amount * current.pay_per_yard * sample_yards
-		var next_bonus := next.base_amount * next.pay_per_yard * sample_yards
-		return "%s %s → %s (+$%.2f→$%.2f @%.0fyd)" % [
-			prefix, cur_text, next_text, cur_bonus, next_bonus, sample_yards
+	if stat_name == "pay_per_yard" or stat_name == "base_amount":
+		## Plain English: what a ball at your current best carry is worth.
+		var yards := maxf(Economy.yards_from_quality(1.0, current), 1.0)
+		var cur_ball := Economy.resolve_pickup_ball_payout(6, yards, 1, current)
+		var next_ball := Economy.resolve_pickup_ball_payout(6, yards, 1, next)
+		return "A %.0f yd ball: $%s → $%s" % [
+			yards, FloatCashText.format_amount(cur_ball), FloatCashText.format_amount(next_ball)
 		]
 	return "%s %s → %s" % [prefix, cur_text, next_text]
 
@@ -102,11 +103,11 @@ static func _format_delta_preview(def: Dictionary, current: PlayerStats, next: P
 static func _binary_unlock_label(stat_name: String) -> String:
 	match stat_name:
 		"yardage_term_unlocked":
-			return "Pay: unlock $ per yard at pickup"
+			return "Starts paying for distance."
 		"sweet_spot_unlocked":
-			return "Contact: unlock Sweet Spot pull"
+			return "Starts helping your contact."
 		"pickup_bonus_unlocked":
-			return "Pickup: unlock harvest bonuses"
+			return "Starts paying a pickup bonus."
 		_:
 			return "Unlock %s" % stat_name
 
