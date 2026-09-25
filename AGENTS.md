@@ -1,31 +1,33 @@
 # Agent Instructions
 
-**Design source of truth:** [`docs/README.md`](docs/README.md)
+**Design source of truth:** [`docs/v8/README.md`](docs/v8/README.md) (index: [`docs/README.md`](docs/README.md)).
 
-**Engine:** Godot 4.x + GDScript
+**Engine:** Godot 4.7 + GDScript, GL Compatibility renderer, 480×270 viewport.
 
-Before implementing any feature:
+Before implementing a feature:
 
-1. Read the relevant doc from the [doc map](docs/README.md#doc-map). **New loop / cash tree:** [`docs/v2/README.md`](docs/v2/README.md) (late OP nodes in [`docs/v2/04-upgrade-tree.md`](docs/v2/04-upgrade-tree.md)). **Balance / long-tail progression:** [`docs/v3/README.md`](docs/v3/README.md). **Camera / world / buildable grid / crew bays:** [`docs/v4/README.md`](docs/v4/README.md). Prestige / cheese docs under [`docs/v7/`](docs/v7/README.md) are **superseded**.
-2. Follow [agent workstreams](docs/technical/03-agent-workstreams.md) for parallel work — do not edit files outside your workstream. **v7 splits:** [`docs/v7/06-workstreams.md`](docs/v7/06-workstreams.md) (historical only).
-3. Freeze autoloads (`EventBus`, `GameState`) and `PlayerStats` before parallel splits (Workstream 0)
-4. Parallax layer tree lives in `scenes/range/range_view.tscn` — only Workstream A edits it
-5. Do not edit Cursor plan files — update `docs/` when design changes
+1. Read [`docs/v8/README.md`](docs/v8/README.md). Update it when the design changes.
+2. Keep data in data files: `scripts/tour/tour_data.gd` (ranges, greens, upgrades), `tour_story.gd` (dialogue), `tour_looks.gd` (palettes, props, weather).
+3. Shot and money math goes in `scripts/tour/tour_physics.gd` only.
 
-v1 done criteria: [`docs/specs/v1-acceptance.md`](docs/specs/v1-acceptance.md)
+## Verify
 
-v2 redesign (bucket, pickup, contact swing): [`docs/v2/README.md`](docs/v2/README.md) and phased rollout [`docs/v2/07-implementation-phases.md`](docs/v2/07-implementation-phases.md)
+```bash
+godot --headless --path . --import                                    # after adding/changing assets
+godot --headless --path . --script res://tools/verify_tour.gd         # data, physics, save, a scripted run
+SKILL=good godot --headless --path . --script res://tools/sim_tour_pacing.gd   # pacing (target 20–30 min)
+xvfb-run -a godot --rendering-driver opengl3 --path . --script res://tools/tour_autoplay.gd   # full real-input run
+xvfb-run -a godot --rendering-driver opengl3 --path . --script res://tools/tour_shot.gd       # screenshots (RANGE=0..4)
+```
 
-v4 redesign (orthographic camera, buildable grid, physical crew bays — design phase): [`docs/v4/README.md`](docs/v4/README.md) and phased rollout [`docs/v4/05-migration-and-phasing.md`](docs/v4/05-migration-and-phasing.md)
+Tool scripts that `extends SceneTree` must not reference `TourWorld` or other classes that use the `Tour` / `Audio` autoloads at parse time (autoloads aren't registered yet). Use plain values instead.
 
-~~v7 prestige~~ superseded — OP nodes on late cash tree: [`docs/v2/04-upgrade-tree.md`](docs/v2/04-upgrade-tree.md)
+## Art
 
-Run game: open project in Godot Editor → **F5**
+Pixel art is drawn procedurally by `tools/art/*.py` (PIL): `draw_tour_backdrops.py`, `draw_tour_props.py`, `draw_tour_sprites.py`, `draw_tour_map.py`. Re-run them and re-import after changing them. Keep `.png.import` files lossless (`compress/mode=0`, `detect_3d/compress_to=0`).
 
 ## PixelLab (pixel art MCP)
 
-For sprites / tilesets / animations via PixelLab, read the tool overview first:
+For PixelLab-generated sprites, read https://api.pixellab.ai/mcp/docs first. Project MCP config: [`.cursor/mcp.json`](.cursor/mcp.json). Rule: [`.cursor/rules/pixellab.mdc`](.cursor/rules/pixellab.mdc).
 
-https://api.pixellab.ai/mcp/docs
-
-Project MCP config: [`.cursor/mcp.json`](.cursor/mcp.json). Rule: [`.cursor/rules/pixellab.mdc`](.cursor/rules/pixellab.mdc).
+Run game: open the project in the Godot editor and press **F5**.

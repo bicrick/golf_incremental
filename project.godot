@@ -15,8 +15,8 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Range Rat"
-config/description="Cozy parallax 2.5D golf rhythm incremental"
-run/main_scene="res://scenes/main.tscn"
+config/description="Range Rat: The Longest Hole. Five ranges, one day, one missing friend."
+run/main_scene="res://scenes/tour/tour_main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(0, 0, 0, 1)
 boot_splash/stretch_mode=0
@@ -26,10 +26,8 @@ config/icon="res://assets/ui/favicon_ball.png"
 
 [autoload]
 
-EventBus="*res://scripts/autoload/event_bus.gd"
-GameState="*res://scripts/autoload/game_state.gd"
-SaveManager="*res://scripts/autoload/save_manager.gd"
-SfxManager="*res://scripts/audio/sfx_manager.gd"
+Tour="*res://scripts/tour/tour_state.gd"
+Audio="*res://scripts/tour/audio/tour_audio.gd"
 
 [display]
 
