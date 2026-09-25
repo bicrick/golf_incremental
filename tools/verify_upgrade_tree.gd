@@ -725,7 +725,7 @@ func _check_tap_inspect_then_buy(gs: Node, panel: Control) -> bool:
 		UpgradeNodeTap.force_inspect_mode = false
 		UpgradeNodeTap.clear()
 		return false
-	var tip: Control = node.get_node_or_null("TooltipPanel") as Control
+	var tip: Control = node.tooltip_panel() as Control
 	if tip == null or not tip.visible:
 		print("FAIL: first tap should show hover tooltip")
 		UpgradeNodeTap.force_inspect_mode = false

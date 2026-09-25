@@ -119,6 +119,11 @@ func _ready() -> void:
 	tree_exiting.connect(_free_detached_tooltip)
 
 
+## The tooltip is reparented to the panel root; use this rather than a child path.
+func tooltip_panel() -> Control:
+	return _tooltip_panel
+
+
 func _detach_tooltip() -> void:
 	var panel := _upgrade_panel()
 	if panel == null or _tooltip_panel.get_parent() == panel:
