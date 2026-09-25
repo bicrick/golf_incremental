@@ -306,7 +306,7 @@ func _refresh_aim_options() -> void:
 	for g in range_def["greens"]:
 		if not green_visible(g):
 			continue
-		var in_reach := Vector2(g["x"], g["z"]).length() / (1.0 + _expected_roll()) <= reach + 0.5
+		var in_reach := landing_for(Vector2(g["x"], g["z"]), g).length() <= reach + 0.5
 		aim_options.append({"id": g["id"], "green": g, "point": Vector2(g["x"], g["z"]), "in_reach": in_reach})
 	aim_options.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a["point"].y < b["point"].y)
 	aim_options.append({"id": "drive", "green": {}, "point": Vector2(0, reach), "in_reach": true})
@@ -373,7 +373,7 @@ func aim_point() -> Vector2:
 		return Vector2(0, Tour.reach())
 	var target: Vector2 = o["point"] + aim_nudge
 	if o["id"] != "drive":
-		target /= 1.0 + _expected_roll()
+		target = landing_for(target, o["green"])
 		if range_def.get("mechanic", "") == "wind" and Tour.level("wind") > 0:
 			## The reader aims into the wind for you.
 			target.x -= wind.x * target.y / 100.0 * _drift_cut()
@@ -381,6 +381,8 @@ func aim_point() -> Vector2:
 	var reach := Tour.reach()
 	if target.length() > reach:
 		target = target.normalized() * reach
+	if o["id"] == "drive":
+		target = TourPhysics.safe_drive(target, range_def, Tour.levels, Tour.keepsakes)
 	return target
 
 
@@ -394,6 +396,10 @@ func expected_land(aim: Vector2) -> Vector2:
 
 func expected_rest(land: Vector2) -> Vector2:
 	return land * (1.0 + _expected_roll())
+
+
+func landing_for(target: Vector2, green: Dictionary = {}) -> Vector2:
+	return TourPhysics.landing_for(target, green, range_def, Tour.levels, Tour.keepsakes)
 
 
 func _expected_roll() -> float:
@@ -450,6 +456,7 @@ func _update_wind(delta: float) -> void:
 
 func can_swing() -> bool:
 	return (mode == Mode.PLAY and input_enabled and not charging and cooldown <= 0.0
+		and not cinematic_active()
 		and Tour.bucket_remaining > 0 and not range_def.is_empty())
 
 
@@ -501,7 +508,7 @@ func _launch(tier: int, err_ms: float) -> void:
 		"golden": golden,
 		"t": 0.0,
 		"dur": 0.9 + 0.1 * sqrt(maxf(carry, 1.0)),
-		"apex": clampf(carry * (0.16 if tier <= 3 else 0.07), 2.0, 70.0),
+		"apex": clampf(carry * (0.16 if tier <= 3 else 0.07), 2.0, 38.0),
 		"phase": "fly",
 		"pos": Vector3.ZERO,
 		"trail": [],
@@ -649,18 +656,38 @@ func _update_floaters(delta: float) -> void:
 
 # --- cinematic follow --------------------------------------------------------------
 
+## Big shots (Ratina's flag, an ace) get a follow-cam: it rides along behind
+## the ball, holds on the landing, then eases home. Pitch never changes, so
+## the painted backdrop stays true.
+var cinematic_hold := 0.0
+var _cine_focus := Vector2.ZERO
+
+
+func cinematic_active() -> bool:
+	return not cinematic_ball.is_empty() or cinematic_hold > 0.0
+
+
 func _update_cinematic(delta: float) -> void:
-	if mode != Mode.PLAY:
+	if mode != Mode.PLAY and mode != Mode.LOCKED:
 		return
-	var target := home_xform
-	if not cinematic_ball.is_empty() and cinematic_ball["phase"] != "rest":
-		var land: Vector2 = cinematic_ball["shot"]["land"]
+	var follow := 0.0
+	if not cinematic_ball.is_empty():
 		var t := minf(float(cinematic_ball["t"]), 1.0)
-		## Dolly down range after the ball; pitch stays put so the backdrop holds.
-		var follow := smoothstep(0.05, 0.9, t) * 0.62
-		var pos := home_xform.origin + Vector3(land.x * follow * 0.8, -home_xform.origin.y * follow * 0.55, -land.y * follow)
-		target = Transform3D(home_xform.basis, pos)
-	camera.global_transform = camera.global_transform.interpolate_with(target, clampf(delta * 3.0, 0.0, 1.0))
+		var pos3: Vector3 = cinematic_ball["pos"]
+		_cine_focus = Vector2(pos3.x, -pos3.z)
+		follow = smoothstep(0.02, 0.6, t)
+		cinematic_hold = 1.8
+	elif cinematic_hold > 0.0:
+		## Keep holding while the flag's note is up.
+		if mode == Mode.PLAY:
+			cinematic_hold -= delta
+		follow = 1.0
+	var target := home_xform
+	if follow > 0.0:
+		var home := home_xform.origin
+		var near := Vector3(_cine_focus.x, home.y * 0.32, -_cine_focus.y + home.z * 0.34)
+		target = Transform3D(home_xform.basis, home.lerp(near, follow))
+	camera.global_transform = camera.global_transform.interpolate_with(target, clampf(delta * 2.6, 0.0, 1.0))
 
 
 # --- sweep ------------------------------------------------------------------------

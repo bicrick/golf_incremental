@@ -262,7 +262,11 @@ func _on_swing(tier: int, err: float) -> void:
 
 func _update_rat() -> void:
 	rat.visible = world.mode == TourWorld.Mode.PLAY or world.mode == TourWorld.Mode.LOCKED
+	## They stay on the tee when the camera rides out after a big shot.
+	var away := world.camera.global_position.distance_to(world.home_xform.origin) > 6.0
+	rat.modulate.a = move_toward(rat.modulate.a, 0.0 if away else 1.0, get_process_delta_time() * 4.0)
 	ratina.visible = rat.visible and world.range_def.get("id", "") == "edge"
+	ratina.modulate.a = rat.modulate.a
 	if world.charging:
 		rat.animation = &"swing"
 		rat.pause()
@@ -308,7 +312,7 @@ func _draw() -> void:
 	if playing:
 		_draw_critters()
 	_draw_flags()
-	if playing and world.input_enabled:
+	if playing and world.input_enabled and not world.cinematic_active():
 		_draw_aim()
 	_draw_resting()
 	_draw_splashes()
@@ -323,7 +327,7 @@ func _draw() -> void:
 		var dir := (s["v"] as Vector2).normalized()
 		draw_line(p, p - dir * float(s["len"]), Color(1, 1, 1, 0.55), 1.0)
 	_draw_weather(false)
-	if playing:
+	if playing and rat.modulate.a > 0.5:
 		_draw_tee()
 		_draw_popup()
 
@@ -372,7 +376,7 @@ func _draw_flags() -> void:
 	for item in list:
 		var g: Dictionary = item["g"]
 		var sp := _proj(item["base"]).round()
-		var in_reach := Vector2(g["x"], g["z"]).length() <= reach * (1.0 + world._expected_roll()) + float(g["r"])
+		var in_reach := world.landing_for(Vector2(g["x"], g["z"]), g).length() <= reach + float(g["r"])
 		var aimed: bool = aim.get("id", "") == g["id"] and world.mode == TourWorld.Mode.PLAY
 		var starred: bool = Tour.stars.get(g["id"], false)
 		var tex: Texture2D
@@ -421,7 +425,7 @@ func _draw_aim() -> void:
 	var show_wind: bool = world.range_def.get("mechanic", "") == "wind"
 	var show_roll: bool = float(world.range_def.get("roll", 0.0)) > 0.05
 	## Trajectory preview: a dotted arc from the tee.
-	var apex := clampf(aim.length() * 0.16, 2.0, 70.0)
+	var apex := clampf(aim.length() * 0.16, 2.0, 38.0)
 	var pulse := fmod(world.time_s * 1.2, 1.0)
 	for i in range(1, 14):
 		var t := (float(i) + pulse) / 14.0
@@ -522,7 +526,8 @@ func _draw_flying() -> void:
 		if _visible_point(shadow):
 			var ss := _proj(shadow).floor()
 			draw_rect(Rect2(ss - Vector2(1, 0), Vector2(3, 1)), Color(0, 0, 0, 0.28))
-		_draw_ball(_proj(p), _ball_radius(p), golden, night or golden)
+		var cine: bool = b.get("cinematic", false)
+		_draw_ball(_proj(p), maxf(_ball_radius(p), 2.0 if cine else 0.0), golden, night or golden or cine)
 
 
 func _draw_splashes() -> void:
@@ -619,7 +624,7 @@ func _draw_floaters() -> void:
 		var p: Vector3 = f["pos"]
 		if not _visible_point(p):
 			continue
-		var sp := _proj(p) + Vector2(0, -t * (10.0 if f["big"] else 16.0))
+		var sp := _proj(p) + Vector2(0, -t * (10.0 if f["big"] else 16.0) - (14.0 if f["big"] else 0.0))
 		var a := clampf((life - t) / 0.4, 0.0, 1.0)
 		var col: Color = f["color"]
 		col.a = a

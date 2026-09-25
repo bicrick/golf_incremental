@@ -127,6 +127,31 @@ static func roll_share_for(range_def: Dictionary, levels: Dictionary, keepsakes:
 	return float(range_def.get("roll", 0.0)) * (1.0 + bonus_sum(keepsakes, "roll") + 0.2 * level(levels, "roll"))
 
 
+## Where to land so the ball rolls onto `target`, but never inside a hazard:
+## if the roll-up landing would drop in the canyon or the sea, carry it.
+static func landing_for(target: Vector2, green: Dictionary, range_def: Dictionary, levels: Dictionary, keepsakes: Dictionary) -> Vector2:
+	var land := target / (1.0 + roll_share_for(range_def, levels, keepsakes))
+	if green.has("island"):
+		return land
+	for h in range_def.get("hazards", []):
+		var z0 := float(h["z0"]) - 2.0
+		var z1 := float(h["z1"]) + 2.0
+		if land.y > z0 and land.y < z1 and target.y >= z1:
+			land = target * (z1 + 1.0) / maxf(target.y, 1.0)
+	return land
+
+
+## A long drive that would land (or roll) into a hazard stops short of it.
+static func safe_drive(aim: Vector2, range_def: Dictionary, levels: Dictionary, keepsakes: Dictionary) -> Vector2:
+	var roll := roll_share_for(range_def, levels, keepsakes)
+	for h in range_def.get("hazards", []):
+		var z0 := float(h["z0"])
+		var z1 := float(h["z1"]) + 2.0
+		if aim.y * (1.0 + roll) > z0 - 1.0 and aim.y < z1:
+			return aim * ((z0 - 3.0) / (1.0 + roll)) / maxf(aim.y, 1.0)
+	return aim
+
+
 ## Hazard / green / ace outcome for where a ball comes to rest (or lands, for
 ## hazards that swallow on the fly). lit: lantern greens already lit.
 static func judge(shot: Dictionary, range_def: Dictionary, lit_count: int) -> Dictionary:

@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless --path . --script res://tools/verify_tour.gd
 
 var _fails := 0
+var _scene_done := false
 var _main: Node
 var T: Node
 
@@ -31,7 +32,9 @@ func _run() -> void:
 	print("save")
 	_save_checks()
 	print("scene")
+	_scene_done = false
 	await _scene_checks()
+	_check(_scene_done, "scripted run reached the end")
 	print("%s (%d failed)" % ["PASS" if _fails == 0 else "FAIL", _fails])
 	quit(1 if _fails > 0 else 0)
 
@@ -93,6 +96,12 @@ func _physics_checks() -> void:
 	_check(TourPhysics.judge({"land": Vector2(1, 400), "rest": Vector2(1, 400)}, frost, 3)["green"] == "", "Frostpine flag hidden until 4 lit")
 	_check(TourPhysics.judge({"land": Vector2(1, 400), "rest": Vector2(1, 400)}, frost, 4)["green"] == "f_flag", "Frostpine flag shows at 4 lit")
 	_check(TourPhysics.reach({"power": 10}, {}, {}) > TourPhysics.reach({}, {}, {}), "Club Speed adds reach")
+	var mesa := TourData.get_range(2)
+	var rim: Dictionary = mesa["greens"][2]
+	var land := TourPhysics.landing_for(Vector2(rim["x"], rim["z"]), rim, mesa, {}, {})
+	_check(land.y > 232.0, "aiming at Far Rim carries the canyon (lands at %.0f)" % land.y)
+	var drive := TourPhysics.safe_drive(Vector2(0, 215), mesa, {}, {})
+	_check(drive.y * 1.13 < 196.0, "a long drive stops short of the canyon")
 
 
 func _save_checks() -> void:
@@ -194,6 +203,7 @@ func _scene_checks() -> void:
 	_main.ending._on_keep()
 	await _wait(2.5)
 	_check(not _main.ending.is_blocking(), "Keep swinging returns to play")
+	_scene_done = true
 
 
 func _wait(sec: float) -> void:

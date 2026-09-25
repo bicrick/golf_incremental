@@ -131,7 +131,7 @@ func _choose_aim(r: Dictionary) -> Vector2:
 			continue
 		var target := Vector2(float(g["x"]), float(g["z"]))
 		## Aim short to let it roll on.
-		var aim := target / (1.0 + roll * (1.0 if T.level("roll") > 0 else 0.7))
+		var aim := TourPhysics.landing_for(target, g, r, T.levels, T.keepsakes)
 		if aim.length() > reach:
 			continue
 		var val := float(g["z"]) * 3.0
@@ -143,7 +143,7 @@ func _choose_aim(r: Dictionary) -> Vector2:
 			best_val = val
 			best = aim
 	if best_val < reach:
-		best = Vector2(0, reach)
+		best = TourPhysics.safe_drive(Vector2(0, reach), r, T.levels, T.keepsakes)
 	return best
 
 

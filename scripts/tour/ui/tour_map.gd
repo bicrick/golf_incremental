@@ -96,7 +96,9 @@ func _on_button() -> void:
 	if _browsing:
 		_close_then(func() -> void: closed.emit())
 	else:
-		_close_then(func() -> void: travel_done.emit(_to))
+		## Swap the range in behind the paper, then lift the map off it.
+		travel_done.emit(_to)
+		_close_then(func() -> void: pass)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -106,7 +108,8 @@ func _gui_input(event: InputEvent) -> void:
 		var i := _stop_at((event as InputEventMouseButton).position)
 		if i >= 0 and i <= Tour.unlocked_range and i != Tour.range_index:
 			_browsing = false
-			_close_then(func() -> void: travel_done.emit(i))
+			travel_done.emit(i)
+			_close_then(func() -> void: pass)
 
 
 func _unhandled_key_input(event: InputEvent) -> void:

@@ -254,7 +254,7 @@ func _draw_goal() -> void:
 		return
 	var flag := TourData.flag_green(r)
 	var gp := _goal_plate
-	var need := float(flag.get("z", 1.0)) / (1.0 + world._expected_roll()) - float(flag.get("r", 0.0)) * 0.5
+	var need := world.landing_for(Vector2(flag.get("x", 0.0), flag.get("z", 1.0)), flag).length() - float(flag.get("r", 0.0)) * 0.5
 	var reach := Tour.reach()
 	var frac := clampf(reach / maxf(need, 1.0), 0.0, 1.0)
 	var done: bool = Tour.cleared.get(r["id"], false)

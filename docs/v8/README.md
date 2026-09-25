@@ -33,11 +33,11 @@ At dawn, Ratina's bag is sitting on the mat with a note. She took old Barley's s
 
 | # | Range | Time / song | Twist | Ratina's flag |
 |---|---|---|---|---|
-| I | **Barley's Range**: a home meadow with pines and a white barn | Dawn · *Sunrise*, *Early Riser* | Just the basics. Ground mist at dawn. | 150 yd |
-| II | **Saltwind Cliffs**: a fairway on sea cliffs, with a lighthouse and gulls | Late morning · *Midday*, *Main Theme* | **Wind** (gusts: tail, head, cross) + **the sea** (a ball that lands in water is lost; the flag sits on an island green) | 220 yd |
+| I | **Barley's Range**: a home meadow with pines and a white barn | Dawn · *Sunrise*, *Early Riser* | Just the basics. Ground mist at dawn. | 138 yd |
+| II | **Saltwind Cliffs**: a fairway on sea cliffs, with a lighthouse and gulls | Late morning · *Midday*, *Main Theme* | **Wind** (gusts: tail, head, cross) + **the sea** (a ball that lands in water is lost; the flag sits on an island green) | 212 yd |
 | III | **Redrock Mesa**: red strata, cacti and a canyon | Dusk · *Dusk* | **Roll** (hardpan; greens are judged where the ball stops) + **the canyon** (carry it or lose it) | 300 yd |
-| IV | **Frostpine**: snowy pines, aurora and lanterns | Night · *Night*, *Midnight* | **Dark.** Lantern greens light up when hit, and every lit lantern adds +pay for the range. The last lanterns light the way to Ratina's flag. Snow means no roll. | 370 yd |
-| V | **The Edge**: above the clouds before dawn | Small hours · *Final* → *Sunrise* | **The Longest Hole.** Warm up on the practice tee until you can carry 450 yd, then play one ball. Mulligans are free. | 450 yd |
+| IV | **Frostpine**: snowy pines, aurora and lanterns | Night · *Night*, *Midnight* | **Dark.** Lantern greens light up when hit, and every lit lantern adds +pay for the range. Light all four and Ratina's flag appears. Snow means no roll. | 400 yd |
+| V | **The Edge**: above the clouds before dawn | Small hours · *Final* → *Sunrise* | **The Longest Hole.** Warm up until it's in reach, then land Barley's ball on it. Misses are free. | 610 yd |
 
 Every range keeps its own greens, stars and keepsakes. Clubs, upgrades and money carry over. After the ending, the **Map** lets you go back to any range.
 
@@ -87,27 +87,31 @@ All upgrades carry across ranges. Venue upgrades appear when you reach their ran
 
 | Id | Name | Effect/level | Max | Shows |
 |---|---|---|---|---|
-| power | Club Speed | +12% carry | 20 | start |
-| fee | Range Fee | +40% base pay | 20 | start |
-| bucket | Bigger Bucket | +2 balls | 8 | start |
+| power | Club Speed | +5% reach | 60 | start |
+| fee | Range Fee | +50% base pay (additive) | 60 | start |
+| bucket | Bigger Bucket | +2 balls | 6 | start |
 | sweet | Sweet Spot | +12% timing windows | 6 | 1st upgrade bought |
-| long_pay | Long Ball | +25% pay per yard | 12 | 60 yd carry |
 | greens | Green Reader | +0.5× green mult | 6 | first green hit |
-| streak | Hot Streak | +streak cap (Great+ in a row, +10% each) | 5 | range I, 3rd green |
-| golden | Golden Balls | +2% chance (×5 pay) | 8 | range II |
-| cart | Picker Cart | +20% sweep radius and speed | 6 | 2nd sweep |
-| wind | Wind Reader | +tailwind boost, −crosswind drift | 5 | range II |
-| roll | Run-Up | +20% roll | 5 | range III |
-| oil | Lamp Oil | +lit-lantern pay | 5 | range IV |
+| streak | Hot Streak | +2 streak cap (Great+ in a row, +10% each) | 5 | 2 stars |
+| golden | Golden Balls | +2% chance (×5 pay) | 8 | reached range II |
+| cart | Picker Cart | +20% sweep radius and speed, longer tip chains | 6 | first sweep |
+| wind | Wind Reader | shows the wind landing, aims into it, −15% drift, +tailwind | 5 | reached range II |
+| roll | Run-Up | +20% roll, shows the roll, rolled yards pay double | 5 | reached range III |
+| oil | Lamp Oil | +10% per lit lantern (base +15% each) | 5 | reached range IV |
 
-Clubs are story rewards, not purchases: Starter 7-iron → **Spoon** (×1.25) → **Persimmon Driver** (×1.3) → **Lantern** (utility) → **Barley's Ball** (finale).
+Barley's things are story rewards, not purchases: **Spoon** (+6% reach) → **Persimmon Driver** (+6% reach) → **Lantern** (the Frostpine lanterns can be lit) → **Barley's Ball** (+5% reach, for the Longest Hole).
 
-## Economy (tuned by `tools/sim_tour_pacing.py`)
+## Economy (tuned with `tools/tour_autoplay.gd` and `tools/sim_tour_pacing.gd`)
 
-- `carry = club_base × (1 + 0.12·power) × club_mult × keepsakes × tier_power × wind`, with tier_power = [1.0, 0.9, 0.78, 0.62, 0.45, 0.25].
-- `pay = (fee + per_yard·carry) × tier_pay × streak × green × golden × range_mult × lanterns`.
-- Each range pays **×6** the last one, so the next range always feels like a raise.
-- Pacing targets for a "good" player: I clears ~5:00, II ~10:30, III ~16:00, IV ~21:00, ending ~25:00. A casual player takes ≤30 min and a pro ≥18 min.
+All of it lives in `scripts/tour/tour_physics.gd` and `tour_data.gd`.
+
+- **Reach** (the longest a Perfect carries, and the aim cap) = `92 × 1.05^ClubSpeed × club rewards × keepsakes`.
+- **Where it lands.** A Perfect lands within ~2.5 yd of the aim point at any distance. Worse tiers come up short (`[1, .965, .91, .82, .66, .38]` of the aim) and start off line by `[—, 1.4°, 3.2°, 5.8°, 9.5°, 15°]`, left if you were early and right if you were late. Wind adds carry and drift, and roll adds `range roll × (1 + Run-Up)`.
+- **Pay** = `(0.05 + 0.0025·yards) × (1 + 0.5·Range Fee) × range pay × tier [1.5, 1.2, 1, .8, .55, .3] × streak × green (×3 +0.5/level) × ace (×10, ≤0.7 yd) × golden (×5) × lanterns`.
+- **First ball on a green** pays a one-time bonus (4 balls' worth ×green) and earns a star.
+- **Range pay** multipliers are 1 / 3.6 / 17 / 9 / 30. Frostpine is low because its lanterns multiply pay.
+- **Costs** = `base × growth^level`. Club Speed and Range Fee are cheap and steep (×1.35 / ×1.4); the rest are few-level perks (×2.3–2.4).
+- **Target:** ~25 min for a steady player (autoplayer at ~2 s per swing: 20–30 min). The first range takes about 3–5 minutes.
 
 ## Look & feel
 
@@ -126,11 +130,17 @@ Space / left mouse: swing (hold and release). Tab or E: shop. M: map (after rang
 | Path | What |
 |---|---|
 | `scripts/tour/tour_state.gd` (autoload `Tour`) | Run state, money, upgrades, ranges, save/load (`user://tour_save.json`) |
-| `scripts/tour/tour_data.gd` | Ranges, greens, hazards, keepsakes, upgrade defs (all data) |
+| `scripts/tour/audio/tour_audio.gd` (autoload `Audio`) | Music per range, sound effects, ambience; settings in `user://settings.json` |
+| `scripts/tour/tour_data.gd` | Ranges, greens, hazards, keepsakes, upgrade defs |
+| `scripts/tour/tour_looks.gd` | Per-range ground palette, haze, mist, props, weather |
 | `scripts/tour/tour_story.gd` | Every line of dialogue |
-| `scripts/tour/tour_physics.gd` | Carry, direction, wind, roll, landing resolution, payout |
-| `scripts/tour/tour_main.gd` | Boots title → game; owns the UI layers |
-| `scripts/tour/tour_world.gd` | 3D range, camera, backdrop layers, swing, flight, greens, sweep |
-| `scripts/tour/ui/*` | HUD, shop, dialogue, map, arrival card, journal, ending, pause |
-| `tools/sim_tour_pacing.py` | Pacing sim |
-| `tools/tour_autoplay.gd` | Real-input autoplayer + screenshots |
+| `scripts/tour/tour_physics.gd` | Reach, shot resolution, hazards/greens, payout |
+| `scripts/tour/tour_main.gd` | Boots title → range, UI layers, input, and the story director |
+| `scripts/tour/tour_world.gd` | 3D ground + camera framing, swing, flight, roll, props, sweep, wind |
+| `scripts/tour/tour_overlay.gd` | Crisp 2D layer: rat, flags, reticle, balls, cart, critters, weather |
+| `scripts/tour/tour_backdrop.gd` | Painted parallax sky/horizon layers |
+| `scripts/tour/tour_ground.gdshader` | The whole ground: fairway, rough, sea, canyon, greens, lantern light, mist, haze |
+| `scripts/tour/ui/*` | HUD, shop, dialogue, map, journal, ending, title, pause |
+| `tools/art/*.py` | Backdrops, props, sprites and the map, drawn procedurally |
+| `tools/verify_tour.gd` | Regression check |
+| `tools/sim_tour_pacing.gd` · `tools/tour_autoplay.gd` · `tools/tour_shot.gd` | Pacing sim · real-input autoplayer · screenshots |
