@@ -123,7 +123,7 @@ func _check_rewards() -> bool:
 	if not is_equal_approx(gs.stats.swing_cooldown_ms, cd_before * 0.85):
 		print("FAIL: bell should shorten swing cooldown")
 		ok = false
-	gs.discover_find("ratina_bag")
+	gs.discover_find("ratina_found")
 	if not gs.ratina_unlocked:
 		print("FAIL: ratina bag should unlock Ratina")
 		ok = false
@@ -153,7 +153,7 @@ func _check_story_gates() -> bool:
 		print("FAIL: Rattling subtree should be hidden before the burrow")
 		ok = false
 	var window_before: float = gs.stats.timing_window_perfect_ms
-	gs.discover_find("ratina_bag")
+	gs.discover_find("ratina_found")
 	if gs.stats.timing_window_perfect_ms <= window_before:
 		print("FAIL: Ratina's tempo tips should widen the Perfect window")
 		ok = false
@@ -170,6 +170,7 @@ func _check_save_roundtrip() -> bool:
 	gs.record_carry(100.0)
 	gs.discover_find("scorecard_1")
 	gs.discover_find("ratina_bag")
+	gs.discover_find("ratina_found")
 	gs.story_triggered["range_bell"] = true
 	gs.story_intro_seen = true
 	save.save_game()

@@ -26,8 +26,8 @@ static func _init_defs() -> void:
 	var defs: Array[Dictionary] = [
 		_def("scorecard_1", "Torn Scorecard", Act.RANGE, 30.0, 1.5, "find",
 			"scorecard", {"note": "note_1"}, {"persist": false}),
-		_def("ratina_bag", "Someone's Golf Bag", Act.RANGE, 54.0, -6.0, "find",
-			"ratina_bag", {"unlock_ratina": true, "perfect_window_ms": 6.0}, {"persist": false}),
+		_def("ratina_bag", "Ratina's Golf Bag", Act.RANGE, 54.0, -6.0, "find",
+			"ratina_bag", {"note": "note_ratina", "bucket_bonus": 1.0}, {"persist": false}),
 		_def("range_bell", "Range Bell", Act.RANGE, 74.0, 2.0, "target",
 			"range_bell", {"swing_cooldown_mult": 0.85},
 			{"radius": 7.0, "sprite_found": "range_bell_rung"}),
@@ -50,6 +50,9 @@ static func _init_defs() -> void:
 			"persimmon_driver", {"unlock_node": "driver_club"}, {"persist": false}),
 		_def("footbridge", "Footbridge", Act.COURSE, 330.0, 0.0, "find",
 			"footbridge", {"rattling_speed_mult": 1.3}, {"pixel_size": 0.036}),
+		_def("ratina_found", "Ratina", Act.COURSE, 342.0, 6.0, "find",
+			"ratina_waiting", {"unlock_ratina": true, "perfect_window_ms": 6.0},
+			{"persist": false, "pixel_size": 0.028}),
 		_def("tee_sign", "Hole 1 Tee Sign", Act.COURSE, 356.0, -10.0, "find",
 			"tee_sign", {"note": "note_tee"}, {}),
 		_def("first_green", "The First Green", Act.FINALE, 382.0, 0.0, "finale",
@@ -172,7 +175,7 @@ static func apply_rattling_rewards(stats: PlayerStats, found: Dictionary) -> voi
 static func reward_text(id: String) -> String:
 	var r: Dictionary = get_def(id).get("reward", {})
 	if r.has("unlock_ratina"):
-		return "Ratina joined. Her tempo tips widen your Perfect window."
+		return "Ratina's back. Her tempo tips widen your Perfect window."
 	if r.has("unlock_rattlings"):
 		return "Rattlings joined: they fetch balls you leave behind."
 	if r.has("carry_mult"):

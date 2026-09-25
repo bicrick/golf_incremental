@@ -27,12 +27,12 @@ This is already how the harvest fog works in code (`GameState.revealed_yards()`)
 |---|---|---|
 | **Range Rat** | Stayed behind to keep the range. Narrator of every find. | Player |
 | **Barley** | The old pro. Walked into the mist to wake the course. Leaves scorecards. | Never seen; notes in the Journal |
-| **Ratina** | Came looking for Mistmeadow years ago, following a light into the mist, got lost, and has been sitting on her bag waiting for it to lift. She's been counting your shots. | Found → company in the next bay; tempo tips (wider Perfect window) and shot reactions |
+| **Ratina** | Came looking for Mistmeadow years ago, following a light into the mist. The bridge vanished behind her and she's been stranded across the creek ever since. Her **bag** (Act I) is the first clue she's missing; a **pink ribbon** on the lantern (Act II) shows she came this way; you **find her** past the footbridge (Act III). | Bag: +1 ball/bucket (her spares). Found: joins as company; tempo tips (wider Perfect window) |
 | **Rattlings** | Shy gnome-rats who lived in the course rough and hid in burrows when the mist came. Love shiny round things. | Burrow found → ball-fetching crew + subtree |
 
 ## Arc
 
-1. **Act I · The Range (0–100 yd).** Routine. A torn scorecard in Barley's pencil hints at Hole 1, 400 yards out. Then someone in the mist says "you slice": it's Ratina. The rusted range bell only rings if you *hit* it.
+1. **Act I · The Range (0–100 yd).** Routine. A torn scorecard in Barley's pencil hints at Hole 1, 400 yards out. Then a pink golf bag, abandoned, with a note: someone named Ratina went looking for the course and never came back. The rusted range bell only rings if you *hit* it.
 2. **Act II · The Mist (100–250 yd).** The range turns into a place. A buried picker cart, a burrow of Rattlings, Barley's old wooden spoon stuck in the turf, a stone lantern, and a birdhouse. The second note explains the mist.
 3. **Act III · The Old Course (250–400 yd).** It stops being a range: a persimmon driver, a footbridge over a creek no one remembers, then a carved sign, **HOLE 1 · PAR 4 · 385 YDS**. The third note says Barley can hear your balls landing.
 4. **Finale (~400 yd).** The first green, Barley's cap on the flagstick, and his last note. One ball. The mist lifts off the entire course.

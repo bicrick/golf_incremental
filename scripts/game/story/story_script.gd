@@ -4,6 +4,7 @@ extends RefCounted
 ## Each line is [speaker, text]; speaker is "rat", "ratina", or "note".
 
 const NOTES := {
+	"note_ratina": "Following the light. It must be the first tee. Back by dark. —R",
 	"note_1": "HOLE 1 · PAR 4 · 385 YDS. Practice the swing you'll need, not the one you have. —B",
 	"note_2": "The mist isn't weather. It's forgetting. Grass forgets it's a fairway if nobody plays to it. Every ball is a reminder. —B",
 	"note_3": "Left the range to you. Knew you'd grumble. Knew you'd stay. Keep swinging. I can hear them landing from here. —B",
@@ -19,13 +20,11 @@ const FIND_LINES := {
 		["rat", "Hole 1. Three hundred eighty-five yards. ...There's no Hole 1. There's just mist."],
 	],
 	"ratina_bag": [
-		["ratina", "Oh! You can SEE me?"],
-		["ratina", "I saw a light go into the mist, years ago. I followed it. Then the light went out."],
-		["ratina", "So I sat down. I've been counting your shots. You slice, by the way."],
-		["rat", "...Do you want a bay? We have bays."],
-		["ratina", "Do I want a bay. Yes. Obviously."],
-		["ratina", "First tip's free: you're rushing the top. Let it breathe, then go."],
-		["rat", "...Huh. That's actually helpful."],
+		["rat", "A golf bag. Pink. The name tag says RATINA."],
+		["rat", "Somebody came out here looking for the course. There's a note in the pocket."],
+		["note", "note_ratina"],
+		["rat", "...That was a long time ago."],
+		["rat", "She's still out there somewhere. The bag's full of spare balls. I'll hold onto them for her."],
 	],
 	"range_bell": [
 		["rat", "...DONNNG."],
@@ -56,7 +55,8 @@ const FIND_LINES := {
 	"stone_lantern": [
 		["rat", "A stone lantern. There used to be two of these at the first tee."],
 		["rat", "Somebody lit it. It's still burning."],
-		["rat", "The balls near it look... golden."],
+		["rat", "There's a pink ribbon tied around the post."],
+		["rat", "...Ratina came this way. She followed this light."],
 	],
 	"birdhouse": [
 		["rat", "Oh. Oh, that's a lot of birds."],
@@ -72,6 +72,15 @@ const FIND_LINES := {
 		["rat", "His driver. The persimmon one. He never let anyone touch it."],
 		["rat", "He didn't drop this. He leaned it where I'd see it."],
 		["rat", "...Okay. I'll look after it."],
+	],
+	"ratina_found": [
+		["rat", "Someone's sitting on the far bank. Pink visor."],
+		["ratina", "Oh! You can SEE me?"],
+		["ratina", "I followed a light out here. Then the mist came in and the bridge was just... gone."],
+		["ratina", "I've been listening to your shots land for ages. You slice, by the way."],
+		["rat", "Your bag's back at the range. Want a bay? We have bays."],
+		["ratina", "Do I want a bay. Yes. Obviously."],
+		["ratina", "First tip's free: you're rushing the top. Let it breathe, then go."],
 	],
 	"footbridge": [
 		["rat", "A footbridge. There's a creek under the mist."],
@@ -95,14 +104,8 @@ const FIND_LINES := {
 	],
 }
 
-## Extra lines when Ratina has already joined (the lantern is the light she followed).
-const RATINA_AWARE_LINES := {
-	"stone_lantern": [
-		["ratina", "That's it! That's the light I followed!"],
-		["ratina", "...So it was him. Carrying a lantern into the mist, like a crazy person."],
-		["rat", "Sounds like Barley."],
-	],
-}
+## Kept for API compatibility — Ratina is found late now, so nothing to add.
+const RATINA_AWARE_LINES := {}
 
 ## Clicking a target find before a ball has landed on it.
 const TARGET_HINT_LINES := {

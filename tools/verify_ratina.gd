@@ -33,8 +33,8 @@ func _run() -> void:
 		ok = false
 
 	var window_before: float = gs.stats.timing_window_perfect_ms
-	gs.record_carry(80.0)
-	gs.discover_find("ratina_bag")
+	gs.record_carry(360.0)
+	gs.discover_find("ratina_found")
 	await process_frame
 	if not gs.ratina_unlocked or not ratina.get_golfer_sprite().visible:
 		print("FAIL: Ratina should join and appear after her bag")

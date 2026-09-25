@@ -33,17 +33,18 @@ World position: `x` yards across (+ = right of tee), `yards` down range (`z = te
 | # | id | yards | kind | Story beat | World change | Play change |
 |---|---|---|---|---|---|---|
 | 1 | `scorecard_1` | 30 | find | Barley's plan: Hole 1, 385 yd. Sets the goal. | → Journal | Nothing. It sets the goal. |
-| 2 | `ratina_bag` | 54 | find | Ratina followed "a light into the mist" years ago. Sets up the lantern. | Her bay appears | **Ratina joins** (company in the next bay); her tempo tips widen the Perfect window |
+| 2 | `ratina_bag` | 54 | find | Her abandoned bag + note: Ratina followed a light into the mist and never came back. | → Journal | +1 ball/bucket (her spare balls) |
 | 3 | `range_bell` | 74 | target r7 | Barley's "last bucket" bell. Ringing it = the range isn't closing. | Bell rung/shiny | Swing cooldown ×0.85; gates Quick Reset |
 | 4 | `picker_cart` | 105 | find | Abandoned when the mist got thick | Cart stays | +2 balls/bucket; gates More Balls |
 | 5 | `rattling_burrow` | 146 | find | They've kept Barley's **B** balls safe; they watched him pass | Burrow stays | **Rattlings join**: fetch leftovers at partial pay (first free) + subtree |
 | 6 | `scorecard_2` | 168 | find | The mist rule, stated | → Journal | Nothing. It explains the mechanic. |
 | 7 | `barley_spoon` | 190 | find | Stuck upright as a trail marker: "I went this way" | → your bag | Opens **Barley's Spoon** node (+3% carry/lv) |
-| 8 | `stone_lantern` | 222 | find | **The light Ratina followed.** She reacts. | Lantern glows | +3% golden; gates Golden Balls |
+| 8 | `stone_lantern` | 222 | find | **The light Ratina followed**: a pink ribbon on the post. | Lantern glows | +3% golden; gates Golden Balls |
 | 9 | `birdhouse` | 248 | target r7 | The birds left with the mist | More (golden) birds | Golden bird chance ×2 |
 | 10 | `scorecard_3` | 275 | find | "I can hear them landing." | → Journal | Nothing. It's the emotional beat. |
 | 11 | `persimmon_driver` | 305 | find | Left on purpose where you'd see it | → your bag | Opens **Persimmon Driver** node (+3% carry/lv) |
 | 12 | `footbridge` | 330 | find | The range ends; the course begins | Bridge + creek | Rattlings scurry ×1.3 |
+| 12b | `ratina_found` | 342 | find | **Ratina**, stranded across the creek since the bridge vanished. | Joins the next bay | Tempo tips: Perfect window +6 ms |
 | 13 | `tee_sign` | 356 | find | The goal, carved: "Tee it high." | Sign stays | Gates Perfect Chain |
 | 14 | `first_green` | 382 | finale | Cap on the flag, last note | Green + flag | Arms **the last ball** |
 

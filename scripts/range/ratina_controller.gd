@@ -45,8 +45,8 @@ var _debug_mode := false
 var _bubble: PanelContainer
 var _bubble_label: Label
 var _bubble_tween: Tween
-const PRACTICE_MIN_SEC := 16.0
-const PRACTICE_MAX_SEC := 34.0
+const PRACTICE_MIN_SEC := 30.0
+const PRACTICE_MAX_SEC := 60.0
 const BUBBLE_OFFSET := Vector2(0.0, -30.0)
 const BUBBLE_PINK := Color(0.86, 0.36, 0.56, 1.0)
 const PERFECT_LINES := ["Nice.", "Clean!", "Ooh.", "That's the one.", "Pure."]
@@ -434,9 +434,9 @@ func _launch_ball() -> void:
 func _on_player_swing_resolved(_yards: float, tier: int, _payout: float, _feedback: int) -> void:
 	if not _hired_and_enabled() or _golfer == null or not _golfer.visible:
 		return
-	if tier == Balance.TimingTier.PERFECT and randf() < 0.3:
+	if tier == Balance.TimingTier.PERFECT and randf() < 0.12:
 		_say(PERFECT_LINES[randi() % PERFECT_LINES.size()])
-	elif tier >= Balance.TimingTier.BAD and randf() < 0.2:
+	elif tier >= Balance.TimingTier.BAD and randf() < 0.08:
 		_say(MISS_LINES[randi() % MISS_LINES.size()])
 
 

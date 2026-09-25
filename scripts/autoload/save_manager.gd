@@ -249,7 +249,11 @@ func _load_story(parsed: Dictionary) -> void:
 		if RatinaUpgradeDefinitions.get_def(String(key)).is_empty():
 			GameState.ratina_upgrade_levels.erase(key)
 	## Crew is reached through the story now; keep flags consistent with finds.
-	if GameState.story_found.has("ratina_bag"):
+	## Ratina joins when she's found (v5.1: late, across the creek). Saves from
+	## before the mystery arc had her join at the bag — keep them as they were.
+	if GameState.story_found.has("ratina_found") or (
+		GameState.story_found.has("ratina_bag") and bool(parsed.get("ratina_unlocked", false))
+	):
 		GameState.ratina_unlocked = true
 	if GameState.story_found.has("rattling_burrow"):
 		GameState.rattlings_unlocked = true
