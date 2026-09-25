@@ -4,6 +4,7 @@ extends Node
 const StoryDialogueScript := preload("res://scripts/ui/story_dialogue.gd")
 const StoryJournalScript := preload("res://scripts/ui/story_journal.gd")
 const StoryEndingScript := preload("res://scripts/ui/story_ending.gd")
+const NowPlayingChipScript := preload("res://scripts/ui/now_playing_chip.gd")
 
 @onready var range_view: Node3D = $RangeView
 @onready var iso_view: Node2D = get_node_or_null("IsoView") as Node2D
@@ -59,6 +60,9 @@ func _setup_story_ui() -> void:
 	story_journal = StoryJournalScript.new()
 	story_journal.name = "StoryJournal"
 	ui_root.add_child(story_journal)
+	var now_playing := NowPlayingChipScript.new()
+	now_playing.name = "NowPlayingChip"
+	gameplay_chrome.add_child(now_playing)
 	var ending_layer := CanvasLayer.new()
 	ending_layer.name = "StoryEndingLayer"
 	ending_layer.layer = 40
@@ -147,6 +151,10 @@ func _on_play_transition_started() -> void:
 
 func _on_play_pressed() -> void:
 	title_screen.visible = false
+	## Name the track that's already playing as we walk onto the range.
+	var chip := gameplay_chrome.get_node_or_null("NowPlayingChip")
+	if chip != null and chip.has_method("show_track"):
+		chip.show_track(MusicDayClock.display_name(SfxManager.get_current_music_basename()))
 	if title_screen.has_method("reset_for_show"):
 		title_screen.reset_for_show()
 	if tutorial_overlay != null and tutorial_overlay.has_method("begin_if_needed"):

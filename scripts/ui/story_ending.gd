@@ -119,6 +119,10 @@ func _on_final_shot() -> void:
 	_running = true
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	## The last ball gets its own song. When it ends, the day starts at sunrise.
+	var sfx := get_node_or_null("/root/SfxManager")
+	if sfx != null and sfx.has_method("play_music_track_named"):
+		sfx.play_music_track_named("final")
 	await get_tree().create_timer(FLIGHT_WAIT_SEC).timeout
 	play_ending(false)
 

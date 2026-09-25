@@ -44,3 +44,11 @@ Every ball you hit farther pushes the mist back a little — and the mist has be
 | Story-gated upgrades; crew reachable via finds | ✅ `scripts/game/upgrades/graph.gd` |
 | Finale + ending + postgame | ✅ `scripts/ui/story_ending.gd` |
 | Upgrade menu refresh | ✅ see [05-upgrade-menu.md](05-upgrade-menu.md) |
+
+## Music (v5)
+
+The music is the heartbeat of the range:
+
+- **The music is the clock** (`scripts/audio/music_day_clock.gd`). Tracks are named for times of day, and the sky follows the track that's playing: *Sunrise* over dawn, *Midday* at noon, *Dusk*, *Night*, *Midnight*, then *Final* in the small hours. One pass through the playlist is one day (~15 min) instead of a 2-minute spin. With music off, time drifts slowly on its own.
+- **Now playing** chip (`scripts/ui/now_playing_chip.gd`) slides in bottom-left when a track starts, with a little note that bobs.
+- **The last ball gets its own song:** the finale cues *Final*; when it ends the rotation goes to *Sunrise*, so the mist lifts into morning.

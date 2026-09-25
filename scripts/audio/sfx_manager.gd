@@ -133,6 +133,35 @@ func get_current_music_display_name() -> String:
 	return MusicTrackRhythm.track_basename(path)
 
 
+## v5 — current track basename ("sunrise") and how far through it we are.
+func get_current_music_basename() -> String:
+	var path := get_current_music_track_path()
+	return "" if path.is_empty() else MusicTrackRhythm.track_basename(path)
+
+
+func get_music_playback_fraction() -> float:
+	if _music_player == null or _music_player.stream == null:
+		return 0.0
+	var length := _music_player.stream.get_length()
+	if length <= 0.01:
+		return 0.0
+	return clampf(_music_player.get_playback_position() / length, 0.0, 1.0)
+
+
+## v5 — cue a named track now (the finale plays "final").
+func play_music_track_named(basename: String) -> bool:
+	if not _music_enabled:
+		return false
+	_refresh_music_tracks()
+	for i in _music_tracks.size():
+		if MusicTrackRhythm.track_basename(_music_tracks[i]) == basename:
+			_is_title_mode = false
+			_rotation_index = i
+			_play_track_at_path(_music_tracks[i], false)
+			return true
+	return false
+
+
 func is_music_playing() -> bool:
 	return _music_player != null and _music_player.playing and not _music_player.stream_paused
 
@@ -491,6 +520,10 @@ func _apply_music_stream(path: String, stream: AudioStream, loop: bool) -> void:
 func _on_music_finished() -> void:
 	if _music_tracks.is_empty():
 		return
+	## After "final" (the small hours) the day starts again at sunrise.
+	if get_current_music_basename() == "final":
+		if play_music_track_named("sunrise"):
+			return
 	_rotation_index = MusicPlaylist.next_index(_music_tracks, _rotation_index)
 	_play_track_at_path(_music_tracks[_rotation_index], false)
 
