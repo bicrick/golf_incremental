@@ -113,13 +113,16 @@ All of it lives in `scripts/tour/tour_physics.gd` and `tour_data.gd`.
 - **Costs** = `base × growth^level`. Club Speed and Range Fee are cheap and steep (×1.35 / ×1.4); the rest are few-level perks (×2.3–2.4).
 - **Target:** ~25 min for a steady player (autoplayer at ~2 s per swing: 20–30 min). The first range takes about 3–5 minutes.
 
-## Look & feel
+## Look & feel: you are a tiny rat
 
-- **Backdrops.** Each range has 3–4 parallax layers (sky, far, mid, near) drawn procedurally at 480 px wide by `tools/art/draw_tour_backdrops.py`. The horizon row matches the 3D camera's horizon exactly. Layers drift a little when the camera eases up with the ball.
-- **Ground.** One shader (`tour_ground.gdshader`) with per-range palette uniforms: mown stripes, fairway, rough, outer ground, hazards (sea, canyon), and a soft distance haze in the range's sky color.
-- **Mist** (`tour_mist.gdshader`). There are no sprites. Low, translucent veils float just above the ground: fbm noise, posterized into 3 alpha steps, with Bayer dithering, a drift, and a soft top. They always stay below eye height, so they can't cross the backdrop. Dawn at Barley's has ground mist; at The Edge they're a sea of clouds.
-- **Weather.** Particles per range: pollen and butterflies (I), spray and gulls (II), dust and a tumbleweed (III), snow and aurora shimmer (IV), star motes and drifting clouds (V).
-- **Travel.** Clearing a range opens *The Road*, a hand-drawn map of the five ranges with a dotted line that draws itself to the next stop, and then an arrival card.
+- **Camera.** Over the rat's right shoulder, like the old game: 2.4 yd behind, 1.25 yd up, 0.65 yd to the right, turned 5° left so his 3/4 stance lines up with the fairway. The rat stays rat-sized.
+- **High tees.** Every range tees off from a rise at the lip of a drop: a knoll (8 yd), a sea cliff (14), a butte (22), a ridge (18), and a crag over the clouds (34). You look out and down over a huge space, and the greens spread out below.
+- **Megalophobia.** Each range has a painted foreground frame (`assets/sprites/tour/foreground/`): giant trunks and rock running out of frame, and grass and flowers taller than the rat. Out on the range stand 35–45 yd giants (pines, oaks, sea cypresses, hoodoos, snowy firs), drawn at high resolution by `tools/art/draw_tour_props.py`. The skies hold something colossal: a big dawn peak, a towering cumulus over the sea, and a floating island over the Edge.
+- **Backdrops.** Each range has 3–4 parallax layers painted at native 480 px (`tools/art/draw_tour_backdrops.py`). The horizon row matches the camera's horizon.
+- **Ground.** One shader with per-range palettes: wide mown fairways (30–36 yd half width), rough, sea, canyon, greens, lantern light, stylized ground mist, and dithered haze.
+- **Music as style.** The music runs through an analyzer bus. Foreground grass and leaves sway with the song's energy and kick on the beat, the sky brightens a touch, clouds and weather drift with it, and flags wave faster. A "now playing" card names each song, and the Journal keeps every song you've heard so you can replay it. None of this changes gameplay.
+- **Weather and life.** Pollen and birds at dawn, spray and gulls, dust and a tumbleweed, snow and shooting stars, and motes at the Edge.
+- **Travel.** *The Road*, a hand-drawn map; the next range loads behind it before it lifts.
 
 ## Controls
 

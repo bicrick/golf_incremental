@@ -262,3 +262,151 @@ rock("frost_rock", 16, [hexc("b8c4dc"), hexc("8894b0"), hexc("5a6480")], moss=he
 cloud_puff("edge_cloud", 40, [hexc("fff6f8"), hexc("f6d0e0"), hexc("d8a8c8"), hexc("a878a8")])
 cloud_puff("edge_cloud_s", 26, [hexc("fff6f8"), hexc("f6d0e0"), hexc("d8a8c8"), hexc("a878a8")])
 print("wrote", OUT)
+
+
+# --- giants: high-res, for towering over a tiny rat -----------------------------------
+
+def giant_pine(name, h, greens, trunk_c, snow=None, seed=11):
+    """A tall conifer: many ragged, drooping sprays; lit from the left."""
+    r = random.Random(seed)
+    w = int(h * 0.46)
+    cv = Canvas(w + 8, h + 4)
+    cx = (w + 8) / 2
+    for y in range(int(h * 0.1), h + 2):
+        for dx in range(-2, 3):
+            cv.set(int(cx + dx), y, trunk_c if dx < 1 else mix(trunk_c, INK, 0.4))
+    # Sprays from the top down; each a ragged, drooping fan.
+    y = 3
+    while y < h - 16:
+        f = y / h
+        span = 3 + f * (w / 2 - 3) * r.uniform(0.85, 1.05)
+        drop = 5 + f * 12
+        for side in (-1, 1):
+            n = int(span)
+            for i in range(n + 1):
+                u = i / max(n, 1)
+                x = cx + side * i
+                top = y + u * u * drop * 0.8
+                thick = (1 - u) * (5 + f * 7) + 2 + r.randint(0, 2)
+                for yy in range(int(top), int(top + thick)):
+                    k = 0.35 + (0.3 if side > 0 else -0.05) + (yy - top) / thick * 0.45 - (1 - u) * 0.1
+                    k += r.uniform(-0.08, 0.08)
+                    c = greens[0] if k < 0.35 else (greens[1] if k < 0.6 else (greens[2] if k < 0.85 else greens[3]))
+                    if snow and yy - top < 2 and side < 0.5:
+                        c = snow[0] if side < 0 else snow[1]
+                    cv.set(int(x), yy, c)
+                # needle tips hanging off the underside
+                if r.random() < 0.5:
+                    cv.set(int(x), int(top + thick) + 1, greens[3])
+        y += int(4 + f * 7)
+    finish(cv, name)
+
+
+def giant_oak(name, w, greens, trunk_c, seed=12):
+    """A broad deciduous tree: dozens of leaf clumps, back ones darker."""
+    r = random.Random(seed)
+    h = int(w * 0.95)
+    cv = Canvas(w + 4, h + 4)
+    cx = (w + 4) / 2
+    for y in range(int(h * 0.45), h + 2):
+        t = (y - h * 0.45) / (h * 0.55)
+        half = 3 + t ** 3 * 9
+        for dx in range(int(-half), int(half) + 1):
+            c = trunk_c if dx < half * 0.2 else mix(trunk_c, INK, 0.4)
+            if (dx * 7 + y * 3) % 13 == 0:
+                c = mix(trunk_c, INK, 0.55)
+            cv.set(int(cx + dx), y, c)
+    for bx, by, ex, ey in [(0, 0.5, -0.25, 0.3), (0, 0.5, 0.25, 0.28), (0, 0.55, 0.0, 0.2)]:
+        for i in range(30):
+            t = i / 30
+            x = cx + (ex * w) * t
+            y = h * by + (h * ey - h * by) * t
+            for dx in range(-2, 2):
+                cv.set(int(x + dx), int(y), mix(trunk_c, INK, 0.2))
+    clumps = []
+    for i in range(46):
+        a = r.uniform(0, math.tau)
+        d = math.sqrt(r.random()) * 0.4 * w
+        clumps.append((cx + math.cos(a) * d, h * 0.34 + math.sin(a) * d * 0.62, r.uniform(0.07, 0.12) * w))
+    clumps.sort(key=lambda c: -c[1] + c[0] * 0.2)  # back (top-right) first
+    for (bx, by, br) in clumps:
+        depth = (by / h) * 0.6 + ((bx - cx) / w) * 0.4
+        for y in range(int(by - br), int(by + br) + 1):
+            for x in range(int(bx - br), int(bx + br) + 1):
+                dd = math.hypot(x - bx, y - by) / br
+                if dd > 1.0 + 0.15 * math.sin(math.atan2(y - by, x - bx) * 5):
+                    continue
+                k = 0.3 + (y - by) / br * 0.3 + (x - bx) / br * 0.2 + depth * 0.5
+                c = greens[0] if k < 0.35 else (greens[1] if k < 0.6 else (greens[2] if k < 0.85 else greens[3]))
+                cv.set(x, y, c)
+    finish(cv, name)
+
+
+def hoodoo(name, h, tones, seed=13):
+    """A desert hoodoo: stacked, weathered bulges under a flat cap rock."""
+    r = random.Random(seed)
+    w = int(h * 0.45)
+    cv = Canvas(w + 6, h + 4)
+    cx = (w + 6) / 2
+    widths = []
+    y = 0
+    while y < h:
+        seg = r.randint(10, 20)
+        widths.append((y, seg, r.uniform(0.22, 0.4) + y / h * 0.12))
+        y += seg
+    for (y0, seg, ww) in widths:
+        for y in range(y0, min(y0 + seg, h)):
+            t = (y - y0) / seg
+            half = w * ww * (0.75 + 0.25 * math.sin(t * math.pi))
+            for x in range(int(cx - half), int(cx + half) + 1):
+                u = (x - (cx - half)) / max(2 * half, 1)
+                c = tones[(y // 5) % 3]
+                if u > 0.62:
+                    c = mix(c, INK, 0.28 + (u - 0.62))
+                elif u < 0.22:
+                    c = mix(c, hexc("ffd8a8"), 0.3)
+                if t > 0.85:
+                    c = mix(c, INK, 0.2)
+                cv.set(x, y + 10, c)
+    for y in range(0, 12):
+        half = w * 0.48 - abs(y - 5) * 0.8
+        for x in range(int(cx - half), int(cx + half) + 1):
+            u = (x - (cx - half)) / max(2 * half, 1)
+            cv.set(x, y, tones[4] if u < 0.6 else tones[3])
+    finish(cv, name)
+
+
+def cypress(name, h, greens, trunk_c, seed=14):
+    """A wind-bent sea cypress, leaning inland."""
+    r = random.Random(seed)
+    w = int(h * 0.9)
+    cv = Canvas(w + 4, h + 4)
+    bx = int(w * 0.65)
+    pts = []
+    for i in range(h - int(h * 0.3)):
+        y = h - i
+        x = bx - int((i / h) ** 1.6 * w * 0.5)
+        pts.append((x, y))
+        for dx in range(-2, 3):
+            cv.set(x + dx, y, trunk_c if dx < 1 else mix(trunk_c, INK, 0.35))
+    tx, ty = pts[-1]
+    for i in range(22):
+        cx = tx + r.uniform(-w * 0.35, w * 0.55)
+        cy = ty + r.uniform(-h * 0.12, h * 0.1)
+        rr = r.uniform(0.07, 0.14) * h
+        for y in range(int(cy - rr * 0.6), int(cy + rr * 0.6) + 1):
+            for x in range(int(cx - rr), int(cx + rr) + 1):
+                if ((x - cx) / rr) ** 2 + ((y - cy) / (rr * 0.6)) ** 2 <= 1:
+                    k = 0.5 + (y - cy) / (rr * 0.6) * 0.5
+                    cv.set(x, y, greens[0] if k < 0.3 else (greens[1] if k < 0.7 else greens[2]))
+    finish(cv, name)
+
+
+giant_pine("g_pine", 150, [hexc("5f9a6a"), hexc("3f7a56"), hexc("2c5a44"), hexc("1c3a30")], hexc("5a3e2c"))
+giant_oak("g_oak", 120, [hexc("a8d86e"), hexc("74b252"), hexc("4a8a3e"), hexc("2f5f34")], hexc("6b4a32"))
+giant_pine("g_frost_pine", 160, [hexc("3a6a78"), hexc("284e5e"), hexc("1a3646"), hexc("0e1e2c")], hexc("3a3242"),
+           snow=(hexc("ffffff"), hexc("c8d6ee")), seed=15)
+hoodoo("g_hoodoo", 130, [hexc("d86a44"), hexc("c05a3a"), hexc("e88a5a"), hexc("8a4a36"), hexc("a8604a")])
+cypress("g_cypress", 110, [hexc("6f9a5a"), hexc("4f7a48"), hexc("33553a")], hexc("5a4a3e"))
+saguaro("g_saguaro", 90)
+print("giants done")

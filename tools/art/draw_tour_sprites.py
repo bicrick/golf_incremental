@@ -354,7 +354,19 @@ def icon_star() -> Canvas:
     return cv
 
 
-for name, fn in {"i_coin": icon_coin, "i_bag": icon_bag, "i_book": icon_book, "i_map": icon_map,
+def icon_note() -> Canvas:
+    cv = Canvas(12, 12)
+    ink = hexc("2d2433")
+    cv.rect(4, 1, 10, 2, ink)
+    for y in range(1, 9):
+        cv.set(4, y, ink)
+        cv.set(10, y, ink)
+    cv.ellipse(3, 9.5, 2.2, 1.7, hexc("e8739f"))
+    cv.ellipse(9, 9.5, 2.2, 1.7, hexc("e8739f"))
+    return cv
+
+
+for name, fn in {"i_note": icon_note, "i_coin": icon_coin, "i_bag": icon_bag, "i_book": icon_book, "i_map": icon_map,
                  "i_gear": icon_gear, "i_ball": icon_ball, "i_star": icon_star}.items():
     cv = fn()
     cv.outline(INK)

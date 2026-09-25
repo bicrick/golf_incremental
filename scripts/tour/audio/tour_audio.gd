@@ -44,6 +44,14 @@ var _amb: AudioStreamPlayer
 var _amb_kind := ""
 var _amb_cache := {}
 var _amb_db := 0.0
+## Music-reactive style: smoothed loudness of the song (0..1) and a beat
+## pulse that jumps on kicks and decays. Nothing in the gameplay reads these;
+## the world just moves with the music.
+var energy := 0.0
+var pulse := 0.0
+var _analyzer: AudioEffectSpectrumAnalyzerInstance
+var _bass_avg := 0.0
+signal song_started(name: String)
 
 
 func _ready() -> void:
@@ -54,6 +62,7 @@ func _ready() -> void:
 		add_child(p)
 		_pool.append(p)
 	_music = AudioStreamPlayer.new()
+	_music.bus = _music_bus()
 	add_child(_music)
 	_music.finished.connect(_on_music_finished)
 	_amb = AudioStreamPlayer.new()
@@ -85,6 +94,36 @@ func _ready() -> void:
 			if path == _pending:
 				_start_stream(path, stream)
 		)
+
+
+func _music_bus() -> StringName:
+	var idx := AudioServer.get_bus_index(&"Music")
+	if idx < 0:
+		AudioServer.add_bus()
+		idx = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(idx, &"Music")
+		AudioServer.set_bus_send(idx, &"Master")
+		var spec := AudioEffectSpectrumAnalyzer.new()
+		spec.fft_size = AudioEffectSpectrumAnalyzer.FFT_SIZE_1024
+		AudioServer.add_bus_effect(idx, spec)
+	_analyzer = AudioServer.get_bus_effect_instance(idx, 0) as AudioEffectSpectrumAnalyzerInstance
+	return &"Music"
+
+
+func _process(delta: float) -> void:
+	if _analyzer == null or not _music.playing:
+		energy = move_toward(energy, 0.0, delta)
+		pulse = move_toward(pulse, 0.0, delta * 3.0)
+		return
+	var full := _analyzer.get_magnitude_for_frequency_range(40.0, 4000.0).length()
+	var bass := _analyzer.get_magnitude_for_frequency_range(40.0, 160.0).length()
+	var e := clampf((linear_to_db(maxf(full, 0.00001)) + 42.0) / 32.0, 0.0, 1.0)
+	energy = lerpf(energy, e, clampf(delta * 4.0, 0.0, 1.0))
+	## A kick is bass well above its running average.
+	if bass > _bass_avg * 1.45 and bass > 0.004:
+		pulse = 1.0
+	_bass_avg = lerpf(_bass_avg, bass, clampf(delta * 2.0, 0.0, 1.0))
+	pulse = maxf(pulse - delta * 3.2, 0.0)
 
 
 func _input(event: InputEvent) -> void:
@@ -159,8 +198,22 @@ func current_song() -> String:
 	return _current
 
 
+const SONG_TITLES := {
+	"main-theme": "Range Rat", "sunrise": "Sunrise", "early-riser": "Early Riser",
+	"midday": "Midday", "dusk": "Dusk", "night": "Night", "midnight": "Midnight", "final": "Final",
+}
+
+
+static func song_title(name: String) -> String:
+	return SONG_TITLES.get(name, name.capitalize())
+
+
 func _play_named(name: String) -> void:
 	_current = name
+	song_started.emit(name)
+	if not Tour.flags.has("songs"):
+		Tour.flags["songs"] = {}
+	Tour.flags["songs"][name] = true
 	if OS.has_feature("web"):
 		_pending = WEB_MUSIC_PREFIX + name + ".ogg"
 		_fetcher.request_track(_pending)

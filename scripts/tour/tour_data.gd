@@ -37,7 +37,8 @@ const RANGES: Array[Dictionary] = [
 		"songs": ["sunrise", "early-riser"],
 		"pay_mult": 1.0,
 		"sky_hour": 6.2,
-		"fairway_half_width": 26.0,
+		"fairway_half_width": 36.0,
+		"tee_height": 8.0,
 		"mechanic": "",
 		"roll": 0.04,
 		"greens": [
@@ -65,7 +66,8 @@ const RANGES: Array[Dictionary] = [
 		"songs": ["midday", "main-theme"],
 		"pay_mult": 3.6,
 		"sky_hour": 11.0,
-		"fairway_half_width": 24.0,
+		"fairway_half_width": 34.0,
+		"tee_height": 14.0,
 		"mechanic": "wind",
 		"roll": 0.03,
 		"greens": [
@@ -91,9 +93,10 @@ const RANGES: Array[Dictionary] = [
 		"name": "Redrock Mesa",
 		"time": "Dusk",
 		"songs": ["dusk"],
-		"pay_mult": 17.0,
+		"pay_mult": 10.0,
 		"sky_hour": 18.6,
-		"fairway_half_width": 24.0,
+		"fairway_half_width": 34.0,
+		"tee_height": 22.0,
 		"mechanic": "roll",
 		"roll": 0.13,
 		"greens": [
@@ -119,9 +122,10 @@ const RANGES: Array[Dictionary] = [
 		"name": "Frostpine",
 		"time": "Night",
 		"songs": ["night", "midnight"],
-		"pay_mult": 9.0,
+		"pay_mult": 5.5,
 		"sky_hour": 22.5,
-		"fairway_half_width": 24.0,
+		"fairway_half_width": 34.0,
+		"tee_height": 18.0,
 		"mechanic": "dark",
 		"roll": 0.0,
 		"greens": [
@@ -148,9 +152,10 @@ const RANGES: Array[Dictionary] = [
 		"name": "The Edge",
 		"time": "Before sunrise",
 		"songs": ["final"],
-		"pay_mult": 30.0,
+		"pay_mult": 14.0,
 		"sky_hour": 5.2,
-		"fairway_half_width": 22.0,
+		"fairway_half_width": 30.0,
+		"tee_height": 34.0,
 		"mechanic": "finale",
 		"roll": 0.02,
 		"greens": [
@@ -173,7 +178,7 @@ const RANGES: Array[Dictionary] = [
 
 ## cost = base × growth^level. "shows" gates when a card appears in the shop.
 const UPGRADES: Array[Dictionary] = [
-	{"id": "power", "name": "Club Speed", "icon": "quality", "base": 5.0, "growth": 1.35, "max": 60,
+	{"id": "power", "name": "Club Speed", "icon": "quality", "base": 6.0, "growth": 1.35, "max": 60,
 		"desc": "Hit farther. +8% reach.", "shows": ""},
 	{"id": "fee", "name": "Range Fee", "icon": "base_pay", "base": 8.0, "growth": 1.4, "max": 60,
 		"desc": "Every ball pays more. +35% pay.", "shows": ""},

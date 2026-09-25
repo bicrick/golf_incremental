@@ -272,6 +272,72 @@ def haze_band(L, y0, y1, color, max_a=200):
                 L.set(x, y, color[:3] + (max_a,))
 
 
+def cumulus_tower(L, cx, base, width, height, lit, mid, shade, deep, seed=1, alpha=255):
+    """A towering Ghibli cumulus: stacked billows narrowing upward, lit from above."""
+    r = random.Random(seed)
+    blobs = []
+    y = base
+    w = width
+    while y > base - height:
+        n = max(2, int(w / 18))
+        for i in range(n):
+            bx = cx + (i - (n - 1) / 2) * (w / n) + r.uniform(-4, 4)
+            br = w / n * r.uniform(0.6, 0.85)
+            blobs.append((bx, y - br * 0.4, br))
+        y -= w / n * 0.9
+        w *= r.uniform(0.72, 0.86)
+    for yy in range(int(base - height - 20), int(base) + 1):
+        for xx in range(int(cx - width), int(cx + width)):
+            best = None
+            for (bx, by, br) in blobs:
+                d = math.hypot(xx + 0.5 - bx, (yy + 0.5 - by) * 1.05)
+                if d <= br:
+                    k = -(yy + 0.5 - by) / br * 0.7 - (xx + 0.5 - bx) / br * 0.25
+                    best = k if best is None else max(best, k)
+            if best is None:
+                continue
+            under = (yy - (base - height * 0.25)) / (height * 0.25)
+            if best > 0.45:
+                c = lit
+            elif best > 0.0 + (bayer(xx, yy) - 0.5) * 0.25:
+                c = mid
+            elif best > -0.45:
+                c = shade
+            else:
+                c = deep
+            if under > 0.4 and c in (lit, mid):
+                c = shade
+            L.set(xx, yy, c[:3] + (alpha,))
+
+
+def floating_island(L, cx, cy, w, grass, rock, rock_d, seed=2):
+    r = random.Random(seed)
+    for x in range(int(cx - w / 2), int(cx + w / 2)):
+        u = (x - cx) / (w / 2)
+        depth = w * 0.55 * (1 - abs(u) ** 1.4) * (0.8 + 0.2 * r.random())
+        for y in range(int(cy), int(cy + depth)):
+            t = (y - cy) / max(depth, 1)
+            c = rock if u < 0.2 else rock_d
+            if t > 0.7:
+                c = rock_d
+            L.set(x, y, c)
+        for y in range(int(cy) - 2, int(cy) + 1):
+            L.set(x, y, grass[0] if u < 0 else grass[1])
+    # little trees and a waterfall
+    for i in range(7):
+        x = int(cx - w * 0.35 + i * w * 0.1)
+        h = r.randint(4, 8)
+        for k in range(h):
+            half = (h - k) // 3
+            for dx in range(-half, half + 1):
+                L.set(x + dx, int(cy) - 2 - k, grass[1])
+    for y in range(int(cy), int(cy + w * 0.9)):
+        a = max(0, 200 - (y - cy) * 5)
+        L.set(int(cx + w * 0.2), y, (240, 248, 255, int(a)))
+        L.set(int(cx + w * 0.2) + 1, y, (210, 230, 250, int(a * 0.7)))
+
+
+
 # ============================================================================
 # I. Barley's Range — dawn meadow
 # ============================================================================
@@ -294,10 +360,10 @@ def barley():
     far = Layer()
     line = ridge_line(11, 84, 30, 46, 5, sharp=0.6)
     for x in range(W):
-        line[x] -= 16 * math.exp(-((x - 330) / 50) ** 2) + 10 * math.exp(-((x - 40) / 40) ** 2)
+        line[x] -= 34 * math.exp(-((x - 300) / 46) ** 2) + 10 * math.exp(-((x - 40) / 40) ** 2)
         line[x] += 16 * math.exp(-((x - 150) / 30) ** 2)  # saddle for the sun
     fill_below(far, line, [hx("c7a8c4"), hx("a88fb2"), hx("8c7aa0")], light_dir=-1,
-               snow=(hx("ffe8e0"), hx("dcc6da")), snow_line=70, snow_depth=9, texture=0.35, seed=11, rim=hx("ffe6d6"))
+               snow=(hx("ffe8e0"), hx("dcc6da")), snow_line=74, snow_depth=14, texture=0.35, seed=11, rim=hx("ffe6d6"))
     line2 = ridge_line(12, 92, 12, 34, 4, sharp=0.3)
     fill_below(far, line2, [hx("8f8fb0"), hx("7a7ca0"), hx("696b92")], light_dir=-1, texture=0.25, seed=12)
     haze_band(far, 82, 98, hx("f3cfb3"), 150)
@@ -362,6 +428,7 @@ def cliffs():
     sky = Layer()
     sky_gradient(sky, [(0.0, hx("3d7fc4")), (0.5, hx("6fb2e0")), (0.85, hx("a8d8ef")), (1.0, hx("dff2f7"))])
     disc(sky, 400, 16, 7, hx("fffbe8"), hx("fff1c0"), 10)
+    cumulus_tower(sky, 200, 80, 110, 96, hx("ffffff"), hx("eef4fa"), hx("c8d8ea"), hx("9fb4cc"), seed=4)
     sky.save("cliffs_sky.png")
 
     far = Layer()
@@ -607,7 +674,7 @@ def frost():
     far = Layer()
     line = ridge_line(101, 90, 44, 60, 5, sharp=0.7)
     for x in range(W):
-        line[x] -= 12 * math.exp(-((x - 360) / 70) ** 2)
+        line[x] -= 30 * math.exp(-((x - 250) / 60) ** 2)
     fill_below(far, line, [hx("c9d4ee"), hx("8e9cc4"), hx("5d6a98")], light_dir=1,
                snow=(hx("eef3ff"), hx("aab6d8")), snow_line=74, texture=0.25, seed=101)
     haze_band(far, 84, 98, hx("24305a"), 170)
@@ -653,6 +720,9 @@ def edge():
                        (0.82, hx("f2a08e")), (1.0, hx("ffd89a"))])
     stars(sky, 160, 23, 50, [hx("ffffff"), hx("f0e0ff")], 6)
     # The sun about to break the horizon, dead centre over the fairway.
+    cumulus_tower(sky, 70, 92, 80, 84, hx("ffe6d8"), hx("f4bcc8"), hx("c890b8"), hx("8a6a9e"), seed=6)
+    cumulus_tower(sky, 420, 92, 90, 90, hx("ffe6d8"), hx("f4bcc8"), hx("c890b8"), hx("8a6a9e"), seed=7)
+    floating_island(sky, 330, 30, 46, (hx("a8d08a"), hx("78a870")), hx("b89ab4"), hx("7a6490"))
     disc(sky, 240, 88, 12, hx("fff6d0"), hx("ffcf8a"), 34)
     sky.save("edge_sky.png")
 

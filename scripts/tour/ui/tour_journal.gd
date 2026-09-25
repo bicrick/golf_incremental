@@ -82,6 +82,26 @@ func _rebuild() -> void:
 				_line("  %s: %s (%s)" % [k["name"], k["line"], TourStory.bonus_text(k["bonus"])], TourUi.INK, true)
 			else:
 				_line("  A keepsake is still out there.", TourUi.INK_SOFT, true)
+	_songs()
+
+
+func _songs() -> void:
+	_line("", TourUi.INK)
+	_line("SONGS ON THE ROAD", TourUi.GREEN_DARK)
+	var heard: Dictionary = Tour.flags.get("songs", {})
+	for name in ["main-theme", "sunrise", "early-riser", "midday", "dusk", "night", "midnight", "final"]:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override(&"separation", 6)
+		if heard.get(name, false):
+			var b := TourUi.button("Play", TourUi.GREEN)
+			b.custom_minimum_size = Vector2(36, 12)
+			b.pressed.connect(func() -> void: Audio.set_playlist([name] + Tour.current_range()["songs"], 0.6))
+			row.add_child(b)
+			var playing: bool = Audio.current_song() == name
+			row.add_child(TourUi.label(("> " if playing else "  ") + Audio.song_title(name), 8, TourUi.PINK.darkened(0.3) if playing else TourUi.INK))
+		else:
+			row.add_child(TourUi.label("         ???", 8, TourUi.INK_SOFT))
+		_body.add_child(row)
 
 
 func _line(text: String, col: Color, wrap: bool = false) -> void:

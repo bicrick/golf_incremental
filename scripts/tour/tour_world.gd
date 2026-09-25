@@ -15,12 +15,19 @@ signal keepsake_picked(keepsake: Dictionary)
 signal aim_changed
 
 const GroundShader := preload("res://scripts/tour/tour_ground.gdshader")
+const TeeShader := preload("res://scripts/tour/tour_tee.gdshader")
 
 const FOV := 50.0
 const HORIZON_Y := 96.0
-const FLAG_Y := 156.0
-const TEE_Y := 244.0
-const TEE_X := 252.0
+## Over the rat's right shoulder, like the old game: a little behind, a little
+## above, a little to the right, turned slightly left so the rat's stance
+## lines up with the fairway.
+const CAM_BACK := 2.4
+const CAM_UP := 1.25
+const CAM_SIDE := 0.65
+const CAM_YAW_DEG := 5.0
+## The tee stands at the lip of a rise; this far back from the edge.
+const TEE_TO_LIP := 1.0
 const AUTO_RELEASE_LATE_MS := 300.0
 const SWEEP_PITCH_DEG := 56.0
 const CHAIN_GAP_SEC := 1.3
@@ -138,7 +145,9 @@ func load_range(index: int) -> void:
 	_wind_timer = 0.0
 	finale_ready = false
 	frame_distance = float(TourData.flag_green(range_def).get("z", 150.0))
+	tee_height = float(range_def.get("tee_height", 8.0))
 	_apply_look()
+	_build_tee()
 	_spawn_props()
 	_frame_camera()
 	camera.global_transform = home_xform
@@ -179,6 +188,48 @@ func _apply_look() -> void:
 
 
 var _props_root: Node3D
+var _tee_mesh: MeshInstance3D
+
+
+## The rise the rat tees off from: a flat grassy top that ends just past the
+## tee, and a steep face dropping to the range below.
+func _build_tee() -> void:
+	if _tee_mesh != null:
+		_tee_mesh.queue_free()
+	var h := tee_height
+	var w := 11.0
+	var lip := -TEE_TO_LIP
+	var back := 30.0
+	var slope := h * 0.5
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var quad := func(a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+		var n := (b - a).cross(c - a).normalized()
+		for v in [a, b, c, a, c, d]:
+			st.set_normal(n)
+			st.add_vertex(v)
+	## Top.
+	quad.call(Vector3(-w, h, back), Vector3(w, h, back), Vector3(w, h, lip), Vector3(-w, h, lip))
+	## Front face down to the range.
+	quad.call(Vector3(-w, h, lip), Vector3(w, h, lip), Vector3(w + slope, 0, lip - slope), Vector3(-w - slope, 0, lip - slope))
+	## Sides.
+	quad.call(Vector3(w, h, lip), Vector3(w, h, back), Vector3(w + slope, 0, back), Vector3(w + slope, 0, lip - slope))
+	quad.call(Vector3(-w, h, back), Vector3(-w, h, lip), Vector3(-w - slope, 0, lip - slope), Vector3(-w - slope, 0, back))
+	_tee_mesh = MeshInstance3D.new()
+	_tee_mesh.mesh = st.commit()
+	var mat := ShaderMaterial.new()
+	mat.shader = TeeShader
+	var b: Array = look.get("bluff", ["8a6e52", "74593f", "4a3a30"])
+	mat.set_shader_parameter("top_a", TourLooks.c(look["fairway_a"]))
+	mat.set_shader_parameter("top_b", TourLooks.c(look["fairway_b"]))
+	mat.set_shader_parameter("face_a", TourLooks.c(b[0]))
+	mat.set_shader_parameter("face_b", TourLooks.c(b[1]))
+	mat.set_shader_parameter("face_dark", TourLooks.c(b[2]))
+	mat.set_shader_parameter("lip", TourLooks.c(look["rough_a"]))
+	mat.set_shader_parameter("top_y", h)
+	mat.set_shader_parameter("darkness", float(look["darkness"]))
+	_tee_mesh.material_override = mat
+	add_child(_tee_mesh)
 
 
 ## Billboards in the rough: trees, rocks, cacti, snowy pines, clouds. Seeded
@@ -197,11 +248,11 @@ func _spawn_props() -> void:
 	for p in list:
 		total += float(p[1])
 	var d_max := float(TourData.flag_green(range_def).get("z", 150.0)) * 1.25
-	var scale := clampf(d_max / 110.0, 1.5, 3.4)
+	var scale := 1.0
 	var hw := float(range_def["fairway_half_width"])
 	var sea := float(look.get("sea_side", 0.0))
 	var dark := float(look.get("darkness", 0.0)) > 0.5
-	var count := 70
+	var count := 90
 	for i in count:
 		var pick := rng.randf() * total
 		var chosen: Array = list[0]
@@ -210,9 +261,9 @@ func _spawn_props() -> void:
 			if pick <= 0.0:
 				chosen = p
 				break
-		var z := rng.randf_range(-10.0, d_max)
+		var z := rng.randf_range(20.0, d_max)
 		var side := -1.0 if rng.randf() < 0.5 else 1.0
-		var x := side * (hw + rng.randf_range(8.0, 16.0) + rng.randf() * rng.randf() * 90.0 * scale)
+		var x := side * (hw + rng.randf_range(6.0, 14.0) + rng.randf() * rng.randf() * 110.0)
 		if sea > 0.0 and x > sea - 8.0:
 			x = -absf(x)
 		if _in_any_hazard(z):
@@ -273,20 +324,24 @@ func green_visible(g: Dictionary) -> bool:
 	return not (g.has("needs_lit") and Tour.lit_count(range_def) < int(g["needs_lit"]))
 
 
-## Camera sits so the tee lands at TEE_Y, the range's flag at FLAG_Y and the
-## horizon at HORIZON_Y — the backdrop art is drawn to that horizon.
+var tee_height := 8.0
+var tee_screen := Vector2(188, 239)
+
+
+## Every range tees off from a high place (a knoll, a cliff top, a butte, a
+## ridge, a crag over the clouds), so you look out and down over the whole
+## range. Pitch is set so the horizon sits on the painted backdrop's horizon.
 func _frame_camera() -> void:
 	var f := 135.0 / tan(deg_to_rad(FOV * 0.5))
 	var pitch := atan((135.0 - HORIZON_Y) / f)
-	var a_flag := pitch + atan((FLAG_Y - 135.0) / f)
-	var a_tee := pitch + atan((TEE_Y - 135.0) / f)
-	var back := frame_distance * tan(a_flag) / (tan(a_tee) - tan(a_flag))
-	var h := back * tan(a_tee)
-	## Shift the camera so the tee sits a little right of centre (the rat
-	## stands to its left).
-	var x_shift := -(TEE_X - 240.0) / f * sqrt(back * back + h * h)
-	var basis := Basis.from_euler(Vector3(-pitch, 0.0, 0.0))
-	home_xform = Transform3D(basis, Vector3(x_shift, h, back))
+	var basis := Basis.from_euler(Vector3(-pitch, deg_to_rad(CAM_YAW_DEG), 0.0))
+	home_xform = Transform3D(basis, Vector3(CAM_SIDE, tee_height + CAM_UP, CAM_BACK))
+	camera.global_transform = home_xform
+	tee_screen = camera.unproject_position(tee_pos()).round()
+
+
+func tee_pos() -> Vector3:
+	return Vector3(0.0, tee_height, 0.0)
 
 
 func horizon_y() -> float:
@@ -544,7 +599,7 @@ func _update_balls(delta: float) -> void:
 			b["t"] = float(b["t"]) + delta / float(b["dur"])
 			var t := minf(float(b["t"]), 1.0)
 			var gp := Vector2.ZERO.lerp(land, t)
-			var y := float(b["apex"]) * 4.0 * t * (1.0 - t)
+			var y := tee_height * (1.0 - t) + float(b["apex"]) * 4.0 * t * (1.0 - t)
 			b["pos"] = Vector3(gp.x, y, -gp.y)
 			var trail: Array = b["trail"]
 			trail.append(b["pos"])
@@ -685,7 +740,7 @@ func _update_cinematic(delta: float) -> void:
 	var target := home_xform
 	if follow > 0.0:
 		var home := home_xform.origin
-		var near := Vector3(_cine_focus.x, home.y * 0.32, -_cine_focus.y + home.z * 0.34)
+		var near := Vector3(_cine_focus.x * 0.9, tee_height * 0.35 + 3.0, -_cine_focus.y + 16.0)
 		target = Transform3D(home_xform.basis, home.lerp(near, follow))
 	camera.global_transform = camera.global_transform.interpolate_with(target, clampf(delta * 2.6, 0.0, 1.0))
 

@@ -40,6 +40,7 @@ func setup(w: TourWorld) -> void:
 	world.sweep_started.connect(func() -> void: _set_sweep(true))
 	world.sweep_finished.connect(func(_c: int, _t: float) -> void: _set_sweep(false))
 	_shown_money = Tour.money
+	Audio.song_started.connect(_on_song)
 	_bucket_label.text = "%d/%d" % [Tour.bucket_remaining, Tour.bucket_size()]
 
 
@@ -151,6 +152,38 @@ func _build() -> void:
 	add_child(_toasts)
 
 
+## "Now playing" card: slides up in the bottom middle when a song starts.
+var _song_card: PanelContainer
+var _song_label: Label
+
+
+func _on_song(name: String) -> void:
+	if _song_card == null:
+		_song_card = PanelContainer.new()
+		_song_card.add_theme_stylebox_override(&"panel", TourUi.plate(TourUi.PAPER, TourUi.INK, 3))
+		_song_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override(&"separation", 4)
+		_song_card.add_child(row)
+		var icon := TextureRect.new()
+		icon.texture = load(TOUR + "i_note.png")
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+		row.add_child(icon)
+		_song_label = TourUi.label("", 8, TourUi.INK)
+		_song_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(_song_label)
+		add_child(_song_card)
+	_song_label.text = Audio.song_title(name)
+	_song_card.reset_size()
+	var x := 240.0 - _song_card.size.x * 0.5
+	_song_card.position = Vector2(x, 272)
+	_song_card.modulate.a = 1.0
+	var tw := _song_card.create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_song_card, "position:y", 270.0 - 6.0 - 20.0, 0.5)
+	tw.tween_interval(4.0)
+	tw.tween_property(_song_card, "modulate:a", 0.0, 0.8)
+
+
 func show_range_chip(text: String) -> void:
 	_range_chip.text = text
 	var tw := create_tween()
@@ -220,6 +253,8 @@ func _process(delta: float) -> void:
 	_money_label.text = "$" + TourFormat.money(_shown_money)
 	_bump = maxf(_bump - delta * 5.0, 0.0)
 	_money_plate.scale = Vector2.ONE * (1.0 + 0.08 * _bump)
+	if _song_card != null and _song_card.modulate.a > 0.0:
+		_song_card.rotation = sin(Time.get_ticks_msec() * 0.004) * 0.02 * (1.0 + Audio.pulse * 2.0)
 	_bucket_label.text = "%d/%d" % [Tour.bucket_remaining, Tour.bucket_size()]
 	_badge_t += delta
 	_shop_btn.queue_redraw()

@@ -38,7 +38,7 @@ func setup(w: TourWorld) -> void:
 	rat = AnimatedSprite2D.new()
 	rat.sprite_frames = RangeRatSpriteFrames.make_golfer_frames()
 	rat.centered = false
-	rat.position = Vector2(TourWorld.TEE_X, TourWorld.TEE_Y) - RAT_BALL_OFFSET
+	rat.position = Vector2(188, 239) - RAT_BALL_OFFSET
 	rat.play(&"idle")
 	add_child(rat)
 	world.swing_resolved.connect(_on_swing)
@@ -57,7 +57,7 @@ func setup(w: TourWorld) -> void:
 	frames.remove_animation(&"default")
 	ratina.sprite_frames = frames
 	ratina.centered = false
-	ratina.position = Vector2(TourWorld.TEE_X - 118, TourWorld.TEE_Y - 46)
+	ratina.position = Vector2(60, 190)
 	ratina.play(&"wait")
 	ratina.visible = false
 	add_child(ratina)
@@ -122,15 +122,16 @@ func _spawn_particle(anywhere: bool) -> Dictionary:
 
 
 func _process(delta: float) -> void:
-	_flag_timer += delta
+	_flag_timer += delta * (0.8 + Audio.energy * 1.2)
 	if _flag_timer > 0.45:
 		_flag_timer = 0.0
 		_flag_frame = 1 - _flag_frame
 	_shake = maxf(_shake - delta * 12.0, 0.0)
 	_popup["t"] = float(_popup["t"]) + delta
 	position = Vector2(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1)) * _shake
+	var groove := 0.75 + Audio.energy * 0.7 + Audio.pulse * 0.4
 	for p in _weather:
-		var v: Vector2 = p["v"]
+		var v: Vector2 = (p["v"] as Vector2) * groove
 		var sway := sin(world.time_s * 1.3 + float(p["seed"])) * 6.0
 		p["pos"] = (p["pos"] as Vector2) + (v + Vector2(sway, 0)) * delta
 		var pos: Vector2 = p["pos"]
@@ -261,6 +262,8 @@ func _on_swing(tier: int, err: float) -> void:
 
 
 func _update_rat() -> void:
+	rat.position = world.tee_screen - RAT_BALL_OFFSET
+	ratina.position = world.tee_screen + Vector2(-112, -44)
 	rat.visible = world.mode == TourWorld.Mode.PLAY or world.mode == TourWorld.Mode.LOCKED
 	## They stay on the tee when the camera rides out after a big shot.
 	var away := world.camera.global_position.distance_to(world.home_xform.origin) > 6.0
@@ -334,12 +337,12 @@ func _draw() -> void:
 
 func _draw_popup() -> void:
 	var t := float(_popup["t"])
-	var y := TourWorld.TEE_Y - 34.0
+	var y := world.tee_screen.y - 34.0
 	if t < 1.1:
 		var a := clampf((1.1 - t) / 0.3, 0.0, 1.0)
 		var text: String = _popup["text"]
 		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
-		var pos := Vector2(TourWorld.TEE_X + 18, y - minf(t, 0.25) * 16.0).round()
+		var pos := Vector2(world.tee_screen.x + 18, y - minf(t, 0.25) * 16.0).round()
 		var col: Color = _popup["color"]
 		col.a = a
 		draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, 3, Color(0.08, 0.06, 0.1, a))
@@ -348,7 +351,7 @@ func _draw_popup() -> void:
 		var cap := TourPhysics.streak_cap(Tour.levels)
 		var st := "STREAK x%d" % mini(Tour.streak, cap)
 		var sc := Color(1.0, 0.86, 0.3) if Tour.streak >= cap else Color(1, 1, 1, 0.9)
-		TinyText.draw(self, Vector2(TourWorld.TEE_X + 18, TourWorld.TEE_Y - 24), st, sc, Color(0.08, 0.06, 0.1, 0.8))
+		TinyText.draw(self, world.tee_screen + Vector2(18, -24), st, sc, Color(0.08, 0.06, 0.1, 0.8))
 
 
 func _draw_weather(back: bool) -> void:
@@ -640,7 +643,7 @@ func _draw_floaters() -> void:
 
 
 func _draw_tee() -> void:
-	var tee := Vector2(TourWorld.TEE_X, TourWorld.TEE_Y)
+	var tee := world.tee_screen
 	var has_ball := Tour.bucket_remaining > 0 and (world.charging or world.cooldown <= 0.0)
 	if has_ball:
 		draw_rect(Rect2(tee + Vector2(-1, 1), Vector2(3, 1)), Color(0, 0, 0, 0.3))
