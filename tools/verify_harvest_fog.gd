@@ -180,9 +180,11 @@ func _check_fog_amount_strike_vs_harvest() -> bool:
 		print("FAIL: Ground missing ShaderMaterial")
 		main.queue_free()
 		return false
+	## v5: the mist bank is visible from the tee too (StrikeMist), at a softer
+	## ground amount — fog_amount() (the "in harvest" signal) stays 0.
 	var strike_amt: float = float(mat.get_shader_parameter(&"fog_amount"))
-	if strike_amt > 0.001:
-		print("FAIL: Ground fog_amount uniform should be 0 in strike, got ", strike_amt)
+	if absf(strike_amt - fog.STRIKE_GROUND_FOG) > 0.05:
+		print("FAIL: Ground fog uniform in strike should be the strike mist %.2f, got %.2f" % [fog.STRIKE_GROUND_FOG, strike_amt])
 		main.queue_free()
 		return false
 

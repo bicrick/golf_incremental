@@ -17,6 +17,7 @@ const PickupControllerScript := preload("res://scripts/range/pickup_controller.g
 const RangePickerIndicatorScript := preload("res://scripts/range/range_picker_indicator.gd")
 const HarvestFogScript := preload("res://scripts/range/harvest_fog.gd")
 const StoryFindsDirectorScript := preload("res://scripts/range/story_finds_director.gd")
+const StrikeMistScript := preload("res://scripts/range/strike_mist.gd")
 const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
 const RattlingControllerScript := preload("res://scripts/range/rattling_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
@@ -91,6 +92,7 @@ var _pickup: Node
 var _picker_indicator: Node3D
 var _harvest_fog # HarvestFog
 var _story_finds # StoryFindsDirector
+var _strike_mist # StrikeMist
 var _next_litter_id: int = 1
 var _suppress_litter_bus := false
 var _ratina: Node
@@ -305,6 +307,9 @@ func _setup_story_finds() -> void:
 	_story_finds = StoryFindsDirectorScript.new()
 	foreground.add_child(_story_finds)
 	_story_finds.setup(self, _harvest_fog)
+	_strike_mist = StrikeMistScript.new()
+	foreground.add_child(_strike_mist)
+	_strike_mist.setup(_harvest_fog.tee_z() if _harvest_fog else RangeGrid.player_bay_origin().z)
 
 
 func get_story_finds() -> Node:
@@ -649,6 +654,8 @@ func apply_atmosphere(cycle_time: float) -> void:
 	_apply_sprite_atmosphere_tint()
 	if _harvest_fog:
 		_harvest_fog.set_fog_color(DayNightPalette.harvest_fog_color(day_factor))
+	if _strike_mist:
+		_strike_mist.set_mist_color(DayNightPalette.harvest_fog_color(day_factor))
 		_harvest_fog.set_atmosphere_tint(_sprite_atmosphere_tint)
 	EventBus.atmosphere_tint_changed.emit(_sprite_atmosphere_tint)
 
@@ -822,6 +829,14 @@ func _process(delta: float) -> void:
 		_harvest_fog.update(delta)
 	if _story_finds:
 		_story_finds.update(delta)
+	if _strike_mist:
+		var strike_view: bool = (
+			_view_mode_controller == null
+			or _view_mode_controller.get_mode() == ViewModeController.Mode.STRIKE
+		)
+		_strike_mist.update(delta, strike_view)
+		if _harvest_fog:
+			_harvest_fog.set_strike_view(strike_view, delta)
 
 
 func _input(event: InputEvent) -> void:

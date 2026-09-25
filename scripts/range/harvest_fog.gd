@@ -24,6 +24,11 @@ var _max_carry_label: Label3D
 var _bird_director: RangeBirdDirector
 
 var _want_fog: bool = false
+## v5 — ground mist also shows from the tee (StrikeMist veils stand on it).
+## Kept separate from _fog_amount, which other systems read as "in harvest".
+const STRIKE_GROUND_FOG := 0.85
+var _strike_ground := 0.0
+var _strike_view := false
 var _fog_amount: float = 0.0
 var _displayed_reveal: float = Balance.HARVEST_FOG_MIN_REVEAL_YARDS
 var _target_reveal: float = Balance.HARVEST_FOG_MIN_REVEAL_YARDS
@@ -120,6 +125,12 @@ func fog_amount() -> float:
 	return _fog_amount
 
 
+func set_strike_view(active: bool, delta: float) -> void:
+	_strike_view = active
+	var want := STRIKE_GROUND_FOG if active and not GameState.story_complete else 0.0
+	_strike_ground = move_toward(_strike_ground, want, delta / maxf(Balance.HARVEST_FOG_FADE_SEC, 0.001))
+
+
 func displayed_reveal_yards() -> float:
 	return _displayed_reveal
 
@@ -204,11 +215,13 @@ func _update_max_carry_label() -> void:
 func _push_uniforms() -> void:
 	if _ground == null:
 		return
+	var strike_reveal := GameState.revealed_yards()
+	var use_strike := _strike_ground > _fog_amount
 	FairwayGrassTiles3D.apply_fog_uniforms(
 		_ground,
-		_fog_amount,
+		maxf(_fog_amount, _strike_ground),
 		_tee_z,
-		_displayed_reveal,
+		strike_reveal if use_strike else _displayed_reveal,
 		Balance.HARVEST_FOG_FALLOFF_YARDS,
 		_fog_color
 	)
