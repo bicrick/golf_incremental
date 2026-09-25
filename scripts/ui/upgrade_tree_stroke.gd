@@ -7,16 +7,26 @@ const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 enum EdgeState { DORMANT, LIVE, CHARGED, COMPLETE }
 enum BorderState { LOCKED, DEFAULT, AFFORD, MAXED }
 
-const EDGE_WIDTH := 1.5
-const EDGE_GLOW_WIDTH := 3.5
-const BORDER_WIDTH := 1.0
-const BORDER_GLOW_WIDTH := 2.0
-const BORDER_WIDTH_MAXED := 2.0
+## v5 menu refresh — chunkier pixel paths + framed parchment medallions.
+const EDGE_WIDTH := 3.0
+const EDGE_GLOW_WIDTH := 7.0
+## Dark under-stroke so paths read against bright sky/clouds.
+const EDGE_CASING_WIDTH := 2.0
+const EDGE_CASING_COLOR := Color(0.12, 0.16, 0.10, 0.55)
+const BORDER_WIDTH := 2.0
+const BORDER_GLOW_WIDTH := 4.0
+const BORDER_WIDTH_MAXED := 3.0
 const CORNER_RADIUS := 2.0
 ## Pixel stair cut on each corner (44×44 medallion → chunky rounded square).
 const PIXEL_CORNER_CUT := 5
 const CIRCLE_SEGMENTS := 28
-const FILL_COLOR := Color(0.12, 0.10, 0.08, 1.0)
+const FILL_COLOR := Color(0.98, 0.95, 0.86, 1.0)
+## Lower-right bevel band + top-left highlight on the parchment medallion.
+const FILL_SHADE := Color(0.88, 0.83, 0.70, 1.0)
+const FILL_HIGHLIGHT := Color(1.0, 1.0, 0.96, 1.0)
+## Hard pixel drop shadow under each medallion.
+const SHADOW_COLOR := Color(0.10, 0.16, 0.10, 0.35)
+const SHADOW_OFFSET := Vector2(2, 3)
 const GLOW_ALPHA_SCALE := 0.65
 ## Phase wrap for alpha pulse (no dash marching).
 const PULSE_PERIOD := TAU
@@ -264,6 +274,9 @@ static func draw_flow_segment(
 		soft = Color(soft.r, soft.g, soft.b, pulse_alpha(phase, speed_mult, soft.a))
 	if with_glow:
 		canvas.draw_line(from_point, to_point, soft, EDGE_GLOW_WIDTH)
+	var casing := EDGE_CASING_COLOR
+	casing.a *= clampf(color.a, 0.0, 1.0)
+	canvas.draw_line(from_point, to_point, casing, width + EDGE_CASING_WIDTH * 2.0)
 	canvas.draw_line(from_point, to_point, stroke, width)
 
 
@@ -309,7 +322,22 @@ static func draw_squircle_border(
 		return
 	var cut := pixel_corner_cut(inner.size)
 	if draw_fill:
-		canvas.draw_colored_polygon(_pixel_squircle_points(inner, cut, false), FILL_COLOR)
+		var body := _pixel_squircle_points(inner, cut, false)
+		var shadow := PackedVector2Array()
+		for p in body:
+			shadow.append(p + SHADOW_OFFSET)
+		canvas.draw_colored_polygon(shadow, SHADOW_COLOR)
+		canvas.draw_colored_polygon(body, FILL_SHADE)
+		var top_rect := Rect2(inner.position, inner.size - Vector2(3, 3))
+		canvas.draw_colored_polygon(
+			_pixel_squircle_points(top_rect, maxi(cut - 1, 1), false), FILL_COLOR
+		)
+		canvas.draw_line(
+			inner.position + Vector2(cut + 1, 2),
+			Vector2(inner.end.x - cut - 3, inner.position.y + 2),
+			FILL_HIGHLIGHT,
+			1.0
+		)
 	var points := _pixel_squircle_points(inner, cut, true)
 	if points.size() < 2:
 		return

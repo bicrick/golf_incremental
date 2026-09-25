@@ -16,6 +16,9 @@ const FIT_FILL_PORTRAIT := 0.84
 const CHROME_TOP := 28.0
 const CHROME_BOTTOM_PORTRAIT := 36.0
 const REVEAL_STAGGER_SEC := 0.05
+## v5 menu refresh — never open more zoomed-in than this; room for level/price tags.
+const MAX_START_ZOOM := 2.0
+const INFO_TAG_RESERVE := 18.0
 
 @onready var tree_viewport: Control = $Content/TreeViewport
 @onready var tree_world: Control = $Content/TreeViewport/TreeWorld
@@ -292,6 +295,23 @@ func _is_node_revealed(id: String) -> bool:
 
 func _refresh_header() -> void:
 	currency_label.text = "$%s" % _format_currency(GameState.currency)
+	_refresh_finds_chip()
+
+
+## v5 — story progress beside the title (the tree grows as the mist recedes).
+func _refresh_finds_chip() -> void:
+	var row: HBoxContainer = $Content/Header/Row
+	var chip := row.get_node_or_null("FindsChip") as Label
+	if chip == null:
+		chip = Label.new()
+		chip.name = "FindsChip"
+		chip.add_theme_color_override(&"font_color", Color(0.46, 0.36, 0.22, 1))
+		PixelFont.apply_label(chip, 7)
+		row.add_child(chip)
+		row.move_child(chip, currency_label.get_index())
+	var found: int = GameState.story_found_count()
+	chip.visible = found > 0
+	chip.text = "Finds %d/%d" % [found, GameState.story_total_count()]
 
 
 func _request_refresh() -> void:
@@ -363,9 +383,11 @@ func _layout_bounds(revealed_only: bool = false) -> Rect2:
 func fit_to_view() -> void:
 	if not _is_open:
 		return
-	# Fit the full graph layout (not just revealed nodes) so open starts zoomed out.
+	# v5: fit what the player can see (crew subtrees stay hidden until found),
+	# capped so an early three-node tree doesn't balloon.
 	var world_bounds := _layout_bounds(false)
-	var fit_bounds := world_bounds
+	var fit_bounds := _layout_bounds(true)
+	fit_bounds = fit_bounds.grow_individual(0, 0, 0, INFO_TAG_RESERVE)
 	var portrait := RadialTreeLayout.use_portrait_aspect
 	var pad := FIT_PADDING_PORTRAIT if portrait else FIT_PADDING
 	var fill := FIT_FILL_PORTRAIT if portrait else FIT_FILL
@@ -380,7 +402,7 @@ func fit_to_view() -> void:
 	var usable_origin := Vector2(0.0, top_reserve)
 	var usable_size := Vector2(vp_size.x, maxf(vp_size.y - top_reserve - bottom_reserve, 8.0))
 	var start_zoom := minf(usable_size.x / tree_size.x, usable_size.y / tree_size.y) * fill
-	start_zoom = maxf(start_zoom, 0.01)
+	start_zoom = clampf(start_zoom, 0.01, MAX_START_ZOOM)
 	var pan := usable_origin + usable_size * 0.5 - tree_center * start_zoom
 	_camera_controller.set_baseline(start_zoom, pan)
 	_apply_tree_bounds(world_bounds, BOUNDS_PADDING)

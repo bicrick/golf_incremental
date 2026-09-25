@@ -26,15 +26,16 @@ const BURST_PEAK_SCALE := 1.2
 const BURST_UP_SEC := 0.08
 const BURST_DOWN_SEC := 0.14
 const REVEAL_TWEEN_SEC := 0.22
-const TOOLTIP_BG := Color(0.08, 0.11, 0.06, 0.96)
-const TOOLTIP_BORDER := Color(0.78, 0.66, 0.28, 1)
-const TOOLTIP_NAME := Color(1.0, 0.9, 0.45, 1)
-const TOOLTIP_DESC := Color(0.82, 0.78, 0.66, 1)
-const TOOLTIP_LEVEL := Color(0.62, 0.72, 0.52, 1)
-const TOOLTIP_PRICE := Color(1.0, 0.9, 0.45, 1)
-const TOOLTIP_PRICE_DIM := Color(0.72, 0.62, 0.52, 1)
-const MODULATE_LOCKED := Color(0.42, 0.4, 0.38, 1.0)
-const MODULATE_UNAFFORDABLE := Color(0.58, 0.55, 0.5, 1.0)
+## v5 menu refresh — parchment tooltip matching the HUD plates.
+const TOOLTIP_BG := Color(0.98, 0.95, 0.86, 0.98)
+const TOOLTIP_BORDER := Color(0.30, 0.62, 0.36, 1)
+const TOOLTIP_NAME := Color(0.18, 0.42, 0.24, 1)
+const TOOLTIP_DESC := Color(0.30, 0.32, 0.26, 1)
+const TOOLTIP_LEVEL := Color(0.42, 0.50, 0.36, 1)
+const TOOLTIP_PRICE := Color(0.72, 0.50, 0.08, 1)
+const TOOLTIP_PRICE_DIM := Color(0.55, 0.48, 0.42, 1)
+const MODULATE_LOCKED := Color(0.66, 0.66, 0.62, 0.9)
+const MODULATE_UNAFFORDABLE := Color(0.86, 0.84, 0.80, 1.0)
 const MODULATE_MAXED := Color(1.0, 0.92, 0.62, 1.0)
 
 var upgrade_id: String = ""
@@ -60,6 +61,21 @@ var _reveal_tween: Tween
 var _tooltip_rest_global := Vector2.ZERO
 var _press_pos := Vector2.ZERO
 var _press_slid := false
+## v5 menu refresh — always-visible level bar + price tag under the medallion.
+var _info_bar: Control
+var _price_label: Label
+var _mystery_label: Label
+var _bar_fill_t := 0.0
+var _bar_color := Color.WHITE
+
+const INFO_BAR_Y := 47.0
+const INFO_BAR_H := 3.0
+const INFO_BAR_INSET := 6.0
+const PRICE_Y := 51.0
+const PRICE_AFFORD := Color(0.98, 0.86, 0.30, 1)
+const PRICE_DIM := Color(0.93, 0.93, 0.88, 1)
+const PRICE_OUTLINE := Color(0.14, 0.20, 0.12, 1)
+const MYSTERY_MODULATE := Color(0.70, 0.76, 0.76, 0.85)
 
 @onready var _button: Button = $HitButton
 @onready var _glow: ColorRect = $GlowOverlay
@@ -92,6 +108,81 @@ func _ready() -> void:
 	_tooltip_timer.wait_time = TOOLTIP_DELAY_SEC
 	_tooltip_timer.timeout.connect(_on_tooltip_timer_timeout)
 	_style_tooltip_panel()
+	_build_info_tag()
+
+
+func _build_info_tag() -> void:
+	## BorderOverlay is a plain Control, so children placed below the node
+	## are not fitted by the PanelContainer.
+	_info_bar = Control.new()
+	_info_bar.name = "InfoBar"
+	_info_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_info_bar.position = Vector2(INFO_BAR_INSET, INFO_BAR_Y)
+	_info_bar.size = Vector2(NODE_SIZE.x - INFO_BAR_INSET * 2.0, INFO_BAR_H + 2.0)
+	_info_bar.draw.connect(_draw_info_bar)
+	_border.add_child(_info_bar)
+	_price_label = Label.new()
+	_price_label.name = "PriceTag"
+	_price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_price_label.position = Vector2(-18.0, PRICE_Y)
+	_price_label.size = Vector2(NODE_SIZE.x + 36.0, 10.0)
+	_price_label.add_theme_color_override(&"font_outline_color", PRICE_OUTLINE)
+	_price_label.add_theme_constant_override(&"outline_size", 3)
+	PixelFont.apply_label(_price_label, 8)
+	_border.add_child(_price_label)
+	_mystery_label = Label.new()
+	_mystery_label.name = "Mystery"
+	_mystery_label.text = "?"
+	_mystery_label.visible = false
+	_mystery_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mystery_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mystery_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_mystery_label.position = Vector2.ZERO
+	_mystery_label.size = NODE_SIZE
+	_mystery_label.add_theme_color_override(&"font_color", Color(0.36, 0.42, 0.44, 1))
+	PixelFont.apply_label(_mystery_label, 14)
+	_border.add_child(_mystery_label)
+
+
+func _draw_info_bar() -> void:
+	var w := _info_bar.size.x
+	_info_bar.draw_rect(Rect2(0, 0, w, INFO_BAR_H + 2.0), Color(0.12, 0.16, 0.10, 0.75))
+	var fill_w := floorf((w - 2.0) * clampf(_bar_fill_t, 0.0, 1.0))
+	if fill_w >= 1.0:
+		_info_bar.draw_rect(Rect2(1, 1, fill_w, INFO_BAR_H), _bar_color)
+
+
+func _refresh_info_tag(level: int, max_level: int, unlocked: bool, maxed: bool, affordable: bool, cost: float) -> void:
+	if _info_bar == null:
+		return
+	var story_locked := not UpgradeGraph.story_gate(upgrade_id).is_empty() and not unlocked \
+		and not GameState.is_find_found(UpgradeGraph.story_gate(upgrade_id))
+	_mystery_label.visible = story_locked
+	_shape_icon.visible = not story_locked
+	_bar_fill_t = float(level) / float(maxi(max_level, 1))
+	_bar_color = UpgradeTreeStroke.border_color_for_upgrade(
+		upgrade_id,
+		UpgradeTreeStroke.BorderState.MAXED if maxed else UpgradeTreeStroke.BorderState.AFFORD
+	)
+	_info_bar.visible = max_level > 1 and (level > 0 or unlocked) and not story_locked
+	_info_bar.queue_redraw()
+	if maxed:
+		_price_label.text = "MAX"
+		_price_label.add_theme_color_override(&"font_color", PRICE_AFFORD)
+		_price_label.visible = true
+	elif story_locked:
+		_price_label.text = "in the mist"
+		_price_label.add_theme_color_override(&"font_color", PRICE_DIM)
+		_price_label.visible = true
+	elif not unlocked:
+		_price_label.visible = false
+	else:
+		_price_label.text = "$%s" % _format_cost(cost)
+		_price_label.add_theme_color_override(
+			&"font_color", PRICE_AFFORD if affordable else PRICE_DIM
+		)
+		_price_label.visible = true
 
 
 func setup(def: Dictionary, node_namespace: String = UpgradeGraph.NAMESPACE_PLAYER) -> void:
@@ -134,6 +225,10 @@ func refresh() -> void:
 	_tooltip_affordable = affordable
 
 	_apply_visual_state()
+	_refresh_info_tag(level, max_level, unlocked, maxed, affordable, cost)
+	if _mystery_label != null and _mystery_label.visible:
+		modulate = MYSTERY_MODULATE
+		_base_modulate = MYSTERY_MODULATE
 	## Stay enabled so mobile tap-to-inspect works on locked/maxed (Godot
 	## suppresses mouse/gui on disabled buttons).
 	_button.disabled = false
@@ -473,20 +568,22 @@ func _apply_visual_state() -> void:
 func _style_tooltip_panel() -> void:
 	var style := StyleBoxFlat.new()
 	style.bg_color = TOOLTIP_BG
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
 	style.border_color = TOOLTIP_BORDER
 	style.shadow_size = 0
+	style.shadow_color = Color(0.1, 0.16, 0.1, 0.3)
+	style.shadow_offset = Vector2(2, 2)
 	style.corner_radius_top_left = 0
 	style.corner_radius_top_right = 0
 	style.corner_radius_bottom_left = 0
 	style.corner_radius_bottom_right = 0
-	style.content_margin_left = 0
-	style.content_margin_top = 0
-	style.content_margin_right = 0
-	style.content_margin_bottom = 0
+	style.content_margin_left = 2
+	style.content_margin_top = 2
+	style.content_margin_right = 2
+	style.content_margin_bottom = 2
 	_tooltip_panel.add_theme_stylebox_override(&"panel", style)
 	_tooltip_name.add_theme_color_override(&"font_color", TOOLTIP_NAME)
 	_tooltip_desc.add_theme_color_override(&"font_color", TOOLTIP_DESC)
