@@ -128,6 +128,19 @@ func tee_z() -> float:
 	return _tee_z
 
 
+func fog_color() -> Color:
+	return _fog_color
+
+
+func atmosphere_tint() -> Color:
+	return _atmosphere_tint
+
+
+## 0 = clear, 1 = deep in the mist bank, for a point this many yards down range.
+func fog_depth_t(yards_from_tee: float) -> float:
+	return _fog_depth_t(yards_from_tee)
+
+
 func max_carry_label() -> Label3D:
 	return _max_carry_label
 

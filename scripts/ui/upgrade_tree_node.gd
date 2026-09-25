@@ -601,13 +601,22 @@ func _levels_for_namespace() -> Dictionary:
 	match _namespace:
 		UpgradeGraph.NAMESPACE_SHOP:
 			return GameState.shop_levels
+		UpgradeGraph.NAMESPACE_RATINA:
+			return GameState.ratina_upgrade_levels
+		UpgradeGraph.NAMESPACE_RATTLING:
+			return GameState.rattling_upgrade_levels
 		_:
 			return GameState.upgrade_levels
 
 
 func _preview_for_namespace() -> Callable:
-	if _namespace == UpgradeGraph.NAMESPACE_SHOP:
-		return Callable(ShopEffects, "preview_stats")
+	match _namespace:
+		UpgradeGraph.NAMESPACE_SHOP:
+			return Callable(ShopEffects, "preview_stats")
+		UpgradeGraph.NAMESPACE_RATINA:
+			return Callable(RatinaUpgradeEffects, "preview_stats")
+		UpgradeGraph.NAMESPACE_RATTLING:
+			return Callable(RattlingUpgradeEffects, "preview_stats")
 	return Callable(UpgradeEffects, "preview_stats")
 
 

@@ -87,29 +87,35 @@ func _check_definitions() -> bool:
 
 
 func _check_unlock_flow(gs: Node) -> bool:
+	## v5: the Rattlings join when their burrow is found in the mist —
+	## the first Rattling is free; more are hired from the tree.
 	var ok := true
 	gs.reset_to_fresh()
 	gs.currency = 500.0
 	gs.upgrades_unlocked = true
 	gs.purchase_upgrade("base_pay")
 	gs.purchase_upgrade("pickup")
-	if gs.purchase_rattling_upgrade("rattling_more"):
-		print("FAIL: rattling_more should require pickup Lv.2")
-		ok = false
 	gs.upgrade_levels["pickup"] = 2
 	gs._recompute_stats()
+	if gs.purchase_rattling_upgrade("rattling_more"):
+		print("FAIL: rattling_more should need the burrow find")
+		ok = false
+	gs.lifetime["max_carry_yards"] = 160.0
 	var before: float = gs.currency
-	if not gs.purchase_rattling_upgrade("rattling_more"):
-		print("FAIL: rattling_more hire failed with pickup Lv.2")
+	if not gs.discover_find("rattling_burrow"):
+		print("FAIL: could not find the rattling burrow")
 		ok = false
 	if not gs.rattlings_unlocked:
 		print("FAIL: rattlings_unlocked flag not set")
 		ok = false
-	if not is_equal_approx(before - gs.currency, 10.0):
-		print("FAIL: rattling hire should cost $10, spent %.2f" % (before - gs.currency))
+	if not is_equal_approx(before, gs.currency):
+		print("FAIL: burrow find should be free, spent %.2f" % (before - gs.currency))
 		ok = false
-	else:
-		print("OK: rattling hire costs $10 via rattling_more at pickup Lv.2")
+	if not is_equal_approx(gs.rattling_stats.rattling_count, 1.0):
+		print("FAIL: burrow should grant 1 Rattling, got %.0f" % gs.rattling_stats.rattling_count)
+		ok = false
+	if ok:
+		print("OK: burrow find unlocks Rattlings with one free Rattling")
 	return ok
 
 
@@ -119,10 +125,8 @@ func _check_upgrade_effects(gs: Node) -> bool:
 	gs.currency = 500.0
 	gs.upgrades_unlocked = true
 	gs.upgrade_levels = {"base_pay": 1, "pickup": 2}
-	gs.rattlings_unlocked = true
 	gs.rattling_upgrade_levels = {}
 	gs._recompute_stats()
-	var base_speed: float = gs.rattling_stats.rattling_walk_speed
 	gs.currency = 500.0
 
 	if not is_equal_approx(gs.rattling_stats.rattling_count, 0.0):
@@ -132,8 +136,10 @@ func _check_upgrade_effects(gs: Node) -> bool:
 		)
 		ok = false
 
-	if not gs.purchase_rattling_upgrade("rattling_more"):
-		print("FAIL: could not purchase rattling_more")
+	gs.lifetime["max_carry_yards"] = 160.0
+	var base_speed: float = gs.rattling_stats.rattling_walk_speed
+	if not gs.discover_find("rattling_burrow"):
+		print("FAIL: could not find the rattling burrow")
 		ok = false
 	elif not is_equal_approx(gs.rattling_stats.rattling_count, 1.0):
 		print(
@@ -259,6 +265,8 @@ func _check_tree_hire_ui(main: Node, gs: Node) -> bool:
 	gs.currency = 500.0
 	gs.upgrades_unlocked = true
 	gs.upgrade_levels = {"base_pay": 1, "pickup": 2}
+	gs.lifetime["max_carry_yards"] = 160.0
+	gs.discover_find("rattling_burrow")
 	gs._recompute_stats()
 	await process_frame
 
@@ -266,7 +274,7 @@ func _check_tree_hire_ui(main: Node, gs: Node) -> bool:
 	upgrade_panel.open()
 	await process_frame
 	if not gs.purchase_rattling_upgrade("rattling_more"):
-		print("FAIL: rattling_more hire should work from unified tree")
+		print("FAIL: rattling_more (second Rattling) should work from unified tree")
 		ok = false
 	if not gs.rattlings_unlocked:
 		print("FAIL: rattling_more purchase should unlock rattlings")

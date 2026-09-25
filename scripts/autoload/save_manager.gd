@@ -56,6 +56,13 @@ func save_game() -> void:
 		"tutorial_progress": GameState.tutorial_progress,
 		"tutorial_upgrade_menu_seen": GameState.tutorial_upgrade_menu_seen,
 		"tutorial_version": 4,
+		"story_found": GameState.story_found.keys(),
+		"story_triggered": GameState.story_triggered.keys(),
+		"story_announced": GameState.story_announced.keys(),
+		"story_intro_seen": GameState.story_intro_seen,
+		"story_finale_armed": GameState.story_finale_armed,
+		"story_complete": GameState.story_complete,
+		"play_time_sec": GameState.play_time_sec,
 		"last_save_time": Time.get_unix_time_from_system() * 1000,
 	}
 	var json := JSON.stringify(data)
@@ -227,6 +234,32 @@ func _migrate_v5_drop_prestige() -> void:
 	GameState.upgrade_levels.erase("ratina_hire")
 	# Ignore legacy prestige_* / cheese_press / ambition — they are not play ids.
 
+## v5 story state (save v6). Older saves start the story fresh — finds already
+## past their fog line become clickable immediately.
+func _load_story(parsed: Dictionary) -> void:
+	GameState.story_found = _id_set(parsed.get("story_found", []))
+	GameState.story_triggered = _id_set(parsed.get("story_triggered", []))
+	GameState.story_announced = _id_set(parsed.get("story_announced", []))
+	GameState.story_intro_seen = bool(parsed.get("story_intro_seen", false))
+	GameState.story_finale_armed = bool(parsed.get("story_finale_armed", false))
+	GameState.story_complete = bool(parsed.get("story_complete", false))
+	GameState.play_time_sec = float(parsed.get("play_time_sec", 0.0))
+	## Crew is reached through the story now; keep flags consistent with finds.
+	if GameState.story_found.has("ratina_bag"):
+		GameState.ratina_unlocked = true
+	if GameState.story_found.has("rattling_burrow"):
+		GameState.rattlings_unlocked = true
+
+
+func _id_set(raw: Variant) -> Dictionary:
+	var out := {}
+	if raw is Array:
+		for id in raw:
+			if not StoryFinds.get_def(String(id)).is_empty():
+				out[String(id)] = true
+	return out
+
+
 ## Old saves without tutorial keys: skip intro if the player already swung.
 ## Pre-expanded tutorial used progress 0–4; remap onto durable checkpoints.
 ## v3 adds KEEP_GOING after first upgrade purchase + panel close.
@@ -315,6 +348,7 @@ func load_game() -> void:
 	var saved_remaining: int = int(parsed.get("bucket_remaining", -1))
 	GameState.bucket_remaining = saved_remaining if saved_remaining >= 0 else GameState.bucket_capacity
 	_load_tutorial_flags(parsed)
+	_load_story(parsed)
 	GameState.currency += _migrate_save(save_version)
 	GameState._recompute_stats()
 	GameState.seed_max_carry_from_progress()

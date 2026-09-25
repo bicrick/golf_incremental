@@ -1,6 +1,10 @@
 extends Node
 ## Root scene — title screen first; Play crossfades into the range and HUD.
 
+const StoryDialogueScript := preload("res://scripts/ui/story_dialogue.gd")
+const StoryJournalScript := preload("res://scripts/ui/story_journal.gd")
+const StoryEndingScript := preload("res://scripts/ui/story_ending.gd")
+
 @onready var range_view: Node3D = $RangeView
 @onready var iso_view: Node2D = get_node_or_null("IsoView") as Node2D
 @onready var ui: CanvasLayer = $UI
@@ -13,10 +17,14 @@ extends Node
 
 var _build_view_active := false
 var _harvest_view_active := false
+var story_dialogue: Control
+var story_journal: Control
+var story_ending: Control
 
 
 func _ready() -> void:
 	add_to_group(&"main")
+	_setup_story_ui()
 	_apply_web_display_stretch()
 	if not get_viewport().size_changed.is_connected(_on_viewport_size_changed):
 		get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -39,6 +47,25 @@ func _ready() -> void:
 	# pointer/key; resume handlers do not restart or reshuffle.
 	SfxManager.play_title_bgm()
 	call_deferred("_notify_portrait_layout")
+
+
+## v5 story overlays: dialogue sits above the tutorial box, the Journal above
+## gameplay chrome, and the ending on its own layer above everything.
+func _setup_story_ui() -> void:
+	var ui_root: Control = $UI/UIRoot
+	story_dialogue = StoryDialogueScript.new()
+	story_dialogue.name = "StoryDialogue"
+	ui_root.add_child(story_dialogue)
+	story_journal = StoryJournalScript.new()
+	story_journal.name = "StoryJournal"
+	ui_root.add_child(story_journal)
+	var ending_layer := CanvasLayer.new()
+	ending_layer.name = "StoryEndingLayer"
+	ending_layer.layer = 40
+	add_child(ending_layer)
+	story_ending = StoryEndingScript.new()
+	story_ending.name = "StoryEnding"
+	ending_layer.add_child(story_ending)
 
 
 func _on_viewport_size_changed() -> void:
@@ -127,7 +154,7 @@ func _on_play_pressed() -> void:
 
 
 func _on_ui_panel_toggled(panel_id: String, is_open: bool) -> void:
-	if panel_id not in ["upgrades", "settings", "pause"]:
+	if panel_id not in ["upgrades", "settings", "pause", "journal"]:
 		return
 	if not ui.visible:
 		return
@@ -170,6 +197,8 @@ func _sync_upgrade_sky_tint() -> void:
 
 
 func _is_overlay_panel_open() -> bool:
+	if story_journal != null and story_journal.is_open():
+		return true
 	if pause_menu.has_method("is_open") and pause_menu.is_open():
 		return true
 	if settings_panel.has_method("is_open") and settings_panel.is_open():
@@ -270,6 +299,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _try_build_toggle(event):
 		return
+	if _try_journal_toggle(event):
+		return
 	if _try_debug_capture_input(event):
 		return
 	if not event.is_action_pressed("ui_cancel"):
@@ -283,6 +314,22 @@ func _unhandled_input(event: InputEvent) -> void:
 func _is_in_gameplay() -> bool:
 	var world_visible := range_view.visible or (iso_view != null and iso_view.visible)
 	return ui.visible and world_visible or _is_overlay_panel_open()
+
+
+## J toggles the story Journal once anything has been found.
+func _try_journal_toggle(event: InputEvent) -> bool:
+	if not event is InputEventKey:
+		return false
+	var key := event as InputEventKey
+	if not key.pressed or key.echo or key.keycode != KEY_J:
+		return false
+	if title_screen.visible or not ui.visible or story_journal == null:
+		return false
+	if GameState.story_found_count() <= 0:
+		return false
+	get_viewport().set_input_as_handled()
+	story_journal.toggle()
+	return true
 
 
 ## I toggles Build mode (IsoView) during gameplay.
@@ -351,6 +398,9 @@ func _debug_capture_plate_async() -> void:
 
 
 func _handle_escape() -> void:
+	if story_journal != null and story_journal.is_open():
+		story_journal.close()
+		return
 	if settings_panel.has_method("is_open") and settings_panel.is_open():
 		if settings_panel.has_method("close_to_pause"):
 			settings_panel.close_to_pause()

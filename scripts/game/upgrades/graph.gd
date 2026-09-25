@@ -15,7 +15,35 @@ static var _children: Dictionary = {}
 
 
 static func _graph_overrides() -> Dictionary:
-	return {}
+	## Crew subtrees hang off the player tree (they are story-gated below).
+	return {
+		"ratina_base_pay": "base_pay",
+		"rattling_more": "pickup",
+	}
+
+
+## v5 story gates — node id → StoryFinds id that must be found first.
+## Crew roots stay hidden until their find; other gated nodes show locked with a hint.
+const STORY_GATES := {
+	"ratina_base_pay": "ratina_bag",
+	"rattling_more": "rattling_burrow",
+	"quick_reset": "range_bell",
+	"ball_count": "picker_cart",
+	"golden_ball": "stone_lantern",
+	"perfect_chain": "tee_sign",
+}
+const HIDDEN_UNTIL_FOUND := ["ratina_base_pay", "rattling_more"]
+
+
+static func story_gate(id: String) -> String:
+	return String(STORY_GATES.get(id, ""))
+
+
+static func _story_gate_open(id: String) -> bool:
+	var find_id := story_gate(id)
+	if find_id.is_empty():
+		return true
+	return _game_state().is_find_found(find_id)
 
 
 static func _init_graph() -> void:
@@ -27,15 +55,23 @@ static func _init_graph() -> void:
 
 	for def in UpgradeDefinitions.all():
 		_register_node(def, NAMESPACE_PLAYER)
-	# Shop empty; Ratina/Rattling remain dormant off-graph.
+	# Shop empty. Crew trees join behind story finds (Ratina's bag, the burrow).
+	for def in RatinaUpgradeDefinitions.all():
+		_register_node(def, NAMESPACE_RATINA)
+	for def in RattlingUpgradeDefinitions.all():
+		_register_node(def, NAMESPACE_RATTLING)
 
 
 static func _register_node(def: Dictionary, node_namespace: String) -> void:
 	var id: String = def["id"]
+	var parent: String = def.get("parent_id", "")
+	var overrides := _graph_overrides()
+	if overrides.has(id):
+		parent = overrides[id]
 	var node := {
 		"id": id,
 		"namespace": node_namespace,
-		"parent_id": def.get("parent_id", ""),
+		"parent_id": parent,
 		"prerequisite": def.get("prerequisite", {}).duplicate(),
 		"def": def,
 	}
@@ -139,6 +175,8 @@ static func is_unlocked(id: String) -> bool:
 	var node := get_node(id)
 	if node.is_empty():
 		return false
+	if not _story_gate_open(id):
+		return false
 	var prereq: Dictionary = node.get("prerequisite", {})
 	if prereq.is_empty():
 		return _namespace_unlock_gate(id)
@@ -161,6 +199,8 @@ static func _namespace_unlock_gate(id: String) -> bool:
 static func is_revealed(id: String) -> bool:
 	if id == ROOT_ID:
 		return true
+	if id in HIDDEN_UNTIL_FOUND and not _story_gate_open(id):
+		return false
 	var parent: String = parent_id(id)
 	if parent.is_empty():
 		return true
@@ -172,6 +212,13 @@ static func is_revealed(id: String) -> bool:
 static func lock_hint(id: String) -> String:
 	if is_unlocked(id):
 		return ""
+	if not _story_gate_open(id):
+		var find := StoryFinds.get_def(story_gate(id))
+		if _game_state().is_find_revealed(story_gate(id)):
+			return "Find the %s (~%d yd)" % [
+				String(find.get("display_name", "?")), int(find.get("yards", 0))
+			]
+		return "Hidden in the mist (~%d yd)" % int(find.get("yards", 0))
 	var node := get_node(id)
 	var prereq: Dictionary = node.get("prerequisite", {})
 	if prereq.is_empty():

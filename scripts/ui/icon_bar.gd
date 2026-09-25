@@ -20,6 +20,9 @@ const HOVER_BOB_FREQ := 2.4
 @onready var _shag_glyph: Control = $BottomRight/ShagBagWrap/ShagBagButton/Glyph
 
 var _upgrade_panel: Node = null
+## v5 story — Journal button (appears after the first find).
+var _journal_wrap: PanelContainer
+var _journal_button: Button
 var _upgrades_open := false
 var _upgrades_rest_y := 0.0
 var _upgrades_hover := false
@@ -41,6 +44,7 @@ func _ready() -> void:
 	if _upgrades_glyph:
 		_upgrades_glyph.locked = false
 	_setup_shag_bag()
+	_setup_journal_button()
 	call_deferred("_capture_button_rest_positions")
 	set_process(false)
 
@@ -178,10 +182,65 @@ func _on_shag_bag_pressed() -> void:
 	_refresh_shag_bag()
 
 
+func _setup_journal_button() -> void:
+	var top_right: HBoxContainer = $TopRight
+	_journal_wrap = PanelContainer.new()
+	_journal_wrap.name = "JournalWrap"
+	_journal_wrap.custom_minimum_size = Vector2(_wrap_outer_size())
+	_apply_wrap_panel_style(_journal_wrap)
+	top_right.add_child(_journal_wrap)
+	top_right.move_child(_journal_wrap, 0)
+	_journal_button = Button.new()
+	_journal_button.name = "JournalButton"
+	_journal_button.focus_mode = Control.FOCUS_NONE
+	_journal_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_journal_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_journal_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_style_icon_button(_journal_button)
+	_journal_button.icon = load("res://assets/sprites/story/journal_icon.png")
+	_journal_button.expand_icon = false
+	_journal_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_journal_button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_journal_wrap.add_child(_journal_button)
+	_journal_button.pressed.connect(_on_journal_pressed)
+	_journal_button.mouse_entered.connect(func() -> void: _apply_wrap_panel_style(_journal_wrap, true))
+	_journal_button.mouse_exited.connect(func() -> void: _apply_wrap_panel_style(_journal_wrap, false))
+	EventBus.story_find_found.connect(_on_story_find_found)
+	_refresh_journal_button()
+
+
+func _refresh_journal_button() -> void:
+	if _journal_wrap == null:
+		return
+	_journal_wrap.visible = GameState.story_found_count() > 0
+	_layout_top_right_corner()
+
+
+func _on_story_find_found(_id: String) -> void:
+	var was_hidden := not _journal_wrap.visible
+	_refresh_journal_button()
+	if was_hidden and _journal_wrap.visible:
+		## First find — bob the new button so the player notices it.
+		var tween := create_tween()
+		for i in 4:
+			tween.tween_property(_journal_wrap, "modulate", Color(1.3, 1.2, 0.8), 0.14)
+			tween.tween_property(_journal_wrap, "modulate", Color.WHITE, 0.14)
+
+
+func _on_journal_pressed() -> void:
+	var journal := get_tree().get_first_node_in_group(&"story_journal")
+	if journal != null and journal.has_method("toggle"):
+		journal.toggle()
+
+
 func _layout_top_right_corner() -> void:
 	var top_right: Control = $TopRight
 	var outer := Vector2(_wrap_outer_size())
-	top_right.offset_left = -MARGIN - outer.x
+	var count := 1
+	if _journal_wrap != null and _journal_wrap.visible:
+		count = 2
+	var sep := float((top_right as HBoxContainer).get_theme_constant(&"separation"))
+	top_right.offset_left = -MARGIN - outer.x * count - sep * (count - 1)
 	top_right.offset_top = MARGIN
 	top_right.offset_right = -MARGIN
 	top_right.offset_bottom = MARGIN + outer.y

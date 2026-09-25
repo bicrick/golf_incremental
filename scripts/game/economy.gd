@@ -21,7 +21,7 @@ static func resolve_payout(
 static func yards_from_quality(strike_quality: float, stats: PlayerStats) -> float:
 	var q := clampf(strike_quality, stats.yard_quality_floor, 1.0)
 	q = apply_sweet_spot(q, stats)
-	return stats.base_yards * q * perfect_power_mult(q, stats)
+	return stats.base_yards * q * perfect_power_mult(q, stats) * maxf(stats.carry_multiplier, 0.01)
 
 
 ## Pull high contact toward Perfect when Sweet Spot is unlocked.

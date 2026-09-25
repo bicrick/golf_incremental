@@ -334,7 +334,11 @@ func _launch_arrival() -> void:
 	var from := pick_approach(perch)
 	var perch_sec := _rng.randf_range(9.0, 22.0)
 	var species := _rng.randi_range(0, SkyBirdFrames.SPECIES_COUNT - 1)
-	var golden := _rng.randf() < Balance.GOLDEN_BIRD_CHANCE
+	var golden_chance := Balance.GOLDEN_BIRD_CHANCE
+	var gs := get_node_or_null("/root/GameState")
+	if gs != null and gs.has_method("story_golden_bird_mult"):
+		golden_chance = minf(golden_chance * float(gs.story_golden_bird_mult()), 0.5)
+	var golden := _rng.randf() < golden_chance
 	bird.start_cycle(from, perch, species, perch_sec, golden)
 
 

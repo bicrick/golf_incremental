@@ -68,8 +68,10 @@ func _run() -> void:
 	gs.upgrades_unlocked = true
 	gs.upgrade_levels = {"base_pay": 3}
 	gs._recompute_stats()
-	if not gs.purchase_upgrade("ratina_hire"):
-		print("FAIL: could not hire Ratina from upgrade tree")
+	## v5: Ratina joins when her golf bag is found in the mist.
+	gs.lifetime["max_carry_yards"] = 80.0
+	if not gs.discover_find("ratina_bag"):
+		print("FAIL: could not find Ratina's bag")
 		ok = false
 	await process_frame
 

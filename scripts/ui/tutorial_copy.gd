@@ -120,6 +120,9 @@ static func shot_reaction_line(timing_tier: int) -> String:
 
 static func pick_welcome_back_line(rng: RandomNumberGenerator = null) -> String:
 	## One random line for returning players after title Play.
+	var gs: Node = Engine.get_main_loop().root.get_node_or_null("GameState") if Engine.get_main_loop() else null
+	if gs != null and bool(gs.get("story_complete")):
+		return StoryScript.pick_postgame_welcome()
 	if WELCOME_BACK_LINES.is_empty():
 		return "Welcome back. Let's hit some balls."
 	var i: int

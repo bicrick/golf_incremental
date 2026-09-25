@@ -22,6 +22,14 @@ const SPEAKING_COLS := 3
 const SPEAKING_FRAMES := 7
 const SPEAKING_FPS := 8.0
 const FOOTER_HEIGHT := 12.0
+## v5 story speakers — Ratina's idle sheet (52px cells, 4 cols) and Barley's notes.
+const RATINA_SHEET_PATH := "res://assets/sprites/ratina/ratina-idle-sheet.png"
+const RATINA_FRAMES := 4
+const NOTE_PORTRAIT_PATH := "res://assets/sprites/story/scorecard.png"
+const SPEAKER_NAMES := {"ratina": "RATINA", "note": "BARLEY'S NOTE"}
+const COLOR_NOTE_TEXT := Color(0.30, 0.29, 0.36, 1.0)
+const COLOR_SPEAKER_RATINA := Color(0.78, 0.30, 0.46, 1.0)
+const COLOR_SPEAKER_NOTE := Color(0.46, 0.36, 0.22, 1.0)
 
 
 var _panel: PanelContainer
@@ -44,6 +52,10 @@ var _caret_visible := true
 var _rest_y := 0.0
 var _slide_tween: Tween
 var _portrait_frames: Array[AtlasTexture] = []
+var _rat_frames: Array[AtlasTexture] = []
+var _speaker_frames: Dictionary = {}
+var _speaker := "rat"
+var _name_label: Label
 var _portrait_frame_i := 0
 var _portrait_anim_timer := 0.0
 var _dismissing := false
@@ -84,6 +96,7 @@ func show_thought(
 		_slide_tween.kill()
 	_dismissing = false
 	_advance_on_input = bool(options.get("advance_on_input", true))
+	_apply_speaker(String(options.get("speaker", "rat")))
 	_full_text = text
 	_char_index = 0
 	_char_timer = 0.0
@@ -143,6 +156,52 @@ func _apply_input_filters() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if _panel != null:
 			_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+## Swap portrait + name tag + body colour for the story speaker.
+func _apply_speaker(speaker: String) -> void:
+	_speaker = speaker
+	if _rat_frames.is_empty():
+		_rat_frames = _portrait_frames.duplicate()
+	if speaker == "rat" or speaker.is_empty():
+		_portrait_frames = _rat_frames.duplicate()
+	else:
+		if not _speaker_frames.has(speaker):
+			_speaker_frames[speaker] = _build_speaker_frames(speaker)
+		var frames: Array[AtlasTexture] = _speaker_frames[speaker]
+		_portrait_frames = frames.duplicate() if not frames.is_empty() else _rat_frames.duplicate()
+	if _name_label != null:
+		_name_label.visible = SPEAKER_NAMES.has(speaker)
+		_name_label.text = String(SPEAKER_NAMES.get(speaker, ""))
+		var tag_color := COLOR_SPEAKER_NOTE if speaker == "note" else COLOR_SPEAKER_RATINA
+		_name_label.add_theme_color_override(&"font_color", tag_color)
+	if _body != null:
+		_body.add_theme_color_override(
+			&"font_color", COLOR_NOTE_TEXT if speaker == "note" else UiTheme.COLOR_PANEL_TEXT
+		)
+
+
+func _build_speaker_frames(speaker: String) -> Array[AtlasTexture]:
+	var out: Array[AtlasTexture] = []
+	match speaker:
+		"ratina":
+			var sheet: Texture2D = load(RATINA_SHEET_PATH)
+			if sheet == null:
+				return out
+			for i in RATINA_FRAMES:
+				var atlas := AtlasTexture.new()
+				atlas.atlas = sheet
+				atlas.region = Rect2i(i * SPEAKING_FRAME, 0, SPEAKING_FRAME, SPEAKING_FRAME)
+				out.append(atlas)
+		"note":
+			var card: Texture2D = load(NOTE_PORTRAIT_PATH)
+			if card == null:
+				return out
+			var atlas := AtlasTexture.new()
+			atlas.atlas = card
+			atlas.region = Rect2i(0, 0, card.get_width(), card.get_height())
+			out.append(atlas)
+	return out
 
 
 func _build_portrait_frames() -> void:
@@ -211,6 +270,12 @@ func _build_ui() -> void:
 	_text_col.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_text_col.add_theme_constant_override(&"separation", 3)
 	row.add_child(_text_col)
+
+	_name_label = Label.new()
+	_name_label.visible = false
+	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	PixelFont.apply_label(_name_label, 6)
+	_text_col.add_child(_name_label)
 
 	_body = Label.new()
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL

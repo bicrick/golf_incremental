@@ -16,6 +16,7 @@ const PLATE_CAPTURE_OUTPUT := "res://captures/range_bg.png"
 const PickupControllerScript := preload("res://scripts/range/pickup_controller.gd")
 const RangePickerIndicatorScript := preload("res://scripts/range/range_picker_indicator.gd")
 const HarvestFogScript := preload("res://scripts/range/harvest_fog.gd")
+const StoryFindsDirectorScript := preload("res://scripts/range/story_finds_director.gd")
 const RatinaControllerScript := preload("res://scripts/range/ratina_controller.gd")
 const RattlingControllerScript := preload("res://scripts/range/rattling_controller.gd")
 const FloatCashTextScript := preload("res://scripts/visual/float_cash_text.gd")
@@ -89,6 +90,7 @@ var _ball_lay_texture: Texture2D
 var _pickup: Node
 var _picker_indicator: Node3D
 var _harvest_fog # HarvestFog
+var _story_finds # StoryFindsDirector
 var _next_litter_id: int = 1
 var _suppress_litter_bus := false
 var _ratina: Node
@@ -157,6 +159,7 @@ func _ready() -> void:
 	_camera_controller.setup(camera)
 	_setup_view_mode_controller()
 	_setup_harvest_fog()
+	_setup_story_finds()
 	_setup_strike_feedback_billboard()
 	apply_viewport_aspect()
 
@@ -295,6 +298,17 @@ func _setup_harvest_fog() -> void:
 	_harvest_fog.set_atmosphere_tint(_sprite_atmosphere_tint)
 	if _view_mode_controller:
 		_harvest_fog.on_view_mode_changed(_view_mode_controller.get_mode())
+
+
+## v5 story finds — props in the harvest mist (docs/v5/03-systems.md).
+func _setup_story_finds() -> void:
+	_story_finds = StoryFindsDirectorScript.new()
+	foreground.add_child(_story_finds)
+	_story_finds.setup(self, _harvest_fog)
+
+
+func get_story_finds() -> Node:
+	return _story_finds
 
 
 func get_fx_reference_ortho_size() -> float:
@@ -806,6 +820,8 @@ func _process(delta: float) -> void:
 	_update_charge_visuals()
 	if _harvest_fog:
 		_harvest_fog.update(delta)
+	if _story_finds:
+		_story_finds.update(delta)
 
 
 func _input(event: InputEvent) -> void:
@@ -905,6 +921,11 @@ func _handle_harvest_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			GameState.exit_harvest_early()
 		return
+	if _try_story_find_click(event):
+		if _camera_controller and _camera_controller.has_method(&"cancel_pending_pan"):
+			_camera_controller.cancel_pending_pan()
+		get_viewport().set_input_as_handled()
+		return
 	if _try_harvest_bird_click(event):
 		if _camera_controller and _camera_controller.has_method(&"cancel_pending_pan"):
 			_camera_controller.cancel_pending_pan()
@@ -915,6 +936,25 @@ func _handle_harvest_input(event: InputEvent) -> void:
 			_camera_controller.cancel_pending_pan()
 		get_viewport().set_input_as_handled()
 		return
+
+
+func _try_story_find_click(event: InputEvent) -> bool:
+	if _story_finds == null or not is_harvest_view_ready():
+		return false
+	var screen := Vector2.ZERO
+	if event is InputEventMouseButton:
+		var click := event as InputEventMouseButton
+		if click.button_index != MOUSE_BUTTON_LEFT or not click.pressed:
+			return false
+		screen = click.position
+	elif event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if not touch.pressed:
+			return false
+		screen = touch.position
+	else:
+		return false
+	return _story_finds.try_harvest_click(screen, get_flight_camera())
 
 
 func _try_harvest_bird_click(event: InputEvent) -> bool:
@@ -974,12 +1014,15 @@ func _handle_strike_input(event: InputEvent) -> void:
 
 
 func _tutorial_blocks_input() -> bool:
-	var overlay := get_tree().get_first_node_in_group(&"tutorial_overlay")
-	return (
-		overlay != null
-		and overlay.has_method("is_blocking_input")
-		and overlay.is_blocking_input()
-	)
+	for group in [&"tutorial_overlay", &"story_dialogue", &"story_ending"]:
+		var overlay := get_tree().get_first_node_in_group(group)
+		if (
+			overlay != null
+			and overlay.has_method("is_blocking_input")
+			and overlay.is_blocking_input()
+		):
+			return true
+	return false
 
 
 func _is_space_event(event: InputEvent) -> bool:

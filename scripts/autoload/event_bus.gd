@@ -30,3 +30,13 @@ signal atmosphere_tint_changed(tint: Color)
 signal rattling_upgrade_purchased(id: String, level: int)
 signal rattling_ball_collected(amount: float)
 signal helper_toggled(helper: String, active: bool)
+## v5 story — finds in the harvest mist (docs/v5/03-systems.md).
+signal story_find_found(find_id: String)
+## A target find (bell, birdhouse) was hit by a landing ball.
+signal story_find_triggered(find_id: String)
+## The first green was found — the next player swing is the last ball.
+signal story_finale_armed()
+## The last ball was struck (yards already forced to the green).
+signal story_final_shot()
+## Ending finished; postgame begins.
+signal story_completed()

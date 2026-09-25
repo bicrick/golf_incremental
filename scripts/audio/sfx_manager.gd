@@ -363,6 +363,23 @@ func play_upgrade_bling() -> void:
 	_play_upgrade_bling(1)
 
 
+## v5 story — a find claimed in the mist.
+func play_story_discover() -> void:
+	_play("bucket_full_chime", -3.0, 0.84)
+	_play("pickup_plink", -8.0, 1.5)
+
+
+## v5 story — a landing ball rings the bell / knocks the birdhouse.
+func play_story_target_hit() -> void:
+	_play("bucket_full_chime", -2.0, 0.5)
+
+
+## v5 story — mist lifting at the ending.
+func play_story_finale() -> void:
+	_play("bucket_full_chime", -2.0, 0.66)
+	_play("play_whoosh", -10.0, 0.7)
+
+
 func _refresh_music_tracks() -> void:
 	_music_tracks = _discover_music_tracks()
 

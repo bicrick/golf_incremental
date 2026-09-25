@@ -3,7 +3,7 @@ extends RefCounted
 ## Tunable constants — single source for balance numbers.
 
 ## Save schema version — bump when load migration is required.
-const SAVE_VERSION: int = 5
+const SAVE_VERSION: int = 6
 
 const AUTOSAVE_INTERVAL_SEC: float = 30.0
 

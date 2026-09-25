@@ -3,6 +3,9 @@ extends Node
 
 const UpgradeGraph = preload("res://scripts/game/upgrades/graph.gd")
 
+## Fog line once the story is complete — past the far edge of the range.
+const STORY_LIFTED_REVEAL_YARDS := 460.0
+
 var currency: float = 0.0
 var upgrade_levels: Dictionary = {}
 var upgrades_unlocked: bool = true
@@ -36,6 +39,21 @@ var tutorial_progress: int = 0
 ## First visit to the upgrade menu dialogue (persisted; independent of progress).
 var tutorial_upgrade_menu_seen: bool = false
 
+## v5 story (persisted). Keys are StoryFinds ids; values are true.
+var story_found: Dictionary = {}
+## Target finds a landing ball has already hit.
+var story_triggered: Dictionary = {}
+## Finds whose "the mist pulled back" hint has been shown.
+var story_announced: Dictionary = {}
+## First-harvest mist intro shown.
+var story_intro_seen: bool = false
+## The first green was found; the next player swing is the last ball.
+var story_finale_armed: bool = false
+## Ending watched — postgame (mist lifted for good).
+var story_complete: bool = false
+## Seconds of play (rough, for the ending card). Persisted.
+var play_time_sec: float = 0.0
+
 var lifetime: Dictionary = {
 	"total_swings": 0,
 	"lifetime_yards": 0.0,
@@ -46,6 +64,10 @@ var lifetime: Dictionary = {
 	## Farthest single-shot carry (player or Ratina). Drives harvest fog reveal.
 	"max_carry_yards": 0.0,
 }
+
+
+func _process(delta: float) -> void:
+	play_time_sec += delta
 
 
 func _ready() -> void:
@@ -77,10 +99,12 @@ func _recompute_stats() -> void:
 	# defaults → play → shop (crew dormant but keep apply harmless)
 	UpgradeEffects.apply_all(stats, upgrade_levels)
 	ShopEffects.apply_all(stats, shop_levels)
+	StoryFinds.apply_rewards(stats, story_found)
 	ratina_stats = Balance.default_ratina_stats()
 	RatinaUpgradeEffects.apply_all(ratina_stats, ratina_upgrade_levels)
 	rattling_stats = Balance.default_rattling_stats()
 	RattlingUpgradeEffects.apply_all(rattling_stats, rattling_upgrade_levels)
+	StoryFinds.apply_rattling_rewards(rattling_stats, story_found)
 	bucket_capacity = get_bucket_capacity()
 
 
@@ -348,6 +372,13 @@ func reset_to_fresh() -> void:
 	tutorial_completed = false
 	tutorial_progress = 0
 	tutorial_upgrade_menu_seen = false
+	story_found.clear()
+	story_triggered.clear()
+	story_announced.clear()
+	story_intro_seen = false
+	story_finale_armed = false
+	story_complete = false
+	play_time_sec = 0.0
 	_recompute_stats()
 	EventBus.bucket_changed.emit(bucket_remaining, bucket_capacity)
 	EventBus.phase_changed.emit("strike")
@@ -393,7 +424,10 @@ func max_carry_yards() -> float:
 
 
 ## Clear fairway depth for harvest fog — min pad plus one yard past best carry.
+## After the ending the mist is gone for good.
 func revealed_yards() -> float:
+	if story_complete:
+		return STORY_LIFTED_REVEAL_YARDS
 	return maxf(
 		Balance.HARVEST_FOG_MIN_REVEAL_YARDS,
 		max_carry_yards() + Balance.HARVEST_FOG_BUFFER_YARDS
@@ -656,3 +690,130 @@ func _on_litter_removed(_litter_id: int) -> void:
 
 func _on_litter_cleared() -> void:
 	fairway_litter_count = 0
+
+
+# --- v5 story ---------------------------------------------------------------
+
+
+func is_find_found(id: String) -> bool:
+	return story_found.has(id)
+
+
+func is_find_triggered(id: String) -> bool:
+	return story_triggered.has(id)
+
+
+## Fog line has passed the find — clickable in harvest.
+func is_find_revealed(id: String) -> bool:
+	var def := StoryFinds.get_def(id)
+	if def.is_empty():
+		return false
+	return float(def["yards"]) + StoryFinds.REVEAL_MARGIN_YARDS <= revealed_yards()
+
+
+## Target finds need a landing ball before they can be claimed.
+func is_find_claimable(id: String) -> bool:
+	if is_find_found(id) or not is_find_revealed(id):
+		return false
+	var def := StoryFinds.get_def(id)
+	if String(def.get("kind", "")) == "target":
+		return is_find_triggered(id)
+	return true
+
+
+func story_found_count() -> int:
+	return story_found.size()
+
+
+func story_total_count() -> int:
+	return StoryFinds.order().size()
+
+
+## Mark a target find as hit. Returns true the first time.
+func trigger_find(id: String) -> bool:
+	if story_triggered.has(id) or story_found.has(id):
+		return false
+	var def := StoryFinds.get_def(id)
+	if String(def.get("kind", "")) != "target":
+		return false
+	story_triggered[id] = true
+	EventBus.story_find_triggered.emit(id)
+	return true
+
+
+## Claim a find: record it and apply its reward. Returns true the first time.
+func discover_find(id: String) -> bool:
+	if story_found.has(id):
+		return false
+	var def := StoryFinds.get_def(id)
+	if def.is_empty():
+		return false
+	story_found[id] = true
+	story_announced[id] = true
+	var reward: Dictionary = def.get("reward", {})
+	if reward.has("unlock_ratina"):
+		ratina_unlocked = true
+		ratina_active = true
+	if reward.has("unlock_rattlings"):
+		## First Rattling is on the house — the burrow found you.
+		if get_rattling_upgrade_level("rattling_more") < 1:
+			rattling_upgrade_levels["rattling_more"] = 1
+		rattlings_unlocked = true
+		rattlings_active = true
+	if reward.has("arm_finale"):
+		story_finale_armed = true
+	var old_capacity := bucket_capacity
+	_recompute_stats()
+	if bucket_capacity > old_capacity and current_phase == "strike":
+		bucket_remaining = mini(bucket_remaining + (bucket_capacity - old_capacity), bucket_capacity)
+	EventBus.story_find_found.emit(id)
+	EventBus.stats_changed.emit(stats, currency)
+	EventBus.bucket_changed.emit(_bucket_display_count(), bucket_capacity)
+	if story_finale_armed and reward.has("arm_finale"):
+		EventBus.story_finale_armed.emit()
+	SaveManager.save_game()
+	return true
+
+
+## Revealed finds whose "the mist pulled back" line has not been shown.
+func unannounced_revealed_finds() -> Array[String]:
+	var out: Array[String] = []
+	for id in StoryFinds.order():
+		if story_found.has(id) or story_announced.has(id):
+			continue
+		if is_find_revealed(id):
+			out.append(id)
+	return out
+
+
+func mark_find_announced(id: String) -> void:
+	story_announced[id] = true
+
+
+## Golden-bird chance multiplier from the birdhouse.
+func story_golden_bird_mult() -> float:
+	var mult := 1.0
+	for id in story_found:
+		var r: Dictionary = StoryFinds.get_def(id).get("reward", {})
+		if r.has("golden_bird_mult"):
+			mult *= float(r["golden_bird_mult"])
+	return mult
+
+
+## Called by Swing when the armed last ball is struck.
+func consume_finale_ball() -> void:
+	if not story_finale_armed:
+		return
+	story_finale_armed = false
+	EventBus.story_final_shot.emit()
+
+
+## Ending watched — lift the mist for good.
+func complete_story() -> void:
+	if story_complete:
+		return
+	story_complete = true
+	story_finale_armed = false
+	EventBus.max_carry_changed.emit(max_carry_yards())
+	EventBus.story_completed.emit()
+	SaveManager.save_game()

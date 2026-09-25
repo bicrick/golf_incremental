@@ -13,6 +13,10 @@ var _last_swing_msec: int = 0
 var _charge_start_msec: int = 0
 
 
+## Carry forced on the story's last ball (the first green's cup sits at 382 yd).
+const FINALE_CARRY_YARDS := 380.0
+
+
 func update(_delta: float) -> void:
 	if phase != Phase.CHARGING:
 		return
@@ -82,8 +86,16 @@ func _resolve_swing(tier: int, timing_quality: float) -> void:
 	if tier == Balance.TimingTier.PERFECT:
 		GameState.lifetime["perfect_count"] = GameState.lifetime.get("perfect_count", 0) + 1
 
+	## v5 finale — the last ball always reaches the first green.
+	var last_ball := GameState.story_finale_armed
+	if last_ball:
+		tier = mini(tier, Balance.TimingTier.GREAT)
+		timing_quality = maxf(timing_quality, 0.9)
+
 	var result := Economy.resolve_payout(tier, GameState.stats, timing_quality)
 	var yards: float = result.yards
+	if last_ball:
+		yards = maxf(yards, FINALE_CARRY_YARDS)
 
 	GameState.lifetime["total_swings"] = GameState.lifetime.get("total_swings", 0) + 1
 	GameState.lifetime["lifetime_yards"] = GameState.lifetime.get("lifetime_yards", 0.0) + yards
@@ -92,6 +104,8 @@ func _resolve_swing(tier: int, timing_quality: float) -> void:
 	var feedback := _feedback_for(tier)
 	EventBus.swing_resolved.emit(yards, tier, 0.0, feedback)
 	GameState.consume_bucket_ball()
+	if last_ball:
+		GameState.consume_finale_ball()
 
 
 static func _feedback_for(tier: int) -> int:
