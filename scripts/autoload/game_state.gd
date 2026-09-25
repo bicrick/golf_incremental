@@ -819,29 +819,6 @@ func complete_story() -> void:
 	SaveManager.save_game()
 
 
-# --- v5 crew: Ratina's mark ------------------------------------------------------
-
-
-## Extra pay for a player ball that rested on Ratina's mark. Returns the extra.
-func pay_ratina_mark_bonus(base_payout: float) -> float:
-	var extra := base_payout * maxf(ratina_stats.ratina_mark_bonus - 1.0, 0.0)
-	if extra > 0.0:
-		add_currency(extra)
-		lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + extra
-	return extra
-
-
-## Ratina's pink demo ball: worth one of your balls at that distance. Doesn't
-## count toward the harvest target.
-func collect_ratina_mark_ball(yardage: float, combo_tier: int) -> float:
-	if current_phase != "harvest":
-		return 0.0
-	var payout := Economy.resolve_pickup_ball_payout(4, yardage, combo_tier, stats)
-	add_currency(payout)
-	lifetime["ratina_lifetime_earnings"] = lifetime.get("ratina_lifetime_earnings", 0.0) + payout
-	return payout
-
-
 ## Pay for a ball that isn't part of the current bucket (already returned free).
 func collect_uncounted_ball(quality: int, yardage: float, combo_tier: int, is_golden: bool) -> float:
 	var payout := Economy.resolve_pickup_ball_payout(quality, yardage, combo_tier, stats)

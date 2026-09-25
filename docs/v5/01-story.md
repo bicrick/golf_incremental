@@ -27,7 +27,7 @@ This is already how the harvest fog works in code (`GameState.revealed_yards()`)
 |---|---|---|
 | **Range Rat** | Stayed behind to keep the range. Narrator of every find. | Player |
 | **Barley** | The old pro. Walked into the mist to wake the course. Leaves scorecards. | Never seen; notes in the Journal |
-| **Ratina** | Came looking for Mistmeadow years ago, got turned around in the mist, and has been sitting on her bag at 64 yd waiting for it to lift. She's been counting your shots. | Found → second bay + her upgrade subtree |
+| **Ratina** | Came looking for Mistmeadow years ago, following a light into the mist, got lost, and has been sitting on her bag waiting for it to lift. She's been counting your shots. | Found → company in the next bay; tempo tips (wider Perfect window) and shot reactions |
 | **Rattlings** | Shy gnome-rats who lived in the course rough and hid in burrows when the mist came. Love shiny round things. | Burrow found → ball-fetching crew + subtree |
 
 ## Arc
@@ -56,7 +56,7 @@ Lines live in code at `scripts/game/story/story_script.gd`. Keep this table and 
 | Find | Lines |
 |---|---|
 | **Torn Scorecard** | rat: "A scorecard. Barley's pencil." · rat: "He always wrote in pencil. Said it made lying easier." · rat: "Hole 1. Three hundred eighty-five yards. ...There's no Hole 1. There's just mist." |
-| **Someone's Golf Bag** | ratina: "Oh! You can SEE me?" · ratina: "I've been sitting here for ages. You slice, by the way." · rat: "...Do you want a bay? We have bays." · ratina: "Do I want a bay. Yes. Obviously." |
+| **Someone's Golf Bag** | ratina: "Oh! You can SEE me?" · ratina: "I saw a light go into the mist, years ago. I followed it. Then the light went out." · ratina: "So I sat down. I've been counting your shots. You slice, by the way." · rat: "...Do you want a bay? We have bays." · ratina: "Do I want a bay. Yes. Obviously." · ratina: "First tip's free: you're rushing the top. Let it breathe, then go." · rat: "...Huh. That's actually helpful." |
 | **Range Bell** (clicked, not rung) | rat: "The old range bell. Rusted stiff." · rat: "Barley used to ring it for last bucket. A good shot might knock it loose." |
 | **Range Bell** (rung) | rat: "...DONNNG." · rat: "Last bucket. Except it isn't. Feels quicker out here now." |
 | **Picker Cart** | rat: "The old ball-picker cart. Half buried." · rat: "Still has a basket on it. That's more balls per bucket." |

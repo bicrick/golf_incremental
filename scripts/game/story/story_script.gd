@@ -24,8 +24,8 @@ const FIND_LINES := {
 		["ratina", "So I sat down. I've been counting your shots. You slice, by the way."],
 		["rat", "...Do you want a bay? We have bays."],
 		["ratina", "Do I want a bay. Yes. Obviously."],
-		["ratina", "Here's the deal. Every bucket, I hit one. Pink ball. You land yours next to it."],
-		["ratina", "Land it close and I'll make it worth your while. Miss and I'll just... watch."],
+		["ratina", "First tip's free: you're rushing the top. Let it breathe, then go."],
+		["rat", "...Huh. That's actually helpful."],
 	],
 	"range_bell": [
 		["rat", "...DONNNG."],

@@ -40,5 +40,3 @@ signal story_finale_armed()
 signal story_final_shot()
 ## Ending finished; postgame begins.
 signal story_completed()
-## v5 crew refactor — a player ball came to rest on Ratina's mark.
-signal ratina_mark_hit(world_pos: Vector3)

@@ -1612,9 +1612,7 @@ func leave_litter_ball(
 	source: String = "player"
 ) -> Sprite3D:
 	# Fog / blocked-cursor line tracks furthest rest, not carry alone (bounces run past).
-	# Ratina's demo mark never pushes the mist.
-	if source != "ratina_mark":
-		_record_rest_reach(land_position)
+	_record_rest_reach(land_position)
 	var litter_id := _next_litter_id
 	_next_litter_id += 1
 	var litter := Sprite3D.new()

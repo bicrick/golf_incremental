@@ -32,8 +32,6 @@ static func mark_leftovers(littered_balls: Node, credited: bool) -> int:
 	for child in littered_balls.get_children():
 		if not child is Sprite3D or child.get_meta("leftover", false):
 			continue
-		if String(child.get_meta("ball_source", "")) == "ratina_mark":
-			continue
 		child.set_meta("leftover", true)
 		child.set_meta("leftover_credited", credited)
 		count += 1

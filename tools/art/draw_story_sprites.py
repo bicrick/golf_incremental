@@ -640,7 +640,6 @@ SPRITES = {
     "green_disc": green_disc,
     "flagstick": flagstick,
     "sparkle": sparkle,
-    "ratina_flag": ratina_flag,
     "journal_icon": journal_icon,
 }
 

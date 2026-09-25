@@ -1,6 +1,6 @@
 class_name RatinaUpgradeDefinitions
 extends RefCounted
-## Ratina upgrade tree — v5 coach: her mark (bonus, size, luck).
+## Ratina upgrade tree — empty in v5 (she's a companion; see StoryFinds ratina_bag).
 
 static var _by_id: Dictionary = {}
 static var _tree_order: Array[String] = []
@@ -9,31 +9,9 @@ static var _tree_order: Array[String] = []
 static func _init_defs() -> void:
 	if not _tree_order.is_empty():
 		return
-	## v5 crew refactor: Ratina coaches instead of swinging. Each bucket she
-	## plants a mark in your range; balls that rest on it pay extra.
-	var defs: Array[Dictionary] = [
-		_def(
-			"ratina_coaching", Balance.UpgradeBranch.BASE_PAY, "Coaching",
-			"Balls that land on Ratina's mark pay more.",
-			20, 6.0, 1.42,
-			[{"type": "add", "stat": "ratina_mark_bonus", "value_per_level": 0.25}],
-			"", {}
-		),
-		_def(
-			"ratina_big_flag", Balance.UpgradeBranch.QUALITY, "Bigger Flag",
-			"Ratina's mark gets wider — easier to land on.",
-			12, 14.0, 1.45,
-			[{"type": "add", "stat": "ratina_mark_radius", "value_per_level": 0.5}],
-			"ratina_coaching", {"upgrade_id": "ratina_coaching", "level": 1}
-		),
-		_def(
-			"ratina_lucky_flag", Balance.UpgradeBranch.PICKUP, "Lucky Flag",
-			"Balls on the mark have a chance to turn golden.",
-			10, 40.0, 1.5,
-			[{"type": "add", "stat": "ratina_mark_golden_chance", "value_per_level": 0.05}],
-			"ratina_coaching", {"upgrade_id": "ratina_coaching", "level": 3}
-		),
-	]
+	## v5: Ratina is company, not an economy — no upgrade tree. Her tempo tips
+	## (a wider Perfect window) come with finding her bag (StoryFinds).
+	var defs: Array[Dictionary] = []
 	for d in defs:
 		_by_id[d["id"]] = d
 		_tree_order.append(d["id"])

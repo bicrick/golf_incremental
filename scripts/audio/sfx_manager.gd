@@ -392,12 +392,6 @@ func play_upgrade_bling() -> void:
 	_play_upgrade_bling(1)
 
 
-## v5 crew — a ball rests on Ratina's mark.
-func play_ratina_mark_hit() -> void:
-	_play("pickup_plink", -4.0, 1.35)
-	_play("pickup_plink", -8.0, 1.8)
-
-
 ## v5 story — a find claimed in the mist.
 func play_story_discover() -> void:
 	_play("bucket_full_chime", -3.0, 0.84)

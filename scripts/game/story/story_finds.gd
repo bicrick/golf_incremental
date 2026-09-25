@@ -27,7 +27,7 @@ static func _init_defs() -> void:
 		_def("scorecard_1", "Torn Scorecard", Act.RANGE, 30.0, 1.5, "find",
 			"scorecard", {"note": "note_1"}, {"persist": false}),
 		_def("ratina_bag", "Someone's Golf Bag", Act.RANGE, 54.0, -6.0, "find",
-			"ratina_bag", {"unlock_ratina": true}, {"persist": false}),
+			"ratina_bag", {"unlock_ratina": true, "perfect_window_ms": 6.0}, {"persist": false}),
 		_def("range_bell", "Range Bell", Act.RANGE, 74.0, 2.0, "target",
 			"range_bell", {"swing_cooldown_mult": 0.85},
 			{"radius": 7.0, "sprite_found": "range_bell_rung"}),
@@ -144,6 +144,9 @@ static func apply_rewards(stats: PlayerStats, found: Dictionary) -> void:
 		var r: Dictionary = _by_id[id]["reward"]
 		if r.has("carry_mult"):
 			stats.carry_multiplier *= float(r["carry_mult"])
+		if r.has("perfect_window_ms"):
+			stats.timing_window_perfect_ms += float(r["perfect_window_ms"])
+			stats.timing_window_great_ms += float(r["perfect_window_ms"]) * 0.5
 		if r.has("swing_cooldown_mult"):
 			stats.swing_cooldown_ms *= float(r["swing_cooldown_mult"])
 		if r.has("bucket_bonus"):
@@ -169,7 +172,7 @@ static func apply_rattling_rewards(stats: PlayerStats, found: Dictionary) -> voi
 static func reward_text(id: String) -> String:
 	var r: Dictionary = get_def(id).get("reward", {})
 	if r.has("unlock_ratina"):
-		return "Ratina joined: land on her pink ball for bonus pay."
+		return "Ratina joined. Her tempo tips widen your Perfect window."
 	if r.has("unlock_rattlings"):
 		return "Rattlings joined: they fetch balls you leave behind."
 	if r.has("carry_mult"):

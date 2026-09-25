@@ -18,9 +18,9 @@ Cause: pay per ball = `base_amount × (1 + pay_per_yard × yards) × pickup × c
 
 | Player | Ending |
 |---|---|
-| casual (10% Perfect) | ~150 min |
-| good (30% Perfect) | ~115 min |
-| pro (60% Perfect) | ~90 min |
+| casual (10% Perfect) | ~135 min |
+| good (30% Perfect) | ~105 min |
+| pro (60% Perfect) | ~86 min |
 
 Finds are spread across the run, with Act III speeding up toward the green like a climax. Re-run after any economy change:
 
@@ -32,5 +32,5 @@ SKILL=good godot --headless --path . --script res://tools/sim_story_pacing.gd
 
 The crew was built but dormant because it broke the loop: Rattlings made harvesting pointless, and Ratina drew from your bucket for passive income. v5 keeps their animations doing what they were drawn for, but changes *whose* balls they touch:
 
-- **Ratina: a standing challenge.** She hits one ball *from her own pocket*, and it becomes a pink flag at a distance inside your reach. It stays until one of your balls comes to rest within `ratina_mark_radius`; that ball pays × `ratina_mark_bonus` at pickup. Then she plants the next one. From the tee she calls it out ("Land it 94 yd"); in harvest the flag and ring mark the spot. Her tree is now Coaching (bonus), Bigger Flag (radius) and Lucky Flag (golden chance). No passive income, no bucket stealing, and her swing stays special.
+- **Ratina: company, not a mechanic.** (Iteration note: a first pass gave her a standing "land it here" flag. In play it read as clutter, and worse, it rewarded *mistiming*: landing a short flag meant deliberately hitting a worse shot, which fights the core skill. Cut.) She's found in the mist, joins the bay next to you, takes the odd practice swing (no ball, so she never touches your bucket), and reacts to your Perfects and whiffs with a small bubble. Her one gameplay effect is invisible and on-theme: her tempo tips widen your Perfect window (+6 ms) and Great window (+3 ms) permanently. No upgrade tree, no passive income.
 - **Rattlings: the safety net.** They never touch balls while you're harvesting. Balls you leave behind (early exit, or "return leftovers") become leftovers, and Rattlings fetch those at `rattling_leftover_share` of full pay (40% base, Finder's Fee +10%/lv). Leftovers already refilled for free still pay but aren't double-counted. Picking up yourself stays the best money.

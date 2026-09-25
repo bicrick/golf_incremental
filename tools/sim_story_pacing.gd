@@ -69,10 +69,6 @@ func _run() -> void:
 			earned += pay
 			_check_targets(gs, yards)
 		_t += n * cooldown
-		# --- Ratina's flag: a standing distance challenge (skill-dependent) ---
-		if gs.ratina_unlocked and _rng.randf() < float(MARK_HIT_PER_BUCKET.get(skill_name, 0.3)):
-			var mark_pay := Economy.resolve_pickup_ball_payout(5, gs.max_carry_yards() * 0.7, COMBO_TIER_TYPICAL, gs.stats)
-			earned += mark_pay * maxf(gs.ratina_stats.ratina_mark_bonus - 1.0, 0.0)
 		# --- harvest ---
 		var picking := n
 		if gs.rattlings_unlocked:

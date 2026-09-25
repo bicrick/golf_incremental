@@ -183,7 +183,6 @@ func _collect_litter(litter: Sprite3D) -> void:
 	var yardage: float = litter.get_meta("ball_yardage", GameState.stats.base_yards)
 	var is_golden: bool = litter.get_meta("ball_golden", false)
 	var source: String = litter.get_meta("ball_source", "player")
-	var on_mark: bool = litter.get_meta("ratina_mark", false)
 	var already_credited: bool = litter.get_meta("leftover_credited", false)
 	litter.queue_free()
 	if litter_id >= 0:
@@ -191,18 +190,13 @@ func _collect_litter(litter: Sprite3D) -> void:
 
 	var combo_tier := _advance_combo()
 	var payout := 0.0
-	if source == "ratina_mark":
-		## Ratina's own demo ball: a tip for tidying up, never part of the bucket.
-		payout = GameState.collect_ratina_mark_ball(yardage, combo_tier)
-	elif already_credited:
+	if already_credited:
 		## Straggler the bucket already got back for free — pay, don't recount.
 		payout = GameState.collect_uncounted_ball(quality, yardage, combo_tier, is_golden)
 	else:
 		payout = GameState.collect_harvest_ball(
 			world_pos, combo_tier, quality, yardage, is_golden, source
 		)
-		if on_mark and payout > 0.0:
-			payout += GameState.pay_ratina_mark_bonus(payout)
 	SfxManager.play_pickup_plink(combo_tier)
 	if _range_view.has_method("show_pickup_cash_float"):
 		_range_view.show_pickup_cash_float(world_pos, payout, combo_tier, is_golden)

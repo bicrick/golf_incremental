@@ -149,12 +149,13 @@ func _check_story_gates() -> bool:
 	if not UpgradeGraph.is_unlocked("ball_count"):
 		print("FAIL: More Balls should unlock after the picker cart")
 		ok = false
-	if UpgradeGraph.is_revealed("ratina_coaching"):
-		print("FAIL: Ratina subtree should be hidden before her bag")
+	if UpgradeGraph.is_revealed("rattling_more"):
+		print("FAIL: Rattling subtree should be hidden before the burrow")
 		ok = false
+	var window_before: float = gs.stats.timing_window_perfect_ms
 	gs.discover_find("ratina_bag")
-	if not UpgradeGraph.is_revealed("ratina_coaching") or not UpgradeGraph.is_unlocked("ratina_coaching"):
-		print("FAIL: Ratina subtree should open after her bag")
+	if gs.stats.timing_window_perfect_ms <= window_before:
+		print("FAIL: Ratina's tempo tips should widen the Perfect window")
 		ok = false
 	if ok:
 		print("OK: story gates lock/reveal upgrade nodes")

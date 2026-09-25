@@ -33,7 +33,7 @@ World position: `x` yards across (+ = right of tee), `yards` down range (`z = te
 | # | id | yards | kind | Story beat | World change | Play change |
 |---|---|---|---|---|---|---|
 | 1 | `scorecard_1` | 30 | find | Barley's plan: Hole 1, 385 yd. Sets the goal. | → Journal | Nothing. It sets the goal. |
-| 2 | `ratina_bag` | 54 | find | Ratina followed "a light into the mist" years ago. Sets up the lantern. | Her bay appears | **Ratina joins**: standing pink-flag challenge + coach subtree |
+| 2 | `ratina_bag` | 54 | find | Ratina followed "a light into the mist" years ago. Sets up the lantern. | Her bay appears | **Ratina joins** (company in the next bay); her tempo tips widen the Perfect window |
 | 3 | `range_bell` | 74 | target r7 | Barley's "last bucket" bell. Ringing it = the range isn't closing. | Bell rung/shiny | Swing cooldown ×0.85; gates Quick Reset |
 | 4 | `picker_cart` | 105 | find | Abandoned when the mist got thick | Cart stays | +2 balls/bucket; gates More Balls |
 | 5 | `rattling_burrow` | 146 | find | They've kept Barley's **B** balls safe; they watched him pass | Burrow stays | **Rattlings join**: fetch leftovers at partial pay (first free) + subtree |

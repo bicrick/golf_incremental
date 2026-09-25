@@ -56,6 +56,16 @@ func _boot() -> void:
 		_gs.currency = float(_env("CASH", "0"))
 	if _env("CARRY", "") != "":
 		_gs.lifetime["max_carry_yards"] = float(_env("CARRY", "0"))
+	## FOUND=id,id — pre-claim finds (crew etc.) to start mid-story.
+	for id in _env("FOUND", "").split(",", false):
+		_gs.story_triggered[id.strip_edges()] = true
+		_gs.discover_find(id.strip_edges())
+	## LEVELS=id:n,id:n — pre-buy upgrades.
+	for pair in _env("LEVELS", "").split(",", false):
+		var kv := pair.split(":")
+		if kv.size() == 2:
+			_gs.upgrade_levels[kv[0]] = int(kv[1])
+	_gs._recompute_stats()
 	_main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(_main)
 	await process_frame
