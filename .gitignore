@@ -1,6 +1,10 @@
 # Godot 4
 .godot/
 *.import
+# Pixel-art textures must stay lossless: Godot's detect_3d would otherwise
+# re-import billboard sprites as VRAM-compressed (smeared alpha lets the grass
+# show through faces). Track their import settings so every machine agrees.
+!assets/**/*.png.import
 export_presets.cfg
 
 # Web export output (scaffolding lives in export/web-deploy/)

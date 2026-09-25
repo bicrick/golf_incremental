@@ -565,6 +565,82 @@ def ratina_flag() -> Canvas:
     return cv
 
 
+MIST = [hexc("fbfbf5"), hexc("eceff0"), hexc("d9e2e2"), hexc("c2d0d2"), hexc("a9bcc2")]
+
+
+def mist_puff(w: int, h: int, seed: int) -> Canvas:
+    """Stylized pixel-art mist puff, lit like the painted sky cumulus: a
+    tapered row of bumps (tall middle), each lit from the top-left with stepped
+    tones, cool banding toward a flat base. In-game the base is buried in the
+    ground, so the fairway surface cuts it off."""
+    rnd = random.Random(seed)
+    cv = Canvas(w, h)
+    base = h - 1
+    bumps = []
+    x = 3.0
+    while True:
+        t = x / w
+        profile = 0.45 + 0.55 * (1.0 - abs(t - 0.5) * 2.0)  # tall middle
+        r = max(4.0, h * rnd.uniform(0.34, 0.48) * profile + 3)
+        cx = x + r * 0.55
+        cy = base - h * 0.22 - (h * 0.48 * profile) + rnd.uniform(-1.5, 1.5)
+        if cx + r > w - 1:
+            break
+        bumps.append((cx, cy, r))
+        x += r * rnd.uniform(0.95, 1.35)
+    # silhouette + owning bump (the one whose surface is highest at that pixel)
+    owner = {}
+    for y in range(h):
+        for xx in range(w):
+            best = None
+            for i, (cx, cy, r) in enumerate(bumps):
+                dx = (xx + 0.5 - cx) / r
+                dy = (y + 0.5 - cy) / (r * 0.85)
+                ## Fill under a bump only between the first and last bump centres,
+                ## so the ends round off instead of dropping as vertical walls.
+                under = (y + 0.5 >= cy and abs(dx) <= 0.92
+                         and bumps[0][0] <= xx + 0.5 <= bumps[-1][0])
+                inside = dx * dx + dy * dy <= 1.0 or under
+                if inside:
+                    # front-most = lowest centre among overlapping bumps
+                    if best is None or cy > bumps[best][1]:
+                        best = i
+            if best is not None and y <= base:
+                owner[(xx, y)] = best
+    for (xx, y), i in owner.items():
+        cx, cy, r = bumps[i]
+        u = (xx + 0.5 - cx) / r
+        v = (y + 0.5 - cy) / r
+        light = -(u * 0.45 + v * 1.0)
+        if light > 0.3:
+            c = MIST[0]
+        elif light > -0.2:
+            c = MIST[1]
+        elif light > -0.62:
+            c = MIST[2]
+        else:
+            c = MIST[3]
+        # cool banding toward the buried base
+        tb = (y - (base - h * 0.28)) / (h * 0.28)
+        if tb > 0.55:
+            c = MIST[4]
+        elif tb > 0.0 and c in (MIST[0], MIST[1]):
+            c = MIST[2]
+        cv.set(xx, y, c)
+    # seam where a front bump overlaps a back one: 1px cool line reads as depth
+    for (xx, y), i in owner.items():
+        up = owner.get((xx, y - 1))
+        if up is not None and up != i and bumps[up][1] < bumps[i][1]:
+            cv.set(xx, y, MIST[3])
+    # soften lone corner pixels on the silhouette
+    for (xx, y) in list(owner.keys()):
+        n = sum(1 for d in ((1, 0), (-1, 0), (0, 1), (0, -1)) if (xx + d[0], y + d[1]) in owner)
+        if n <= 2 and y < base - 2:
+            c = cv.get(xx, y)
+            cv.set(xx, y, (c[0], c[1], c[2], 140))
+    return cv
+
+
 def sparkle() -> Canvas:
     cv = Canvas(9, 9)
     col = hexc("fff6c2")
@@ -640,6 +716,10 @@ SPRITES = {
     "green_disc": green_disc,
     "flagstick": flagstick,
     "sparkle": sparkle,
+    "mist_puff_a": lambda: mist_puff(96, 34, 11),
+    "mist_puff_b": lambda: mist_puff(72, 28, 23),
+    "mist_puff_c": lambda: mist_puff(120, 40, 37),
+    "mist_puff_d": lambda: mist_puff(60, 24, 41),
     "journal_icon": journal_icon,
 }
 

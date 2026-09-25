@@ -26,7 +26,7 @@ var _bird_director: RangeBirdDirector
 var _want_fog: bool = false
 ## v5 — ground mist also shows from the tee (StrikeMist veils stand on it).
 ## Kept separate from _fog_amount, which other systems read as "in harvest".
-const STRIKE_GROUND_FOG := 0.85
+const STRIKE_GROUND_FOG := 1.0
 var _strike_ground := 0.0
 var _strike_view := false
 var _fog_amount: float = 0.0
@@ -105,15 +105,12 @@ func update(delta: float) -> void:
 
 	_target_reveal = GameState.revealed_yards()
 	var target_carry := GameState.max_carry_yards()
-	# Recede only while fog is visible — personal-best reward on harvest enter.
-	if _fog_amount > 0.01:
-		var lerp_sec := maxf(Balance.HARVEST_FOG_REVEAL_LERP_SEC, 0.001)
-		var t := clampf(delta / lerp_sec, 0.0, 1.0)
-		_displayed_reveal = lerpf(_displayed_reveal, _target_reveal, t)
-		_displayed_carry = lerpf(_displayed_carry, target_carry, t)
-	elif not _want_fog and _fog_amount <= 0.001:
-		_displayed_reveal = _target_reveal
-		_displayed_carry = target_carry
+	# v5: the mist is always in the world, so it always recedes on screen —
+	# a new best visibly pushes it back, in either view.
+	var lerp_sec := maxf(Balance.HARVEST_FOG_REVEAL_LERP_SEC, 0.001)
+	var t := clampf(delta / lerp_sec, 0.0, 1.0)
+	_displayed_reveal = lerpf(_displayed_reveal, _target_reveal, t)
+	_displayed_carry = lerpf(_displayed_carry, target_carry, t)
 
 	_push_uniforms()
 	_apply_marker_modulates()
@@ -127,8 +124,8 @@ func fog_amount() -> float:
 
 func set_strike_view(active: bool, delta: float) -> void:
 	_strike_view = active
-	var want := STRIKE_GROUND_FOG if active and not GameState.story_complete else 0.0
-	_strike_ground = move_toward(_strike_ground, want, delta / maxf(Balance.HARVEST_FOG_FADE_SEC, 0.001))
+	## Same fog in both views — no fade on switching (it never "moves in").
+	_strike_ground = STRIKE_GROUND_FOG if active and not GameState.story_complete else 0.0
 
 
 func displayed_reveal_yards() -> float:
@@ -215,13 +212,11 @@ func _update_max_carry_label() -> void:
 func _push_uniforms() -> void:
 	if _ground == null:
 		return
-	var strike_reveal := GameState.revealed_yards()
-	var use_strike := _strike_ground > _fog_amount
 	FairwayGrassTiles3D.apply_fog_uniforms(
 		_ground,
 		maxf(_fog_amount, _strike_ground),
 		_tee_z,
-		strike_reveal if use_strike else _displayed_reveal,
+		_displayed_reveal,
 		Balance.HARVEST_FOG_FALLOFF_YARDS,
 		_fog_color
 	)

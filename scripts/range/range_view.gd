@@ -309,7 +309,10 @@ func _setup_story_finds() -> void:
 	_story_finds.setup(self, _harvest_fog)
 	_strike_mist = StrikeMistScript.new()
 	foreground.add_child(_strike_mist)
-	_strike_mist.setup(_harvest_fog.tee_z() if _harvest_fog else RangeGrid.player_bay_origin().z)
+	_strike_mist.setup(
+		_harvest_fog.tee_z() if _harvest_fog else RangeGrid.player_bay_origin().z,
+		func() -> Camera3D: return get_flight_camera()
+	)
 
 
 func get_story_finds() -> Node:
@@ -834,9 +837,13 @@ func _process(delta: float) -> void:
 			_view_mode_controller == null
 			or _view_mode_controller.get_mode() == ViewModeController.Mode.STRIKE
 		)
-		_strike_mist.update(delta, strike_view)
 		if _harvest_fog:
 			_harvest_fog.set_strike_view(strike_view, delta)
+		## One mist, both views: puffs stand on the same fog line the ground uses.
+		var reveal: float = (
+			_harvest_fog.displayed_reveal_yards() if _harvest_fog else GameState.revealed_yards()
+		)
+		_strike_mist.update(delta, reveal)
 
 
 func _input(event: InputEvent) -> void:
