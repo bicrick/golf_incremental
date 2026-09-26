@@ -16,7 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Range Rat"
 config/description="Range Rat: The Longest Hole. Five ranges, one day, one missing friend."
-run/main_scene="res://scenes/tour/tour_main.tscn"
+run/main_scene="res://scenes/fortune/fortune_main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(0, 0, 0, 1)
 boot_splash/stretch_mode=0
@@ -26,7 +26,7 @@ config/icon="res://assets/ui/favicon_ball.png"
 
 [autoload]
 
-Tour="*res://scripts/tour/tour_state.gd"
+Game="*res://scripts/fortune/fortune_state.gd"
 Audio="*res://scripts/tour/audio/tour_audio.gd"
 
 [display]

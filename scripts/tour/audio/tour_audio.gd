@@ -211,9 +211,6 @@ static func song_title(name: String) -> String:
 func _play_named(name: String) -> void:
 	_current = name
 	song_started.emit(name)
-	if not Tour.flags.has("songs"):
-		Tour.flags["songs"] = {}
-	Tour.flags["songs"][name] = true
 	if OS.has_feature("web"):
 		_pending = WEB_MUSIC_PREFIX + name + ".ogg"
 		_fetcher.request_track(_pending)

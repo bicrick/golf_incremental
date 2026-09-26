@@ -38,6 +38,10 @@ uniform float sea_side = 0.0; // cliffs: sea past this x (0 = none)
 uniform float cloud_shadows = 0.0; // strength of drifting cloud shadows
 uniform vec2 wind_dir = vec2(1.0, 0.3); // ground-space drift for shadows and grass waves
 uniform float grass_waves = 0.0; // wind rolling through the grass
+// v9 target painted on the fairway: centre (x, d), ring radii ×1/×2/×5/PIN.
+uniform vec2 target_center = vec2(0.0, -9999.0);
+uniform vec4 target_radii = vec4(26.0, 15.0, 7.5, 2.4);
+uniform float target_flash = 0.0; // brightens on hits
 
 varying vec3 world_pos;
 
@@ -169,6 +173,21 @@ void fragment() {
 			// Unlit lanterns still show a cold ring of moonlight so you can aim.
 			light = max(light, 0.35 * (1.0 - smoothstep(g.z * 0.8, g.z * 1.6, gd)));
 		}
+	}
+
+	// The target: painted rings like a giant archery face mown into the grass.
+	float td = distance(p, target_center);
+	if (td < target_radii.x + 1.2) {
+		vec3 paint;
+		if (td < target_radii.w) paint = vec3(0.92, 0.24, 0.22);
+		else if (td < target_radii.z) paint = vec3(1.0, 0.62, 0.18);
+		else if (td < target_radii.y) paint = vec3(1.0, 0.9, 0.35);
+		else if (td < target_radii.x) paint = vec3(0.86, 0.96, 0.7);
+		else paint = vec3(1.0);
+		float edge = min(min(abs(td - target_radii.x), abs(td - target_radii.y)), min(abs(td - target_radii.z), abs(td - target_radii.w)));
+		float a = (td < target_radii.x ? 0.42 : 0.0) + (edge < 0.55 ? 0.55 : 0.0);
+		a *= 0.85 + 0.15 * grain;
+		col = mix(col, edge < 0.55 ? vec3(1.0) : paint, clamp(a + target_flash * 0.25, 0.0, 0.95));
 	}
 
 	// Reach arc: a faint dotted line at the Perfect carry.

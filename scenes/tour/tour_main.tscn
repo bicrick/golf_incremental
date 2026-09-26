@@ -1,6 +1,0 @@
-[gd_scene format=3]
-
-[ext_resource type="Script" path="res://scripts/tour/tour_main.gd" id="1"]
-
-[node name="TourMain" type="Node"]
-script = ExtResource("1")

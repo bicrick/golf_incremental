@@ -1,23 +1,23 @@
 # Range Rat — Documentation
 
-**Design source of truth.** The current game is v8, *The Longest Hole*: [`v8/README.md`](v8/README.md).
+**Design source of truth.** The current game is v9, *Fortune Range*: [`v9/README.md`](v9/README.md).
 
 ## One-liner
 
-A short pixel-art golf incremental. A rat who's hit a million range balls follows a missing friend across five driving ranges, from dawn to the next sunrise, to play one real hole. About 25 minutes, with a real ending.
+A pixel-art golf incremental. Barley's old driving range is going under: swing at a giant target, drop putts down a pachinko green, scratch scorecards and roll dice at the 19th hole until you've made $1,000,000 and the range is yours. About 30 minutes.
 
 ## Doc map
 
 | Doc | Read if you are working on… |
 |-----|----------------------------|
-| [v8/README.md](v8/README.md) | Everything: pitch, loop, the five ranges, story, upgrades, economy, look & feel, controls, code map |
+| [v9/README.md](v9/README.md) | Everything: rooms, upgrades, economy and pacing, presentation, controls, code map |
 
-Earlier designs (v1–v7: the bucket/harvest loop, upgrade tree, crew, isometric build view, prestige, mist finds) were retired in the v8 rebuild. They're in git history if you need them.
+Earlier designs (v1–v8: the bucket/harvest loop, crew, isometric build view, prestige, the *Longest Hole* story tour) were retired. They're in git history if you need them.
 
 ## Rules
 
-1. **Data-driven.** Ranges, greens, hazards, keepsakes and upgrades live in `scripts/tour/tour_data.gd`; every line of dialogue lives in `scripts/tour/tour_story.gd`; per-range looks live in `scripts/tour/tour_looks.gd`. Scenes don't hard-code any of it.
-2. **One math path.** Shot and money math live in `scripts/tour/tour_physics.gd`, which the game, the pacing sim and the autoplayer all share.
+1. **Data-driven.** Rooms and upgrades live in `scripts/fortune/fortune_data.gd`; per-venue looks live in `scripts/tour/tour_looks.gd`. Scenes don't hard-code any of it.
+2. **One math path.** Every derived number lives in `scripts/fortune/fortune_econ.gd`, which the game and the autoplayer share. Re-run `tools/fortune_autoplay.gd` after touching costs or payouts.
 3. **Crisp pixels.** The screen is 480×270. Anything that must read (flags, balls, reticle, rat, text) is drawn in 2D at 1×. Backdrops are painted at native width by `tools/art/`.
 4. **Verify before claiming done.** See [`../AGENTS.md`](../AGENTS.md).
 
